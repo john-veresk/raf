@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { ProjectManager } from '../core/project-manager.js';
 import { ClaudeRunner } from '../core/claude-runner.js';
 import { shutdownHandler } from '../core/shutdown-handler.js';
-import { commitTaskChanges, getChangedFiles, stashChanges, hasUncommittedChanges } from '../core/git.js';
+import { stashChanges, hasUncommittedChanges } from '../core/git.js';
 import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, extractSummary, isRetryableFailure } from '../parsers/output-parser.js';
 import { validatePlansExist } from '../utils/validation.js';
@@ -88,9 +88,6 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
 
   logger.newline();
 
-  // Track baseline files per task for smart commit filtering
-  const taskBaselines = new Map<string, string[]>();
-
   // Execute tasks
   let task = getNextPendingTask(state);
   const totalTasks = state.tasks.length;
@@ -102,11 +99,6 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
     const taskContext = `[Task ${taskNumber}/${totalTasks}: ${taskName ?? task.id}]`;
     logger.setContext(taskContext);
     logger.info(`Executing task ${task.id}...`);
-
-    // Capture git baseline BEFORE task execution (for smart commit filtering)
-    const baselineFiles = getChangedFiles();
-    taskBaselines.set(task.id, baselineFiles);
-    logger.debug(`  Captured baseline: ${baselineFiles.length} pre-existing changed files`);
 
     // Get previous outcomes for context
     const previousOutcomes = projectManager.readOutcomes(projectPath);
@@ -191,18 +183,8 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
     }
 
     if (success) {
-      // Commit changes if enabled (using smart filtering)
-      let commitHash: string | undefined;
-      if (autoCommit) {
-        const taskBaseline = taskBaselines.get(task.id);
-        const hash = commitTaskChanges(`Task ${task.id} complete`, taskBaseline, derivedProjectName);
-        if (hash) {
-          commitHash = hash;
-          logger.debug(`  Committed: ${hash}`);
-        }
-      }
-
       // Save outcome with status marker
+      // Note: Claude commits its own changes during task execution (when autoCommit is enabled)
       const summary = extractSummary(lastOutput);
       const outcomeContent = `## Status: SUCCESS
 
@@ -215,7 +197,6 @@ ${summary}
 - Attempts: ${attempts}
 - Elapsed time: ${elapsedFormatted}
 - Completed at: ${new Date().toISOString()}
-${commitHash ? `- Commit: ${commitHash}` : ''}
 `;
       projectManager.saveOutcome(projectPath, task.id, outcomeContent);
 

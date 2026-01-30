@@ -7,6 +7,7 @@ export interface ExecutionPromptParams {
   previousOutcomes: Array<{ taskId: string; content: string }>;
   autoCommit: boolean;
   projectName?: string;
+  outcomeFilePath?: string;
 }
 
 export function getExecutionPrompt(params: ExecutionPromptParams): string {
@@ -19,6 +20,7 @@ export function getExecutionPrompt(params: ExecutionPromptParams): string {
     previousOutcomes,
     autoCommit,
     projectName,
+    outcomeFilePath,
   } = params;
 
   let outcomesSection = '';
@@ -32,14 +34,14 @@ ${previousOutcomes.map((o) => `### Task ${o.taskId}\n${o.content}`).join('\n\n')
 `;
   }
 
-  const commitPrefix = projectName ? `RAF(${projectName})` : 'RAF';
   const commitInstructions = autoCommit
     ? `
 ## Git Instructions
 
 After successfully completing the task:
 1. Stage all changes with \`git add -A\`
-2. Commit with message: "${commitPrefix} Task ${taskId}: [brief description]"
+2. Commit with message: "${projectName ?? 'project'} [brief description of changes]"
+${outcomeFilePath ? `\nNote: The outcome file will be written to \`${outcomeFilePath}\` by RAF after your commit.` : ''}
 `
     : '';
 

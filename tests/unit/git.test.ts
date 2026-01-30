@@ -1,8 +1,4 @@
-import {
-  parseGitStatus,
-  getTaskChangedFiles,
-  formatCommitMessage,
-} from '../../src/core/git.js';
+import { parseGitStatus } from '../../src/core/git.js';
 
 describe('git utilities', () => {
   describe('parseGitStatus', () => {
@@ -79,86 +75,6 @@ D  src/deleted.ts
 ab
 M  another.ts`;
       expect(parseGitStatus(output)).toEqual(['valid.ts', 'another.ts']);
-    });
-  });
-
-  describe('getTaskChangedFiles', () => {
-    it('should return empty array when no current files', () => {
-      const result = getTaskChangedFiles([], ['baseline.ts']);
-      expect(result).toEqual([]);
-    });
-
-    it('should return all current files when baseline is empty', () => {
-      const result = getTaskChangedFiles(['new1.ts', 'new2.ts'], []);
-      expect(result).toEqual(['new1.ts', 'new2.ts']);
-    });
-
-    it('should return only new files (not in baseline)', () => {
-      const current = ['file1.ts', 'file2.ts', 'file3.ts'];
-      const baseline = ['file1.ts'];
-      const result = getTaskChangedFiles(current, baseline);
-      expect(result).toEqual(['file2.ts', 'file3.ts']);
-    });
-
-    it('should exclude all files that were in baseline', () => {
-      const current = ['file1.ts', 'file2.ts'];
-      const baseline = ['file1.ts', 'file2.ts', 'file3.ts'];
-      const result = getTaskChangedFiles(current, baseline);
-      expect(result).toEqual([]);
-    });
-
-    it('should handle overlapping files correctly', () => {
-      const current = ['a.ts', 'b.ts', 'c.ts'];
-      const baseline = ['b.ts', 'd.ts'];
-      const result = getTaskChangedFiles(current, baseline);
-      // a.ts and c.ts are new (not in baseline)
-      expect(result).toEqual(['a.ts', 'c.ts']);
-    });
-
-    it('should be case-sensitive', () => {
-      const current = ['File.ts', 'file.ts'];
-      const baseline = ['file.ts'];
-      const result = getTaskChangedFiles(current, baseline);
-      expect(result).toEqual(['File.ts']);
-    });
-
-    it('should handle paths with special characters', () => {
-      const current = ['src/my-file.ts', 'src/my_file.ts'];
-      const baseline = ['src/my-file.ts'];
-      const result = getTaskChangedFiles(current, baseline);
-      expect(result).toEqual(['src/my_file.ts']);
-    });
-  });
-
-  describe('formatCommitMessage', () => {
-    it('should format message with project name prefix', () => {
-      const result = formatCommitMessage('Task 001 complete', 'my-project');
-      expect(result).toBe('RAF(my-project): Task 001 complete');
-    });
-
-    it('should return original message when no project name provided', () => {
-      const result = formatCommitMessage('Task 001 complete');
-      expect(result).toBe('Task 001 complete');
-    });
-
-    it('should return original message when project name is undefined', () => {
-      const result = formatCommitMessage('Task 001 complete', undefined);
-      expect(result).toBe('Task 001 complete');
-    });
-
-    it('should handle project names with hyphens', () => {
-      const result = formatCommitMessage('Complete', 'my-complex-project');
-      expect(result).toBe('RAF(my-complex-project): Complete');
-    });
-
-    it('should handle project names with numbers', () => {
-      const result = formatCommitMessage('Done', 'project-v2');
-      expect(result).toBe('RAF(project-v2): Done');
-    });
-
-    it('should handle empty message', () => {
-      const result = formatCommitMessage('', 'my-project');
-      expect(result).toBe('RAF(my-project): ');
     });
   });
 });
