@@ -51,7 +51,7 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
 
   const state = stateManager.getState();
   const config = stateManager.getConfig();
-  const timeout = options.timeout ?? config.timeout;
+  const timeout = Number(options.timeout) || config.timeout;
   const verbose = options.verbose ?? false;
   const debug = options.debug ?? false;
 
