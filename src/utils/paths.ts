@@ -85,6 +85,17 @@ export function extractProjectName(projectPath: string): string | null {
   return match && match[1] ? match[1] : null;
 }
 
+/**
+ * Extract task name from a plan filename (without number prefix and extension).
+ * E.g., "002-fix-login-bug.md" -> "fix-login-bug"
+ * Returns the task name or null if not found.
+ */
+export function extractTaskNameFromPlanFile(planFilename: string): string | null {
+  const basename = path.basename(planFilename, '.md');
+  const match = basename.match(/^\d{2,3}-(.+)$/);
+  return match && match[1] ? match[1] : null;
+}
+
 export function listProjects(rafDir: string): Array<{ number: number; name: string; path: string }> {
   if (!fs.existsSync(rafDir)) {
     return [];

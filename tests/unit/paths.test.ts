@@ -7,6 +7,7 @@ import {
   listProjects,
   extractProjectNumber,
   extractProjectName,
+  extractTaskNameFromPlanFile,
 } from '../../src/utils/paths.js';
 
 describe('Paths', () => {
@@ -150,6 +151,41 @@ describe('Paths', () => {
     it('should handle project names with numbers', () => {
       expect(extractProjectName('/RAF/001-project-v2')).toBe('project-v2');
       expect(extractProjectName('/RAF/001-123-test')).toBe('123-test');
+    });
+  });
+
+  describe('extractTaskNameFromPlanFile', () => {
+    it('should extract task name from 3-digit numbered plan file', () => {
+      expect(extractTaskNameFromPlanFile('001-fix-login-bug.md')).toBe('fix-login-bug');
+      expect(extractTaskNameFromPlanFile('123-add-feature.md')).toBe('add-feature');
+    });
+
+    it('should extract task name from 2-digit numbered plan file', () => {
+      expect(extractTaskNameFromPlanFile('01-first-task.md')).toBe('first-task');
+      expect(extractTaskNameFromPlanFile('99-last-task.md')).toBe('last-task');
+    });
+
+    it('should return null for invalid filenames', () => {
+      expect(extractTaskNameFromPlanFile('my-task.md')).toBeNull();
+      expect(extractTaskNameFromPlanFile('not-numbered.md')).toBeNull();
+      expect(extractTaskNameFromPlanFile('')).toBeNull();
+    });
+
+    it('should handle task names with hyphens', () => {
+      expect(extractTaskNameFromPlanFile('001-my-complex-task-name.md')).toBe('my-complex-task-name');
+    });
+
+    it('should handle task names with numbers', () => {
+      expect(extractTaskNameFromPlanFile('001-task-v2.md')).toBe('task-v2');
+      expect(extractTaskNameFromPlanFile('001-123-test.md')).toBe('123-test');
+    });
+
+    it('should handle full paths', () => {
+      expect(extractTaskNameFromPlanFile('/path/to/plans/002-fix-login-bug.md')).toBe('fix-login-bug');
+    });
+
+    it('should handle files without .md extension', () => {
+      expect(extractTaskNameFromPlanFile('001-task-name')).toBe('task-name');
     });
   });
 });

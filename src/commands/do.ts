@@ -7,7 +7,7 @@ import { commitTaskChanges, getChangedFiles, stashChanges, hasUncommittedChanges
 import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, extractSummary, isRetryableFailure } from '../parsers/output-parser.js';
 import { validatePlansExist } from '../utils/validation.js';
-import { getRafDir, getProjectDir, extractProjectNumber, extractProjectName } from '../utils/paths.js';
+import { getRafDir, getProjectDir, extractProjectNumber, extractProjectName, extractTaskNameFromPlanFile } from '../utils/paths.js';
 import { logger } from '../utils/logger.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
 import { createStatusLine } from '../utils/status-line.js';
@@ -86,7 +86,10 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
 
   while (task) {
     const taskNumber = stateManager.getCurrentTaskIndex() + 1;
-    logger.info(`[${taskNumber}/${totalTasks}] Executing task ${task.id}...`);
+    const taskName = extractTaskNameFromPlanFile(task.planFile);
+    const taskContext = `[Task ${taskNumber}/${totalTasks}: ${taskName ?? task.id}]`;
+    logger.setContext(taskContext);
+    logger.info(`Executing task ${task.id}...`);
 
     // Capture git baseline BEFORE task execution (for smart commit filtering)
     const baselineFiles = getChangedFiles();
@@ -243,9 +246,15 @@ ${stashName ? `- Stash: ${stashName}` : ''}
 
     logger.newline();
 
+    // Clear context before next task
+    logger.clearContext();
+
     // Get next task
     task = stateManager.getNextPendingTask();
   }
+
+  // Ensure context is cleared for summary
+  logger.clearContext();
 
   // Generate summary
   projectManager.saveSummary(projectPath, stateManager);
