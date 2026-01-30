@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { getRafDir, getProjectDir, extractProjectName } from '../utils/paths.js';
+import { getRafDir, resolveProjectIdentifier, extractProjectName } from '../utils/paths.js';
 import { logger } from '../utils/logger.js';
 import type { StatusCommandOptions } from '../types/config.js';
 import {
@@ -13,32 +13,32 @@ import {
 export function createStatusCommand(): Command {
   const command = new Command('status')
     .description('Show status of a project or list all projects')
-    .argument('[projectName]', 'Name of the project (omit to list all)')
+    .argument('[identifier]', 'Project identifier: number (3), name (my-project), or folder (001-my-project)')
     .option('--json', 'Output as JSON')
-    .action(async (projectName?: string, options?: StatusCommandOptions) => {
-      await runStatusCommand(projectName, options);
+    .action(async (identifier?: string, options?: StatusCommandOptions) => {
+      await runStatusCommand(identifier, options);
     });
 
   return command;
 }
 
 async function runStatusCommand(
-  projectName?: string,
+  identifier?: string,
   options?: StatusCommandOptions
 ): Promise<void> {
   const rafDir = getRafDir();
 
-  if (!projectName) {
+  if (!identifier) {
     // List all projects
     await listAllProjects(rafDir, options);
     return;
   }
 
-  // Show specific project
-  const projectPath = getProjectDir(rafDir, projectName);
+  // Show specific project - resolve identifier (number, name, or full folder name)
+  const projectPath = resolveProjectIdentifier(rafDir, identifier);
 
   if (!projectPath) {
-    logger.error(`Project not found: ${projectName}`);
+    logger.error(`Project not found: ${identifier}`);
     logger.info(`Run 'raf status' to see available projects.`);
     process.exit(1);
   }
@@ -46,16 +46,16 @@ async function runStatusCommand(
   // Derive state from folder structure
   const state = deriveProjectState(projectPath);
   const stats = getDerivedStats(state);
-  const derivedProjectName = extractProjectName(projectPath) ?? projectName;
+  const projectName = extractProjectName(projectPath) ?? identifier;
   const projectStatus = state.status;
 
   if (options?.json) {
-    console.log(JSON.stringify({ projectName: derivedProjectName, status: projectStatus, state, stats }, null, 2));
+    console.log(JSON.stringify({ projectName, status: projectStatus, state, stats }, null, 2));
     return;
   }
 
   // Display project status
-  logger.info(`Project: ${derivedProjectName}`);
+  logger.info(`Project: ${projectName}`);
   logger.info(`Status: ${projectStatus}`);
   logger.newline();
 
