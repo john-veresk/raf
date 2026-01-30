@@ -258,4 +258,49 @@ export class ProjectManager {
       fs.mkdirSync(logsDir, { recursive: true });
     }
   }
+
+  /**
+   * Check if a project folder is empty (contains no plan files).
+   * Returns true if the folder has no plan files, false otherwise.
+   */
+  isProjectFolderEmpty(projectPath: string): boolean {
+    if (!fs.existsSync(projectPath)) {
+      return true;
+    }
+
+    const plansDir = getPlansDir(projectPath);
+
+    // If plans directory doesn't exist, consider it empty
+    if (!fs.existsSync(plansDir)) {
+      return true;
+    }
+
+    // Check if there are any .md files in the plans directory
+    const planFiles = fs.readdirSync(plansDir).filter((f) => f.endsWith('.md'));
+    return planFiles.length === 0;
+  }
+
+  /**
+   * Clean up an empty project folder.
+   * Only removes the folder if it contains no plan files.
+   * This is idempotent - safe to call multiple times.
+   */
+  cleanupEmptyProject(projectPath: string): void {
+    if (!fs.existsSync(projectPath)) {
+      logger.debug(`Project folder does not exist: ${projectPath}`);
+      return;
+    }
+
+    if (!this.isProjectFolderEmpty(projectPath)) {
+      logger.debug(`Project folder is not empty (has plans), skipping cleanup: ${projectPath}`);
+      return;
+    }
+
+    try {
+      fs.rmSync(projectPath, { recursive: true, force: true });
+      logger.debug(`Cleaned up empty project folder: ${projectPath}`);
+    } catch (error) {
+      logger.warn(`Failed to clean up empty project folder: ${error}`);
+    }
+  }
 }

@@ -148,4 +148,118 @@ describe('ProjectManager', () => {
       expect(content).toContain('Completed: 1');
     });
   });
+
+  describe('isProjectFolderEmpty', () => {
+    it('should return true for non-existent folder', () => {
+      const manager = new ProjectManager();
+      const nonExistentPath = path.join(tempDir, 'nonexistent');
+
+      expect(manager.isProjectFolderEmpty(nonExistentPath)).toBe(true);
+    });
+
+    it('should return true when plans directory does not exist', () => {
+      const manager = new ProjectManager();
+      const { projectPath } = manager.createProject('test');
+
+      // Remove plans directory
+      const plansDir = path.join(projectPath, 'plans');
+      fs.rmSync(plansDir, { recursive: true, force: true });
+
+      expect(manager.isProjectFolderEmpty(projectPath)).toBe(true);
+    });
+
+    it('should return true when plans directory is empty', () => {
+      const manager = new ProjectManager();
+      const { projectPath } = manager.createProject('test');
+
+      // Plans directory exists but has no files
+      expect(manager.isProjectFolderEmpty(projectPath)).toBe(true);
+    });
+
+    it('should return false when at least one plan file exists', () => {
+      const manager = new ProjectManager();
+      const { projectPath } = manager.createProject('test');
+
+      // Create a plan file
+      const plansDir = path.join(projectPath, 'plans');
+      fs.writeFileSync(path.join(plansDir, '01-task.md'), '# Task 1');
+
+      expect(manager.isProjectFolderEmpty(projectPath)).toBe(false);
+    });
+
+    it('should ignore non-.md files in plans directory', () => {
+      const manager = new ProjectManager();
+      const { projectPath } = manager.createProject('test');
+
+      // Create a non-.md file
+      const plansDir = path.join(projectPath, 'plans');
+      fs.writeFileSync(path.join(plansDir, 'notes.txt'), 'Notes');
+
+      expect(manager.isProjectFolderEmpty(projectPath)).toBe(true);
+    });
+  });
+
+  describe('cleanupEmptyProject', () => {
+    it('should delete folder when no plans exist', () => {
+      const manager = new ProjectManager();
+      const { projectPath } = manager.createProject('test');
+
+      // Verify folder exists
+      expect(fs.existsSync(projectPath)).toBe(true);
+
+      // Cleanup should remove the folder
+      manager.cleanupEmptyProject(projectPath);
+
+      expect(fs.existsSync(projectPath)).toBe(false);
+    });
+
+    it('should not delete folder when plans exist', () => {
+      const manager = new ProjectManager();
+      const { projectPath } = manager.createProject('test');
+
+      // Create a plan file
+      const plansDir = path.join(projectPath, 'plans');
+      fs.writeFileSync(path.join(plansDir, '01-task.md'), '# Task 1');
+
+      // Cleanup should NOT remove the folder
+      manager.cleanupEmptyProject(projectPath);
+
+      expect(fs.existsSync(projectPath)).toBe(true);
+      expect(fs.existsSync(path.join(plansDir, '01-task.md'))).toBe(true);
+    });
+
+    it('should handle non-existent folder gracefully', () => {
+      const manager = new ProjectManager();
+      const nonExistentPath = path.join(tempDir, 'nonexistent');
+
+      // Should not throw
+      expect(() => {
+        manager.cleanupEmptyProject(nonExistentPath);
+      }).not.toThrow();
+    });
+
+    it('should be idempotent - safe to call multiple times', () => {
+      const manager = new ProjectManager();
+      const { projectPath } = manager.createProject('test');
+
+      // Call cleanup multiple times
+      manager.cleanupEmptyProject(projectPath);
+      manager.cleanupEmptyProject(projectPath);
+      manager.cleanupEmptyProject(projectPath);
+
+      expect(fs.existsSync(projectPath)).toBe(false);
+    });
+
+    it('should delete folder even if only subdirectories exist (no plans)', () => {
+      const manager = new ProjectManager();
+      const { projectPath } = manager.createProject('test');
+
+      // Create additional subdirectories but no plan files
+      fs.mkdirSync(path.join(projectPath, 'extra'), { recursive: true });
+
+      manager.cleanupEmptyProject(projectPath);
+
+      expect(fs.existsSync(projectPath)).toBe(false);
+    });
+  });
 });

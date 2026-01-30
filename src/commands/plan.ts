@@ -91,6 +91,11 @@ async function runPlanCommand(projectName?: string): Promise<void> {
   shutdownHandler.registerClaudeRunner(claudeRunner);
   shutdownHandler.registerStateManager(stateManager);
 
+  // Register cleanup callback for empty project folder
+  shutdownHandler.onShutdown(() => {
+    projectManager.cleanupEmptyProject(projectPath);
+  });
+
   // Run planning session
   logger.info('Starting planning session with Claude...');
   logger.info('Claude will interview you about each task.');
@@ -130,6 +135,9 @@ async function runPlanCommand(projectName?: string): Promise<void> {
   } catch (error) {
     logger.error(`Planning failed: ${error}`);
     stateManager.setStatus('failed');
-    process.exit(1);
+    throw error;
+  } finally {
+    // Cleanup empty project folder if no plans were created
+    projectManager.cleanupEmptyProject(projectPath);
   }
 }
