@@ -1,0 +1,151 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
+import { ProjectManager } from '../../src/core/project-manager.js';
+
+describe('ProjectManager', () => {
+  let tempDir: string;
+  let originalCwd: string;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-test-'));
+    originalCwd = process.cwd();
+    process.chdir(tempDir);
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  describe('createProject', () => {
+    it('should create project with correct structure', () => {
+      const manager = new ProjectManager();
+      const { projectPath } = manager.createProject('test-project');
+
+      expect(fs.existsSync(projectPath)).toBe(true);
+      expect(fs.existsSync(path.join(projectPath, 'plans'))).toBe(true);
+      expect(fs.existsSync(path.join(projectPath, 'outcomes'))).toBe(true);
+      expect(fs.existsSync(path.join(projectPath, 'state.json'))).toBe(true);
+    });
+
+    it('should auto-increment project numbers', () => {
+      const manager = new ProjectManager();
+
+      const { projectPath: path1 } = manager.createProject('first');
+      const { projectPath: path2 } = manager.createProject('second');
+
+      expect(path.basename(path1)).toBe('01-first');
+      expect(path.basename(path2)).toBe('02-second');
+    });
+
+    it('should sanitize project names', () => {
+      const manager = new ProjectManager();
+      const { projectPath } = manager.createProject('My Project Name!');
+
+      expect(path.basename(projectPath)).toBe('01-my-project-name');
+    });
+  });
+
+  describe('findProject', () => {
+    it('should find existing project by name', () => {
+      const manager = new ProjectManager();
+      manager.createProject('findme');
+
+      const found = manager.findProject('findme');
+      expect(found).not.toBeNull();
+      expect(found).toContain('01-findme');
+    });
+
+    it('should return null for non-existent project', () => {
+      const manager = new ProjectManager();
+      const found = manager.findProject('nonexistent');
+      expect(found).toBeNull();
+    });
+  });
+
+  describe('listProjects', () => {
+    it('should list all projects', () => {
+      const manager = new ProjectManager();
+      manager.createProject('alpha');
+      manager.createProject('beta');
+
+      const projects = manager.listProjects();
+      expect(projects).toHaveLength(2);
+      expect(projects[0]?.name).toBe('alpha');
+      expect(projects[1]?.name).toBe('beta');
+    });
+
+    it('should return empty array when no projects', () => {
+      const manager = new ProjectManager();
+      const projects = manager.listProjects();
+      expect(projects).toEqual([]);
+    });
+  });
+
+  describe('saveInput and readInput', () => {
+    it('should save and read input', () => {
+      const manager = new ProjectManager();
+      const { projectPath } = manager.createProject('test');
+
+      const content = '# My Project\n\nDescription here.';
+      manager.saveInput(projectPath, content);
+
+      const read = manager.readInput(projectPath);
+      expect(read).toBe(content);
+    });
+  });
+
+  describe('saveOutcome and readOutcomes', () => {
+    it('should save and read outcomes', () => {
+      const manager = new ProjectManager();
+      const { projectPath } = manager.createProject('test');
+
+      // Create a plan file to match naming
+      fs.writeFileSync(
+        path.join(projectPath, 'plans', '01-task.md'),
+        '# Task'
+      );
+
+      manager.saveOutcome(projectPath, '01', 'Outcome content');
+
+      const outcomes = manager.readOutcomes(projectPath);
+      expect(outcomes).toHaveLength(1);
+      expect(outcomes[0]?.taskId).toBe('01');
+      expect(outcomes[0]?.content).toBe('Outcome content');
+    });
+  });
+
+  describe('saveLog', () => {
+    it('should create logs directory and save log', () => {
+      const manager = new ProjectManager();
+      const { projectPath } = manager.createProject('test');
+
+      manager.saveLog(projectPath, '01', 'Log content');
+
+      const logPath = path.join(projectPath, 'logs', '01-task.log');
+      expect(fs.existsSync(logPath)).toBe(true);
+      expect(fs.readFileSync(logPath, 'utf-8')).toBe('Log content');
+    });
+  });
+
+  describe('saveSummary', () => {
+    it('should generate summary file', () => {
+      const manager = new ProjectManager();
+      const { projectPath, stateManager } = manager.createProject('test');
+
+      stateManager.addTask('01', 'plans/01-task.md');
+      stateManager.updateTaskStatus('01', 'completed');
+      stateManager.setStatus('completed');
+
+      manager.saveSummary(projectPath, stateManager);
+
+      const summaryPath = path.join(projectPath, 'SUMMARY.md');
+      expect(fs.existsSync(summaryPath)).toBe(true);
+
+      const content = fs.readFileSync(summaryPath, 'utf-8');
+      expect(content).toContain('# Project Summary: test');
+      expect(content).toContain('Completed: 1');
+    });
+  });
+});
