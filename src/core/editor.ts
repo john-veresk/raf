@@ -6,6 +6,14 @@ import { getEditor } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
 /**
+ * Escape a file path for shell usage.
+ */
+function escapeShellPath(filePath: string): string {
+  // Use single quotes and escape any existing single quotes
+  return `'${filePath.replace(/'/g, "'\\''")}'`;
+}
+
+/**
  * Open the user's preferred editor and return the content they wrote.
  */
 export async function openEditor(initialContent: string = ''): Promise<string> {
@@ -16,35 +24,56 @@ export async function openEditor(initialContent: string = ''): Promise<string> {
   // Write initial content if any
   fs.writeFileSync(tempFile, initialContent);
 
-  logger.debug(`Opening editor: ${editor} ${tempFile}`);
+  // Build shell command with properly escaped file path
+  // This handles editors like "code --wait" or "vim" uniformly
+  const shellCommand = `${editor} ${escapeShellPath(tempFile)}`;
+  logger.debug(`Opening editor: ${shellCommand}`);
 
   return new Promise((resolve, reject) => {
-    const editorProcess = spawn(editor, [tempFile], {
+    // Use shell: true with the full command as a single string
+    // This correctly handles editors with arguments (e.g., "code --wait")
+    const editorProcess = spawn(shellCommand, [], {
       stdio: 'inherit',
       shell: true,
     });
 
     editorProcess.on('error', (error) => {
-      fs.unlinkSync(tempFile);
+      cleanupTempFile(tempFile);
       reject(new Error(`Failed to open editor: ${error.message}`));
     });
 
     editorProcess.on('exit', (code) => {
-      if (code !== 0) {
-        fs.unlinkSync(tempFile);
-        reject(new Error(`Editor exited with code ${code}`));
-        return;
-      }
-
+      // Read the file content regardless of exit code
+      // Many editors (vim included) may exit with non-zero for various benign reasons
       try {
         const content = fs.readFileSync(tempFile, 'utf-8');
-        fs.unlinkSync(tempFile);
+        cleanupTempFile(tempFile);
+
+        // Only treat as error if file is empty/unchanged AND exit code is non-zero
+        // This distinguishes between "user cancelled" and "editor failed"
+        if (code !== 0 && content === initialContent) {
+          reject(new Error(`Editor exited with code ${code}`));
+          return;
+        }
+
         resolve(content);
       } catch (error) {
+        cleanupTempFile(tempFile);
         reject(new Error(`Failed to read editor content: ${error}`));
       }
     });
   });
+}
+
+/**
+ * Safely remove temp file, ignoring errors if file doesn't exist.
+ */
+function cleanupTempFile(filePath: string): void {
+  try {
+    fs.unlinkSync(filePath);
+  } catch {
+    // Ignore errors - file may already be deleted
+  }
 }
 
 /**
