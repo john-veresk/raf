@@ -77,21 +77,9 @@ function cleanupTempFile(filePath: string): void {
 }
 
 /**
- * Prompt template for new project input.
+ * Returns initial content for the project description editor.
+ * Opens with an empty file for a clean user experience.
  */
 export function getInputTemplate(): string {
-  return `# Project Description
-
-<!--
-Describe your project here. Be as detailed as possible.
-Claude will analyze this and break it down into tasks.
-
-Example:
-- What features do you want to build?
-- What technologies should be used?
-- Any specific requirements or constraints?
--->
-
-
-`;
+  return '';
 }
