@@ -11,7 +11,13 @@ function getClaudePath(): string {
 }
 
 export interface ClaudeRunnerOptions {
-  timeout?: number; // in minutes
+  /**
+   * Timeout in minutes for this single execution.
+   * Default: 60 minutes.
+   * Each call to run() or runVerbose() gets its own fresh timeout.
+   * Retries get a fresh timeout - elapsed time is NOT accumulated across attempts.
+   */
+  timeout?: number;
   cwd?: string;
 }
 
@@ -95,10 +101,19 @@ export class ClaudeRunner {
    * Run Claude non-interactively and collect output.
    * Used for execution phase where we parse the results.
    * Uses child_process.spawn with -p flag for prompt (like ralphy).
+   *
+   * TIMEOUT BEHAVIOR:
+   * - The timeout is applied per individual call to this method
+   * - Each call gets a fresh timeout - elapsed time is NOT shared between calls
+   * - When used with retries (in do.ts), each retry attempt gets its own fresh timeout
+   * - Timeout includes all time Claude is running, including context building
+   * - Default timeout is 60 minutes if not specified
    */
   async run(prompt: string, options: ClaudeRunnerOptions = {}): Promise<RunResult> {
     const { timeout = 60, cwd = process.cwd() } = options;
-    const timeoutMs = Number(timeout) * 60 * 1000;
+    // Ensure timeout is a positive number, fallback to 60 minutes
+    const validatedTimeout = Number(timeout) > 0 ? Number(timeout) : 60;
+    const timeoutMs = validatedTimeout * 60 * 1000;
 
     return new Promise((resolve) => {
       let output = '';
@@ -175,10 +190,19 @@ export class ClaudeRunner {
   /**
    * Run Claude non-interactively with verbose output to stdout.
    * Uses child_process.spawn with -p flag for prompt (like ralphy).
+   *
+   * TIMEOUT BEHAVIOR:
+   * - The timeout is applied per individual call to this method
+   * - Each call gets a fresh timeout - elapsed time is NOT shared between calls
+   * - When used with retries (in do.ts), each retry attempt gets its own fresh timeout
+   * - Timeout includes all time Claude is running, including context building
+   * - Default timeout is 60 minutes if not specified
    */
   async runVerbose(prompt: string, options: ClaudeRunnerOptions = {}): Promise<RunResult> {
     const { timeout = 60, cwd = process.cwd() } = options;
-    const timeoutMs = Number(timeout) * 60 * 1000;
+    // Ensure timeout is a positive number, fallback to 60 minutes
+    const validatedTimeout = Number(timeout) > 0 ? Number(timeout) : 60;
+    const timeoutMs = validatedTimeout * 60 * 1000;
 
     return new Promise((resolve) => {
       let output = '';
