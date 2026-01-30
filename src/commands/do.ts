@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { ProjectManager } from '../core/project-manager.js';
 import { ClaudeRunner } from '../core/claude-runner.js';
 import { shutdownHandler } from '../core/shutdown-handler.js';
-import { stashChanges, hasUncommittedChanges } from '../core/git.js';
+import { stashChanges, hasUncommittedChanges, commitProjectFolder } from '../core/git.js';
 import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, extractSummary, isRetryableFailure } from '../parsers/output-parser.js';
 import { validatePlansExist } from '../utils/validation.js';
@@ -428,6 +428,18 @@ ${stashName ? `- Stash: ${stashName}` : ''}
 
   if (isProjectComplete(state)) {
     logger.success('All tasks completed!');
+    // Commit the project folder with outcome type
+    const projectNum = extractProjectNumber(projectPath) ?? '000';
+    const commitResult = commitProjectFolder(projectPath, projectNum, 'outcome');
+    if (commitResult.success) {
+      if (commitResult.message === 'No changes to commit') {
+        logger.info('Project files already committed.');
+      } else {
+        logger.success(`Project complete. Committed to git.`);
+      }
+    } else {
+      logger.warn(`Could not commit project files: ${commitResult.error}`);
+    }
   } else if (hasProjectFailed(state)) {
     logger.warn('Some tasks failed.');
   }

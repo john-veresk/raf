@@ -19,6 +19,7 @@ import {
   resolveProjectIdentifier,
   getInputPath,
   extractTaskNameFromPlanFile,
+  extractProjectNumber,
 } from '../utils/paths.js';
 import { commitProjectFolder } from '../core/git.js';
 import {
@@ -162,7 +163,8 @@ async function runPlanCommand(projectName?: string): Promise<void> {
 
       // Commit the project folder
       logger.newline();
-      const commitResult = commitProjectFolder(projectPath, finalProjectName);
+      const projectNum = extractProjectNumber(projectPath) ?? '000';
+      const commitResult = commitProjectFolder(projectPath, projectNum, 'plan');
       if (commitResult.success) {
         if (commitResult.message === 'No changes to commit') {
           logger.info('Project files already committed.');
@@ -329,9 +331,8 @@ async function runAmendCommand(identifier: string): Promise<void> {
 
       // Commit the changes
       logger.newline();
-      const projectName =
-        projectPath.split('/').pop()?.replace(/^\d{2,3}-/, '') ?? 'project';
-      const commitResult = commitProjectFolder(projectPath, projectName);
+      const projectNum = extractProjectNumber(projectPath) ?? '000';
+      const commitResult = commitProjectFolder(projectPath, projectNum, 'plan');
       if (commitResult.success) {
         if (commitResult.message === 'No changes to commit') {
           logger.info('Project files already committed.');
