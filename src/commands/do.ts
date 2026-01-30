@@ -7,7 +7,7 @@ import { commitTaskChanges, getChangedFiles, stashChanges, hasUncommittedChanges
 import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, extractSummary, isRetryableFailure } from '../parsers/output-parser.js';
 import { validatePlansExist } from '../utils/validation.js';
-import { getRafDir, getProjectDir, extractProjectNumber } from '../utils/paths.js';
+import { getRafDir, getProjectDir, extractProjectNumber, extractProjectName } from '../utils/paths.js';
 import { logger } from '../utils/logger.js';
 import type { DoCommandOptions } from '../types/config.js';
 
@@ -106,6 +106,7 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
       totalTasks,
       previousOutcomes,
       autoCommit: config.autoCommit,
+      projectName: extractProjectName(projectPath) ?? undefined,
     });
 
     // Execute with retries
@@ -168,7 +169,8 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
       let commitHash: string | undefined;
       if (config.autoCommit) {
         const taskBaseline = stateManager.getTaskBaseline(task.id);
-        const hash = commitTaskChanges(`RAF Task ${task.id}: Complete`, taskBaseline);
+        const projectName = extractProjectName(projectPath);
+        const hash = commitTaskChanges(`Task ${task.id} complete`, taskBaseline, projectName ?? undefined);
         if (hash) {
           commitHash = hash;
           logger.debug(`  Committed: ${hash}`);

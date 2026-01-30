@@ -1,6 +1,7 @@
 import {
   parseGitStatus,
   getTaskChangedFiles,
+  formatCommitMessage,
 } from '../../src/core/git.js';
 
 describe('git utilities', () => {
@@ -126,6 +127,38 @@ M  another.ts`;
       const baseline = ['src/my-file.ts'];
       const result = getTaskChangedFiles(current, baseline);
       expect(result).toEqual(['src/my_file.ts']);
+    });
+  });
+
+  describe('formatCommitMessage', () => {
+    it('should format message with project name prefix', () => {
+      const result = formatCommitMessage('Task 001 complete', 'my-project');
+      expect(result).toBe('RAF(my-project): Task 001 complete');
+    });
+
+    it('should return original message when no project name provided', () => {
+      const result = formatCommitMessage('Task 001 complete');
+      expect(result).toBe('Task 001 complete');
+    });
+
+    it('should return original message when project name is undefined', () => {
+      const result = formatCommitMessage('Task 001 complete', undefined);
+      expect(result).toBe('Task 001 complete');
+    });
+
+    it('should handle project names with hyphens', () => {
+      const result = formatCommitMessage('Complete', 'my-complex-project');
+      expect(result).toBe('RAF(my-complex-project): Complete');
+    });
+
+    it('should handle project names with numbers', () => {
+      const result = formatCommitMessage('Done', 'project-v2');
+      expect(result).toBe('RAF(project-v2): Done');
+    });
+
+    it('should handle empty message', () => {
+      const result = formatCommitMessage('', 'my-project');
+      expect(result).toBe('RAF(my-project): ');
     });
   });
 });

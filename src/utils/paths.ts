@@ -74,6 +74,17 @@ export function extractProjectNumber(projectPath: string): string | null {
   return match && match[1] ? match[1] : null;
 }
 
+/**
+ * Extract project name from a project path (without number prefix).
+ * E.g., "/Users/foo/RAF/001-my-project" -> "my-project"
+ * Returns the project name or null if not found.
+ */
+export function extractProjectName(projectPath: string): string | null {
+  const folderName = path.basename(projectPath);
+  const match = folderName.match(/^\d{2,3}-(.+)$/);
+  return match && match[1] ? match[1] : null;
+}
+
 export function listProjects(rafDir: string): Array<{ number: number; name: string; path: string }> {
   if (!fs.existsSync(rafDir)) {
     return [];

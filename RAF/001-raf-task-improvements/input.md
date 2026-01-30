@@ -1,0 +1,9 @@
+- [ ] add /decisions and capture there questions and answers during the interview
+- [ ] fix Error: Unhandled rejection: TypeError: this.activeProcess.write is not a function
+- [ ] stash changes on fail
+- [ ] add project name to commit
+- [ ] add running time for task during do phase
+- [ ] add name of task during logs in project execution
+- [ ] add the current model for execution "do" phase
+- [ ] inside .raf technical folder states and logs should leave inside project like in RAF user facing folder
+- [ ] remove text inside opened editor during plan phase "Describe your project here..."

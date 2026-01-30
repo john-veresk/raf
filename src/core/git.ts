@@ -341,16 +341,33 @@ export function stashChanges(name: string): boolean {
 }
 
 /**
+ * Format a commit message with optional project name prefix.
+ * @param message - Original commit message
+ * @param projectName - Optional project name to include in prefix
+ * @returns Formatted commit message like "RAF(project-name): message" or original message
+ */
+export function formatCommitMessage(message: string, projectName?: string): string {
+  if (projectName) {
+    return `RAF(${projectName}): ${message}`;
+  }
+  return message;
+}
+
+/**
  * Smart commit: only commits files changed during task execution.
  * @param message - Commit message
  * @param baselineFiles - Files that were changed before task started (from state.json)
+ * @param projectName - Optional project name to include in commit message prefix
  * @returns Commit hash if successful, null otherwise
  */
-export function commitTaskChanges(message: string, baselineFiles?: string[]): string | null {
+export function commitTaskChanges(message: string, baselineFiles?: string[], projectName?: string): string | null {
   if (!isGitRepo()) {
     logger.warn('Not in a git repository, skipping commit');
     return null;
   }
+
+  // Format the commit message with project name prefix if provided
+  const formattedMessage = formatCommitMessage(message, projectName);
 
   // Get current changed files
   const currentFiles = getChangedFiles();
@@ -362,7 +379,7 @@ export function commitTaskChanges(message: string, baselineFiles?: string[]): st
   if (!baselineFiles) {
     // No baseline captured - fallback to committing all changes (minus state.json)
     logger.warn('No baseline captured, committing all changes except state.json');
-    return commitSpecificFiles(filteredCurrentFiles, message);
+    return commitSpecificFiles(filteredCurrentFiles, formattedMessage);
   }
 
   // Calculate files changed during this task
@@ -377,5 +394,5 @@ export function commitTaskChanges(message: string, baselineFiles?: string[]): st
   }
 
   logger.debug(`Committing ${filesToCommit.length} task-specific files: ${filesToCommit.join(', ')}`);
-  return commitSpecificFiles(filesToCommit, message);
+  return commitSpecificFiles(filesToCommit, formattedMessage);
 }

@@ -6,6 +6,7 @@ import {
   formatProjectNumber,
   listProjects,
   extractProjectNumber,
+  extractProjectName,
 } from '../../src/utils/paths.js';
 
 describe('Paths', () => {
@@ -113,6 +114,42 @@ describe('Paths', () => {
     it('should only match numbers at the start of folder name', () => {
       expect(extractProjectNumber('/RAF/abc-001-project')).toBeNull();
       expect(extractProjectNumber('/RAF/project-001')).toBeNull();
+    });
+  });
+
+  describe('extractProjectName', () => {
+    it('should extract project name from 3-digit numbered path', () => {
+      expect(extractProjectName('/Users/foo/RAF/001-my-project')).toBe('my-project');
+      expect(extractProjectName('/RAF/123-another-project')).toBe('another-project');
+    });
+
+    it('should extract project name from 2-digit numbered path', () => {
+      expect(extractProjectName('/RAF/01-first')).toBe('first');
+      expect(extractProjectName('/RAF/99-last')).toBe('last');
+    });
+
+    it('should return null for invalid paths', () => {
+      expect(extractProjectName('/RAF/my-project')).toBeNull();
+      expect(extractProjectName('/RAF/not-numbered')).toBeNull();
+      expect(extractProjectName('')).toBeNull();
+    });
+
+    it('should handle path with trailing slash', () => {
+      expect(extractProjectName('/RAF/001-my-project/')).toBe('my-project');
+    });
+
+    it('should only match numbers at the start of folder name', () => {
+      expect(extractProjectName('/RAF/abc-001-project')).toBeNull();
+      expect(extractProjectName('/RAF/project-001')).toBeNull();
+    });
+
+    it('should handle project names with hyphens', () => {
+      expect(extractProjectName('/RAF/001-my-complex-project-name')).toBe('my-complex-project-name');
+    });
+
+    it('should handle project names with numbers', () => {
+      expect(extractProjectName('/RAF/001-project-v2')).toBe('project-v2');
+      expect(extractProjectName('/RAF/001-123-test')).toBe('123-test');
     });
   });
 });
