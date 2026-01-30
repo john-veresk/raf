@@ -1,0 +1,6 @@
+- [ ] should be able to pass multiple project names or number to "raf do", like "raf do projectName otherProjectName" or "raf do 003 004 005"
+- [ ] after plan step comlite - commit the changes in RAF (input, decisions, plans) for current project (commit project new project folder basically)
+- [ ] outcomes file for project should be commited together with changes
+- [ ] let user re-run failed tasks by doing "raf do project-name" command again, currently it's outputs statistic. if there are failied task or unfinished - do them. use case - takens limit reached or api unavalibility etc. we are relying on state too much, rely on .md documents instead (use claude code with sonnet model internally to derive state). i think it should be part of getting rid of ./raf technical folder and state as a concept, all state should be derived from folder structure, claude code should be used internally when it's hard to derive info from convention
+- [ ]  git logic (code) should be simplified, running task should commit the changes it made, add certain instructions for that
+- [ ] ensure that timeout (60 min) is per task
