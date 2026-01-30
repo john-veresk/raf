@@ -224,7 +224,7 @@ async function executeSingleProject(
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
   logger.info(`Executing project: ${projectName}`);
-  logger.info(`Tasks: ${state.tasks.length}, Timeout: ${timeout} minutes`);
+  logger.info(`Tasks: ${state.tasks.length}, Task timeout: ${timeout} minutes`);
 
   // Log Claude model name
   if (showModel) {
