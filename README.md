@@ -65,15 +65,13 @@ RAF creates a `./RAF/` folder with numbered project directories:
 ./RAF/
 ├── 001-auth-system/
 │   ├── input.md           # Your original description
+│   ├── decisions.md       # Design decisions from planning
 │   ├── plans/             # Generated task plans
-│   └── outcomes/          # Execution results
-│       └── SUMMARY.md     # Project summary
+│   ├── outcomes/          # Execution results
+│   │   └── SUMMARY.md     # Project summary
+│   └── logs/              # Debug logs (on failure)
 └── 002-dashboard/
     └── ...
-
-./.raf/
-├── state.json             # Progress tracking
-└── logs/                  # Debug logs (on failure)
 ```
 
 ## License

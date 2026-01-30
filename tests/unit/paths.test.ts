@@ -9,6 +9,7 @@ import {
   extractProjectName,
   extractTaskNameFromPlanFile,
   resolveProjectIdentifier,
+  getDecisionsPath,
 } from '../../src/utils/paths.js';
 
 describe('Paths', () => {
@@ -264,6 +265,13 @@ describe('Paths', () => {
       // Numeric identifier "5" should match project number 5
       const result = resolveProjectIdentifier(tempDir, '5');
       expect(result).toBe(path.join(tempDir, '005-project'));
+    });
+  });
+
+  describe('getDecisionsPath', () => {
+    it('should return decisions.md at project root', () => {
+      const projectPath = '/Users/foo/RAF/001-my-project';
+      expect(getDecisionsPath(projectPath)).toBe(path.join(projectPath, 'decisions.md'));
     });
   });
 });

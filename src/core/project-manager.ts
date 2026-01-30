@@ -8,7 +8,7 @@ import {
   getProjectDir,
   getPlansDir,
   getOutcomesDir,
-  getDecisionsDir,
+  getDecisionsPath,
   getInputPath,
   getSummaryPath,
   listProjects,
@@ -54,7 +54,9 @@ export class ProjectManager {
     fs.mkdirSync(projectPath, { recursive: true });
     fs.mkdirSync(getPlansDir(projectPath), { recursive: true });
     fs.mkdirSync(getOutcomesDir(projectPath), { recursive: true });
-    fs.mkdirSync(getDecisionsDir(projectPath), { recursive: true });
+
+    // Create empty decisions.md file
+    fs.writeFileSync(getDecisionsPath(projectPath), '# Project Decisions\n');
 
     logger.debug(`Created project at ${projectPath}`);
 

@@ -127,8 +127,8 @@ export function getOutcomesDir(projectPath: string): string {
   return path.join(projectPath, 'outcomes');
 }
 
-export function getDecisionsDir(projectPath: string): string {
-  return path.join(projectPath, 'decisions');
+export function getDecisionsPath(projectPath: string): string {
+  return path.join(projectPath, 'decisions.md');
 }
 
 export function getLogsDir(projectPath: string): string {

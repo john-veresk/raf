@@ -44,7 +44,7 @@ DO NOT skip the interview step. The quality of your plans depends on understandi
 ### Step 2.5: Record Decisions
 
 After EACH interview question is answered, record the Q&A pair in the decisions file:
-- ${projectPath}/decisions/DECISIONS.md
+- ${projectPath}/decisions.md
 
 Use this format:
 \`\`\`markdown
