@@ -3,7 +3,7 @@ import { ProjectManager } from '../core/project-manager.js';
 import { StateManager } from '../core/state-manager.js';
 import { ClaudeRunner } from '../core/claude-runner.js';
 import { shutdownHandler } from '../core/shutdown-handler.js';
-import { commitChanges } from '../core/git.js';
+import { commitTaskChanges, getChangedFiles } from '../core/git.js';
 import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, extractSummary, isRetryableFailure } from '../parsers/output-parser.js';
 import { validatePlansExist } from '../utils/validation.js';
@@ -86,6 +86,11 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
     const taskNumber = stateManager.getCurrentTaskIndex() + 1;
     logger.info(`[${taskNumber}/${totalTasks}] Executing task ${task.id}...`);
 
+    // Capture git baseline BEFORE task execution (for smart commit filtering)
+    const baselineFiles = getChangedFiles();
+    stateManager.setTaskBaseline(task.id, baselineFiles);
+    logger.debug(`  Captured baseline: ${baselineFiles.length} pre-existing changed files`);
+
     // Mark as in progress
     stateManager.updateTaskStatus(task.id, 'in_progress');
 
@@ -159,10 +164,11 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
     }
 
     if (success) {
-      // Commit changes if enabled
+      // Commit changes if enabled (using smart filtering)
       let commitHash: string | undefined;
       if (config.autoCommit) {
-        const hash = commitChanges(`RAF Task ${task.id}: Complete`);
+        const taskBaseline = stateManager.getTaskBaseline(task.id);
+        const hash = commitTaskChanges(`RAF Task ${task.id}: Complete`, taskBaseline);
         if (hash) {
           commitHash = hash;
           logger.debug(`  Committed: ${hash}`);

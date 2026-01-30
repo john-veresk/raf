@@ -186,4 +186,52 @@ describe('StateManager', () => {
       expect(tasks[0]?.id).toBe('01');
     });
   });
+
+  describe('task baseline', () => {
+    let manager: StateManager;
+
+    beforeEach(() => {
+      manager = StateManager.initialize(projectPath, 'test', 'input.md');
+      manager.addTask('01', 'plans/01-task.md');
+    });
+
+    it('should set task baseline', () => {
+      const baseline = ['file1.ts', 'file2.ts'];
+      manager.setTaskBaseline('01', baseline);
+
+      const savedBaseline = manager.getTaskBaseline('01');
+      expect(savedBaseline).toEqual(baseline);
+    });
+
+    it('should return undefined for task without baseline', () => {
+      const baseline = manager.getTaskBaseline('01');
+      expect(baseline).toBeUndefined();
+    });
+
+    it('should throw when setting baseline for non-existent task', () => {
+      expect(() => manager.setTaskBaseline('99', [])).toThrow('Task not found: 99');
+    });
+
+    it('should return undefined for non-existent task', () => {
+      const baseline = manager.getTaskBaseline('99');
+      expect(baseline).toBeUndefined();
+    });
+
+    it('should persist baseline to file', () => {
+      const baseline = ['src/modified.ts'];
+      manager.setTaskBaseline('01', baseline);
+
+      // Load state from file
+      const statePath = path.join(projectPath, 'state.json');
+      const content = fs.readFileSync(statePath, 'utf-8');
+      const state = JSON.parse(content);
+
+      expect(state.tasks[0].filesBeforeTask).toEqual(baseline);
+    });
+
+    it('should handle empty baseline', () => {
+      manager.setTaskBaseline('01', []);
+      expect(manager.getTaskBaseline('01')).toEqual([]);
+    });
+  });
 });

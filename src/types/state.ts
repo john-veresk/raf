@@ -11,6 +11,7 @@ export interface TaskState {
   completedAt?: string;
   failureReason?: string;
   commitHash?: string;
+  filesBeforeTask?: string[];
 }
 
 export interface ProjectConfig {

@@ -221,4 +221,25 @@ export class StateManager {
   hasFailed(): boolean {
     return this.state.tasks.some((t) => t.status === 'failed');
   }
+
+  /**
+   * Set the baseline files for a task (files changed before task execution).
+   */
+  setTaskBaseline(taskId: string, files: string[]): void {
+    const task = this.state.tasks.find((t) => t.id === taskId);
+    if (!task) {
+      throw new Error(`Task not found: ${taskId}`);
+    }
+
+    task.filesBeforeTask = files;
+    this.save();
+  }
+
+  /**
+   * Get the baseline files for a task.
+   */
+  getTaskBaseline(taskId: string): string[] | undefined {
+    const task = this.state.tasks.find((t) => t.id === taskId);
+    return task?.filesBeforeTask;
+  }
 }
