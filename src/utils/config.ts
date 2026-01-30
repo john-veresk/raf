@@ -1,8 +1,16 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import * as os from 'node:os';
 import { RafConfig, DEFAULT_RAF_CONFIG } from '../types/config.js';
 
 const CONFIG_FILENAME = 'raf.config.json';
+
+/**
+ * Get the path to Claude CLI settings file.
+ */
+export function getClaudeSettingsPath(): string {
+  return path.join(os.homedir(), '.claude', 'settings.json');
+}
 
 export function loadConfig(rafDir: string): RafConfig {
   const configPath = path.join(rafDir, CONFIG_FILENAME);
@@ -27,4 +35,23 @@ export function saveConfig(rafDir: string, config: RafConfig): void {
 
 export function getEditor(): string {
   return process.env['EDITOR'] ?? process.env['VISUAL'] ?? 'vi';
+}
+
+/**
+ * Get the Claude model name from Claude CLI settings.
+ * Returns the model name or null if not found.
+ * @param settingsPath Optional path to settings file (for testing)
+ */
+export function getClaudeModel(settingsPath?: string): string | null {
+  const filePath = settingsPath ?? getClaudeSettingsPath();
+  try {
+    if (!fs.existsSync(filePath)) {
+      return null;
+    }
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const settings = JSON.parse(content) as { model?: string };
+    return settings.model ?? null;
+  } catch {
+    return null;
+  }
 }

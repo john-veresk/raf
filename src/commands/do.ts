@@ -9,6 +9,7 @@ import { parseOutput, extractSummary, isRetryableFailure } from '../parsers/outp
 import { validatePlansExist } from '../utils/validation.js';
 import { getRafDir, getProjectDir, extractProjectNumber, extractProjectName, extractTaskNameFromPlanFile } from '../utils/paths.js';
 import { logger } from '../utils/logger.js';
+import { getClaudeModel } from '../utils/config.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
 import { createStatusLine } from '../utils/status-line.js';
 import type { DoCommandOptions } from '../types/config.js';
@@ -78,6 +79,13 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
 
   logger.info(`Executing project: ${state.projectName}`);
   logger.info(`Tasks: ${state.tasks.length}, Timeout: ${timeout} minutes`);
+
+  // Log Claude model name
+  const model = getClaudeModel();
+  if (model) {
+    logger.info(`Using model: ${model}`);
+  }
+
   logger.newline();
 
   // Execute tasks
