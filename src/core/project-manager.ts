@@ -170,6 +170,13 @@ export class ProjectManager {
   saveSummary(projectPath: string, stateManager: StateManager): void {
     const state = stateManager.getState();
     const stats = stateManager.getStats();
+
+    // Ensure outcomes directory exists
+    const outcomesDir = getOutcomesDir(projectPath);
+    if (!fs.existsSync(outcomesDir)) {
+      fs.mkdirSync(outcomesDir, { recursive: true });
+    }
+
     const summaryPath = getSummaryPath(projectPath);
 
     let content = `# Project Summary: ${state.projectName}\n\n`;

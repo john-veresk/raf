@@ -144,7 +144,7 @@ describe('ProjectManager', () => {
 
       manager.saveSummary(projectPath, stateManager);
 
-      const summaryPath = path.join(projectPath, 'SUMMARY.md');
+      const summaryPath = path.join(projectPath, 'outcomes', 'SUMMARY.md');
       expect(fs.existsSync(summaryPath)).toBe(true);
 
       const content = fs.readFileSync(summaryPath, 'utf-8');

@@ -108,7 +108,7 @@ export function getInputPath(projectPath: string): string {
 }
 
 export function getSummaryPath(projectPath: string): string {
-  return path.join(projectPath, 'SUMMARY.md');
+  return path.join(getOutcomesDir(projectPath), 'SUMMARY.md');
 }
 
 /**
