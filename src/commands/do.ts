@@ -278,6 +278,9 @@ async function executeSingleProject(
     // Get previous outcomes for context
     const previousOutcomes = projectManager.readOutcomes(projectPath);
 
+    // Extract project number for commit message
+    const projectNumber = extractProjectNumber(projectPath) ?? '000';
+
     // Build execution prompt
     const prompt = getExecutionPrompt({
       projectPath,
@@ -288,6 +291,8 @@ async function executeSingleProject(
       previousOutcomes,
       autoCommit,
       projectName,
+      projectNumber,
+      taskName: taskName ?? task.id,
     });
 
     // Execute with retries
