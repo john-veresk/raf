@@ -4,11 +4,14 @@ import * as os from 'node:os';
 import {
   parseOutcomeStatus,
   deriveProjectState,
+  deriveProjectStatus,
+  discoverProjects,
   getNextPendingTask,
   getNextExecutableTask,
   getDerivedStats,
   isProjectComplete,
   hasProjectFailed,
+  type DerivedProjectStatus,
 } from '../../src/core/state-derivation.js';
 
 describe('state-derivation', () => {
@@ -64,13 +67,106 @@ Old format without status marker.
     });
   });
 
-  describe('deriveProjectState', () => {
-    it('should return empty tasks for empty project', () => {
-      const state = deriveProjectState(projectPath);
-      expect(state.tasks).toEqual([]);
+  describe('discoverProjects', () => {
+    it('should return empty array for non-existent directory', () => {
+      const projects = discoverProjects('/non-existent-dir');
+      expect(projects).toEqual([]);
     });
 
-    it('should derive tasks from plan files', () => {
+    it('should return empty array for empty directory', () => {
+      const rafDir = path.join(tempDir, 'RAF');
+      fs.mkdirSync(rafDir);
+      const projects = discoverProjects(rafDir);
+      expect(projects).toEqual([]);
+    });
+
+    it('should discover projects matching NNN-name pattern', () => {
+      const rafDir = path.join(tempDir, 'RAF');
+      fs.mkdirSync(rafDir);
+      fs.mkdirSync(path.join(rafDir, '001-first-project'));
+      fs.mkdirSync(path.join(rafDir, '002-second-project'));
+      fs.mkdirSync(path.join(rafDir, 'not-a-project'));
+      fs.writeFileSync(path.join(rafDir, 'some-file.txt'), 'content');
+
+      const projects = discoverProjects(rafDir);
+      expect(projects).toHaveLength(2);
+      expect(projects[0]?.number).toBe(1);
+      expect(projects[0]?.name).toBe('first-project');
+      expect(projects[0]?.path).toBe(path.join(rafDir, '001-first-project'));
+      expect(projects[1]?.number).toBe(2);
+      expect(projects[1]?.name).toBe('second-project');
+    });
+
+    it('should sort projects by number', () => {
+      const rafDir = path.join(tempDir, 'RAF');
+      fs.mkdirSync(rafDir);
+      fs.mkdirSync(path.join(rafDir, '003-third'));
+      fs.mkdirSync(path.join(rafDir, '001-first'));
+      fs.mkdirSync(path.join(rafDir, '002-second'));
+
+      const projects = discoverProjects(rafDir);
+      expect(projects.map((p) => p.number)).toEqual([1, 2, 3]);
+    });
+  });
+
+  describe('deriveProjectStatus', () => {
+    it('should return planning when no plans exist', () => {
+      fs.rmSync(path.join(projectPath, 'plans'), { recursive: true });
+      const status = deriveProjectStatus(projectPath, []);
+      expect(status).toBe('planning');
+    });
+
+    it('should return planning when plans directory is empty', () => {
+      const status = deriveProjectStatus(projectPath, []);
+      expect(status).toBe('planning');
+    });
+
+    it('should return ready when all tasks are pending', () => {
+      const tasks = [
+        { id: '001', planFile: 'plans/001.md', status: 'pending' as const },
+        { id: '002', planFile: 'plans/002.md', status: 'pending' as const },
+      ];
+      const status = deriveProjectStatus(projectPath, tasks);
+      expect(status).toBe('ready');
+    });
+
+    it('should return executing when some tasks are completed', () => {
+      const tasks = [
+        { id: '001', planFile: 'plans/001.md', status: 'completed' as const },
+        { id: '002', planFile: 'plans/002.md', status: 'pending' as const },
+      ];
+      const status = deriveProjectStatus(projectPath, tasks);
+      expect(status).toBe('executing');
+    });
+
+    it('should return completed when all tasks are completed', () => {
+      const tasks = [
+        { id: '001', planFile: 'plans/001.md', status: 'completed' as const },
+        { id: '002', planFile: 'plans/002.md', status: 'completed' as const },
+      ];
+      const status = deriveProjectStatus(projectPath, tasks);
+      expect(status).toBe('completed');
+    });
+
+    it('should return failed when any task has failed', () => {
+      const tasks = [
+        { id: '001', planFile: 'plans/001.md', status: 'completed' as const },
+        { id: '002', planFile: 'plans/002.md', status: 'failed' as const },
+        { id: '003', planFile: 'plans/003.md', status: 'pending' as const },
+      ];
+      const status = deriveProjectStatus(projectPath, tasks);
+      expect(status).toBe('failed');
+    });
+  });
+
+  describe('deriveProjectState', () => {
+    it('should return empty tasks and planning status for empty project', () => {
+      const state = deriveProjectState(projectPath);
+      expect(state.tasks).toEqual([]);
+      expect(state.status).toBe('planning');
+    });
+
+    it('should derive tasks from plan files with ready status', () => {
       fs.writeFileSync(path.join(projectPath, 'plans', '001-first-task.md'), '# Task 1');
       fs.writeFileSync(path.join(projectPath, 'plans', '002-second-task.md'), '# Task 2');
 
@@ -80,9 +176,10 @@ Old format without status marker.
       expect(state.tasks[0]?.planFile).toBe('plans/001-first-task.md');
       expect(state.tasks[0]?.status).toBe('pending');
       expect(state.tasks[1]?.id).toBe('002');
+      expect(state.status).toBe('ready');
     });
 
-    it('should match outcome statuses to tasks', () => {
+    it('should match outcome statuses to tasks and derive failed status', () => {
       // Create plan files
       fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
       fs.writeFileSync(path.join(projectPath, 'plans', '002-task.md'), '# Task 2');
@@ -103,6 +200,35 @@ Old format without status marker.
       expect(state.tasks[0]?.status).toBe('completed');
       expect(state.tasks[1]?.status).toBe('failed');
       expect(state.tasks[2]?.status).toBe('pending');
+      expect(state.status).toBe('failed');
+    });
+
+    it('should derive completed status when all tasks completed', () => {
+      fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '002-task.md'), '# Task 2');
+      fs.writeFileSync(
+        path.join(projectPath, 'outcomes', '001-task.md'),
+        '## Status: SUCCESS\n\n# Task 001 - Completed'
+      );
+      fs.writeFileSync(
+        path.join(projectPath, 'outcomes', '002-task.md'),
+        '## Status: SUCCESS\n\n# Task 002 - Completed'
+      );
+
+      const state = deriveProjectState(projectPath);
+      expect(state.status).toBe('completed');
+    });
+
+    it('should derive executing status when some tasks completed', () => {
+      fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '002-task.md'), '# Task 2');
+      fs.writeFileSync(
+        path.join(projectPath, 'outcomes', '001-task.md'),
+        '## Status: SUCCESS\n\n# Task 001 - Completed'
+      );
+
+      const state = deriveProjectState(projectPath);
+      expect(state.status).toBe('executing');
     });
 
     it('should ignore outcome files without status marker', () => {
@@ -124,11 +250,19 @@ Old format without status marker.
       expect(state.tasks).toHaveLength(1);
       expect(state.tasks[0]?.status).toBe('pending');
     });
+
+    it('should return planning status when no plans directory exists', () => {
+      fs.rmSync(path.join(projectPath, 'plans'), { recursive: true });
+      const state = deriveProjectState(projectPath);
+      expect(state.tasks).toEqual([]);
+      expect(state.status).toBe('planning');
+    });
   });
 
   describe('getNextPendingTask', () => {
     it('should return first pending task', () => {
       const state = {
+        status: 'executing' as DerivedProjectStatus,
         tasks: [
           { id: '001', planFile: 'plans/001.md', status: 'completed' as const },
           { id: '002', planFile: 'plans/002.md', status: 'pending' as const },
@@ -141,6 +275,7 @@ Old format without status marker.
 
     it('should return null when no pending tasks', () => {
       const state = {
+        status: 'failed' as DerivedProjectStatus,
         tasks: [
           { id: '001', planFile: 'plans/001.md', status: 'completed' as const },
           { id: '002', planFile: 'plans/002.md', status: 'failed' as const },
@@ -154,6 +289,7 @@ Old format without status marker.
   describe('getNextExecutableTask', () => {
     it('should prefer pending tasks over failed', () => {
       const state = {
+        status: 'failed' as DerivedProjectStatus,
         tasks: [
           { id: '001', planFile: 'plans/001.md', status: 'failed' as const },
           { id: '002', planFile: 'plans/002.md', status: 'pending' as const },
@@ -165,6 +301,7 @@ Old format without status marker.
 
     it('should return failed task when no pending', () => {
       const state = {
+        status: 'failed' as DerivedProjectStatus,
         tasks: [
           { id: '001', planFile: 'plans/001.md', status: 'completed' as const },
           { id: '002', planFile: 'plans/002.md', status: 'failed' as const },
@@ -178,6 +315,7 @@ Old format without status marker.
   describe('getDerivedStats', () => {
     it('should calculate correct stats', () => {
       const state = {
+        status: 'failed' as DerivedProjectStatus,
         tasks: [
           { id: '001', planFile: 'plans/001.md', status: 'completed' as const },
           { id: '002', planFile: 'plans/002.md', status: 'failed' as const },
@@ -196,6 +334,7 @@ Old format without status marker.
   describe('isProjectComplete', () => {
     it('should return true when all tasks completed', () => {
       const state = {
+        status: 'completed' as DerivedProjectStatus,
         tasks: [
           { id: '001', planFile: 'plans/001.md', status: 'completed' as const },
           { id: '002', planFile: 'plans/002.md', status: 'completed' as const },
@@ -206,6 +345,7 @@ Old format without status marker.
 
     it('should return false when some tasks pending', () => {
       const state = {
+        status: 'executing' as DerivedProjectStatus,
         tasks: [
           { id: '001', planFile: 'plans/001.md', status: 'completed' as const },
           { id: '002', planFile: 'plans/002.md', status: 'pending' as const },
@@ -216,6 +356,7 @@ Old format without status marker.
 
     it('should return false when some tasks failed', () => {
       const state = {
+        status: 'failed' as DerivedProjectStatus,
         tasks: [
           { id: '001', planFile: 'plans/001.md', status: 'completed' as const },
           { id: '002', planFile: 'plans/002.md', status: 'failed' as const },
@@ -225,7 +366,7 @@ Old format without status marker.
     });
 
     it('should return true for empty project', () => {
-      const state = { tasks: [] };
+      const state = { status: 'planning' as DerivedProjectStatus, tasks: [] };
       expect(isProjectComplete(state)).toBe(true);
     });
   });
@@ -233,6 +374,7 @@ Old format without status marker.
   describe('hasProjectFailed', () => {
     it('should return true when any task failed', () => {
       const state = {
+        status: 'failed' as DerivedProjectStatus,
         tasks: [
           { id: '001', planFile: 'plans/001.md', status: 'completed' as const },
           { id: '002', planFile: 'plans/002.md', status: 'failed' as const },
@@ -243,6 +385,7 @@ Old format without status marker.
 
     it('should return false when no tasks failed', () => {
       const state = {
+        status: 'executing' as DerivedProjectStatus,
         tasks: [
           { id: '001', planFile: 'plans/001.md', status: 'completed' as const },
           { id: '002', planFile: 'plans/002.md', status: 'pending' as const },

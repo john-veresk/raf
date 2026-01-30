@@ -1,8 +1,15 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { getPlansDir, getOutcomesDir } from '../utils/paths.js';
+import { getPlansDir, getOutcomesDir, getInputPath } from '../utils/paths.js';
 
 export type DerivedTaskStatus = 'pending' | 'completed' | 'failed';
+
+export type DerivedProjectStatus =
+  | 'planning'
+  | 'ready'
+  | 'executing'
+  | 'completed'
+  | 'failed';
 
 export interface DerivedTask {
   id: string;
@@ -12,6 +19,13 @@ export interface DerivedTask {
 
 export interface DerivedProjectState {
   tasks: DerivedTask[];
+  status: DerivedProjectStatus;
+}
+
+export interface DiscoveredProject {
+  number: number;
+  name: string;
+  path: string;
 }
 
 export interface DerivedStats {
@@ -19,6 +33,34 @@ export interface DerivedStats {
   completed: number;
   failed: number;
   total: number;
+}
+
+/**
+ * Discover all projects in the RAF directory.
+ * Projects are directories matching the pattern NNN-project-name.
+ */
+export function discoverProjects(rafDir: string): DiscoveredProject[] {
+  if (!fs.existsSync(rafDir)) {
+    return [];
+  }
+
+  const entries = fs.readdirSync(rafDir, { withFileTypes: true });
+  const projects: DiscoveredProject[] = [];
+
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      const match = entry.name.match(/^(\d{2,3})-(.+)$/);
+      if (match && match[1] && match[2]) {
+        projects.push({
+          number: parseInt(match[1], 10),
+          name: match[2],
+          path: path.join(rafDir, entry.name),
+        });
+      }
+    }
+  }
+
+  return projects.sort((a, b) => a.number - b.number);
 }
 
 /**
@@ -35,6 +77,60 @@ export function parseOutcomeStatus(content: string): DerivedTaskStatus | null {
 }
 
 /**
+ * Derive project status from tasks.
+ * - planning: has input.md but no plans folder or empty plans
+ * - ready: has plan files but no outcome files
+ * - executing: has some outcome files but not all (or has failed outcomes without SUCCESS)
+ * - completed: all plan files have corresponding SUCCESS outcomes
+ * - failed: has FAILED outcome files
+ */
+export function deriveProjectStatus(
+  projectPath: string,
+  tasks: DerivedTask[]
+): DerivedProjectStatus {
+  const plansDir = getPlansDir(projectPath);
+  const inputPath = getInputPath(projectPath);
+
+  const hasInput = fs.existsSync(inputPath);
+  const hasPlansDir = fs.existsSync(plansDir);
+
+  // If no plans directory or empty plans
+  if (!hasPlansDir || tasks.length === 0) {
+    return hasInput ? 'planning' : 'planning';
+  }
+
+  const stats = {
+    pending: 0,
+    completed: 0,
+    failed: 0,
+  };
+
+  for (const task of tasks) {
+    if (task.status === 'pending') stats.pending++;
+    else if (task.status === 'completed') stats.completed++;
+    else if (task.status === 'failed') stats.failed++;
+  }
+
+  // If any task failed, project is failed
+  if (stats.failed > 0) {
+    return 'failed';
+  }
+
+  // If all tasks completed, project is completed
+  if (stats.completed === tasks.length && tasks.length > 0) {
+    return 'completed';
+  }
+
+  // If no tasks have been started (all pending), project is ready
+  if (stats.pending === tasks.length) {
+    return 'ready';
+  }
+
+  // Otherwise, project is executing
+  return 'executing';
+}
+
+/**
  * Derive project state from the folder structure.
  * Scans plans/ for plan files and outcomes/ for outcome files.
  * Matches them by task ID (NNN prefix) and determines status.
@@ -47,7 +143,8 @@ export function deriveProjectState(projectPath: string): DerivedProjectState {
 
   // Scan plans directory for plan files
   if (!fs.existsSync(plansDir)) {
-    return { tasks };
+    const status = deriveProjectStatus(projectPath, tasks);
+    return { tasks, status };
   }
 
   const planFiles = fs.readdirSync(plansDir)
@@ -88,7 +185,8 @@ export function deriveProjectState(projectPath: string): DerivedProjectState {
     }
   }
 
-  return { tasks };
+  const projectStatus = deriveProjectStatus(projectPath, tasks);
+  return { tasks, status: projectStatus };
 }
 
 /**
