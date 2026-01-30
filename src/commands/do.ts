@@ -9,6 +9,8 @@ import { parseOutput, extractSummary, isRetryableFailure } from '../parsers/outp
 import { validatePlansExist } from '../utils/validation.js';
 import { getRafDir, getProjectDir, extractProjectNumber, extractProjectName } from '../utils/paths.js';
 import { logger } from '../utils/logger.js';
+import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
+import { createStatusLine } from '../utils/status-line.js';
 import type { DoCommandOptions } from '../types/config.js';
 
 export function createDoCommand(): Command {
@@ -115,6 +117,14 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
     let lastOutput = '';
     let failureReason = '';
 
+    // Set up timer for elapsed time tracking
+    const statusLine = createStatusLine();
+    const timer = createTaskTimer(verbose ? undefined : (elapsed) => {
+      const formatted = formatElapsedTime(elapsed);
+      statusLine.update(`  ⏱ ${formatted}`);
+    });
+    timer.start();
+
     while (!success && attempts < config.maxRetries) {
       attempts++;
       stateManager.incrementAttempts(task.id);
@@ -159,6 +169,11 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
       }
     }
 
+    // Stop timer and clear status line
+    const elapsedMs = timer.stop();
+    statusLine.clear();
+    const elapsedFormatted = formatElapsedTime(elapsedMs);
+
     // Save log if debug mode or failure
     if (debug || !success) {
       projectManager.saveLog(projectPath, task.id, lastOutput);
@@ -186,6 +201,7 @@ ${summary}
 
 ## Details
 - Attempts: ${attempts}
+- Elapsed time: ${elapsedFormatted}
 - Completed at: ${new Date().toISOString()}
 ${commitHash ? `- Commit: ${commitHash}` : ''}
 `;
@@ -193,7 +209,7 @@ ${commitHash ? `- Commit: ${commitHash}` : ''}
 
       // Update state
       stateManager.updateTaskStatus(task.id, 'completed', { commitHash });
-      logger.success(`  Task ${task.id} completed`);
+      logger.success(`  Task ${task.id} completed (${elapsedFormatted})`);
     } else {
       // Stash any uncommitted changes on complete failure
       let stashName: string | undefined;
@@ -208,7 +224,7 @@ ${commitHash ? `- Commit: ${commitHash}` : ''}
 
       // Update state with failure
       stateManager.updateTaskStatus(task.id, 'failed', { failureReason });
-      logger.error(`  Task ${task.id} failed: ${failureReason}`);
+      logger.error(`  Task ${task.id} failed: ${failureReason} (${elapsedFormatted})`);
 
       // Save failure outcome
       const outcomeContent = `# Task ${task.id} - Failed
@@ -218,6 +234,7 @@ ${failureReason}
 
 ## Details
 - Attempts: ${attempts}
+- Elapsed time: ${elapsedFormatted}
 - Failed at: ${new Date().toISOString()}
 ${stashName ? `- Stash: ${stashName}` : ''}
 `;
