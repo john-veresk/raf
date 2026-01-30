@@ -22,25 +22,39 @@ export function getAmendPrompt(params: AmendPromptParams): string {
 
   const existingTasksSummary = existingTasks
     .map((task) => {
-      const statusEmoji =
+      const status =
         task.status === 'completed'
           ? '[COMPLETED]'
           : task.status === 'failed'
             ? '[FAILED]'
             : '[PENDING]';
-      return `- Task ${task.id}: ${task.taskName} ${statusEmoji}`;
+      const modifiability =
+        task.status === 'completed' ? '[PROTECTED]' : '[MODIFIABLE]';
+      return `- Task ${task.id}: ${task.taskName} ${status} ${modifiability}`;
     })
     .join('\n');
 
-  return `You are a project planning assistant for RAF (Ralph's Automation Framework). Your task is to ADD NEW TASKS to an existing project.
+  const protectedTasks = existingTasks.filter((t) => t.status === 'completed');
+  const modifiableTasks = existingTasks.filter((t) => t.status !== 'completed');
+
+  const protectedTasksList =
+    protectedTasks.length > 0
+      ? protectedTasks.map((t) => `- Task ${t.id}: ${t.taskName}`).join('\n')
+      : '(none)';
+  const modifiableTasksList =
+    modifiableTasks.length > 0
+      ? modifiableTasks.map((t) => `- Task ${t.id}: ${t.taskName}`).join('\n')
+      : '(none)';
+
+  return `You are a project planning assistant for RAF (Ralph's Automation Framework). Your task is to ADD NEW TASKS or MODIFY PENDING tasks in an existing project.
 
 ## IMPORTANT: Amendment Mode
 
 You are in AMENDMENT MODE. This means:
-- DO NOT modify or touch existing plan files
+- You MAY modify [MODIFIABLE] tasks (pending/failed) if the user requests changes
+- NEVER modify [PROTECTED] tasks (completed) - their outcomes depend on the original plan
 - DO NOT renumber existing tasks
-- ONLY create NEW tasks starting from number ${nextTaskNumber.toString().padStart(3, '0')}
-- Review existing tasks for context, but do not change them
+- You can create NEW tasks starting from number ${nextTaskNumber.toString().padStart(3, '0')}
 
 ## Project Location
 
@@ -55,6 +69,12 @@ ${inputContent}
 The following tasks already exist in this project:
 
 ${existingTasksSummary}
+
+### Protected Tasks (COMPLETED - cannot be modified)
+${protectedTasksList}
+
+### Modifiable Tasks (PENDING/FAILED - can be modified if requested)
+${modifiableTasksList}
 
 ## User's Description of New Tasks
 
@@ -138,11 +158,12 @@ After creating all new plan files, provide a summary of:
 
 ## Important Rules
 
-1. NEVER modify existing plan files (001-${(nextTaskNumber - 1).toString().padStart(3, '0')})
-2. ALWAYS interview the user before creating plans
-3. Create plans starting from number ${nextTaskNumber.toString().padStart(3, '0')}
-4. Use descriptive, kebab-case names for plan files
-5. Each plan should be self-contained with all context needed
-6. Reference existing tasks by number if there are dependencies
-7. Be specific - vague plans lead to poor execution`;
+1. NEVER modify COMPLETED task plans - they are [PROTECTED] because their outcomes depend on the original plan
+2. You MAY modify non-completed task plans (pending/failed) if the user requests changes - they are [MODIFIABLE]
+3. ALWAYS interview the user before creating or modifying plans
+4. New tasks start from number ${nextTaskNumber.toString().padStart(3, '0')}
+5. Use descriptive, kebab-case names for plan files
+6. Each plan should be self-contained with all context needed
+7. Reference existing tasks by number if there are dependencies
+8. Be specific - vague plans lead to poor execution`;
 }

@@ -327,15 +327,15 @@ describe('Plan Command - Amend Functionality', () => {
       const prompt = getAmendPrompt(params);
 
       expect(prompt).toContain('AMENDMENT MODE');
-      expect(prompt).toContain('Task 001: first [COMPLETED]');
-      expect(prompt).toContain('Task 002: second [PENDING]');
+      expect(prompt).toContain('Task 001: first [COMPLETED] [PROTECTED]');
+      expect(prompt).toContain('Task 002: second [PENDING] [MODIFIABLE]');
       expect(prompt).toContain('starting from number 003');
       expect(prompt).toContain('Add new feature X');
       expect(prompt).toContain('Original project description');
       expect(prompt).toContain('/test/project');
     });
 
-    it('should instruct not to modify existing tasks', () => {
+    it('should instruct to protect completed tasks and allow modifying pending tasks', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
         inputContent: 'Original description',
@@ -348,13 +348,14 @@ describe('Plan Command - Amend Functionality', () => {
 
       const prompt = getAmendPrompt(params);
 
-      expect(prompt).toContain('DO NOT modify or touch existing plan files');
+      expect(prompt).toContain('NEVER modify [PROTECTED] tasks (completed)');
       expect(prompt).toContain('DO NOT renumber existing tasks');
-      expect(prompt).toContain('ONLY create NEW tasks');
-      expect(prompt).toContain('NEVER modify existing plan files');
+      expect(prompt).toContain('You MAY modify [MODIFIABLE] tasks (pending/failed)');
+      expect(prompt).toContain('NEVER modify COMPLETED task plans - they are [PROTECTED]');
+      expect(prompt).toContain('You MAY modify non-completed task plans (pending/failed)');
     });
 
-    it('should include failed task status in prompt', () => {
+    it('should include failed task status with MODIFIABLE indicator in prompt', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
         inputContent: 'Original description',
@@ -367,7 +368,106 @@ describe('Plan Command - Amend Functionality', () => {
 
       const prompt = getAmendPrompt(params);
 
-      expect(prompt).toContain('Task 001: first [FAILED]');
+      expect(prompt).toContain('Task 001: first [FAILED] [MODIFIABLE]');
+    });
+
+    it('should list protected tasks separately', () => {
+      const params: AmendPromptParams = {
+        projectPath: '/test/project',
+        inputContent: 'Original description',
+        existingTasks: [
+          { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
+          { id: '002', planFile: 'plans/002-second.md', status: 'completed', taskName: 'second' },
+          { id: '003', planFile: 'plans/003-third.md', status: 'pending', taskName: 'third' },
+        ],
+        nextTaskNumber: 4,
+        newTaskDescription: 'New tasks',
+      };
+
+      const prompt = getAmendPrompt(params);
+
+      expect(prompt).toContain('### Protected Tasks (COMPLETED - cannot be modified)');
+      expect(prompt).toContain('- Task 001: first');
+      expect(prompt).toContain('- Task 002: second');
+    });
+
+    it('should list modifiable tasks separately', () => {
+      const params: AmendPromptParams = {
+        projectPath: '/test/project',
+        inputContent: 'Original description',
+        existingTasks: [
+          { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
+          { id: '002', planFile: 'plans/002-second.md', status: 'pending', taskName: 'second' },
+          { id: '003', planFile: 'plans/003-third.md', status: 'failed', taskName: 'third' },
+        ],
+        nextTaskNumber: 4,
+        newTaskDescription: 'New tasks',
+      };
+
+      const prompt = getAmendPrompt(params);
+
+      expect(prompt).toContain('### Modifiable Tasks (PENDING/FAILED - can be modified if requested)');
+      expect(prompt).toContain('- Task 002: second');
+      expect(prompt).toContain('- Task 003: third');
+    });
+
+    it('should show (none) when there are no protected tasks', () => {
+      const params: AmendPromptParams = {
+        projectPath: '/test/project',
+        inputContent: 'Original description',
+        existingTasks: [
+          { id: '001', planFile: 'plans/001-first.md', status: 'pending', taskName: 'first' },
+        ],
+        nextTaskNumber: 2,
+        newTaskDescription: 'New tasks',
+      };
+
+      const prompt = getAmendPrompt(params);
+
+      expect(prompt).toContain('### Protected Tasks (COMPLETED - cannot be modified)\n(none)');
+    });
+
+    it('should show (none) when there are no modifiable tasks', () => {
+      const params: AmendPromptParams = {
+        projectPath: '/test/project',
+        inputContent: 'Original description',
+        existingTasks: [
+          { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
+        ],
+        nextTaskNumber: 2,
+        newTaskDescription: 'New tasks',
+      };
+
+      const prompt = getAmendPrompt(params);
+
+      expect(prompt).toContain('### Modifiable Tasks (PENDING/FAILED - can be modified if requested)\n(none)');
+    });
+
+    it('should handle mixed task statuses correctly', () => {
+      const params: AmendPromptParams = {
+        projectPath: '/test/project',
+        inputContent: 'Original description',
+        existingTasks: [
+          { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'setup' },
+          { id: '002', planFile: 'plans/002-second.md', status: 'completed', taskName: 'database' },
+          { id: '003', planFile: 'plans/003-third.md', status: 'failed', taskName: 'api' },
+          { id: '004', planFile: 'plans/004-fourth.md', status: 'pending', taskName: 'tests' },
+        ],
+        nextTaskNumber: 5,
+        newTaskDescription: 'New tasks',
+      };
+
+      const prompt = getAmendPrompt(params);
+
+      // Check summary list
+      expect(prompt).toContain('Task 001: setup [COMPLETED] [PROTECTED]');
+      expect(prompt).toContain('Task 002: database [COMPLETED] [PROTECTED]');
+      expect(prompt).toContain('Task 003: api [FAILED] [MODIFIABLE]');
+      expect(prompt).toContain('Task 004: tests [PENDING] [MODIFIABLE]');
+
+      // Check separate lists
+      expect(prompt).toContain('### Protected Tasks (COMPLETED - cannot be modified)');
+      expect(prompt).toContain('### Modifiable Tasks (PENDING/FAILED - can be modified if requested)');
     });
 
     it('should include correct plans directory path', () => {
