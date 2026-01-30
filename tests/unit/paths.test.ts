@@ -8,6 +8,7 @@ import {
   extractProjectNumber,
   extractProjectName,
   extractTaskNameFromPlanFile,
+  resolveProjectIdentifier,
 } from '../../src/utils/paths.js';
 
 describe('Paths', () => {
@@ -186,6 +187,83 @@ describe('Paths', () => {
 
     it('should handle files without .md extension', () => {
       expect(extractTaskNameFromPlanFile('001-task-name')).toBe('task-name');
+    });
+  });
+
+  describe('resolveProjectIdentifier', () => {
+    it('should resolve project by exact number (3 digits)', () => {
+      fs.mkdirSync(path.join(tempDir, '003-my-project'));
+      const result = resolveProjectIdentifier(tempDir, '003');
+      expect(result).toBe(path.join(tempDir, '003-my-project'));
+    });
+
+    it('should resolve project by number without leading zeros', () => {
+      fs.mkdirSync(path.join(tempDir, '003-my-project'));
+      const result = resolveProjectIdentifier(tempDir, '3');
+      expect(result).toBe(path.join(tempDir, '003-my-project'));
+    });
+
+    it('should resolve project by 2-digit number', () => {
+      fs.mkdirSync(path.join(tempDir, '42-my-project'));
+      const result = resolveProjectIdentifier(tempDir, '42');
+      expect(result).toBe(path.join(tempDir, '42-my-project'));
+    });
+
+    it('should resolve project by name', () => {
+      fs.mkdirSync(path.join(tempDir, '005-my-awesome-project'));
+      const result = resolveProjectIdentifier(tempDir, 'my-awesome-project');
+      expect(result).toBe(path.join(tempDir, '005-my-awesome-project'));
+    });
+
+    it('should return null for non-existent project number', () => {
+      fs.mkdirSync(path.join(tempDir, '001-first'));
+      const result = resolveProjectIdentifier(tempDir, '999');
+      expect(result).toBeNull();
+    });
+
+    it('should return null for non-existent project name', () => {
+      fs.mkdirSync(path.join(tempDir, '001-first'));
+      const result = resolveProjectIdentifier(tempDir, 'non-existent');
+      expect(result).toBeNull();
+    });
+
+    it('should return null for non-existent directory', () => {
+      const result = resolveProjectIdentifier('/non/existent/path', '001');
+      expect(result).toBeNull();
+    });
+
+    it('should handle multiple projects and find correct one by number', () => {
+      fs.mkdirSync(path.join(tempDir, '001-first'));
+      fs.mkdirSync(path.join(tempDir, '002-second'));
+      fs.mkdirSync(path.join(tempDir, '003-third'));
+
+      expect(resolveProjectIdentifier(tempDir, '1')).toBe(path.join(tempDir, '001-first'));
+      expect(resolveProjectIdentifier(tempDir, '2')).toBe(path.join(tempDir, '002-second'));
+      expect(resolveProjectIdentifier(tempDir, '003')).toBe(path.join(tempDir, '003-third'));
+    });
+
+    it('should handle multiple projects and find correct one by name', () => {
+      fs.mkdirSync(path.join(tempDir, '001-first'));
+      fs.mkdirSync(path.join(tempDir, '002-second'));
+      fs.mkdirSync(path.join(tempDir, '003-third'));
+
+      expect(resolveProjectIdentifier(tempDir, 'first')).toBe(path.join(tempDir, '001-first'));
+      expect(resolveProjectIdentifier(tempDir, 'second')).toBe(path.join(tempDir, '002-second'));
+      expect(resolveProjectIdentifier(tempDir, 'third')).toBe(path.join(tempDir, '003-third'));
+    });
+
+    it('should not resolve partial name match', () => {
+      fs.mkdirSync(path.join(tempDir, '001-my-project'));
+      expect(resolveProjectIdentifier(tempDir, 'my')).toBeNull();
+      expect(resolveProjectIdentifier(tempDir, 'project')).toBeNull();
+      expect(resolveProjectIdentifier(tempDir, 'my-proj')).toBeNull();
+    });
+
+    it('should prefer number match when identifier is numeric', () => {
+      fs.mkdirSync(path.join(tempDir, '005-project'));
+      // Numeric identifier "5" should match project number 5
+      const result = resolveProjectIdentifier(tempDir, '5');
+      expect(result).toBe(path.join(tempDir, '005-project'));
     });
   });
 });

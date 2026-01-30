@@ -142,3 +142,48 @@ export function getInputPath(projectPath: string): string {
 export function getSummaryPath(projectPath: string): string {
   return path.join(getOutcomesDir(projectPath), 'SUMMARY.md');
 }
+
+/**
+ * Resolve a project identifier to a full project path.
+ * Supports:
+ * - Number (e.g., "003") - looks up by project number
+ * - Name (e.g., "my-project") - looks up by project name
+ * Returns the project path or null if not found.
+ */
+export function resolveProjectIdentifier(
+  rafDir: string,
+  identifier: string
+): string | null {
+  if (!fs.existsSync(rafDir)) {
+    return null;
+  }
+
+  // Check if it's a numeric identifier (e.g., "003", "3")
+  const isNumeric = /^\d+$/.test(identifier);
+
+  const entries = fs.readdirSync(rafDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      const match = entry.name.match(/^(\d{2,3})-(.+)$/);
+      if (match && match[1] && match[2]) {
+        const projectNumber = parseInt(match[1], 10);
+        const projectName = match[2];
+
+        if (isNumeric) {
+          // Match by number
+          if (projectNumber === parseInt(identifier, 10)) {
+            return path.join(rafDir, entry.name);
+          }
+        } else {
+          // Match by name
+          if (projectName === identifier) {
+            return path.join(rafDir, entry.name);
+          }
+        }
+      }
+    }
+  }
+
+  return null;
+}
