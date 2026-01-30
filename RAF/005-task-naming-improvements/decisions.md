@@ -55,3 +55,6 @@ Claude makes task commits during execution - need to update prompts that Claude 
 
 ## [Amendment] Should plan commits be automated via Claude or RAF?
 Plan commits are done by RAF programmatically (not Claude) - format `RAF[005:plan]`.
+
+## [Amendment] Should the message be changed from 'Tasks: X, Timeout: Y minutes' to 'Tasks: X, Task timeout: Y minutes'?
+Yes, exactly that - change 'Timeout' to 'Task timeout' keeping the rest of the format.
