@@ -1,0 +1,2 @@
+- [ ] support taking number and full plan/task name across the repo, not just for raf do
+- [ ] add --amend option for plan mode to add more task or modify existing plans if they are not completed
