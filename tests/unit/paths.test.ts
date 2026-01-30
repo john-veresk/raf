@@ -546,4 +546,75 @@ describe('Paths', () => {
       expect(resolveProjectIdentifier(tempDir, 'second')).toBe(path.join(tempDir, 'a00-second'));
     });
   });
+
+  describe('resolveProjectIdentifier (full folder name)', () => {
+    it('should resolve project by full numeric folder name', () => {
+      fs.mkdirSync(path.join(tempDir, '001-fix-stuff'));
+      const result = resolveProjectIdentifier(tempDir, '001-fix-stuff');
+      expect(result).toBe(path.join(tempDir, '001-fix-stuff'));
+    });
+
+    it('should resolve project by full base36 folder name', () => {
+      fs.mkdirSync(path.join(tempDir, 'a01-important-project'));
+      const result = resolveProjectIdentifier(tempDir, 'a01-important-project');
+      expect(result).toBe(path.join(tempDir, 'a01-important-project'));
+    });
+
+    it('should resolve project with hyphens in name', () => {
+      fs.mkdirSync(path.join(tempDir, '001-my-cool-project'));
+      const result = resolveProjectIdentifier(tempDir, '001-my-cool-project');
+      expect(result).toBe(path.join(tempDir, '001-my-cool-project'));
+    });
+
+    it('should return null for wrong prefix with correct name format', () => {
+      fs.mkdirSync(path.join(tempDir, '001-correct-name'));
+      // Full folder format but wrong prefix - should NOT match
+      const result = resolveProjectIdentifier(tempDir, '002-correct-name');
+      expect(result).toBeNull();
+    });
+
+    it('should return null for correct prefix with wrong name format', () => {
+      fs.mkdirSync(path.join(tempDir, '001-correct-name'));
+      // Full folder format but wrong name - should NOT match
+      const result = resolveProjectIdentifier(tempDir, '001-wrong-name');
+      expect(result).toBeNull();
+    });
+
+    it('should handle case-insensitive folder matching', () => {
+      fs.mkdirSync(path.join(tempDir, 'A01-My-Project'));
+      // Lowercase identifier should still match
+      const result = resolveProjectIdentifier(tempDir, 'a01-my-project');
+      expect(result).toBe(path.join(tempDir, 'A01-My-Project'));
+    });
+
+    it('should resolve 2-digit prefix full folder names', () => {
+      fs.mkdirSync(path.join(tempDir, '01-first-project'));
+      const result = resolveProjectIdentifier(tempDir, '01-first-project');
+      expect(result).toBe(path.join(tempDir, '01-first-project'));
+    });
+
+    it('should still resolve by name alone after full folder check', () => {
+      fs.mkdirSync(path.join(tempDir, '001-my-project'));
+      // Name-only should still work via fallback
+      const result = resolveProjectIdentifier(tempDir, 'my-project');
+      expect(result).toBe(path.join(tempDir, '001-my-project'));
+    });
+
+    it('should still resolve by number alone after full folder check', () => {
+      fs.mkdirSync(path.join(tempDir, '003-my-project'));
+      // Number-only should still work via fallback
+      const result = resolveProjectIdentifier(tempDir, '3');
+      expect(result).toBe(path.join(tempDir, '003-my-project'));
+    });
+
+    it('should prefer exact full folder match over name-only match', () => {
+      // Create two projects where one's name is a full folder format
+      fs.mkdirSync(path.join(tempDir, '001-project'));
+      fs.mkdirSync(path.join(tempDir, '002-001-project')); // Name portion is "001-project"
+
+      // "001-project" as full folder name should match the first project
+      const result = resolveProjectIdentifier(tempDir, '001-project');
+      expect(result).toBe(path.join(tempDir, '001-project'));
+    });
+  });
 });

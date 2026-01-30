@@ -314,17 +314,49 @@ export function getInputPath(projectPath: string): string {
 
 /**
  * Resolve a project identifier to a full project path.
- * Supports:
- * - Number (e.g., "003", "1000") - looks up by project number
- * - Base36 prefix (e.g., "a00") - looks up by base36 project number
- * - Name (e.g., "my-project") - looks up by project name
- * Returns the project path or null if not found.
+ *
+ * Supported identifier formats (checked in this order):
+ * 1. Full folder name (e.g., "001-fix-stuff", "a01-important-project")
+ *    - Must be an exact match to an existing folder
+ *    - Pattern: numeric prefix (2-3 digits) or base36 prefix, followed by hyphen and name
+ * 2. Numeric ID (e.g., "003", "3", "1000")
+ *    - Looks up by project number
+ * 3. Base36 prefix (e.g., "a00", "a01")
+ *    - Looks up by base36 project number (for projects >= 1000)
+ * 4. Project name (e.g., "my-project", "fix-stuff")
+ *    - Looks up by the name portion of the folder (after the prefix)
+ *
+ * This function is designed to be extensible for future task-level references
+ * like "001-project/002-task".
+ *
+ * @param rafDir - The RAF directory containing project folders
+ * @param identifier - The identifier to resolve
+ * @returns The full project path or null if not found
  */
 export function resolveProjectIdentifier(
   rafDir: string,
   identifier: string
 ): string | null {
   if (!fs.existsSync(rafDir)) {
+    return null;
+  }
+
+  // Pattern to match full folder names: NNN-name or XXX-name (base36)
+  // Supports 2-3 digit numeric prefixes or 3-char base36 prefixes
+  const fullFolderPattern = /^(\d{2,3}|[a-z][0-9a-z]{2})-(.+)$/i;
+  const fullFolderMatch = identifier.match(fullFolderPattern);
+
+  // Check if identifier is a full folder name (exact match required)
+  if (fullFolderMatch) {
+    // Check for exact case-insensitive match by listing directory
+    const entries = fs.readdirSync(rafDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory() && entry.name.toLowerCase() === identifier.toLowerCase()) {
+        return path.join(rafDir, entry.name);
+      }
+    }
+    // Full folder name format but doesn't exist - return null
+    // Don't fall through to name-based matching to avoid partial matches
     return null;
   }
 
