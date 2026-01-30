@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "projectName": "improvements",
+  "createdAt": "2026-01-30T14:43:43.903Z",
+  "updatedAt": "2026-01-30T14:58:23.956Z",
+  "inputFile": "input.md",
+  "status": "ready",
+  "tasks": [
+    {
+      "id": "01",
+      "planFile": "plans/01-cleanup-empty-project-folders.md",
+      "status": "pending",
+      "attempts": 0
+    },
+    {
+      "id": "02",
+      "planFile": "plans/02-smart-git-commit-filtering.md",
+      "status": "pending",
+      "attempts": 0
+    }
+  ],
+  "currentTaskIndex": 0,
+  "config": {
+    "timeout": 60,
+    "maxRetries": 3,
+    "autoCommit": true
+  }
+}

@@ -64,3 +64,6 @@ npm run lint       # Type check without emit
 - Look for `<promise>COMPLETE</promise>` or `<promise>FAILED</promise>` markers
 - Detect context overflow patterns
 - Parse task completion status
+
+### Important
+After task completion update README.md (user facing) and CLAUDE.md (internal)

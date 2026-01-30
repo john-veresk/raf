@@ -28,7 +28,7 @@ npm-debug.log*
 .env.*.local
 
 # RAF output (local projects)
-RAF/
+.raf/
 
 # Temporary files
 tmp/
