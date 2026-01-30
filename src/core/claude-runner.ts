@@ -268,13 +268,25 @@ export class ClaudeRunner {
   kill(): void {
     if (this.activeProcess) {
       this.killed = true;
-      // Send Ctrl+C first for graceful shutdown
-      this.activeProcess.write('\x03');
+
+      // Send Ctrl+C first for graceful shutdown (only for PTY processes)
+      // ChildProcess from spawn() doesn't have write(), only PTY does
+      try {
+        if (typeof this.activeProcess.write === 'function') {
+          this.activeProcess.write('\x03');
+        }
+      } catch {
+        // Ignore write errors - process may already be closing
+      }
 
       // Force kill after 5 seconds if still running
       setTimeout(() => {
         if (this.activeProcess) {
-          this.activeProcess.kill();
+          try {
+            this.activeProcess.kill();
+          } catch {
+            // Ignore kill errors - process may already be dead
+          }
         }
       }, 5000);
     }
