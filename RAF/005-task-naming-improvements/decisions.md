@@ -26,3 +26,18 @@ Allow with warning - show warning that project is complete but allow adding new 
 
 ## Should the enhanced identifier support task-level references for future extensibility?
 Yes, design the resolution function to be extensible for task-level references like `001-project/002-task` in the future.
+
+## [Amendment] When should the outcomes be committed - automatically after each task completes, or only when the entire project (all tasks) is marked complete?
+On project complete - commit all outcomes together when the final task in the project is completed.
+
+## [Amendment] What should be included in the commit when the project completes?
+Full project folder - commit the entire project folder (plans, outcomes, decisions, input, etc.).
+
+## [Amendment] How should the commit message be formatted?
+Use format: `RAF(project): outcomes` - e.g., `RAF(005-task-naming-improvements): outcomes`
+
+## [Amendment] Where should this commit logic be triggered from?
+Inside `raf do` - automatically detect project completion at the end of `raf do` when final task succeeds.
+
+## [Amendment] What should happen if there are other uncommitted changes in the repo when project completes?
+Commit only project - stage and commit only the project folder, leave other changes unstaged.
