@@ -67,3 +67,4 @@ npm run lint       # Type check without emit
 
 ### Important
 After task completion update README.md (user facing) and CLAUDE.md (internal)
+Update version in package.json after task completion
