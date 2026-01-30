@@ -422,9 +422,6 @@ ${stashName ? `- Stash: ${stashName}` : ''}
   // Ensure context is cleared for summary
   logger.clearContext();
 
-  // Generate summary
-  projectManager.saveSummary(projectPath, state);
-
   // Get final stats
   const stats = getDerivedStats(state);
 

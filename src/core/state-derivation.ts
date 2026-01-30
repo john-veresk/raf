@@ -155,7 +155,7 @@ export function deriveProjectState(projectPath: string): DerivedProjectState {
   const outcomeStatuses = new Map<string, DerivedTaskStatus>();
   if (fs.existsSync(outcomesDir)) {
     const outcomeFiles = fs.readdirSync(outcomesDir)
-      .filter((f) => f.endsWith('.md') && f !== 'SUMMARY.md')
+      .filter((f) => f.endsWith('.md'))
       .sort();
 
     for (const outcomeFile of outcomeFiles) {

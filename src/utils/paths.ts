@@ -139,10 +139,6 @@ export function getInputPath(projectPath: string): string {
   return path.join(projectPath, 'input.md');
 }
 
-export function getSummaryPath(projectPath: string): string {
-  return path.join(getOutcomesDir(projectPath), 'SUMMARY.md');
-}
-
 /**
  * Resolve a project identifier to a full project path.
  * Supports:

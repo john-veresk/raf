@@ -68,7 +68,6 @@ RAF creates a `./RAF/` folder with numbered project directories:
 │   ├── decisions.md       # Design decisions from planning
 │   ├── plans/             # Generated task plans
 │   ├── outcomes/          # Execution results
-│   │   └── SUMMARY.md     # Project summary
 │   └── logs/              # Debug logs (on failure)
 └── 002-dashboard/
     └── ...

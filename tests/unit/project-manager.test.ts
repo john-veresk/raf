@@ -149,36 +149,6 @@ describe('ProjectManager', () => {
     });
   });
 
-  describe('saveSummary', () => {
-    it('should generate summary file from derived state', () => {
-      const manager = new ProjectManager();
-      const projectPath = manager.createProject('test');
-
-      // Create plan and outcome files
-      fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
-      fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-task.md'),
-        '## Status: SUCCESS\n\n# Task 001 - Completed'
-      );
-
-      // Create derived state to pass to saveSummary
-      const state = {
-        tasks: [
-          { id: '001', planFile: 'plans/001-task.md', status: 'completed' as const },
-        ],
-      };
-
-      manager.saveSummary(projectPath, state);
-
-      const summaryPath = path.join(projectPath, 'outcomes', 'SUMMARY.md');
-      expect(fs.existsSync(summaryPath)).toBe(true);
-
-      const content = fs.readFileSync(summaryPath, 'utf-8');
-      expect(content).toContain('# Project Summary: test');
-      expect(content).toContain('Completed: 1');
-    });
-  });
-
   describe('isProjectFolderEmpty', () => {
     it('should return true for non-existent folder', () => {
       const manager = new ProjectManager();

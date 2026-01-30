@@ -10,17 +10,11 @@ import {
   getOutcomesDir,
   getDecisionsPath,
   getInputPath,
-  getSummaryPath,
   listProjects,
-  extractProjectName,
 } from '../utils/paths.js';
 import { sanitizeProjectName } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
-import {
-  deriveProjectState,
-  getDerivedStats,
-  type DerivedProjectState,
-} from './state-derivation.js';
+import { deriveProjectState, getDerivedStats } from './state-derivation.js';
 
 export interface ProjectInfo {
   number: number;
@@ -172,58 +166,6 @@ export class ProjectManager {
     const logPath = path.join(logsDir, `${taskId}-task.log`);
     fs.writeFileSync(logPath, content);
     logger.debug(`Saved log to ${logPath}`);
-  }
-
-  /**
-   * Generate and save SUMMARY.md from derived state.
-   */
-  saveSummary(projectPath: string, state: DerivedProjectState): void {
-    const stats = getDerivedStats(state);
-    const projectName = extractProjectName(projectPath) ?? 'Unknown';
-
-    // Ensure outcomes directory exists
-    const outcomesDir = getOutcomesDir(projectPath);
-    if (!fs.existsSync(outcomesDir)) {
-      fs.mkdirSync(outcomesDir, { recursive: true });
-    }
-
-    const summaryPath = getSummaryPath(projectPath);
-    const now = new Date().toISOString();
-
-    let content = `# Project Summary: ${projectName}\n\n`;
-    content += `**Generated:** ${now}\n\n`;
-
-    content += `## Statistics\n\n`;
-    content += `- Total: ${stats.total}\n`;
-    content += `- Completed: ${stats.completed}\n`;
-    content += `- Failed: ${stats.failed}\n`;
-    content += `- Pending: ${stats.pending}\n\n`;
-
-    content += `## Tasks\n\n`;
-
-    for (const task of state.tasks) {
-      const statusBadge = this.getStatusBadge(task.status);
-      content += `### ${statusBadge} Task ${task.id}\n\n`;
-      content += `- **Plan:** ${task.planFile}\n`;
-      content += `- **Status:** ${task.status}\n`;
-      content += '\n';
-    }
-
-    fs.writeFileSync(summaryPath, content);
-    logger.debug(`Saved summary to ${summaryPath}`);
-  }
-
-  private getStatusBadge(status: string): string {
-    switch (status) {
-      case 'pending':
-        return '[ ]';
-      case 'completed':
-        return '[x]';
-      case 'failed':
-        return '[!]';
-      default:
-        return '[?]';
-    }
   }
 
   /**
