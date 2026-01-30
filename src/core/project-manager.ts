@@ -143,7 +143,7 @@ export class ProjectManager {
     const files = fs.readdirSync(outcomesDir).filter((f) => f.endsWith('.md')).sort();
 
     for (const file of files) {
-      const match = file.match(/^(\d{2})-/);
+      const match = file.match(/^(\d{2,3})-/);
       if (match && match[1]) {
         const content = fs.readFileSync(path.join(outcomesDir, file), 'utf-8');
         outcomes.push({ taskId: match[1], content });

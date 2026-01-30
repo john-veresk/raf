@@ -37,15 +37,15 @@ describe('ProjectManager', () => {
       const { projectPath: path1 } = manager.createProject('first');
       const { projectPath: path2 } = manager.createProject('second');
 
-      expect(path.basename(path1)).toBe('01-first');
-      expect(path.basename(path2)).toBe('02-second');
+      expect(path.basename(path1)).toBe('001-first');
+      expect(path.basename(path2)).toBe('002-second');
     });
 
     it('should sanitize project names', () => {
       const manager = new ProjectManager();
       const { projectPath } = manager.createProject('My Project Name!');
 
-      expect(path.basename(projectPath)).toBe('01-my-project-name');
+      expect(path.basename(projectPath)).toBe('001-my-project-name');
     });
   });
 
@@ -56,7 +56,7 @@ describe('ProjectManager', () => {
 
       const found = manager.findProject('findme');
       expect(found).not.toBeNull();
-      expect(found).toContain('01-findme');
+      expect(found).toContain('001-findme');
     });
 
     it('should return null for non-existent project', () => {

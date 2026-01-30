@@ -26,7 +26,7 @@ export function getNextProjectNumber(rafDir: string): number {
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      const match = entry.name.match(/^(\d{2})-/);
+      const match = entry.name.match(/^(\d{2,3})-/);
       if (match && match[1]) {
         numbers.push(parseInt(match[1], 10));
       }
@@ -41,7 +41,7 @@ export function getNextProjectNumber(rafDir: string): number {
 }
 
 export function formatProjectNumber(num: number): string {
-  return num.toString().padStart(2, '0');
+  return num.toString().padStart(3, '0');
 }
 
 export function getProjectDir(rafDir: string, projectName: string): string | null {
@@ -53,7 +53,7 @@ export function getProjectDir(rafDir: string, projectName: string): string | nul
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      const match = entry.name.match(/^\d{2}-(.+)$/);
+      const match = entry.name.match(/^\d{2,3}-(.+)$/);
       if (match && match[1] === projectName) {
         return path.join(rafDir, entry.name);
       }
@@ -73,7 +73,7 @@ export function listProjects(rafDir: string): Array<{ number: number; name: stri
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      const match = entry.name.match(/^(\d{2})-(.+)$/);
+      const match = entry.name.match(/^(\d{2,3})-(.+)$/);
       if (match && match[1] && match[2]) {
         projects.push({
           number: parseInt(match[1], 10),

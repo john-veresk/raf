@@ -2,28 +2,32 @@
   "version": 1,
   "projectName": "dot-raf",
   "createdAt": "2026-01-30T15:08:42.058Z",
-  "updatedAt": "2026-01-30T15:27:12.776Z",
+  "updatedAt": "2026-01-30T15:31:32.615Z",
   "inputFile": "input.md",
   "status": "executing",
   "tasks": [
     {
       "id": "01",
       "planFile": "plans/01-create-dot-raf-folder.md",
-      "status": "in_progress",
-      "attempts": 2,
+      "status": "completed",
+      "attempts": 3,
       "filesBeforeTask": [
-        ".gitignore",
-        "CLAUDE.md",
-        "package.json",
-        "RAF/"
+        "RAF/02-dot-raf/state.json"
       ],
-      "startedAt": "2026-01-30T15:27:01.747Z"
+      "startedAt": "2026-01-30T15:27:01.747Z",
+      "completedAt": "2026-01-30T15:31:32.592Z",
+      "commitHash": "c74c1ff"
     },
     {
       "id": "02",
       "planFile": "plans/02-three-digit-numbering.md",
-      "status": "pending",
-      "attempts": 0
+      "status": "in_progress",
+      "attempts": 1,
+      "filesBeforeTask": [
+        "RAF/02-dot-raf/state.json",
+        "RAF/02-dot-raf/outcomes/"
+      ],
+      "startedAt": "2026-01-30T15:31:32.614Z"
     },
     {
       "id": "03",
@@ -44,7 +48,7 @@
       "attempts": 0
     }
   ],
-  "currentTaskIndex": 0,
+  "currentTaskIndex": 1,
   "config": {
     "timeout": 60,
     "maxRetries": 3,

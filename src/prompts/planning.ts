@@ -44,8 +44,8 @@ DO NOT skip the interview step. The quality of your plans depends on understandi
 ### Step 3: Create Plan Files
 
 After interviewing the user about all tasks, create plan files in the plans folder:
-- ${projectPath}/plans/01-task-name.md
-- ${projectPath}/plans/02-task-name.md
+- ${projectPath}/plans/001-task-name.md
+- ${projectPath}/plans/002-task-name.md
 - etc.
 
 Each plan file should follow this structure:
@@ -87,7 +87,7 @@ After creating all plan files, provide a summary of the tasks you've created.
 ## Important Rules
 
 1. ALWAYS interview the user before creating plans
-2. Create plans in numbered order (01, 02, 03, etc.)
+2. Create plans in numbered order (001, 002, 003, etc.)
 3. Use descriptive, kebab-case names for plan files
 4. Each plan should be self-contained with all context needed
 5. Reference other tasks by number if there are dependencies

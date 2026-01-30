@@ -162,7 +162,7 @@ export class StateManager {
     this.state.currentTaskIndex = 0;
 
     for (const planFile of planFiles) {
-      const match = planFile.match(/^(\d{2})-(.+)\.md$/);
+      const match = planFile.match(/^(\d{2,3})-(.+)\.md$/);
       if (match && match[1]) {
         const taskId = match[1];
         this.state.tasks.push(createTask(taskId, path.join('plans', planFile)));

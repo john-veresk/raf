@@ -62,14 +62,16 @@ RAF creates a `./RAF/` folder with numbered project directories:
 
 ```
 ./RAF/
-├── 01-auth-system/
+├── 001-auth-system/
 │   ├── input.md           # Your original description
-│   ├── state.json         # Progress tracking
 │   ├── plans/             # Generated task plans
-│   ├── outcomes/          # Execution results
-│   └── logs/              # Debug logs (on failure)
-└── 02-dashboard/
+│   └── outcomes/          # Execution results
+└── 002-dashboard/
     └── ...
+
+./.raf/
+├── state.json             # Progress tracking
+└── logs/                  # Debug logs (on failure)
 ```
 
 ## License

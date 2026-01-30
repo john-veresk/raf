@@ -43,14 +43,19 @@ describe('Paths', () => {
   });
 
   describe('formatProjectNumber', () => {
-    it('should pad single digits', () => {
-      expect(formatProjectNumber(1)).toBe('01');
-      expect(formatProjectNumber(9)).toBe('09');
+    it('should pad single digits to 3 digits', () => {
+      expect(formatProjectNumber(1)).toBe('001');
+      expect(formatProjectNumber(9)).toBe('009');
     });
 
-    it('should not pad double digits', () => {
-      expect(formatProjectNumber(10)).toBe('10');
-      expect(formatProjectNumber(99)).toBe('99');
+    it('should pad double digits to 3 digits', () => {
+      expect(formatProjectNumber(10)).toBe('010');
+      expect(formatProjectNumber(99)).toBe('099');
+    });
+
+    it('should not pad triple digits', () => {
+      expect(formatProjectNumber(100)).toBe('100');
+      expect(formatProjectNumber(999)).toBe('999');
     });
   });
 
