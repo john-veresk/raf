@@ -10,6 +10,7 @@ import {
   validateProjectName,
 } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
+import { generateProjectName } from '../utils/name-generator.js';
 
 export function createPlanCommand(): Command {
   const command = new Command('plan')
@@ -58,16 +59,8 @@ async function runPlanCommand(projectName?: string): Promise<void> {
   // Get or generate project name
   let finalProjectName = projectName;
   if (!finalProjectName) {
-    // Extract first meaningful words from input
-    const words = cleanInput
-      .split(/\s+/)
-      .filter((w) => w.length > 2)
-      .slice(0, 3)
-      .join('-')
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, '');
-
-    finalProjectName = words || 'project';
+    logger.info('Generating project name...');
+    finalProjectName = await generateProjectName(cleanInput);
   }
 
   if (!validateProjectName(finalProjectName)) {

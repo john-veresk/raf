@@ -2,7 +2,7 @@
   "version": 1,
   "projectName": "dot-raf",
   "createdAt": "2026-01-30T15:08:42.058Z",
-  "updatedAt": "2026-01-30T15:31:32.615Z",
+  "updatedAt": "2026-01-30T15:37:09.129Z",
   "inputFile": "input.md",
   "status": "executing",
   "tasks": [
@@ -21,25 +21,38 @@
     {
       "id": "02",
       "planFile": "plans/02-three-digit-numbering.md",
-      "status": "in_progress",
+      "status": "completed",
       "attempts": 1,
       "filesBeforeTask": [
         "RAF/02-dot-raf/state.json",
         "RAF/02-dot-raf/outcomes/"
       ],
-      "startedAt": "2026-01-30T15:31:32.614Z"
+      "startedAt": "2026-01-30T15:31:32.614Z",
+      "completedAt": "2026-01-30T15:34:17.461Z"
     },
     {
       "id": "03",
       "planFile": "plans/03-move-summary-to-outcomes.md",
-      "status": "pending",
-      "attempts": 0
+      "status": "completed",
+      "attempts": 1,
+      "filesBeforeTask": [
+        "RAF/02-dot-raf/state.json",
+        "RAF/02-dot-raf/outcomes/02-three-digit-numbering.md"
+      ],
+      "startedAt": "2026-01-30T15:34:17.488Z",
+      "completedAt": "2026-01-30T15:37:09.101Z"
     },
     {
       "id": "04",
       "planFile": "plans/04-haiku-project-name-generation.md",
-      "status": "pending",
-      "attempts": 0
+      "status": "in_progress",
+      "attempts": 1,
+      "filesBeforeTask": [
+        "RAF/02-dot-raf/state.json",
+        "RAF/02-dot-raf/outcomes/02-three-digit-numbering.md",
+        "RAF/02-dot-raf/outcomes/03-move-summary-to-outcomes.md"
+      ],
+      "startedAt": "2026-01-30T15:37:09.129Z"
     },
     {
       "id": "05",
@@ -48,7 +61,7 @@
       "attempts": 0
     }
   ],
-  "currentTaskIndex": 1,
+  "currentTaskIndex": 3,
   "config": {
     "timeout": 60,
     "maxRetries": 3,

@@ -5,6 +5,7 @@ RAF is a CLI tool that orchestrates task planning and execution using Claude Cod
 ## Features
 
 - **Interactive Planning**: Claude interviews you to break down complex tasks
+- **Smart Project Naming**: Auto-generates descriptive project names using Claude Haiku
 - **Automated Execution**: Execute plans with retry logic and progress tracking
 - **Resume Support**: Continue from where you left off after interruption
 - **Git Integration**: Automatic commits after each completed task
