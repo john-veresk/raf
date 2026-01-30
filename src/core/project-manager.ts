@@ -8,10 +8,10 @@ import {
   getProjectDir,
   getPlansDir,
   getOutcomesDir,
-  getLogsDir,
   getInputPath,
   getSummaryPath,
   listProjects,
+  ensureRuntimeLogsDir,
 } from '../utils/paths.js';
 import { sanitizeProjectName } from '../utils/validation.js';
 import { StateManager } from './state-manager.js';
@@ -154,14 +154,11 @@ export class ProjectManager {
   }
 
   /**
-   * Save a log file.
+   * Save a log file to the .raf runtime directory.
+   * Note: projectPath is kept for API compatibility but logs now go to .raf/logs/
    */
-  saveLog(projectPath: string, taskId: string, content: string): void {
-    const logsDir = getLogsDir(projectPath);
-    if (!fs.existsSync(logsDir)) {
-      fs.mkdirSync(logsDir, { recursive: true });
-    }
-
+  saveLog(_projectPath: string, taskId: string, content: string): void {
+    const logsDir = ensureRuntimeLogsDir();
     const logPath = path.join(logsDir, `${taskId}-task.log`);
     fs.writeFileSync(logPath, content);
     logger.debug(`Saved log to ${logPath}`);
@@ -250,13 +247,11 @@ export class ProjectManager {
   }
 
   /**
-   * Ensure logs directory exists.
+   * Ensure runtime logs directory exists in .raf folder.
+   * Note: projectPath is kept for API compatibility but logs now go to .raf/logs/
    */
-  ensureLogsDir(projectPath: string): void {
-    const logsDir = getLogsDir(projectPath);
-    if (!fs.existsSync(logsDir)) {
-      fs.mkdirSync(logsDir, { recursive: true });
-    }
+  ensureLogsDir(_projectPath: string): void {
+    ensureRuntimeLogsDir();
   }
 
   /**

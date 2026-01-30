@@ -26,7 +26,9 @@ describe('ProjectManager', () => {
       expect(fs.existsSync(projectPath)).toBe(true);
       expect(fs.existsSync(path.join(projectPath, 'plans'))).toBe(true);
       expect(fs.existsSync(path.join(projectPath, 'outcomes'))).toBe(true);
-      expect(fs.existsSync(path.join(projectPath, 'state.json'))).toBe(true);
+      // State file is now in .raf/state.json, not in project folder
+      const rafRuntimeDir = path.join(tempDir, '.raf');
+      expect(fs.existsSync(path.join(rafRuntimeDir, 'state.json'))).toBe(true);
     });
 
     it('should auto-increment project numbers', () => {
@@ -117,13 +119,15 @@ describe('ProjectManager', () => {
   });
 
   describe('saveLog', () => {
-    it('should create logs directory and save log', () => {
+    it('should create logs directory in .raf and save log', () => {
       const manager = new ProjectManager();
       const { projectPath } = manager.createProject('test');
 
       manager.saveLog(projectPath, '01', 'Log content');
 
-      const logPath = path.join(projectPath, 'logs', '01-task.log');
+      // Logs are now in .raf/logs/, not in project folder
+      const rafRuntimeDir = path.join(tempDir, '.raf');
+      const logPath = path.join(rafRuntimeDir, 'logs', '01-task.log');
       expect(fs.existsSync(logPath)).toBe(true);
       expect(fs.readFileSync(logPath, 'utf-8')).toBe('Log content');
     });

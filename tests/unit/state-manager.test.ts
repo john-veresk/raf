@@ -7,23 +7,30 @@ import { createInitialState } from '../../src/types/state.js';
 describe('StateManager', () => {
   let tempDir: string;
   let projectPath: string;
+  let originalCwd: string;
+  let rafRuntimeDir: string;
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-test-'));
+    originalCwd = process.cwd();
+    process.chdir(tempDir);
     projectPath = path.join(tempDir, 'test-project');
+    rafRuntimeDir = path.join(tempDir, '.raf');
     fs.mkdirSync(projectPath, { recursive: true });
     fs.mkdirSync(path.join(projectPath, 'plans'), { recursive: true });
   });
 
   afterEach(() => {
+    process.chdir(originalCwd);
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
   describe('initialize', () => {
-    it('should create initial state file', () => {
+    it('should create initial state file in .raf runtime directory', () => {
       const manager = StateManager.initialize(projectPath, 'test-project', 'input.md');
 
-      const statePath = path.join(projectPath, 'state.json');
+      // State should be created in .raf/state.json, not in projectPath
+      const statePath = path.join(rafRuntimeDir, 'state.json');
       expect(fs.existsSync(statePath)).toBe(true);
 
       const state = manager.getState();
@@ -34,9 +41,11 @@ describe('StateManager', () => {
   });
 
   describe('load', () => {
-    it('should load existing state', () => {
+    it('should load existing state from .raf runtime directory', () => {
       const initialState = createInitialState('test', 'input.md');
-      const statePath = path.join(projectPath, 'state.json');
+      // State file is in .raf/state.json
+      fs.mkdirSync(rafRuntimeDir, { recursive: true });
+      const statePath = path.join(rafRuntimeDir, 'state.json');
       fs.writeFileSync(statePath, JSON.stringify(initialState));
 
       const manager = new StateManager(projectPath);
@@ -44,6 +53,10 @@ describe('StateManager', () => {
     });
 
     it('should throw if state file not found', () => {
+      // Ensure .raf directory doesn't exist
+      if (fs.existsSync(rafRuntimeDir)) {
+        fs.rmSync(rafRuntimeDir, { recursive: true, force: true });
+      }
       expect(() => new StateManager(projectPath)).toThrow('State file not found');
     });
   });
@@ -221,8 +234,8 @@ describe('StateManager', () => {
       const baseline = ['src/modified.ts'];
       manager.setTaskBaseline('01', baseline);
 
-      // Load state from file
-      const statePath = path.join(projectPath, 'state.json');
+      // Load state from .raf/state.json
+      const statePath = path.join(rafRuntimeDir, 'state.json');
       const content = fs.readFileSync(statePath, 'utf-8');
       const state = JSON.parse(content);
 

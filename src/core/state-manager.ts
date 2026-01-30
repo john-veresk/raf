@@ -8,7 +8,7 @@ import {
   createInitialState,
   createTask,
 } from '../types/state.js';
-import { getStatePath, getPlansDir } from '../utils/paths.js';
+import { getPlansDir, getRuntimeStatePath, ensureRafRuntimeDir } from '../utils/paths.js';
 import { logger } from '../utils/logger.js';
 
 export class StateManager {
@@ -21,7 +21,7 @@ export class StateManager {
   }
 
   private load(): ProjectState {
-    const statePath = getStatePath(this.projectPath);
+    const statePath = getRuntimeStatePath();
 
     if (!fs.existsSync(statePath)) {
       throw new Error(`State file not found: ${statePath}`);
@@ -32,13 +32,15 @@ export class StateManager {
   }
 
   save(): void {
-    const statePath = getStatePath(this.projectPath);
+    ensureRafRuntimeDir();
+    const statePath = getRuntimeStatePath();
     this.state.updatedAt = new Date().toISOString();
     fs.writeFileSync(statePath, JSON.stringify(this.state, null, 2));
   }
 
   static initialize(projectPath: string, projectName: string, inputFile: string): StateManager {
-    const statePath = getStatePath(projectPath);
+    ensureRafRuntimeDir();
+    const statePath = getRuntimeStatePath();
     const initialState = createInitialState(projectName, inputFile);
     fs.writeFileSync(statePath, JSON.stringify(initialState, null, 2));
 
