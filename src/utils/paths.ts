@@ -2,7 +2,6 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 export const RAF_DIR = 'RAF';
-export const RAF_RUNTIME_DIR = '.raf';
 
 export function getRafDir(): string {
   return path.resolve(process.cwd(), RAF_DIR);
@@ -136,58 +135,10 @@ export function getLogsDir(projectPath: string): string {
   return path.join(projectPath, 'logs');
 }
 
-export function getStatePath(projectPath: string): string {
-  return path.join(projectPath, 'state.json');
-}
-
 export function getInputPath(projectPath: string): string {
   return path.join(projectPath, 'input.md');
 }
 
 export function getSummaryPath(projectPath: string): string {
   return path.join(getOutcomesDir(projectPath), 'SUMMARY.md');
-}
-
-/**
- * Get the .raf runtime directory at repo root.
- * This directory stores runtime artifacts like state.json and logs.
- */
-export function getRafRuntimeDir(): string {
-  return path.resolve(process.cwd(), RAF_RUNTIME_DIR);
-}
-
-/**
- * Ensure the .raf runtime directory exists.
- */
-export function ensureRafRuntimeDir(): string {
-  const runtimeDir = getRafRuntimeDir();
-  if (!fs.existsSync(runtimeDir)) {
-    fs.mkdirSync(runtimeDir, { recursive: true });
-  }
-  return runtimeDir;
-}
-
-/**
- * Get the state.json path in the .raf runtime directory.
- */
-export function getRuntimeStatePath(): string {
-  return path.join(getRafRuntimeDir(), 'state.json');
-}
-
-/**
- * Get the logs directory in the .raf runtime directory.
- */
-export function getRuntimeLogsDir(): string {
-  return path.join(getRafRuntimeDir(), 'logs');
-}
-
-/**
- * Ensure the runtime logs directory exists.
- */
-export function ensureRuntimeLogsDir(): string {
-  const logsDir = getRuntimeLogsDir();
-  if (!fs.existsSync(logsDir)) {
-    fs.mkdirSync(logsDir, { recursive: true });
-  }
-  return logsDir;
 }

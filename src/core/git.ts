@@ -356,7 +356,7 @@ export function formatCommitMessage(message: string, projectName?: string): stri
 /**
  * Smart commit: only commits files changed during task execution.
  * @param message - Commit message
- * @param baselineFiles - Files that were changed before task started (from state.json)
+ * @param baselineFiles - Files that were changed before task started (captured before execution)
  * @param projectName - Optional project name to include in commit message prefix
  * @returns Commit hash if successful, null otherwise
  */
@@ -372,21 +372,14 @@ export function commitTaskChanges(message: string, baselineFiles?: string[], pro
   // Get current changed files
   const currentFiles = getChangedFiles();
 
-  // Filter out state.json from any commit
-  const STATE_JSON_PATTERN = /state\.json$/;
-  const filteredCurrentFiles = currentFiles.filter(f => !STATE_JSON_PATTERN.test(f));
-
   if (!baselineFiles) {
-    // No baseline captured - fallback to committing all changes (minus state.json)
-    logger.warn('No baseline captured, committing all changes except state.json');
-    return commitSpecificFiles(filteredCurrentFiles, formattedMessage);
+    // No baseline captured - fallback to committing all changes
+    logger.warn('No baseline captured, committing all changes');
+    return commitSpecificFiles(currentFiles, formattedMessage);
   }
 
   // Calculate files changed during this task
-  const taskFiles = getTaskChangedFiles(filteredCurrentFiles, baselineFiles);
-
-  // Also filter state.json from task files (belt and suspenders)
-  const filesToCommit = taskFiles.filter(f => !STATE_JSON_PATTERN.test(f));
+  const filesToCommit = getTaskChangedFiles(currentFiles, baselineFiles);
 
   if (filesToCommit.length === 0) {
     logger.debug('No task-specific changes to commit');

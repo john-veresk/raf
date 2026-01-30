@@ -1,6 +1,5 @@
 import { Command } from 'commander';
 import { ProjectManager } from '../core/project-manager.js';
-import { StateManager } from '../core/state-manager.js';
 import { ClaudeRunner } from '../core/claude-runner.js';
 import { shutdownHandler } from '../core/shutdown-handler.js';
 import { commitTaskChanges, getChangedFiles, stashChanges, hasUncommittedChanges } from '../core/git.js';
@@ -9,9 +8,16 @@ import { parseOutput, extractSummary, isRetryableFailure } from '../parsers/outp
 import { validatePlansExist } from '../utils/validation.js';
 import { getRafDir, getProjectDir, extractProjectNumber, extractProjectName, extractTaskNameFromPlanFile } from '../utils/paths.js';
 import { logger } from '../utils/logger.js';
-import { getClaudeModel } from '../utils/config.js';
+import { getClaudeModel, getConfig } from '../utils/config.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
 import { createStatusLine } from '../utils/status-line.js';
+import {
+  deriveProjectState,
+  getNextPendingTask,
+  getDerivedStats,
+  isProjectComplete,
+  hasProjectFailed,
+} from '../core/state-derivation.js';
 import type { DoCommandOptions } from '../types/config.js';
 
 export function createDoCommand(): Command {
@@ -43,26 +49,22 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
     process.exit(1);
   }
 
-  // Load state
-  let stateManager: StateManager;
-  try {
-    stateManager = new StateManager(projectPath);
-  } catch (error) {
-    logger.error(`Failed to load project state: ${error}`);
-    process.exit(1);
-  }
-
-  const state = stateManager.getState();
-  const config = stateManager.getConfig();
+  // Get configuration
+  const config = getConfig();
   const timeout = Number(options.timeout) || config.timeout;
   const verbose = options.verbose ?? false;
   const debug = options.debug ?? false;
+  const maxRetries = config.maxRetries;
+  const autoCommit = config.autoCommit;
 
   // Configure logger
   logger.configure({ verbose, debug });
 
-  // Check project status
-  if (state.status === 'completed') {
+  // Derive state from folder structure
+  let state = deriveProjectState(projectPath);
+
+  // Check if project is already complete
+  if (isProjectComplete(state)) {
     logger.info('Project already completed.');
     process.exit(0);
   }
@@ -72,12 +74,10 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
   const projectManager = new ProjectManager();
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
-  shutdownHandler.registerStateManager(stateManager);
 
-  // Update status
-  stateManager.setStatus('executing');
+  const derivedProjectName = extractProjectName(projectPath) ?? projectName;
 
-  logger.info(`Executing project: ${state.projectName}`);
+  logger.info(`Executing project: ${derivedProjectName}`);
   logger.info(`Tasks: ${state.tasks.length}, Timeout: ${timeout} minutes`);
 
   // Log Claude model name
@@ -88,12 +88,16 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
 
   logger.newline();
 
+  // Track baseline files per task for smart commit filtering
+  const taskBaselines = new Map<string, string[]>();
+
   // Execute tasks
-  let task = stateManager.getNextPendingTask();
+  let task = getNextPendingTask(state);
   const totalTasks = state.tasks.length;
 
   while (task) {
-    const taskNumber = stateManager.getCurrentTaskIndex() + 1;
+    const taskIndex = state.tasks.findIndex((t) => t.id === task!.id);
+    const taskNumber = taskIndex + 1;
     const taskName = extractTaskNameFromPlanFile(task.planFile);
     const taskContext = `[Task ${taskNumber}/${totalTasks}: ${taskName ?? task.id}]`;
     logger.setContext(taskContext);
@@ -101,11 +105,8 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
 
     // Capture git baseline BEFORE task execution (for smart commit filtering)
     const baselineFiles = getChangedFiles();
-    stateManager.setTaskBaseline(task.id, baselineFiles);
+    taskBaselines.set(task.id, baselineFiles);
     logger.debug(`  Captured baseline: ${baselineFiles.length} pre-existing changed files`);
-
-    // Mark as in progress
-    stateManager.updateTaskStatus(task.id, 'in_progress');
 
     // Get previous outcomes for context
     const previousOutcomes = projectManager.readOutcomes(projectPath);
@@ -118,8 +119,8 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
       taskNumber,
       totalTasks,
       previousOutcomes,
-      autoCommit: config.autoCommit,
-      projectName: extractProjectName(projectPath) ?? undefined,
+      autoCommit,
+      projectName: derivedProjectName,
     });
 
     // Execute with retries
@@ -136,12 +137,11 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
     });
     timer.start();
 
-    while (!success && attempts < config.maxRetries) {
+    while (!success && attempts < maxRetries) {
       attempts++;
-      stateManager.incrementAttempts(task.id);
 
       if (attempts > 1) {
-        logger.info(`  Retry ${attempts}/${config.maxRetries}...`);
+        logger.info(`  Retry ${attempts}/${maxRetries}...`);
       }
 
       // Run Claude
@@ -193,19 +193,20 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
     if (success) {
       // Commit changes if enabled (using smart filtering)
       let commitHash: string | undefined;
-      if (config.autoCommit) {
-        const taskBaseline = stateManager.getTaskBaseline(task.id);
-        const projectName = extractProjectName(projectPath);
-        const hash = commitTaskChanges(`Task ${task.id} complete`, taskBaseline, projectName ?? undefined);
+      if (autoCommit) {
+        const taskBaseline = taskBaselines.get(task.id);
+        const hash = commitTaskChanges(`Task ${task.id} complete`, taskBaseline, derivedProjectName);
         if (hash) {
           commitHash = hash;
           logger.debug(`  Committed: ${hash}`);
         }
       }
 
-      // Save outcome
+      // Save outcome with status marker
       const summary = extractSummary(lastOutput);
-      const outcomeContent = `# Task ${task.id} - Completed
+      const outcomeContent = `## Status: SUCCESS
+
+# Task ${task.id} - Completed
 
 ## Summary
 ${summary}
@@ -218,8 +219,6 @@ ${commitHash ? `- Commit: ${commitHash}` : ''}
 `;
       projectManager.saveOutcome(projectPath, task.id, outcomeContent);
 
-      // Update state
-      stateManager.updateTaskStatus(task.id, 'completed', { commitHash });
       logger.success(`  Task ${task.id} completed (${elapsedFormatted})`);
     } else {
       // Stash any uncommitted changes on complete failure
@@ -233,12 +232,12 @@ ${commitHash ? `- Commit: ${commitHash}` : ''}
         }
       }
 
-      // Update state with failure
-      stateManager.updateTaskStatus(task.id, 'failed', { failureReason });
       logger.error(`  Task ${task.id} failed: ${failureReason} (${elapsedFormatted})`);
 
-      // Save failure outcome
-      const outcomeContent = `# Task ${task.id} - Failed
+      // Save failure outcome with status marker
+      const outcomeContent = `## Status: FAILED
+
+# Task ${task.id} - Failed
 
 ## Failure Reason
 ${failureReason}
@@ -257,23 +256,25 @@ ${stashName ? `- Stash: ${stashName}` : ''}
     // Clear context before next task
     logger.clearContext();
 
-    // Get next task
-    task = stateManager.getNextPendingTask();
+    // Re-derive state to get updated task statuses
+    state = deriveProjectState(projectPath);
+
+    // Get next pending task
+    task = getNextPendingTask(state);
   }
 
   // Ensure context is cleared for summary
   logger.clearContext();
 
   // Generate summary
-  projectManager.saveSummary(projectPath, stateManager);
+  projectManager.saveSummary(projectPath, state);
 
-  // Update final status
-  const stats = stateManager.getStats();
-  if (stateManager.isComplete()) {
-    stateManager.setStatus('completed');
+  // Get final stats
+  const stats = getDerivedStats(state);
+
+  if (isProjectComplete(state)) {
     logger.success('All tasks completed!');
-  } else if (stateManager.hasFailed()) {
-    stateManager.setStatus('failed');
+  } else if (hasProjectFailed(state)) {
     logger.warn('Some tasks failed.');
   }
 
@@ -282,7 +283,6 @@ ${stashName ? `- Stash: ${stashName}` : ''}
   logger.info('Summary:');
   logger.info(`  Completed: ${stats.completed}`);
   logger.info(`  Failed: ${stats.failed}`);
-  logger.info(`  Skipped: ${stats.skipped}`);
   logger.info(`  Pending: ${stats.pending}`);
 
   if (stats.failed > 0) {

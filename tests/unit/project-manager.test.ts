@@ -21,21 +21,19 @@ describe('ProjectManager', () => {
   describe('createProject', () => {
     it('should create project with correct structure', () => {
       const manager = new ProjectManager();
-      const { projectPath } = manager.createProject('test-project');
+      const projectPath = manager.createProject('test-project');
 
       expect(fs.existsSync(projectPath)).toBe(true);
       expect(fs.existsSync(path.join(projectPath, 'plans'))).toBe(true);
       expect(fs.existsSync(path.join(projectPath, 'outcomes'))).toBe(true);
-      // State file is now in .raf/state.json, not in project folder
-      const rafRuntimeDir = path.join(tempDir, '.raf');
-      expect(fs.existsSync(path.join(rafRuntimeDir, 'state.json'))).toBe(true);
+      expect(fs.existsSync(path.join(projectPath, 'decisions'))).toBe(true);
     });
 
     it('should auto-increment project numbers', () => {
       const manager = new ProjectManager();
 
-      const { projectPath: path1 } = manager.createProject('first');
-      const { projectPath: path2 } = manager.createProject('second');
+      const path1 = manager.createProject('first');
+      const path2 = manager.createProject('second');
 
       expect(path.basename(path1)).toBe('001-first');
       expect(path.basename(path2)).toBe('002-second');
@@ -43,7 +41,7 @@ describe('ProjectManager', () => {
 
     it('should sanitize project names', () => {
       const manager = new ProjectManager();
-      const { projectPath } = manager.createProject('My Project Name!');
+      const projectPath = manager.createProject('My Project Name!');
 
       expect(path.basename(projectPath)).toBe('001-my-project-name');
     });
@@ -83,12 +81,32 @@ describe('ProjectManager', () => {
       const projects = manager.listProjects();
       expect(projects).toEqual([]);
     });
+
+    it('should include task counts from derived state', () => {
+      const manager = new ProjectManager();
+      const projectPath = manager.createProject('test');
+
+      // Create plan files
+      fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '002-task.md'), '# Task 2');
+
+      // Create outcome with SUCCESS status
+      fs.writeFileSync(
+        path.join(projectPath, 'outcomes', '001-task.md'),
+        '## Status: SUCCESS\n\n# Task 001 - Completed'
+      );
+
+      const projects = manager.listProjects();
+      expect(projects[0]?.taskCount).toBe(2);
+      expect(projects[0]?.completedCount).toBe(1);
+      expect(projects[0]?.failedCount).toBe(0);
+    });
   });
 
   describe('saveInput and readInput', () => {
     it('should save and read input', () => {
       const manager = new ProjectManager();
-      const { projectPath } = manager.createProject('test');
+      const projectPath = manager.createProject('test');
 
       const content = '# My Project\n\nDescription here.';
       manager.saveInput(projectPath, content);
@@ -101,7 +119,7 @@ describe('ProjectManager', () => {
   describe('saveOutcome and readOutcomes', () => {
     it('should save and read outcomes', () => {
       const manager = new ProjectManager();
-      const { projectPath } = manager.createProject('test');
+      const projectPath = manager.createProject('test');
 
       // Create a plan file to match naming
       fs.writeFileSync(
@@ -119,30 +137,38 @@ describe('ProjectManager', () => {
   });
 
   describe('saveLog', () => {
-    it('should create logs directory in .raf and save log', () => {
+    it('should create logs directory in project and save log', () => {
       const manager = new ProjectManager();
-      const { projectPath } = manager.createProject('test');
+      const projectPath = manager.createProject('test');
 
       manager.saveLog(projectPath, '01', 'Log content');
 
-      // Logs are now in .raf/logs/, not in project folder
-      const rafRuntimeDir = path.join(tempDir, '.raf');
-      const logPath = path.join(rafRuntimeDir, 'logs', '01-task.log');
+      const logPath = path.join(projectPath, 'logs', '01-task.log');
       expect(fs.existsSync(logPath)).toBe(true);
       expect(fs.readFileSync(logPath, 'utf-8')).toBe('Log content');
     });
   });
 
   describe('saveSummary', () => {
-    it('should generate summary file', () => {
+    it('should generate summary file from derived state', () => {
       const manager = new ProjectManager();
-      const { projectPath, stateManager } = manager.createProject('test');
+      const projectPath = manager.createProject('test');
 
-      stateManager.addTask('01', 'plans/01-task.md');
-      stateManager.updateTaskStatus('01', 'completed');
-      stateManager.setStatus('completed');
+      // Create plan and outcome files
+      fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
+      fs.writeFileSync(
+        path.join(projectPath, 'outcomes', '001-task.md'),
+        '## Status: SUCCESS\n\n# Task 001 - Completed'
+      );
 
-      manager.saveSummary(projectPath, stateManager);
+      // Create derived state to pass to saveSummary
+      const state = {
+        tasks: [
+          { id: '001', planFile: 'plans/001-task.md', status: 'completed' as const },
+        ],
+      };
+
+      manager.saveSummary(projectPath, state);
 
       const summaryPath = path.join(projectPath, 'outcomes', 'SUMMARY.md');
       expect(fs.existsSync(summaryPath)).toBe(true);
@@ -163,7 +189,7 @@ describe('ProjectManager', () => {
 
     it('should return true when plans directory does not exist', () => {
       const manager = new ProjectManager();
-      const { projectPath } = manager.createProject('test');
+      const projectPath = manager.createProject('test');
 
       // Remove plans directory
       const plansDir = path.join(projectPath, 'plans');
@@ -174,7 +200,7 @@ describe('ProjectManager', () => {
 
     it('should return true when plans directory is empty', () => {
       const manager = new ProjectManager();
-      const { projectPath } = manager.createProject('test');
+      const projectPath = manager.createProject('test');
 
       // Plans directory exists but has no files
       expect(manager.isProjectFolderEmpty(projectPath)).toBe(true);
@@ -182,7 +208,7 @@ describe('ProjectManager', () => {
 
     it('should return false when at least one plan file exists', () => {
       const manager = new ProjectManager();
-      const { projectPath } = manager.createProject('test');
+      const projectPath = manager.createProject('test');
 
       // Create a plan file
       const plansDir = path.join(projectPath, 'plans');
@@ -193,7 +219,7 @@ describe('ProjectManager', () => {
 
     it('should ignore non-.md files in plans directory', () => {
       const manager = new ProjectManager();
-      const { projectPath } = manager.createProject('test');
+      const projectPath = manager.createProject('test');
 
       // Create a non-.md file
       const plansDir = path.join(projectPath, 'plans');
@@ -206,7 +232,7 @@ describe('ProjectManager', () => {
   describe('cleanupEmptyProject', () => {
     it('should delete folder when no plans exist', () => {
       const manager = new ProjectManager();
-      const { projectPath } = manager.createProject('test');
+      const projectPath = manager.createProject('test');
 
       // Verify folder exists
       expect(fs.existsSync(projectPath)).toBe(true);
@@ -219,7 +245,7 @@ describe('ProjectManager', () => {
 
     it('should not delete folder when plans exist', () => {
       const manager = new ProjectManager();
-      const { projectPath } = manager.createProject('test');
+      const projectPath = manager.createProject('test');
 
       // Create a plan file
       const plansDir = path.join(projectPath, 'plans');
@@ -244,7 +270,7 @@ describe('ProjectManager', () => {
 
     it('should be idempotent - safe to call multiple times', () => {
       const manager = new ProjectManager();
-      const { projectPath } = manager.createProject('test');
+      const projectPath = manager.createProject('test');
 
       // Call cleanup multiple times
       manager.cleanupEmptyProject(projectPath);
@@ -256,7 +282,7 @@ describe('ProjectManager', () => {
 
     it('should delete folder even if only subdirectories exist (no plans)', () => {
       const manager = new ProjectManager();
-      const { projectPath } = manager.createProject('test');
+      const projectPath = manager.createProject('test');
 
       // Create additional subdirectories but no plan files
       fs.mkdirSync(path.join(projectPath, 'extra'), { recursive: true });

@@ -1,12 +1,10 @@
 import { ClaudeRunner } from './claude-runner.js';
-import { StateManager } from './state-manager.js';
 import { logger } from '../utils/logger.js';
 
 type CleanupCallback = () => void | Promise<void>;
 
 class ShutdownHandler {
   private claudeRunner: ClaudeRunner | null = null;
-  private stateManager: StateManager | null = null;
   private cleanupCallbacks: CleanupCallback[] = [];
   private isShuttingDown = false;
 
@@ -15,13 +13,6 @@ class ShutdownHandler {
    */
   registerClaudeRunner(runner: ClaudeRunner): void {
     this.claudeRunner = runner;
-  }
-
-  /**
-   * Register a state manager to save on shutdown.
-   */
-  registerStateManager(manager: StateManager): void {
-    this.stateManager = manager;
   }
 
   /**
@@ -69,16 +60,6 @@ class ShutdownHandler {
       this.claudeRunner.kill();
     }
 
-    // Save state if available
-    if (this.stateManager) {
-      try {
-        logger.debug('Saving state...');
-        this.stateManager.save();
-      } catch (error) {
-        logger.error(`Failed to save state: ${error}`);
-      }
-    }
-
     // Run cleanup callbacks
     for (const callback of this.cleanupCallbacks) {
       try {
@@ -105,7 +86,6 @@ class ShutdownHandler {
    */
   clear(): void {
     this.claudeRunner = null;
-    this.stateManager = null;
     this.cleanupCallbacks = [];
   }
 }

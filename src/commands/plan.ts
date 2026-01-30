@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import { Command } from 'commander';
 import { ProjectManager } from '../core/project-manager.js';
 import { ClaudeRunner } from '../core/claude-runner.js';
@@ -11,6 +12,7 @@ import {
 } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
 import { generateProjectName } from '../utils/name-generator.js';
+import { getPlansDir } from '../utils/paths.js';
 
 export function createPlanCommand(): Command {
   const command = new Command('plan')
@@ -70,7 +72,7 @@ async function runPlanCommand(projectName?: string): Promise<void> {
 
   // Create project
   const projectManager = new ProjectManager();
-  const { projectPath, stateManager } = projectManager.createProject(finalProjectName);
+  const projectPath = projectManager.createProject(finalProjectName);
 
   logger.success(`Created project: ${projectPath}`);
   logger.newline();
@@ -82,7 +84,6 @@ async function runPlanCommand(projectName?: string): Promise<void> {
   const claudeRunner = new ClaudeRunner();
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
-  shutdownHandler.registerStateManager(stateManager);
 
   // Register cleanup callback for empty project folder
   shutdownHandler.onShutdown(() => {
@@ -106,28 +107,27 @@ async function runPlanCommand(projectName?: string): Promise<void> {
       logger.warn(`Claude exited with code ${exitCode}`);
     }
 
-    // Sync tasks from created plans
-    stateManager.syncTasksFromPlans();
-    const tasks = stateManager.getTasks();
+    // Check for created plan files
+    const plansDir = getPlansDir(projectPath);
+    const planFiles = fs.existsSync(plansDir)
+      ? fs.readdirSync(plansDir).filter((f) => f.endsWith('.md')).sort()
+      : [];
 
-    if (tasks.length === 0) {
+    if (planFiles.length === 0) {
       logger.warn('No plan files were created.');
-      stateManager.setStatus('failed');
     } else {
-      stateManager.setStatus('ready');
       logger.newline();
-      logger.success(`Planning complete! Created ${tasks.length} task(s).`);
+      logger.success(`Planning complete! Created ${planFiles.length} task(s).`);
       logger.newline();
       logger.info('Plans created:');
-      for (const task of tasks) {
-        logger.info(`  - ${task.planFile}`);
+      for (const planFile of planFiles) {
+        logger.info(`  - plans/${planFile}`);
       }
       logger.newline();
       logger.info(`Run 'raf do ${finalProjectName}' to execute the plans.`);
     }
   } catch (error) {
     logger.error(`Planning failed: ${error}`);
-    stateManager.setStatus('failed');
     throw error;
   } finally {
     // Cleanup empty project folder if no plans were created

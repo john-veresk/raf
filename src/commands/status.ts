@@ -1,9 +1,14 @@
 import { Command } from 'commander';
-import { StateManager } from '../core/state-manager.js';
-import { getRafDir, getProjectDir, listProjects } from '../utils/paths.js';
+import { getRafDir, getProjectDir, listProjects, extractProjectName } from '../utils/paths.js';
 import { logger } from '../utils/logger.js';
 import type { StatusCommandOptions } from '../types/config.js';
-import type { TaskStatus } from '../types/state.js';
+import {
+  deriveProjectState,
+  getDerivedStats,
+  isProjectComplete,
+  hasProjectFailed,
+  type DerivedTaskStatus,
+} from '../core/state-derivation.js';
 
 export function createStatusCommand(): Command {
   const command = new Command('status')
@@ -38,27 +43,24 @@ async function runStatusCommand(
     process.exit(1);
   }
 
-  let stateManager: StateManager;
-  try {
-    stateManager = new StateManager(projectPath);
-  } catch (error) {
-    logger.error(`Failed to load project state: ${error}`);
-    process.exit(1);
-  }
+  // Derive state from folder structure
+  const state = deriveProjectState(projectPath);
+  const stats = getDerivedStats(state);
+  const derivedProjectName = extractProjectName(projectPath) ?? projectName;
 
-  const state = stateManager.getState();
-  const stats = stateManager.getStats();
+  // Determine project status from task states
+  const projectStatus = isProjectComplete(state) ? 'completed' :
+    hasProjectFailed(state) ? 'failed' :
+    stats.total === 0 ? 'ready' : 'in_progress';
 
   if (options?.json) {
-    console.log(JSON.stringify({ state, stats }, null, 2));
+    console.log(JSON.stringify({ projectName: derivedProjectName, status: projectStatus, state, stats }, null, 2));
     return;
   }
 
   // Display project status
-  logger.info(`Project: ${state.projectName}`);
-  logger.info(`Status: ${state.status}`);
-  logger.info(`Created: ${state.createdAt}`);
-  logger.info(`Updated: ${state.updatedAt}`);
+  logger.info(`Project: ${derivedProjectName}`);
+  logger.info(`Status: ${projectStatus}`);
   logger.newline();
 
   logger.info('Tasks:');
@@ -66,24 +68,15 @@ async function runStatusCommand(
 
   for (const task of state.tasks) {
     const badge = getStatusBadge(task.status);
-    const attempts = task.attempts > 0 ? ` (attempts: ${task.attempts})` : '';
-    logger.info(`  ${badge} ${task.id}: ${task.planFile}${attempts}`);
-
-    if (task.failureReason) {
-      logger.info(`       Reason: ${task.failureReason}`);
-    }
-    if (task.commitHash) {
-      logger.info(`       Commit: ${task.commitHash}`);
-    }
+    logger.info(`  ${badge} ${task.id}: ${task.planFile}`);
   }
 
   logger.newline();
   logger.info('Summary:');
   logger.info(`  Completed: ${stats.completed}`);
   logger.info(`  Failed: ${stats.failed}`);
-  logger.info(`  In Progress: ${stats.inProgress}`);
   logger.info(`  Pending: ${stats.pending}`);
-  logger.info(`  Skipped: ${stats.skipped}`);
+  logger.info(`  Total: ${stats.total}`);
 }
 
 async function listAllProjects(
@@ -101,11 +94,12 @@ async function listAllProjects(
   if (options?.json) {
     const projectsWithState = projects.map((p) => {
       try {
-        const stateManager = new StateManager(p.path);
+        const state = deriveProjectState(p.path);
+        const stats = getDerivedStats(state);
         return {
           ...p,
-          state: stateManager.getState(),
-          stats: stateManager.getStats(),
+          state,
+          stats,
         };
       } catch {
         return { ...p, state: null, stats: null };
@@ -119,19 +113,21 @@ async function listAllProjects(
   logger.newline();
 
   for (const project of projects) {
-    let status = 'unknown';
     let taskInfo = '';
+    let projectStatus = 'ready';
 
     try {
-      const stateManager = new StateManager(project.path);
-      status = stateManager.getStatus();
-      const stats = stateManager.getStats();
-      taskInfo = ` (${stats.completed}/${stateManager.getTasks().length} tasks)`;
+      const state = deriveProjectState(project.path);
+      const stats = getDerivedStats(state);
+      taskInfo = ` (${stats.completed}/${stats.total} tasks)`;
+      projectStatus = isProjectComplete(state) ? 'completed' :
+        hasProjectFailed(state) ? 'failed' :
+        stats.total === 0 ? 'ready' : 'in_progress';
     } catch {
-      // State file might not exist
+      // Failed to derive state
     }
 
-    const statusBadge = getProjectStatusBadge(status);
+    const statusBadge = getProjectStatusBadge(projectStatus);
     logger.info(`  ${statusBadge} ${project.name}${taskInfo}`);
   }
 
@@ -139,18 +135,14 @@ async function listAllProjects(
   logger.info(`Use 'raf status <projectName>' for details.`);
 }
 
-function getStatusBadge(status: TaskStatus): string {
+function getStatusBadge(status: DerivedTaskStatus): string {
   switch (status) {
     case 'pending':
       return '[ ]';
-    case 'in_progress':
-      return '[~]';
     case 'completed':
       return '[x]';
     case 'failed':
       return '[!]';
-    case 'skipped':
-      return '[-]';
     default:
       return '[?]';
   }
@@ -158,11 +150,9 @@ function getStatusBadge(status: TaskStatus): string {
 
 function getProjectStatusBadge(status: string): string {
   switch (status) {
-    case 'planning':
-      return '[P]';
     case 'ready':
       return '[R]';
-    case 'executing':
+    case 'in_progress':
       return '[~]';
     case 'completed':
       return '[x]';

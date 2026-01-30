@@ -12,18 +12,23 @@ import {
   getInputPath,
   getSummaryPath,
   listProjects,
-  ensureRuntimeLogsDir,
+  extractProjectName,
 } from '../utils/paths.js';
 import { sanitizeProjectName } from '../utils/validation.js';
-import { StateManager } from './state-manager.js';
 import { logger } from '../utils/logger.js';
+import {
+  deriveProjectState,
+  getDerivedStats,
+  type DerivedProjectState,
+} from './state-derivation.js';
 
 export interface ProjectInfo {
   number: number;
   name: string;
   path: string;
-  status?: string;
   taskCount?: number;
+  completedCount?: number;
+  failedCount?: number;
 }
 
 export class ProjectManager {
@@ -35,8 +40,9 @@ export class ProjectManager {
 
   /**
    * Create a new project folder with initial structure.
+   * Returns the project path.
    */
-  createProject(projectName: string): { projectPath: string; stateManager: StateManager } {
+  createProject(projectName: string): string {
     ensureRafDir();
 
     const sanitizedName = sanitizeProjectName(projectName);
@@ -50,13 +56,9 @@ export class ProjectManager {
     fs.mkdirSync(getOutcomesDir(projectPath), { recursive: true });
     fs.mkdirSync(getDecisionsDir(projectPath), { recursive: true });
 
-    // Initialize state
-    const inputFile = 'input.md';
-    const stateManager = StateManager.initialize(projectPath, sanitizedName, inputFile);
-
     logger.debug(`Created project at ${projectPath}`);
 
-    return { projectPath, stateManager };
+    return projectPath;
   }
 
   /**
@@ -67,7 +69,7 @@ export class ProjectManager {
   }
 
   /**
-   * List all projects.
+   * List all projects with derived state information.
    */
   listProjects(): ProjectInfo[] {
     const projects = listProjects(this.rafDir);
@@ -79,13 +81,15 @@ export class ProjectManager {
         path: p.path,
       };
 
-      // Try to load state for additional info
+      // Derive state from folder structure
       try {
-        const stateManager = new StateManager(p.path);
-        info.status = stateManager.getStatus();
-        info.taskCount = stateManager.getTasks().length;
+        const state = deriveProjectState(p.path);
+        const stats = getDerivedStats(state);
+        info.taskCount = stats.total;
+        info.completedCount = stats.completed;
+        info.failedCount = stats.failed;
       } catch {
-        // State file might not exist yet
+        // Failed to derive state
       }
 
       return info;
@@ -156,22 +160,24 @@ export class ProjectManager {
   }
 
   /**
-   * Save a log file to the .raf runtime directory.
-   * Note: projectPath is kept for API compatibility but logs now go to .raf/logs/
+   * Save a log file to the project's logs directory.
    */
-  saveLog(_projectPath: string, taskId: string, content: string): void {
-    const logsDir = ensureRuntimeLogsDir();
+  saveLog(projectPath: string, taskId: string, content: string): void {
+    const logsDir = path.join(projectPath, 'logs');
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
     const logPath = path.join(logsDir, `${taskId}-task.log`);
     fs.writeFileSync(logPath, content);
     logger.debug(`Saved log to ${logPath}`);
   }
 
   /**
-   * Generate and save SUMMARY.md.
+   * Generate and save SUMMARY.md from derived state.
    */
-  saveSummary(projectPath: string, stateManager: StateManager): void {
-    const state = stateManager.getState();
-    const stats = stateManager.getStats();
+  saveSummary(projectPath: string, state: DerivedProjectState): void {
+    const stats = getDerivedStats(state);
+    const projectName = extractProjectName(projectPath) ?? 'Unknown';
 
     // Ensure outcomes directory exists
     const outcomesDir = getOutcomesDir(projectPath);
@@ -180,16 +186,15 @@ export class ProjectManager {
     }
 
     const summaryPath = getSummaryPath(projectPath);
+    const now = new Date().toISOString();
 
-    let content = `# Project Summary: ${state.projectName}\n\n`;
-    content += `**Status:** ${state.status}\n`;
-    content += `**Created:** ${state.createdAt}\n`;
-    content += `**Updated:** ${state.updatedAt}\n\n`;
+    let content = `# Project Summary: ${projectName}\n\n`;
+    content += `**Generated:** ${now}\n\n`;
 
     content += `## Statistics\n\n`;
+    content += `- Total: ${stats.total}\n`;
     content += `- Completed: ${stats.completed}\n`;
     content += `- Failed: ${stats.failed}\n`;
-    content += `- Skipped: ${stats.skipped}\n`;
     content += `- Pending: ${stats.pending}\n\n`;
 
     content += `## Tasks\n\n`;
@@ -199,20 +204,6 @@ export class ProjectManager {
       content += `### ${statusBadge} Task ${task.id}\n\n`;
       content += `- **Plan:** ${task.planFile}\n`;
       content += `- **Status:** ${task.status}\n`;
-      content += `- **Attempts:** ${task.attempts}\n`;
-
-      if (task.startedAt) {
-        content += `- **Started:** ${task.startedAt}\n`;
-      }
-      if (task.completedAt) {
-        content += `- **Completed:** ${task.completedAt}\n`;
-      }
-      if (task.commitHash) {
-        content += `- **Commit:** ${task.commitHash}\n`;
-      }
-      if (task.failureReason) {
-        content += `- **Failure Reason:** ${task.failureReason}\n`;
-      }
       content += '\n';
     }
 
@@ -224,14 +215,10 @@ export class ProjectManager {
     switch (status) {
       case 'pending':
         return '[ ]';
-      case 'in_progress':
-        return '[~]';
       case 'completed':
         return '[x]';
       case 'failed':
         return '[!]';
-      case 'skipped':
-        return '[-]';
       default:
         return '[?]';
     }
@@ -256,11 +243,13 @@ export class ProjectManager {
   }
 
   /**
-   * Ensure runtime logs directory exists in .raf folder.
-   * Note: projectPath is kept for API compatibility but logs now go to .raf/logs/
+   * Ensure logs directory exists in project folder.
    */
-  ensureLogsDir(_projectPath: string): void {
-    ensureRuntimeLogsDir();
+  ensureLogsDir(projectPath: string): void {
+    const logsDir = path.join(projectPath, 'logs');
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
   }
 
   /**

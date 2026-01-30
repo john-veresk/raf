@@ -69,11 +69,6 @@ export function validateProjectExists(rafDir: string, projectName: string): stri
   return null;
 }
 
-export function validateStateFile(projectPath: string): boolean {
-  const statePath = path.join(projectPath, 'state.json');
-  return fs.existsSync(statePath);
-}
-
 export function validatePlansExist(projectPath: string): boolean {
   const plansDir = path.join(projectPath, 'plans');
   if (!fs.existsSync(plansDir)) {

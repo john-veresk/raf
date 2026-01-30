@@ -55,3 +55,15 @@ export function getClaudeModel(settingsPath?: string): string | null {
     return null;
   }
 }
+
+/**
+ * Get runtime configuration for task execution.
+ * Returns default values which can be overridden by command line options.
+ */
+export function getConfig(): { timeout: number; maxRetries: number; autoCommit: boolean } {
+  return {
+    timeout: DEFAULT_RAF_CONFIG.defaultTimeout,
+    maxRetries: DEFAULT_RAF_CONFIG.defaultMaxRetries,
+    autoCommit: DEFAULT_RAF_CONFIG.autoCommit,
+  };
+}
