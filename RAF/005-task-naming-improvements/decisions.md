@@ -41,3 +41,17 @@ Inside `raf do` - automatically detect project completion at the end of `raf do`
 
 ## [Amendment] What should happen if there are other uncommitted changes in the repo when project completes?
 Commit only project - stage and commit only the project folder, leave other changes unstaged.
+
+## [Amendment] Should task 005 be updated or should a new task supersede it for the new commit format?
+Update task 005 directly - PENDING tasks are allowed to be amended. Also create a new task to update the amend prompts to reflect this rule.
+
+## [Amendment] What is the exact universal commit schema format?
+- Task commits: `RAF[005:001] project-name task-name`
+- Plan commits: `RAF[005:plan]`
+- Outcome commits: `RAF[005:outcome]`
+
+## [Amendment] Where do task commits happen?
+Claude makes task commits during execution - need to update prompts that Claude uses.
+
+## [Amendment] Should plan commits be automated via Claude or RAF?
+Plan commits are done by RAF programmatically (not Claude) - format `RAF[005:plan]`.

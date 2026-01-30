@@ -1,55 +1,86 @@
-# Task: Commit Outcomes on Project Complete
+# Task: Universal Commit Schema for RAF
 
 ## Objective
-Automatically commit the project folder to git when all tasks in a project are completed successfully.
+Implement a universal commit schema for all RAF-triggered commits (plan and outcome) with consistent formatting.
 
 ## Context
-When a project finishes (all tasks completed), the outcomes and project state should be automatically committed to preserve the work. This eliminates the manual step of committing after project completion and ensures project history is captured consistently.
+RAF needs a consistent commit message format across all automated commits. This provides clear identification of RAF-generated commits in git history and makes it easy to understand what type of commit it is (plan, task, or outcome).
 
-This task builds on the existing `raf do` command implementation.
+This task builds on the existing `raf do` command implementation and extends to `raf plan`.
 
 ## Requirements
-- Trigger: Automatically detect when the final task in a project completes successfully inside `raf do`
+
+### Commit Schema Format
+- **Plan commits**: `RAF[<project-number>:plan]`
+  - Example: `RAF[005:plan]`
+  - Triggered by: RAF programmatically after `raf plan` creates plan files
+- **Outcome commits**: `RAF[<project-number>:outcome]`
+  - Example: `RAF[005:outcome]`
+  - Triggered by: RAF programmatically when all tasks in a project complete via `raf do`
+- **Task commits**: `RAF[<project-number>:<task-number>] <project-name> <task-name>`
+  - Example: `RAF[005:001] task-naming-improvements enhance-identifier-resolution`
+  - Triggered by: Claude during task execution (handled in separate task 006)
+
+### Plan Commit Requirements
+- Trigger: After `raf plan` successfully creates all plan files
+- Scope: Commit the entire project folder (plans, decisions.md, input.md)
+- Handle dirty repo: Stage and commit only the project folder
+- Only commit on success - if planning fails, do not commit
+
+### Outcome Commit Requirements
+- Trigger: When final task in a project completes successfully via `raf do`
 - Scope: Commit the entire project folder (plans, outcomes, decisions, input.md, state.json, etc.)
-- Commit message format: `RAF(<project-name>): outcomes`
-  - Example: `RAF(005-task-naming-improvements): outcomes`
-- Handle dirty repo: Stage and commit only the project folder, leave other uncommitted changes untouched
+- Handle dirty repo: Stage and commit only the project folder
 - Only commit on success - if the final task fails, do not commit
 
 ## Implementation Steps
-1. Read the current `do.ts` command implementation in `src/commands/`
-2. Identify where task completion is detected (success/failure handling)
-3. Add a helper function to check if project is complete:
+
+### Part A: Git Utility
+1. Create a git commit utility function in `src/utils/git.ts`:
+   - Accept project folder path, project number, and commit type (plan/outcome)
+   - Stage only files within the project folder: `git add <project-folder>`
+   - Create commit with appropriate format based on type
+   - Handle git errors gracefully (not a git repo, nothing to commit, etc.)
+
+### Part B: Plan Commits
+2. Read the current `plan.ts` command implementation in `src/commands/`
+3. After Claude successfully creates plan files, call the git utility with type "plan"
+4. Log success message: "Plan committed to git."
+
+### Part C: Outcome Commits
+5. Read the current `do.ts` command implementation in `src/commands/`
+6. Identify where task completion is detected (success/failure handling)
+7. Add a helper function to check if project is complete:
    - Load project state
    - Check if all tasks have status "completed"
-4. Create a git commit utility function in `src/utils/`:
-   - Accept project folder path and project name
-   - Stage only files within the project folder: `git add <project-folder>`
-   - Create commit with message: `RAF(<project-name>): outcomes`
-   - Handle git errors gracefully (not a git repo, nothing to commit, etc.)
-5. Integrate the commit logic into `raf do`:
-   - After a task completes successfully, check if this was the final task
-   - If project is now complete, call the commit utility
-   - Log success message: "Project complete. Committed to git."
-6. Add tests for:
-   - Committing when final task completes
-   - Not committing when task fails
-   - Not committing when project still has pending tasks
-   - Handling non-git repos gracefully
-   - Handling when project folder has no changes
+8. After a task completes successfully, check if this was the final task
+9. If project is now complete, call the git utility with type "outcome"
+10. Log success message: "Project complete. Committed to git."
+
+### Part D: Tests
+11. Add tests for:
+    - Plan commits after successful planning
+    - Outcome commits when final task completes
+    - Not committing when task/planning fails
+    - Handling non-git repos gracefully
+    - Handling when project folder has no changes
 
 ## Acceptance Criteria
-- [ ] When `raf do` completes the final task successfully, project folder is auto-committed
-- [ ] Commit message follows format `RAF(<project-name>): outcomes`
+- [ ] Git utility function supports both plan and outcome commit types
+- [ ] Plan commits use format `RAF[<project-number>:plan]`
+- [ ] Outcome commits use format `RAF[<project-number>:outcome]`
+- [ ] `raf plan` auto-commits project folder after successful planning
+- [ ] `raf do` auto-commits project folder when final task completes successfully
 - [ ] Only project folder is staged/committed, other repo changes are untouched
-- [ ] No commit is made if the final task fails
+- [ ] No commit is made if planning or final task fails
 - [ ] Graceful handling when not in a git repo (warning, no crash)
 - [ ] Graceful handling when there are no changes to commit
-- [ ] Tests cover the commit-on-complete workflow
-- [ ] Success message is logged after commit
+- [ ] Tests cover both plan and outcome commit workflows
+- [ ] Success messages are logged after commits
 
 ## Notes
 - Use `child_process.execSync` or similar for git commands
-- Consider extracting git utilities to `src/utils/git.ts` for reusability
+- Extract git utilities to `src/utils/git.ts` for reusability
 - The project folder path can be derived from the project identifier resolution (task 001)
-- Be careful with error handling - git failures should not crash `raf do`
+- Be careful with error handling - git failures should not crash RAF commands
+- Task commits are handled separately in task 006 (Claude-triggered via execution prompt)
