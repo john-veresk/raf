@@ -4,7 +4,12 @@ import { sanitizeProjectName } from './validation.js';
 
 const HAIKU_MODEL = 'haiku';
 
-const NAME_GENERATION_PROMPT = `Generate a short kebab-case project name (2-4 words, like 'user-auth-flow' or 'api-caching-layer') for this project description. Output ONLY the name, nothing else - no quotes, no explanation, just the kebab-case name.
+const NAME_GENERATION_PROMPT = `Analyze this project description and generate a short kebab-case name (2-4 words).
+Focus on the most important or core feature being built.
+The name should be action-oriented, describing what the project does.
+Examples: 'add-user-auth', 'fix-payment-flow', 'refactor-api-routes'
+
+Output ONLY the name, nothing else - no quotes, no explanation, just the kebab-case name.
 
 Project description:`;
 
