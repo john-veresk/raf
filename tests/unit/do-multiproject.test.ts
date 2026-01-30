@@ -153,4 +153,118 @@ describe('Multi-Project Execution', () => {
       expect(resolved[2]).toBe(path.join(tempDir, '002-project-b'));
     });
   });
+
+  describe('Full Folder Name Support', () => {
+    it('should resolve single project by full folder name with numeric prefix', () => {
+      fs.mkdirSync(path.join(tempDir, '001-fix-stuff'));
+
+      const result = resolveProjectIdentifier(tempDir, '001-fix-stuff');
+      expect(result).toBe(path.join(tempDir, '001-fix-stuff'));
+    });
+
+    it('should resolve single project by full folder name with base36 prefix', () => {
+      fs.mkdirSync(path.join(tempDir, 'a00-important-project'));
+
+      const result = resolveProjectIdentifier(tempDir, 'a00-important-project');
+      expect(result).toBe(path.join(tempDir, 'a00-important-project'));
+    });
+
+    it('should resolve multiple projects by full folder names', () => {
+      fs.mkdirSync(path.join(tempDir, '001-project-a'));
+      fs.mkdirSync(path.join(tempDir, '002-project-b'));
+
+      const identifiers = ['001-project-a', '002-project-b'];
+      const resolved = identifiers.map((id) => resolveProjectIdentifier(tempDir, id));
+
+      expect(resolved).toHaveLength(2);
+      expect(resolved[0]).toBe(path.join(tempDir, '001-project-a'));
+      expect(resolved[1]).toBe(path.join(tempDir, '002-project-b'));
+    });
+
+    it('should resolve mixed identifier formats including full folder names', () => {
+      fs.mkdirSync(path.join(tempDir, '003-numeric-id'));
+      fs.mkdirSync(path.join(tempDir, '001-full-folder-name'));
+      fs.mkdirSync(path.join(tempDir, '002-by-name'));
+
+      // Mix of number, full folder name, and project name
+      const identifiers = ['3', '001-full-folder-name', 'by-name'];
+      const resolved = identifiers.map((id) => resolveProjectIdentifier(tempDir, id));
+
+      expect(resolved).toHaveLength(3);
+      expect(resolved[0]).toBe(path.join(tempDir, '003-numeric-id'));
+      expect(resolved[1]).toBe(path.join(tempDir, '001-full-folder-name'));
+      expect(resolved[2]).toBe(path.join(tempDir, '002-by-name'));
+    });
+
+    it('should return null for invalid full folder name (wrong prefix)', () => {
+      fs.mkdirSync(path.join(tempDir, '001-my-project'));
+
+      // Correct name but wrong prefix
+      const result = resolveProjectIdentifier(tempDir, '002-my-project');
+      expect(result).toBeNull();
+    });
+
+    it('should return null for invalid full folder name (wrong name)', () => {
+      fs.mkdirSync(path.join(tempDir, '001-my-project'));
+
+      // Correct prefix but wrong name
+      const result = resolveProjectIdentifier(tempDir, '001-other-project');
+      expect(result).toBeNull();
+    });
+
+    it('should detect duplicates when same project specified by number and full folder name', () => {
+      fs.mkdirSync(path.join(tempDir, '001-project-a'));
+
+      const identifiers = ['001', '001-project-a'];
+      const resolved = identifiers.map((id) => resolveProjectIdentifier(tempDir, id));
+      const uniquePaths = new Set(resolved.filter(Boolean));
+
+      expect(uniquePaths.size).toBe(1);
+      expect(resolved[0]).toBe(resolved[1]); // Both resolve to same path
+    });
+
+    it('should detect duplicates when same project specified by name and full folder name', () => {
+      fs.mkdirSync(path.join(tempDir, '001-project-a'));
+
+      const identifiers = ['project-a', '001-project-a'];
+      const resolved = identifiers.map((id) => resolveProjectIdentifier(tempDir, id));
+      const uniquePaths = new Set(resolved.filter(Boolean));
+
+      expect(uniquePaths.size).toBe(1);
+      expect(resolved[0]).toBe(resolved[1]); // Both resolve to same path
+    });
+
+    it('should handle case-insensitive full folder name matching', () => {
+      fs.mkdirSync(path.join(tempDir, '001-My-Project'));
+
+      const result = resolveProjectIdentifier(tempDir, '001-my-project');
+      expect(result).toBe(path.join(tempDir, '001-My-Project'));
+    });
+
+    it('should handle full folder names with multiple hyphens', () => {
+      fs.mkdirSync(path.join(tempDir, '001-my-cool-project-name'));
+
+      const result = resolveProjectIdentifier(tempDir, '001-my-cool-project-name');
+      expect(result).toBe(path.join(tempDir, '001-my-cool-project-name'));
+    });
+
+    it('should handle 2-digit prefix full folder names', () => {
+      fs.mkdirSync(path.join(tempDir, '01-short-prefix'));
+
+      const result = resolveProjectIdentifier(tempDir, '01-short-prefix');
+      expect(result).toBe(path.join(tempDir, '01-short-prefix'));
+    });
+
+    it('should resolve mixed base36 and numeric full folder names', () => {
+      fs.mkdirSync(path.join(tempDir, '001-numeric'));
+      fs.mkdirSync(path.join(tempDir, 'a01-base36'));
+
+      const identifiers = ['001-numeric', 'a01-base36'];
+      const resolved = identifiers.map((id) => resolveProjectIdentifier(tempDir, id));
+
+      expect(resolved).toHaveLength(2);
+      expect(resolved[0]).toBe(path.join(tempDir, '001-numeric'));
+      expect(resolved[1]).toBe(path.join(tempDir, 'a01-base36'));
+    });
+  });
 });

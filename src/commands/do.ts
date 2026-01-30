@@ -37,7 +37,7 @@ interface ProjectExecutionResult {
 export function createDoCommand(): Command {
   const command = new Command('do')
     .description('Execute planned tasks for one or more projects')
-    .argument('<projects...>', 'Project name(s) or number(s) to execute')
+    .argument('<projects...>', 'Project identifier(s): number (3), name (my-project), or folder (001-my-project)')
     .option('-t, --timeout <minutes>', 'Timeout per task in minutes', '60')
     .option('-v, --verbose', 'Show full Claude output')
     .option('-d, --debug', 'Save all logs and show debug output')
@@ -59,7 +59,8 @@ async function runDoCommand(projectIdentifiers: string[], options: DoCommandOpti
     logger.info("Examples:");
     logger.info("  raf do my-project");
     logger.info("  raf do 003 004 005");
-    logger.info("  raf do 003 my-project 005");
+    logger.info("  raf do 001-my-project");
+    logger.info("  raf do 003 my-project 001-another-project");
     process.exit(1);
   }
 
