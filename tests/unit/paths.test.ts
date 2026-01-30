@@ -5,6 +5,7 @@ import {
   getNextProjectNumber,
   formatProjectNumber,
   listProjects,
+  extractProjectNumber,
 } from '../../src/utils/paths.js';
 
 describe('Paths', () => {
@@ -85,6 +86,33 @@ describe('Paths', () => {
     it('should return empty array for non-existent directory', () => {
       const projects = listProjects('/non/existent/path');
       expect(projects).toEqual([]);
+    });
+  });
+
+  describe('extractProjectNumber', () => {
+    it('should extract 3-digit project number from path', () => {
+      expect(extractProjectNumber('/Users/foo/RAF/001-my-project')).toBe('001');
+      expect(extractProjectNumber('/RAF/123-another-project')).toBe('123');
+    });
+
+    it('should extract 2-digit project number from path', () => {
+      expect(extractProjectNumber('/RAF/01-first')).toBe('01');
+      expect(extractProjectNumber('/RAF/99-last')).toBe('99');
+    });
+
+    it('should return null for invalid paths', () => {
+      expect(extractProjectNumber('/RAF/my-project')).toBeNull();
+      expect(extractProjectNumber('/RAF/not-numbered')).toBeNull();
+      expect(extractProjectNumber('')).toBeNull();
+    });
+
+    it('should handle path with trailing slash', () => {
+      expect(extractProjectNumber('/RAF/001-my-project/')).toBe('001');
+    });
+
+    it('should only match numbers at the start of folder name', () => {
+      expect(extractProjectNumber('/RAF/abc-001-project')).toBeNull();
+      expect(extractProjectNumber('/RAF/project-001')).toBeNull();
     });
   });
 });

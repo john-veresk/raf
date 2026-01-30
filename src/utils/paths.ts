@@ -63,6 +63,17 @@ export function getProjectDir(rafDir: string, projectName: string): string | nul
   return null;
 }
 
+/**
+ * Extract project number from a project path.
+ * E.g., "/Users/foo/RAF/001-my-project" -> "001"
+ * Returns the formatted number string (e.g., "001") or null if not found.
+ */
+export function extractProjectNumber(projectPath: string): string | null {
+  const folderName = path.basename(projectPath);
+  const match = folderName.match(/^(\d{2,3})-/);
+  return match && match[1] ? match[1] : null;
+}
+
 export function listProjects(rafDir: string): Array<{ number: number; name: string; path: string }> {
   if (!fs.existsSync(rafDir)) {
     return [];

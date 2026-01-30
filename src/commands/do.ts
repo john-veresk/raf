@@ -3,11 +3,11 @@ import { ProjectManager } from '../core/project-manager.js';
 import { StateManager } from '../core/state-manager.js';
 import { ClaudeRunner } from '../core/claude-runner.js';
 import { shutdownHandler } from '../core/shutdown-handler.js';
-import { commitTaskChanges, getChangedFiles } from '../core/git.js';
+import { commitTaskChanges, getChangedFiles, stashChanges, hasUncommittedChanges } from '../core/git.js';
 import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, extractSummary, isRetryableFailure } from '../parsers/output-parser.js';
 import { validatePlansExist } from '../utils/validation.js';
-import { getRafDir, getProjectDir } from '../utils/paths.js';
+import { getRafDir, getProjectDir, extractProjectNumber } from '../utils/paths.js';
 import { logger } from '../utils/logger.js';
 import type { DoCommandOptions } from '../types/config.js';
 
@@ -193,6 +193,17 @@ ${commitHash ? `- Commit: ${commitHash}` : ''}
       stateManager.updateTaskStatus(task.id, 'completed', { commitHash });
       logger.success(`  Task ${task.id} completed`);
     } else {
+      // Stash any uncommitted changes on complete failure
+      let stashName: string | undefined;
+      if (hasUncommittedChanges()) {
+        const projectNum = extractProjectNumber(projectPath) ?? '000';
+        stashName = `raf-${projectNum}-task-${task.id}-failed`;
+        const stashed = stashChanges(stashName);
+        if (stashed) {
+          logger.info(`  Changes stashed as: ${stashName}`);
+        }
+      }
+
       // Update state with failure
       stateManager.updateTaskStatus(task.id, 'failed', { failureReason });
       logger.error(`  Task ${task.id} failed: ${failureReason}`);
@@ -206,6 +217,7 @@ ${failureReason}
 ## Details
 - Attempts: ${attempts}
 - Failed at: ${new Date().toISOString()}
+${stashName ? `- Stash: ${stashName}` : ''}
 `;
       projectManager.saveOutcome(projectPath, task.id, outcomeContent);
     }

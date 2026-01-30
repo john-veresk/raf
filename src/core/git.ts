@@ -313,6 +313,34 @@ export function commitSpecificFiles(files: string[], message: string): string | 
 }
 
 /**
+ * Stash uncommitted changes with a descriptive name.
+ * @param name - Name for the stash (e.g., "raf-001-task-3-failed")
+ * @returns true if stash was created, false otherwise
+ */
+export function stashChanges(name: string): boolean {
+  if (!isGitRepo()) {
+    logger.warn('Not in a git repository, skipping stash');
+    return false;
+  }
+
+  if (!hasUncommittedChanges()) {
+    logger.debug('No uncommitted changes to stash');
+    return false;
+  }
+
+  try {
+    execSync(`git stash push -m "${name.replace(/"/g, '\\"')}"`, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    });
+    return true;
+  } catch (error) {
+    logger.error(`Failed to stash changes: ${error}`);
+    return false;
+  }
+}
+
+/**
  * Smart commit: only commits files changed during task execution.
  * @param message - Commit message
  * @param baselineFiles - Files that were changed before task started (from state.json)
