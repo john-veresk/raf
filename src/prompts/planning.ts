@@ -41,6 +41,24 @@ For EACH task you identify, you MUST use the AskUserQuestion tool to gather:
 
 DO NOT skip the interview step. The quality of your plans depends on understanding the user's exact needs.
 
+### Step 2.5: Record Decisions
+
+After EACH interview question is answered, record the Q&A pair in the decisions file:
+- ${projectPath}/decisions/DECISIONS.md
+
+Use this format:
+\`\`\`markdown
+# Project Decisions
+
+## [Question asked]
+[User's answer]
+
+## [Question asked]
+[User's answer]
+\`\`\`
+
+This file serves as documentation of design choices made during planning. Append each new Q&A pair as you conduct the interview.
+
 ### Step 3: Create Plan Files
 
 After interviewing the user about all tasks, create plan files in the plans folder:

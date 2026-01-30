@@ -8,6 +8,7 @@ import {
   getProjectDir,
   getPlansDir,
   getOutcomesDir,
+  getDecisionsDir,
   getInputPath,
   getSummaryPath,
   listProjects,
@@ -47,6 +48,7 @@ export class ProjectManager {
     fs.mkdirSync(projectPath, { recursive: true });
     fs.mkdirSync(getPlansDir(projectPath), { recursive: true });
     fs.mkdirSync(getOutcomesDir(projectPath), { recursive: true });
+    fs.mkdirSync(getDecisionsDir(projectPath), { recursive: true });
 
     // Initialize state
     const inputFile = 'input.md';

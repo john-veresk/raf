@@ -95,6 +95,10 @@ export function getOutcomesDir(projectPath: string): string {
   return path.join(projectPath, 'outcomes');
 }
 
+export function getDecisionsDir(projectPath: string): string {
+  return path.join(projectPath, 'decisions');
+}
+
 export function getLogsDir(projectPath: string): string {
   return path.join(projectPath, 'logs');
 }
