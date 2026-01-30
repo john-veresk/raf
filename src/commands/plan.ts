@@ -13,6 +13,7 @@ import {
 import { logger } from '../utils/logger.js';
 import { generateProjectName } from '../utils/name-generator.js';
 import { getPlansDir } from '../utils/paths.js';
+import { commitProjectFolder } from '../core/git.js';
 
 export function createPlanCommand(): Command {
   const command = new Command('plan')
@@ -123,6 +124,21 @@ async function runPlanCommand(projectName?: string): Promise<void> {
       for (const planFile of planFiles) {
         logger.info(`  - plans/${planFile}`);
       }
+
+      // Commit the project folder
+      logger.newline();
+      const commitResult = commitProjectFolder(projectPath, finalProjectName);
+      if (commitResult.success) {
+        if (commitResult.message === 'No changes to commit') {
+          logger.info('Project files already committed.');
+        } else {
+          logger.success(`Committed: ${commitResult.message}`);
+        }
+      } else {
+        logger.warn(`Could not commit project files: ${commitResult.error}`);
+        logger.info('Planning succeeded, but you may want to commit manually.');
+      }
+
       logger.newline();
       logger.info(`Run 'raf do ${finalProjectName}' to execute the plans.`);
     }
