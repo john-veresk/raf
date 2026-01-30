@@ -13,10 +13,11 @@ import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
 import { createStatusLine } from '../utils/status-line.js';
 import {
   deriveProjectState,
-  getNextPendingTask,
+  getNextExecutableTask,
   getDerivedStats,
   isProjectComplete,
   hasProjectFailed,
+  type DerivedTask,
 } from '../core/state-derivation.js';
 import type { DoCommandOptions } from '../types/config.js';
 
@@ -27,6 +28,7 @@ export function createDoCommand(): Command {
     .option('-t, --timeout <minutes>', 'Timeout per task in minutes', '60')
     .option('-v, --verbose', 'Show full Claude output')
     .option('-d, --debug', 'Save all logs and show debug output')
+    .option('-f, --force', 'Re-run all tasks regardless of status')
     .action(async (projectName: string, options: DoCommandOptions) => {
       await runDoCommand(projectName, options);
     });
@@ -54,6 +56,7 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
   const timeout = Number(options.timeout) || config.timeout;
   const verbose = options.verbose ?? false;
   const debug = options.debug ?? false;
+  const force = options.force ?? false;
   const maxRetries = config.maxRetries;
   const autoCommit = config.autoCommit;
 
@@ -64,8 +67,8 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
   let state = deriveProjectState(projectPath);
 
   // Check if project is already complete
-  if (isProjectComplete(state)) {
-    logger.info('Project already completed.');
+  if (isProjectComplete(state) && !force) {
+    logger.info('All tasks completed. Use --force to re-run.');
     process.exit(0);
   }
 
@@ -89,8 +92,27 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
   logger.newline();
 
   // Execute tasks
-  let task = getNextPendingTask(state);
   const totalTasks = state.tasks.length;
+
+  // Helper function to get the next task to execute
+  function getNextTask(): DerivedTask | null {
+    if (force) {
+      // Find first task that hasn't been executed in this session
+      for (const t of state.tasks) {
+        if (!completedInSession.has(t.id)) {
+          return t;
+        }
+      }
+      return null;
+    }
+    // Normal mode: get next executable task (pending or failed)
+    return getNextExecutableTask(state);
+  }
+
+  // Track tasks completed in this session (for force mode)
+  const completedInSession = new Set<string>();
+
+  let task = getNextTask();
 
   while (task) {
     const taskIndex = state.tasks.findIndex((t) => t.id === task!.id);
@@ -98,7 +120,15 @@ async function runDoCommand(projectName: string, options: DoCommandOptions): Pro
     const taskName = extractTaskNameFromPlanFile(task.planFile);
     const taskContext = `[Task ${taskNumber}/${totalTasks}: ${taskName ?? task.id}]`;
     logger.setContext(taskContext);
-    logger.info(`Executing task ${task.id}...`);
+
+    // Log task execution status
+    if (task.status === 'failed') {
+      logger.info(`Retrying task ${task.id} (previously failed)...`);
+    } else if (task.status === 'completed' && force) {
+      logger.info(`Re-running task ${task.id} (force mode)...`);
+    } else {
+      logger.info(`Executing task ${task.id}...`);
+    }
 
     // Get previous outcomes for context
     const previousOutcomes = projectManager.readOutcomes(projectPath);
@@ -201,6 +231,7 @@ ${summary}
       projectManager.saveOutcome(projectPath, task.id, outcomeContent);
 
       logger.success(`  Task ${task.id} completed (${elapsedFormatted})`);
+      completedInSession.add(task.id);
     } else {
       // Stash any uncommitted changes on complete failure
       let stashName: string | undefined;
@@ -240,8 +271,8 @@ ${stashName ? `- Stash: ${stashName}` : ''}
     // Re-derive state to get updated task statuses
     state = deriveProjectState(projectPath);
 
-    // Get next pending task
-    task = getNextPendingTask(state);
+    // Get next task to execute
+    task = getNextTask();
   }
 
   // Ensure context is cleared for summary

@@ -21,6 +21,7 @@ export interface DoCommandOptions {
   timeout?: number;
   verbose?: boolean;
   debug?: boolean;
+  force?: boolean;
 }
 
 export interface StatusCommandOptions {
