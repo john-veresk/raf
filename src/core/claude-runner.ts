@@ -1,5 +1,14 @@
 import * as pty from 'node-pty';
+import { execSync } from 'node:child_process';
 import { logger } from '../utils/logger.js';
+
+function getClaudePath(): string {
+  try {
+    return execSync('which claude', { encoding: 'utf-8' }).trim();
+  } catch {
+    throw new Error('Claude CLI not found. Please ensure it is installed and in your PATH.');
+  }
+}
 
 export interface ClaudeRunnerOptions {
   timeout?: number; // in minutes
@@ -32,11 +41,12 @@ export class ClaudeRunner {
     const { cwd = process.cwd() } = options;
 
     return new Promise((resolve) => {
-      const args = ['--print', prompt];
+      // Don't use --print for interactive sessions - it disables interactivity
+      const args = [prompt];
 
       logger.debug('Starting interactive Claude session');
 
-      this.activeProcess = pty.spawn('claude', args, {
+      this.activeProcess = pty.spawn(getClaudePath(), args, {
         name: 'xterm-256color',
         cols: process.stdout.columns ?? 80,
         rows: process.stdout.rows ?? 24,
@@ -98,7 +108,7 @@ export class ClaudeRunner {
 
       logger.debug('Starting Claude execution session');
 
-      this.activeProcess = pty.spawn('claude', args, {
+      this.activeProcess = pty.spawn(getClaudePath(), args, {
         name: 'xterm-256color',
         cols: 120,
         rows: 40,
@@ -158,7 +168,7 @@ export class ClaudeRunner {
 
       logger.debug('Starting Claude execution session (verbose)');
 
-      this.activeProcess = pty.spawn('claude', args, {
+      this.activeProcess = pty.spawn(getClaudePath(), args, {
         name: 'xterm-256color',
         cols: process.stdout.columns ?? 120,
         rows: process.stdout.rows ?? 40,

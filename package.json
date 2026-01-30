@@ -1,6 +1,6 @@
 {
   "name": "raf",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Automated Task Planning & Execution with Claude Code",
   "type": "module",
   "bin": {
@@ -8,6 +8,7 @@
   },
   "main": "./dist/index.js",
   "scripts": {
+    "postinstall": "chmod +x node_modules/node-pty/prebuilds/darwin-*/spawn-helper 2>/dev/null || true",
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
