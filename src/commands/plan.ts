@@ -30,7 +30,7 @@ import {
 } from '../core/state-derivation.js';
 
 interface PlanCommandOptions {
-  amend?: string;
+  amend?: boolean;
   model?: string;
   sonnet?: boolean;
   auto?: boolean;
@@ -41,8 +41,8 @@ export function createPlanCommand(): Command {
     .description('Create a new project and interactively plan tasks with Claude')
     .argument('[projectName]', 'Optional project name (will be prompted if not provided)')
     .option(
-      '-a, --amend <identifier>',
-      'Add tasks to an existing project (number, name, or folder)'
+      '-a, --amend',
+      'Add tasks to an existing project (requires project identifier as argument)'
     )
     .option('-m, --model <name>', 'Claude model to use (sonnet, haiku, opus)')
     .option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')
@@ -60,7 +60,13 @@ export function createPlanCommand(): Command {
       const autoMode = options.auto ?? false;
 
       if (options.amend) {
-        await runAmendCommand(options.amend, model, autoMode);
+        if (!projectName) {
+          logger.error('--amend requires a project identifier');
+          logger.error('Usage: raf plan <project> --amend');
+          logger.error('   or: raf plan --amend <project>');
+          process.exit(1);
+        }
+        await runAmendCommand(projectName, model, autoMode);
       } else {
         await runPlanCommand(projectName, model, autoMode);
       }
