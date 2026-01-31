@@ -1,0 +1,6 @@
+- [ ] generate several name for project name (3-5) and let user pick or provide own name if user didn't specified name in "raf plan", instruct the name generating model to have variety in style for names (fun, metaphor, descriptive, somewhat related and fun etc)
+- [ ] raf do without project name allows you to pick form pending projects
+- [ ] raf status shows list of 10 last projects (with note on top what list was cut - ...)
+- [ ] in outcome details section add short description for failure reasons (with bullet point for each failed attempt)
+- [ ] don't do output commit since claude does it within the task
+- [ ] instruct claude to do output file commit alongside the code and only after that produce <promise>COMPLETE</promise>
