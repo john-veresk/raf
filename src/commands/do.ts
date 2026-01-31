@@ -405,8 +405,20 @@ async function executeSingleProject(
           break;
         }
       } else {
-        // Unknown result - might be retryable
-        failureReason = 'No completion marker found';
+        // Unknown result - check outcome file as fallback
+        if (fs.existsSync(outcomeFilePath)) {
+          const outcomeContent = fs.readFileSync(outcomeFilePath, 'utf-8');
+          const outcomeStatus = parseOutcomeStatus(outcomeContent);
+          if (outcomeStatus === 'completed') {
+            success = true;
+          } else if (outcomeStatus === 'failed') {
+            failureReason = 'Task failed (from outcome file)';
+          } else {
+            failureReason = 'No completion marker found in output or outcome file';
+          }
+        } else {
+          failureReason = 'No completion marker found';
+        }
       }
     }
 
