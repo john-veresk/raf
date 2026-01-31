@@ -6,9 +6,7 @@ export interface ExecutionPromptParams {
   totalTasks: number;
   previousOutcomes: Array<{ taskId: string; content: string }>;
   autoCommit: boolean;
-  projectName: string;
   projectNumber: string;
-  taskName: string;
   outcomeFilePath: string;
   attemptNumber?: number;
   previousOutcomeFile?: string;
@@ -23,9 +21,7 @@ export function getExecutionPrompt(params: ExecutionPromptParams): string {
     totalTasks,
     previousOutcomes,
     autoCommit,
-    projectName,
     projectNumber,
-    taskName,
     outcomeFilePath,
     attemptNumber = 1,
     previousOutcomeFile,
@@ -51,7 +47,9 @@ ${previousOutcomes.map((o) => `### Task ${o.taskId}\n${o.content}`).join('\n\n')
 
 After successfully completing the task:
 1. Stage all changes with \`git add -A\`
-2. Commit with message: "RAF[${projectNumber}:${paddedTaskNumber}] ${projectName} ${taskName}"
+2. Commit with message: "RAF[${projectNumber}:${paddedTaskNumber}] <description>"
+   - Write a concise description of what was accomplished
+   - Focus on the actual change, not the task name
 `
     : '';
 

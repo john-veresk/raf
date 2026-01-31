@@ -9,16 +9,20 @@ describe('Execution Prompt', () => {
     totalTasks: 5,
     previousOutcomes: [],
     autoCommit: true,
-    projectName: 'task-naming-improvements',
     projectNumber: '005',
-    taskName: 'enhance-identifier-resolution',
     outcomeFilePath: '/Users/test/RAF/005-task-naming-improvements/outcomes/001-enhance-identifier-resolution.md',
   };
 
   describe('Commit Message Format', () => {
-    it('should include RAF commit schema format in prompt', () => {
+    it('should include RAF commit schema format with description placeholder in prompt', () => {
       const prompt = getExecutionPrompt(baseParams);
-      expect(prompt).toContain('RAF[005:001] task-naming-improvements enhance-identifier-resolution');
+      expect(prompt).toContain('RAF[005:001] <description>');
+    });
+
+    it('should instruct to write meaningful description', () => {
+      const prompt = getExecutionPrompt(baseParams);
+      expect(prompt).toContain('Write a concise description of what was accomplished');
+      expect(prompt).toContain('Focus on the actual change, not the task name');
     });
 
     it('should zero-pad single digit task numbers', () => {
@@ -45,18 +49,6 @@ describe('Execution Prompt', () => {
       expect(prompt).toContain('RAF[a05:001]');
     });
 
-    it('should include task name in commit message', () => {
-      const params = { ...baseParams, taskName: 'update-execution-prompt' };
-      const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('update-execution-prompt');
-    });
-
-    it('should include project name in commit message', () => {
-      const params = { ...baseParams, projectName: 'my-awesome-project' };
-      const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('my-awesome-project');
-    });
-
     it('should not include commit instructions when autoCommit is false', () => {
       const params = { ...baseParams, autoCommit: false };
       const prompt = getExecutionPrompt(params);
@@ -66,7 +58,7 @@ describe('Execution Prompt', () => {
   });
 
   describe('Complete Commit Message', () => {
-    it('should generate correct commit message for task 006', () => {
+    it('should generate correct commit message format for task 006', () => {
       const params: ExecutionPromptParams = {
         projectPath: '/Users/test/RAF/005-task-naming-improvements',
         planPath: '/Users/test/RAF/005-task-naming-improvements/plans/006-update-execution-prompt.md',
@@ -75,16 +67,14 @@ describe('Execution Prompt', () => {
         totalTasks: 7,
         previousOutcomes: [],
         autoCommit: true,
-        projectName: 'task-naming-improvements',
         projectNumber: '005',
-        taskName: 'update-execution-prompt',
         outcomeFilePath: '/Users/test/RAF/005-task-naming-improvements/outcomes/006-update-execution-prompt.md',
       };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('RAF[005:006] task-naming-improvements update-execution-prompt');
+      expect(prompt).toContain('RAF[005:006] <description>');
     });
 
-    it('should generate correct commit message for first task', () => {
+    it('should generate correct commit message format for first task', () => {
       const params: ExecutionPromptParams = {
         projectPath: '/Users/test/RAF/001-fix-bug',
         planPath: '/Users/test/RAF/001-fix-bug/plans/001-identify-issue.md',
@@ -93,16 +83,14 @@ describe('Execution Prompt', () => {
         totalTasks: 3,
         previousOutcomes: [],
         autoCommit: true,
-        projectName: 'fix-bug',
         projectNumber: '001',
-        taskName: 'identify-issue',
         outcomeFilePath: '/Users/test/RAF/001-fix-bug/outcomes/001-identify-issue.md',
       };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('RAF[001:001] fix-bug identify-issue');
+      expect(prompt).toContain('RAF[001:001] <description>');
     });
 
-    it('should generate correct commit message for base36 project', () => {
+    it('should generate correct commit message format for base36 project', () => {
       const params: ExecutionPromptParams = {
         projectPath: '/Users/test/RAF/a0b-feature-branch',
         planPath: '/Users/test/RAF/a0b-feature-branch/plans/002-implement-feature.md',
@@ -111,13 +99,11 @@ describe('Execution Prompt', () => {
         totalTasks: 4,
         previousOutcomes: [],
         autoCommit: true,
-        projectName: 'feature-branch',
         projectNumber: 'a0b',
-        taskName: 'implement-feature',
         outcomeFilePath: '/Users/test/RAF/a0b-feature-branch/outcomes/002-implement-feature.md',
       };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('RAF[a0b:002] feature-branch implement-feature');
+      expect(prompt).toContain('RAF[a0b:002] <description>');
     });
   });
 
