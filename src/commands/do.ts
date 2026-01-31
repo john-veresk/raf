@@ -74,6 +74,7 @@ interface ProjectExecutionResult {
 export function createDoCommand(): Command {
   const command = new Command('do')
     .description('Execute planned tasks for one or more projects')
+    .alias('act')
     .argument('[projects...]', 'Project identifier(s): number (3), name (my-project), or folder (001-my-project)')
     .option('-t, --timeout <minutes>', 'Timeout per task in minutes', '60')
     .option('-v, --verbose', 'Show full Claude output')
