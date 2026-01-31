@@ -1,4 +1,4 @@
-import { getExecutionPrompt, ExecutionPromptParams } from '../../src/prompts/execution.js';
+import { getExecutionPrompt, ExecutionPromptParams, summarizeOutcome } from '../../src/prompts/execution.js';
 
 describe('Execution Prompt', () => {
   const baseParams: ExecutionPromptParams = {
@@ -271,6 +271,136 @@ describe('Execution Prompt', () => {
       expect(prompt).toContain('Understand what was attempted and why it failed');
       expect(prompt).toContain('Account for the previous failure in your approach');
       expect(prompt).toContain('Avoid making the same mistakes');
+    });
+  });
+
+  describe('Dependency Context', () => {
+    it('should not include dependency context when task has no dependencies', () => {
+      const prompt = getExecutionPrompt(baseParams);
+      expect(prompt).not.toContain('Dependency Context');
+    });
+
+    it('should not include dependency context when dependencyIds is empty', () => {
+      const params = {
+        ...baseParams,
+        dependencyIds: [],
+        dependencyOutcomes: [],
+      };
+      const prompt = getExecutionPrompt(params);
+      expect(prompt).not.toContain('Dependency Context');
+    });
+
+    it('should not include dependency context when dependencyOutcomes is empty', () => {
+      const params = {
+        ...baseParams,
+        dependencyIds: ['001'],
+        dependencyOutcomes: [],
+      };
+      const prompt = getExecutionPrompt(params);
+      expect(prompt).not.toContain('Dependency Context');
+    });
+
+    it('should include dependency context when task has dependencies with outcomes', () => {
+      const params = {
+        ...baseParams,
+        taskId: '002',
+        taskNumber: 2,
+        dependencyIds: ['001'],
+        dependencyOutcomes: [
+          { taskId: '001', content: '## Summary\n\nImplemented the base feature.\n\n<promise>COMPLETE</promise>' },
+        ],
+      };
+      const prompt = getExecutionPrompt(params);
+      expect(prompt).toContain('## Dependency Context');
+      expect(prompt).toContain('**Dependencies**: 001');
+      expect(prompt).toContain('### Task 001');
+      expect(prompt).toContain('Implemented the base feature');
+    });
+
+    it('should include multiple dependency outcomes', () => {
+      const params = {
+        ...baseParams,
+        taskId: '003',
+        taskNumber: 3,
+        dependencyIds: ['001', '002'],
+        dependencyOutcomes: [
+          { taskId: '001', content: '## Summary\n\nFirst task done.\n\n<promise>COMPLETE</promise>' },
+          { taskId: '002', content: '## Summary\n\nSecond task done.\n\n<promise>COMPLETE</promise>' },
+        ],
+      };
+      const prompt = getExecutionPrompt(params);
+      expect(prompt).toContain('**Dependencies**: 001, 002');
+      expect(prompt).toContain('### Task 001');
+      expect(prompt).toContain('First task done');
+      expect(prompt).toContain('### Task 002');
+      expect(prompt).toContain('Second task done');
+    });
+
+    it('should explain purpose of dependency context', () => {
+      const params = {
+        ...baseParams,
+        taskId: '002',
+        taskNumber: 2,
+        dependencyIds: ['001'],
+        dependencyOutcomes: [
+          { taskId: '001', content: '## Summary\n\nDone.\n\n<promise>COMPLETE</promise>' },
+        ],
+      };
+      const prompt = getExecutionPrompt(params);
+      expect(prompt).toContain('depends on the following completed tasks');
+      expect(prompt).toContain('Review their outcomes to understand what was accomplished');
+      expect(prompt).toContain('build upon their work');
+    });
+
+    it('should place dependency context before previous outcomes section', () => {
+      const params = {
+        ...baseParams,
+        taskId: '003',
+        taskNumber: 3,
+        previousOutcomes: [
+          { taskId: '001', content: 'Previous outcome 1' },
+          { taskId: '002', content: 'Previous outcome 2' },
+        ],
+        dependencyIds: ['001'],
+        dependencyOutcomes: [
+          { taskId: '001', content: '## Summary\n\nDependency work.\n\n<promise>COMPLETE</promise>' },
+        ],
+      };
+      const prompt = getExecutionPrompt(params);
+      const depContextIndex = prompt.indexOf('## Dependency Context');
+      const prevOutcomesIndex = prompt.indexOf('## Previous Task Outcomes');
+      expect(depContextIndex).toBeGreaterThan(-1);
+      expect(prevOutcomesIndex).toBeGreaterThan(-1);
+      expect(depContextIndex).toBeLessThan(prevOutcomesIndex);
+    });
+  });
+
+  describe('summarizeOutcome', () => {
+    it('should return content as-is when under size limit', () => {
+      const content = '## Summary\n\nShort content.\n\n<promise>COMPLETE</promise>';
+      const result = summarizeOutcome(content);
+      expect(result).toBe(content);
+    });
+
+    it('should extract Summary section when content is too long', () => {
+      const summary = 'This is the summary of what was done.';
+      const longContent = `## Summary\n\n${summary}\n\n## Details\n\n${'x'.repeat(5000)}\n\n<promise>COMPLETE</promise>`;
+      const result = summarizeOutcome(longContent);
+      expect(result).toContain(summary);
+      expect(result).toContain('[Outcome truncated for context size]');
+    });
+
+    it('should truncate at reasonable break point when no Summary section', () => {
+      const longContent = 'x'.repeat(5000);
+      const result = summarizeOutcome(longContent);
+      expect(result.length).toBeLessThan(5000);
+      expect(result).toContain('[Outcome truncated for context size]');
+    });
+
+    it('should prefer newline as break point when truncating', () => {
+      const content = 'First line.\nSecond line.\n' + 'x'.repeat(5000);
+      const result = summarizeOutcome(content);
+      expect(result).toContain('[Outcome truncated for context size]');
     });
   });
 });

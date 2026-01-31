@@ -467,6 +467,12 @@ async function executeSingleProject(
     // Get previous outcomes for context
     const previousOutcomes = projectManager.readOutcomes(projectPath);
 
+    // Get dependency outcomes - filter to only include outcomes for tasks this task depends on
+    const dependencyIds = task.dependencies;
+    const dependencyOutcomes = dependencyIds.length > 0
+      ? previousOutcomes.filter((o) => dependencyIds.includes(o.taskId))
+      : [];
+
     // Extract project number for commit message
     const projectNumber = extractProjectNumber(projectPath) ?? '000';
 
@@ -514,6 +520,8 @@ async function executeSingleProject(
         outcomeFilePath,
         attemptNumber: attempts,
         previousOutcomeFile: previousOutcomeFileForRetry,
+        dependencyIds,
+        dependencyOutcomes,
       });
 
       // Run Claude

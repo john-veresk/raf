@@ -1,3 +1,42 @@
+/**
+ * Maximum characters for a dependency outcome summary.
+ * Outcomes larger than this will be truncated to avoid context bloat.
+ */
+const MAX_DEPENDENCY_OUTCOME_CHARS = 4000;
+
+/**
+ * Summarize an outcome for dependency context.
+ * Extracts the key sections (Summary, Key Changes, Notes) and truncates if needed.
+ */
+export function summarizeOutcome(content: string): string {
+  // If content is small enough, return as-is
+  if (content.length <= MAX_DEPENDENCY_OUTCOME_CHARS) {
+    return content;
+  }
+
+  // Try to extract just the Summary section
+  const summaryMatch = content.match(/^## Summary\s*\n([\s\S]*?)(?=\n## |$)/m);
+  if (summaryMatch && summaryMatch[1]) {
+    const summary = summaryMatch[1].trim();
+    if (summary.length > 0 && summary.length <= MAX_DEPENDENCY_OUTCOME_CHARS) {
+      return `## Summary\n\n${summary}\n\n*[Outcome truncated for context size]*`;
+    }
+  }
+
+  // Fallback: truncate the full content
+  const truncated = content.substring(0, MAX_DEPENDENCY_OUTCOME_CHARS);
+  // Find a good break point (newline or period)
+  const lastNewline = truncated.lastIndexOf('\n');
+  const lastPeriod = truncated.lastIndexOf('. ');
+  const breakPoint = Math.max(lastNewline, lastPeriod);
+
+  if (breakPoint > MAX_DEPENDENCY_OUTCOME_CHARS / 2) {
+    return truncated.substring(0, breakPoint + 1) + '\n\n*[Outcome truncated for context size]*';
+  }
+
+  return truncated + '\n\n*[Outcome truncated for context size]*';
+}
+
 export interface ExecutionPromptParams {
   projectPath: string;
   planPath: string;
@@ -10,6 +49,10 @@ export interface ExecutionPromptParams {
   outcomeFilePath: string;
   attemptNumber?: number;
   previousOutcomeFile?: string;
+  /** Task IDs that this task depends on */
+  dependencyIds?: string[];
+  /** Outcomes of dependency tasks, keyed by task ID */
+  dependencyOutcomes?: Array<{ taskId: string; content: string }>;
 }
 
 export function getExecutionPrompt(params: ExecutionPromptParams): string {
@@ -25,6 +68,8 @@ export function getExecutionPrompt(params: ExecutionPromptParams): string {
     outcomeFilePath,
     attemptNumber = 1,
     previousOutcomeFile,
+    dependencyIds = [],
+    dependencyOutcomes = [],
   } = params;
 
   let outcomesSection = '';
@@ -73,6 +118,25 @@ Please:
 `;
   }
 
+  // Generate dependency context section if task has dependencies
+  let dependencyContextSection = '';
+  if (dependencyIds.length > 0 && dependencyOutcomes.length > 0) {
+    const depOutcomesFormatted = dependencyOutcomes.map((o) => {
+      const summarized = summarizeOutcome(o.content);
+      return `### Task ${o.taskId}\n${summarized}`;
+    }).join('\n\n');
+
+    dependencyContextSection = `
+## Dependency Context
+
+This task depends on the following completed tasks. Review their outcomes to understand what was accomplished and build upon their work:
+
+**Dependencies**: ${dependencyIds.join(', ')}
+
+${depOutcomesFormatted}
+`;
+  }
+
   return `You are executing a planned task for RAF (Ralph's Automation Framework).
 
 ## Task Information
@@ -102,7 +166,7 @@ Follow the implementation steps in the plan. Key guidelines:
 - Add appropriate error handling
 - Write tests if specified in the plan
 - Follow any CLAUDE.md instructions if present
-${outcomesSection}
+${dependencyContextSection}${outcomesSection}
 ### Step 3: Verify Completion
 
 Before marking the task complete:
