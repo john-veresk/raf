@@ -10,6 +10,9 @@ import {
 } from '../core/state-derivation.js';
 import { SYMBOLS, formatProgressBar, type TaskStatus } from '../utils/terminal-symbols.js';
 
+/** Maximum number of projects to display in status list */
+const MAX_DISPLAYED_PROJECTS = 10;
+
 export function createStatusCommand(): Command {
   const command = new Command('status')
     .description('Show status of a project or list all projects')
@@ -66,15 +69,15 @@ async function listAllProjects(
   rafDir: string,
   options?: StatusCommandOptions
 ): Promise<void> {
-  const projects = discoverProjects(rafDir);
+  const allProjects = discoverProjects(rafDir);
 
-  if (projects.length === 0) {
+  if (allProjects.length === 0) {
     logger.info('No projects found.');
     return;
   }
 
   if (options?.json) {
-    const projectsWithState = projects.map((p) => {
+    const projectsWithState = allProjects.map((p) => {
       try {
         const state = deriveProjectState(p.path);
         const stats = getDerivedStats(state);
@@ -92,7 +95,19 @@ async function listAllProjects(
     return;
   }
 
-  for (const project of projects) {
+  // Truncate to last N projects if needed (projects are sorted by number ascending)
+  const totalProjects = allProjects.length;
+  const hiddenCount = Math.max(0, totalProjects - MAX_DISPLAYED_PROJECTS);
+  const displayedProjects = hiddenCount > 0
+    ? allProjects.slice(-MAX_DISPLAYED_PROJECTS)
+    : allProjects;
+
+  // Show truncation indicator at top if there are hidden projects
+  if (hiddenCount > 0) {
+    logger.dim(`... and ${hiddenCount} more project${hiddenCount === 1 ? '' : 's'}`);
+  }
+
+  for (const project of displayedProjects) {
     try {
       const state = deriveProjectState(project.path);
       const stats = getDerivedStats(state);

@@ -71,6 +71,11 @@ class Logger {
   newline(): void {
     console.log();
   }
+
+  dim(message: string, ...args: unknown[]): void {
+    // ANSI escape code for dim text
+    console.log(`\x1b[2m${this.formatMessage(message)}\x1b[0m`, ...args);
+  }
 }
 
 export const logger = new Logger();

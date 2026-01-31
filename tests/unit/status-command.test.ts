@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { resolveProjectIdentifier, extractProjectName } from '../../src/utils/paths.js';
+import { discoverProjects } from '../../src/core/state-derivation.js';
 
 describe('Status Command - Identifier Support', () => {
   let tempDir: string;
@@ -147,6 +148,124 @@ describe('Status Command - Identifier Support', () => {
 
     it('should return null for non-existent RAF directory', () => {
       expect(resolveProjectIdentifier('/non/existent/path', '001')).toBeNull();
+    });
+  });
+});
+
+describe('Status Command - Truncation Behavior', () => {
+  let tempDir: string;
+  const MAX_DISPLAYED_PROJECTS = 10;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-truncation-test-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  function createProject(number: number, name: string): void {
+    const projectNumber = String(number).padStart(3, '0');
+    fs.mkdirSync(path.join(tempDir, `${projectNumber}-${name}`));
+  }
+
+  describe('Project List Truncation Logic', () => {
+    it('should return all projects when count is less than max', () => {
+      createProject(1, 'project-a');
+      createProject(2, 'project-b');
+      createProject(3, 'project-c');
+
+      const projects = discoverProjects(tempDir);
+      expect(projects.length).toBe(3);
+      expect(projects.length).toBeLessThanOrEqual(MAX_DISPLAYED_PROJECTS);
+    });
+
+    it('should return all projects when count equals max', () => {
+      for (let i = 1; i <= MAX_DISPLAYED_PROJECTS; i++) {
+        createProject(i, `project-${i}`);
+      }
+
+      const projects = discoverProjects(tempDir);
+      expect(projects.length).toBe(MAX_DISPLAYED_PROJECTS);
+    });
+
+    it('should have more than max projects for truncation testing', () => {
+      for (let i = 1; i <= 15; i++) {
+        createProject(i, `project-${i}`);
+      }
+
+      const allProjects = discoverProjects(tempDir);
+      expect(allProjects.length).toBe(15);
+      expect(allProjects.length).toBeGreaterThan(MAX_DISPLAYED_PROJECTS);
+
+      // Verify truncation would yield correct hidden count
+      const hiddenCount = allProjects.length - MAX_DISPLAYED_PROJECTS;
+      expect(hiddenCount).toBe(5);
+    });
+
+    it('should slice to get last N projects (sorted by number ascending)', () => {
+      for (let i = 1; i <= 15; i++) {
+        createProject(i, `project-${i}`);
+      }
+
+      const allProjects = discoverProjects(tempDir);
+      const displayedProjects = allProjects.slice(-MAX_DISPLAYED_PROJECTS);
+
+      // Should have projects 6-15 (last 10)
+      expect(displayedProjects.length).toBe(MAX_DISPLAYED_PROJECTS);
+      expect(displayedProjects[0].number).toBe(6);
+      expect(displayedProjects[9].number).toBe(15);
+    });
+
+    it('should keep projects in ascending order after slicing', () => {
+      for (let i = 1; i <= 12; i++) {
+        createProject(i, `project-${i}`);
+      }
+
+      const allProjects = discoverProjects(tempDir);
+      const displayedProjects = allProjects.slice(-MAX_DISPLAYED_PROJECTS);
+
+      // Verify ascending order
+      for (let i = 1; i < displayedProjects.length; i++) {
+        expect(displayedProjects[i].number).toBeGreaterThan(displayedProjects[i - 1].number);
+      }
+    });
+
+    it('should calculate correct hidden count', () => {
+      // Test with 25 projects
+      for (let i = 1; i <= 25; i++) {
+        createProject(i, `project-${i}`);
+      }
+
+      const allProjects = discoverProjects(tempDir);
+      const hiddenCount = Math.max(0, allProjects.length - MAX_DISPLAYED_PROJECTS);
+
+      expect(hiddenCount).toBe(15);
+    });
+
+    it('should have zero hidden count when projects are at or below max', () => {
+      for (let i = 1; i <= 5; i++) {
+        createProject(i, `project-${i}`);
+      }
+
+      const allProjects = discoverProjects(tempDir);
+      const hiddenCount = Math.max(0, allProjects.length - MAX_DISPLAYED_PROJECTS);
+
+      expect(hiddenCount).toBe(0);
+    });
+
+    it('should handle exactly max + 1 projects', () => {
+      for (let i = 1; i <= MAX_DISPLAYED_PROJECTS + 1; i++) {
+        createProject(i, `project-${i}`);
+      }
+
+      const allProjects = discoverProjects(tempDir);
+      const hiddenCount = Math.max(0, allProjects.length - MAX_DISPLAYED_PROJECTS);
+      const displayedProjects = allProjects.slice(-MAX_DISPLAYED_PROJECTS);
+
+      expect(hiddenCount).toBe(1);
+      expect(displayedProjects.length).toBe(MAX_DISPLAYED_PROJECTS);
+      expect(displayedProjects[0].number).toBe(2);
     });
   });
 });
