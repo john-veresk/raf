@@ -25,6 +25,22 @@ src/
 └── types/                   # TypeScript type definitions
 ```
 
+## RAF Project Structure
+
+Each RAF project follows this structure:
+```
+RAF/
+└── NNN-project-name/        # e.g., 001-fix-bug or a00-feature
+    ├── input.md             # User requirements
+    ├── decisions.md         # Q&A from planning interviews
+    ├── plans/               # Task breakdowns
+    │   ├── 001-task-name.md
+    │   └── 002-another-task.md
+    └── outcomes/            # Completed task results
+        ├── 001-task-name.md
+        └── 002-another-task.md
+```
+
 ## Development Commands
 
 ```bash
@@ -47,6 +63,7 @@ npm run lint       # Type check without emit
 - Unit tests for all core modules
 - Integration tests for command flows
 - Mock external dependencies (Claude CLI, file system where appropriate)
+- Follow TDD approach - write tests first
 
 ## Key Implementation Details
 
@@ -55,43 +72,56 @@ npm run lint       # Type check without emit
 - Use `setRawMode(true)` for interactive planning mode
 - Graceful cleanup on process termination
 
-### State Management
-- State stored in `state.json` per project
-- Support resuming from last completed task
-- Track attempts for retry logic
-
 ### Output Parsing
 - Look for `<promise>COMPLETE</promise>` or `<promise>FAILED</promise>` markers
 - Detect context overflow patterns
 - Parse task completion status
 
-## Version Management
+## Architectural Decisions (from completed projects)
 
-Use npm's version command to bump the version following Semantic Versioning:
+### State Derivation Over Persistence
+- Task status determined by outcome file existence and content
+- Outcome files must include status marker as first line: `## Status: SUCCESS` or `## Status: FAILED`
+- Use `state-derivation.ts` module: `deriveProjectState()`, `getNextPendingTask()`, `isProjectComplete()`
 
-### Version Types
+### Project Naming Convention
+- Format: `NNN-project-name` (001-999) then base36 `XXX-project-name` (a00-zzz)
+- Project name is kebab-case derived from core feature
+- Supports 46,000+ projects
 
-| Command | When to Use | Example |
-|---------|-------------|---------|
-| `npm version patch` | Bug fixes, minor changes | 0.2.7 → 0.2.8 |
-| `npm version minor` | New features, backwards compatible | 0.2.7 → 0.3.0 |
-| `npm version major` | Breaking changes | 0.2.7 → 1.0.0 |
+### Project Identifier Resolution
+Support multiple identifier formats in commands:
+1. Numeric ID: `3` or `003`
+2. Base36 ID: `a00`, `a01`
+3. Project name: `fix-stuff` (case-insensitive, partial match)
+4. Full folder name: `001-fix-stuff` (exact match)
 
-### Version Bump Example
+Use `resolveProjectIdentifierWithDetails()` from `src/utils/paths.ts`
 
-```bash
-# Bump patch version (bug fixes)
-npm version patch
-
-# Bump minor version (new features)
-npm version minor
-
-# Bump major version (breaking changes)
-npm version major
+### Git Commit Schema
 ```
+RAF[<project-number>:plan]      - After planning phase completes
+RAF[<project-number>:outcome]   - After all tasks complete
+RAF[<project-number>:<task>]    - Claude commits during task execution
+```
+- Only stage project folder, not entire repo
+- No commits on failure
+- Handle "not in git repo" gracefully (warning, no crash)
 
-### Important
-After task completion update README.md (user facing) and CLAUDE.md (internal)
-Run appropriate npm version command on feature completiong  
-Cover your changes with tests. Use TDD approach
-Use Clean Architecture principles (SOLID)
+### Amendment Mode
+- `raf plan --amend <identifier>` adds tasks to existing projects
+- Existing tasks shown with status: `[COMPLETED]`, `[PENDING]`, `[FAILED]`
+- New tasks numbered sequentially after last task
+- No modification of existing plan files
+
+### Multi-Project Execution
+- `raf do <projects...>` supports multiple projects
+- Sequential execution (not parallel) for git safety
+- Continue on failure, report results at end
+- Deduplicates repeated projects
+
+## Important Reminders
+
+1. After task completion update README.md (user facing) and CLAUDE.md (internal)
+2. Cover changes with tests - use TDD approach
+3. Use Clean Architecture principles (SOLID)
