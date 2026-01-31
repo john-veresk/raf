@@ -71,3 +71,9 @@ raf do myproject --model opus
 ```
 
 <promise>COMPLETE</promise>
+
+
+## Details
+- Attempts: 1
+- Elapsed time: 2m 12s
+- Completed at: 2026-01-31T12:03:32.915Z
