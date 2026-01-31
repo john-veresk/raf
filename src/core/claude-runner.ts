@@ -61,7 +61,9 @@ export class ClaudeRunner {
 
     return new Promise((resolve) => {
       // Don't use --print for interactive sessions - it disables interactivity
-      const args = ['--model', this.model, prompt];
+      // Use --append-system-prompt to add RAF instructions to system prompt
+      // This gives RAF instructions stronger precedence than passing as user message
+      const args = ['--model', this.model, '--append-system-prompt', prompt];
 
       logger.debug(`Starting interactive Claude session with model: ${this.model}`);
 
@@ -139,14 +141,18 @@ export class ClaudeRunner {
       logger.debug(`Starting Claude execution session with model: ${this.model}`);
       logger.debug(`Claude path: ${claudePath}`);
 
-      // Use -p flag to pass prompt as argument (like ralphy does)
+      // Use --append-system-prompt to add RAF instructions to system prompt
+      // This gives RAF instructions stronger precedence than passing as user message
       // --dangerously-skip-permissions bypasses interactive prompts
+      // -p enables print mode (non-interactive)
       const proc = spawn(claudePath, [
         '--dangerously-skip-permissions',
         '--model',
         this.model,
-        '-p',
+        '--append-system-prompt',
         prompt,
+        '-p',
+        'Execute the task as described in the system prompt.',
       ], {
         cwd,
         env: process.env,
@@ -232,14 +238,18 @@ export class ClaudeRunner {
       logger.debug(`Claude path: ${claudePath}`);
 
       logger.debug('Spawning process...');
-      // Use -p flag to pass prompt as argument (like ralphy does)
+      // Use --append-system-prompt to add RAF instructions to system prompt
+      // This gives RAF instructions stronger precedence than passing as user message
       // --dangerously-skip-permissions bypasses interactive prompts
+      // -p enables print mode (non-interactive)
       const proc = spawn(claudePath, [
         '--dangerously-skip-permissions',
         '--model',
         this.model,
-        '-p',
+        '--append-system-prompt',
         prompt,
+        '-p',
+        'Execute the task as described in the system prompt.',
       ], {
         cwd,
         env: process.env,

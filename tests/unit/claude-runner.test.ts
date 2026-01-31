@@ -445,6 +445,100 @@ describe('ClaudeRunner', () => {
     });
   });
 
+  describe('system prompt append flag', () => {
+    function createMockProcess() {
+      const stdout = new EventEmitter();
+      const stderr = new EventEmitter();
+      const proc = new EventEmitter() as any;
+      proc.stdout = stdout;
+      proc.stderr = stderr;
+      proc.kill = jest.fn();
+      return proc;
+    }
+
+    it('should use --append-system-prompt flag in run()', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const rafPrompt = 'RAF instructions here';
+      const runPromise = runner.run(rafPrompt, { timeout: 60 });
+
+      mockProc.emit('close', 0);
+      await runPromise;
+
+      const spawnArgs = mockSpawn.mock.calls[0][1] as string[];
+      expect(spawnArgs).toContain('--append-system-prompt');
+      expect(spawnArgs).toContain(rafPrompt);
+
+      // Verify the --append-system-prompt flag comes before the prompt
+      const appendIndex = spawnArgs.indexOf('--append-system-prompt');
+      const promptIndex = spawnArgs.indexOf(rafPrompt);
+      expect(appendIndex).toBeLessThan(promptIndex);
+      expect(spawnArgs[appendIndex + 1]).toBe(rafPrompt);
+    });
+
+    it('should use --append-system-prompt flag in runVerbose()', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const rafPrompt = 'RAF verbose instructions here';
+      const runPromise = runner.runVerbose(rafPrompt, { timeout: 60 });
+
+      mockProc.emit('close', 0);
+      await runPromise;
+
+      const spawnArgs = mockSpawn.mock.calls[0][1] as string[];
+      expect(spawnArgs).toContain('--append-system-prompt');
+      expect(spawnArgs).toContain(rafPrompt);
+
+      // Verify the --append-system-prompt flag comes before the prompt
+      const appendIndex = spawnArgs.indexOf('--append-system-prompt');
+      const promptIndex = spawnArgs.indexOf(rafPrompt);
+      expect(appendIndex).toBeLessThan(promptIndex);
+      expect(spawnArgs[appendIndex + 1]).toBe(rafPrompt);
+    });
+
+    it('should pass minimal trigger prompt with -p flag', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('RAF instructions', { timeout: 60 });
+
+      mockProc.emit('close', 0);
+      await runPromise;
+
+      const spawnArgs = mockSpawn.mock.calls[0][1] as string[];
+      expect(spawnArgs).toContain('-p');
+
+      // The trigger prompt should follow -p
+      const pIndex = spawnArgs.indexOf('-p');
+      expect(spawnArgs[pIndex + 1]).toBe('Execute the task as described in the system prompt.');
+    });
+
+    it('should include all required flags in correct order', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner({ model: 'sonnet' });
+      const runPromise = runner.run('test instructions', { timeout: 60 });
+
+      mockProc.emit('close', 0);
+      await runPromise;
+
+      const spawnArgs = mockSpawn.mock.calls[0][1] as string[];
+
+      // Verify all expected flags are present
+      expect(spawnArgs).toContain('--dangerously-skip-permissions');
+      expect(spawnArgs).toContain('--model');
+      expect(spawnArgs).toContain('sonnet');
+      expect(spawnArgs).toContain('--append-system-prompt');
+      expect(spawnArgs).toContain('-p');
+    });
+  });
+
   describe('retry isolation (timeout per attempt)', () => {
     function createMockProcess() {
       const stdout = new EventEmitter();
