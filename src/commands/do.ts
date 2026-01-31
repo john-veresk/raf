@@ -331,21 +331,6 @@ async function executeSingleProject(
     // Compute outcome file path for this task
     const outcomeFilePath = getOutcomeFilePath(projectPath, task.id, displayName);
 
-    // Build execution prompt
-    const prompt = getExecutionPrompt({
-      projectPath,
-      planPath: projectManager.getPlanPath(projectPath, task.planFile),
-      taskId: task.id,
-      taskNumber,
-      totalTasks,
-      previousOutcomes,
-      autoCommit,
-      projectName,
-      projectNumber,
-      taskName: displayName,
-      outcomeFilePath,
-    });
-
     // Execute with retries
     let success = false;
     let attempts = 0;
@@ -366,6 +351,28 @@ async function executeSingleProject(
       if (verbose && attempts > 1) {
         logger.info(`  Retry ${attempts}/${maxRetries}...`);
       }
+
+      // Build execution prompt (inside loop to include retry context on retries)
+      // Check if previous outcome file exists for retry context
+      const previousOutcomeFileForRetry = attempts > 1 && fs.existsSync(outcomeFilePath)
+        ? outcomeFilePath
+        : undefined;
+
+      const prompt = getExecutionPrompt({
+        projectPath,
+        planPath: projectManager.getPlanPath(projectPath, task.planFile),
+        taskId: task.id,
+        taskNumber,
+        totalTasks,
+        previousOutcomes,
+        autoCommit,
+        projectName,
+        projectNumber,
+        taskName: displayName,
+        outcomeFilePath,
+        attemptNumber: attempts,
+        previousOutcomeFile: previousOutcomeFileForRetry,
+      });
 
       // Run Claude
       const result = verbose

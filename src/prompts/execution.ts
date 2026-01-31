@@ -10,6 +10,8 @@ export interface ExecutionPromptParams {
   projectNumber: string;
   taskName: string;
   outcomeFilePath: string;
+  attemptNumber?: number;
+  previousOutcomeFile?: string;
 }
 
 export function getExecutionPrompt(params: ExecutionPromptParams): string {
@@ -25,6 +27,8 @@ export function getExecutionPrompt(params: ExecutionPromptParams): string {
     projectNumber,
     taskName,
     outcomeFilePath,
+    attemptNumber = 1,
+    previousOutcomeFile,
   } = params;
 
   let outcomesSection = '';
@@ -51,6 +55,24 @@ After successfully completing the task:
 `
     : '';
 
+  // Generate retry context section for attempt 2+
+  let retryContextSection = '';
+  if (attemptNumber > 1 && previousOutcomeFile) {
+    retryContextSection = `
+## Retry Context
+
+This is attempt ${attemptNumber} at executing this task. The previous attempt produced an outcome file that you should review before starting.
+
+**Previous outcome file**: ${previousOutcomeFile}
+
+Please:
+1. Read the previous outcome file first
+2. Understand what was attempted and why it failed
+3. Account for the previous failure in your approach
+4. Avoid making the same mistakes
+`;
+  }
+
   return `You are executing a planned task for RAF (Ralph's Automation Framework).
 
 ## Task Information
@@ -67,7 +89,7 @@ After successfully completing the task:
 4. Signal completion with the appropriate marker
 
 ## Instructions
-
+${retryContextSection}
 ### Step 1: Read the Plan
 
 First, read the plan file to understand exactly what needs to be done.

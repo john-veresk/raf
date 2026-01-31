@@ -1,0 +1,1 @@
+- [ ] see commit db9034da3e1bea6ece16aafdab336c508438e78e . the problem is that claude outputs marker correctly in output file but RAF doesn't see it, it looks in claude code output. change RAF code so that it look in output file instead (or maybe both places for robustness, investigate the codebase and suggest)

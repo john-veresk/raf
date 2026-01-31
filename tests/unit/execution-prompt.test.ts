@@ -194,4 +194,66 @@ describe('Execution Prompt', () => {
       expect(prompt).not.toContain('Previous Task Outcomes');
     });
   });
+
+  describe('Retry Context', () => {
+    it('should not include retry context on first attempt', () => {
+      const params = {
+        ...baseParams,
+        attemptNumber: 1,
+        previousOutcomeFile: '/path/to/outcome.md',
+      };
+      const prompt = getExecutionPrompt(params);
+      expect(prompt).not.toContain('Retry Context');
+    });
+
+    it('should not include retry context when attemptNumber is not provided', () => {
+      const prompt = getExecutionPrompt(baseParams);
+      expect(prompt).not.toContain('Retry Context');
+    });
+
+    it('should include retry context on second attempt with previous outcome file', () => {
+      const params = {
+        ...baseParams,
+        attemptNumber: 2,
+        previousOutcomeFile: '/Users/test/RAF/005-task-naming-improvements/outcomes/001-enhance-identifier-resolution.md',
+      };
+      const prompt = getExecutionPrompt(params);
+      expect(prompt).toContain('## Retry Context');
+      expect(prompt).toContain('This is attempt 2');
+      expect(prompt).toContain('**Previous outcome file**: /Users/test/RAF/005-task-naming-improvements/outcomes/001-enhance-identifier-resolution.md');
+    });
+
+    it('should include retry context on third attempt', () => {
+      const params = {
+        ...baseParams,
+        attemptNumber: 3,
+        previousOutcomeFile: '/path/to/outcome.md',
+      };
+      const prompt = getExecutionPrompt(params);
+      expect(prompt).toContain('This is attempt 3');
+    });
+
+    it('should not include retry context on second attempt without previous outcome file', () => {
+      const params = {
+        ...baseParams,
+        attemptNumber: 2,
+        previousOutcomeFile: undefined,
+      };
+      const prompt = getExecutionPrompt(params);
+      expect(prompt).not.toContain('Retry Context');
+    });
+
+    it('should instruct to read previous outcome file and avoid same mistakes', () => {
+      const params = {
+        ...baseParams,
+        attemptNumber: 2,
+        previousOutcomeFile: '/path/to/outcome.md',
+      };
+      const prompt = getExecutionPrompt(params);
+      expect(prompt).toContain('Read the previous outcome file first');
+      expect(prompt).toContain('Understand what was attempted and why it failed');
+      expect(prompt).toContain('Account for the previous failure in your approach');
+      expect(prompt).toContain('Avoid making the same mistakes');
+    });
+  });
 });

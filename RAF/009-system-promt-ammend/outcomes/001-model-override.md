@@ -1,77 +1,28 @@
-# Task 001 - Model Override Support
+## Status: FAILED
 
-## Summary
+# Task 001 - Failed
 
-Added CLI flags to override the Claude model for `plan` and `do` commands.
+## Failure Reason
+Outcome file missing completion marker `<promise>COMPLETE</promise>`
 
-## Key Changes
+## Analysis
+The task executed successfully and all work was completed, but the outcome file was not properly formatted with the required completion marker. RAF validates task completion by checking for `<promise>COMPLETE</promise>` or `<promise>FAILED</promise>` at the end of outcome files. Without this marker, RAF cannot recognize the task as complete, even though the work itself was done.
 
-### Files Modified/Created
+## Suggested Fix
+- Ensure outcome files written by Claude always end with `<promise>COMPLETE</promise>` marker
+- Add validation in the outcome file generation process to append the completion marker
+- Verify that the outcome file being written includes the required marker before task completion is signaled
 
-1. **src/types/config.ts**:
-   - Added `ClaudeModelName` type: `'sonnet' | 'haiku' | 'opus'`
-   - Added `model?: ClaudeModelName` and `sonnet?: boolean` to `PlanCommandOptions`
-   - Added `model?: ClaudeModelName` and `sonnet?: boolean` to `DoCommandOptions`
+## Relevant Output
+```
+Task 001 (Model Override Support) has been completed successfully.
+[No completion marker found - outcome file missing <promise>COMPLETE</promise>]
+```
 
-2. **src/utils/validation.ts**:
-   - Added `validateModelName()` function with case-insensitive validation
-   - Added `resolveModelOption()` function that:
-     - Defaults to `opus` when no flag provided
-     - Handles `--sonnet` shorthand
-     - Validates model name against allowed values
-     - Throws error when conflicting flags used
+<promise>FAILED</promise>
 
-3. **src/commands/plan.ts**:
-   - Added `-m, --model <name>` flag
-   - Added `--sonnet` shorthand flag
-   - Validates and resolves model before running
-   - Passes model to `ClaudeRunner`
-   - Logs model name in verbose mode
+## Details
+- Attempts: 3
+- Elapsed time: 8m 13s
+- Failed at: 2026-01-31T11:49:40.064Z
 
-4. **src/commands/do.ts**:
-   - Added `-m, --model <name>` flag
-   - Added `--sonnet` shorthand flag
-   - Validates and resolves model before running
-   - Passes model to `ClaudeRunner`
-   - Logs model name in verbose mode
-
-5. **src/core/claude-runner.ts**:
-   - Added `ClaudeRunnerConfig` interface with `model?: string`
-   - Constructor accepts model config (defaults to `opus`)
-   - All execution methods (`run`, `runVerbose`, `runInteractive`) pass `--model` flag to Claude CLI
-
-6. **tests/unit/validation.test.ts**:
-   - Added tests for `validateModelName()`:
-     - Valid model names (sonnet, haiku, opus)
-     - Case normalization
-     - Invalid model rejection
-   - Added tests for `resolveModelOption()`:
-     - Default opus behavior
-     - Model flag handling
-     - Sonnet shorthand
-     - Conflicting flag detection
-     - Invalid model rejection
-
-7. **tests/unit/claude-runner.test.ts**:
-   - Added "model configuration" test suite:
-     - Default opus model
-     - Model passed to run()
-     - Model passed to runVerbose()
-     - Correct argument ordering
-
-## Acceptance Criteria Verification
-
-- [x] `raf plan --model sonnet` uses Sonnet model
-- [x] `raf plan --sonnet` uses Sonnet model
-- [x] `raf do myproject --model haiku` uses Haiku model
-- [x] `raf do myproject --sonnet` uses Sonnet model
-- [x] Invalid model names are rejected with clear error
-- [x] `--model` and `--sonnet` together produce error
-- [x] Default is Opus when no flag provided
-- [x] All tests pass (534 tests)
-
-## Test Results
-
-All 534 tests pass, including the new model validation and configuration tests.
-
-<promise>COMPLETE</promise>
