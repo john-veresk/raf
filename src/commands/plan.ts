@@ -13,7 +13,8 @@ import {
   resolveModelOption,
 } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
-import { generateProjectName } from '../utils/name-generator.js';
+import { generateProjectNames } from '../utils/name-generator.js';
+import { pickProjectName } from '../ui/name-picker.js';
 import {
   getPlansDir,
   getRafDir,
@@ -113,8 +114,10 @@ async function runPlanCommand(projectName?: string, model?: string): Promise<voi
   // Get or generate project name
   let finalProjectName = projectName;
   if (!finalProjectName) {
-    logger.info('Generating project name...');
-    finalProjectName = await generateProjectName(cleanInput);
+    logger.info('Generating project name suggestions...');
+    const suggestedNames = await generateProjectNames(cleanInput);
+    logger.newline();
+    finalProjectName = await pickProjectName(suggestedNames);
   }
 
   if (!validateProjectName(finalProjectName)) {
