@@ -22,9 +22,7 @@ import {
   resolveProjectIdentifierWithDetails,
   getInputPath,
   extractTaskNameFromPlanFile,
-  extractProjectNumber,
 } from '../utils/paths.js';
-import { commitProjectFolder } from '../core/git.js';
 import {
   deriveProjectState,
   isProjectComplete,
@@ -180,21 +178,6 @@ async function runPlanCommand(projectName?: string, model?: string): Promise<voi
       logger.info('Plans created:');
       for (const planFile of planFiles) {
         logger.info(`  - plans/${planFile}`);
-      }
-
-      // Commit the project folder
-      logger.newline();
-      const projectNum = extractProjectNumber(projectPath) ?? '000';
-      const commitResult = commitProjectFolder(projectPath, projectNum, 'plan');
-      if (commitResult.success) {
-        if (commitResult.message === 'No changes to commit') {
-          logger.info('Project files already committed.');
-        } else {
-          logger.success(`Committed: ${commitResult.message}`);
-        }
-      } else {
-        logger.warn(`Could not commit project files: ${commitResult.error}`);
-        logger.info('Planning succeeded, but you may want to commit manually.');
       }
 
       logger.newline();
@@ -362,21 +345,6 @@ async function runAmendCommand(identifier: string, model?: string): Promise<void
       logger.info('New plans created:');
       for (const planFile of newPlanFiles) {
         logger.info(`  - plans/${planFile}`);
-      }
-
-      // Commit the changes
-      logger.newline();
-      const projectNum = extractProjectNumber(projectPath) ?? '000';
-      const commitResult = commitProjectFolder(projectPath, projectNum, 'plan');
-      if (commitResult.success) {
-        if (commitResult.message === 'No changes to commit') {
-          logger.info('Project files already committed.');
-        } else {
-          logger.success(`Committed: ${commitResult.message}`);
-        }
-      } else {
-        logger.warn(`Could not commit project files: ${commitResult.error}`);
-        logger.info('Amendment succeeded, but you may want to commit manually.');
       }
 
       logger.newline();

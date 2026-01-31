@@ -112,13 +112,9 @@ Use `resolveProjectIdentifierWithDetails()` from `src/utils/paths.ts`
 
 ### Git Commit Schema
 
-**RAF-generated commits** (fixed format):
-```
-RAF[<project-number>:plan]      - After planning phase completes
-RAF[<project-number>:outcome]   - After all tasks complete
-```
+All git commits are made by Claude during task execution. RAF does not create any automated commits.
 
-**Claude-generated commits** (during task execution):
+**Commit format** (Claude-generated during task execution):
 ```
 RAF[<project-number>:<task>] <description>
 ```
@@ -131,8 +127,8 @@ RAF[005:002] Fix null pointer in auth handler
 RAF[a01:003] Refactor database connection pooling
 ```
 
-- Only stage project folder, not entire repo
-- No commits on failure
+- Claude commits code changes and outcome file together in one commit per task
+- No commits on failure (changes are stashed instead)
 - Handle "not in git repo" gracefully (warning, no crash)
 
 ### Amendment Mode

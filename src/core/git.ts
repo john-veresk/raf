@@ -137,65 +137,6 @@ export function getChangedFiles(): string[] {
   }
 }
 
-export interface CommitResult {
-  success: boolean;
-  message?: string;
-  error?: string;
-}
-
-/**
- * Commit type for RAF project folder commits.
- * - 'plan': After `raf plan` creates plan files
- * - 'outcome': When all tasks in a project complete via `raf do`
- */
-export type CommitType = 'plan' | 'outcome';
-
-/**
- * Commit only the files in a specific project folder.
- * Used for automated RAF commits (plan and outcome).
- *
- * Commit message formats:
- * - plan: RAF[<project-number>:plan]
- * - outcome: RAF[<project-number>:outcome]
- *
- * @param projectPath - The full path to the project folder
- * @param projectNumber - The project number prefix (e.g., "005" or "a00")
- * @param commitType - The type of commit ('plan' or 'outcome')
- * @returns CommitResult indicating success or failure
- */
-export function commitProjectFolder(
-  projectPath: string,
-  projectNumber: string,
-  commitType: CommitType = 'plan'
-): CommitResult {
-  if (!isGitRepo()) {
-    return { success: false, error: 'Not in a git repository' };
-  }
-
-  try {
-    // Stage only files in the project folder
-    execSync(`git add "${projectPath}"`, { encoding: 'utf-8', stdio: 'pipe' });
-
-    // Check if there are staged changes
-    const stagedStatus = execSync('git diff --cached --name-only', { encoding: 'utf-8', stdio: 'pipe' });
-    if (!stagedStatus.trim()) {
-      return { success: true, message: 'No changes to commit' };
-    }
-
-    // Commit with the universal RAF schema format
-    const commitMessage = `RAF[${projectNumber}:${commitType}]`;
-    execSync(`git commit -m "${commitMessage.replace(/"/g, '\\"')}"`, {
-      encoding: 'utf-8',
-      stdio: 'pipe',
-    });
-
-    return { success: true, message: commitMessage };
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    return { success: false, error: errorMsg };
-  }
-}
-
 /**
  * Stash uncommitted changes with a descriptive name.
  * @param name - Name for the stash (e.g., "raf-001-task-3-failed")
