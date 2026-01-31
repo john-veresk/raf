@@ -144,7 +144,15 @@ or for multiple dependencies:
 
 ### Step 5: Confirm Completion
 
-After creating all plan files, provide a summary of the tasks you've created.
+After creating all plan files:
+1. Provide a summary of the tasks you've created
+2. Display this exit message to the user:
+
+\`\`\`
+Planning complete! To exit this session and run your tasks:
+  1. Press Ctrl-C twice to exit
+  2. Then run: raf do <project>
+\`\`\`
 
 ## Important Rules
 

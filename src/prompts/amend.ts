@@ -162,10 +162,18 @@ Each plan file should follow this structure:
 
 ### Step 5: Confirm Completion
 
-After creating all new plan files, provide a summary of:
-- The new tasks you've created
-- How they relate to existing tasks
-- Total task count in the project
+After creating all new plan files:
+1. Provide a summary of:
+   - The new tasks you've created
+   - How they relate to existing tasks
+   - Total task count in the project
+2. Display this exit message to the user:
+
+\`\`\`
+Planning complete! To exit this session and run your tasks:
+  1. Press Ctrl-C twice to exit
+  2. Then run: raf do <project>
+\`\`\`
 
 ## Important Rules
 
