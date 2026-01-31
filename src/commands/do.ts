@@ -370,7 +370,6 @@ async function executeSingleProject(
 
 # Task ${task.id} - Completed
 
-## Summary
 ${summary}
 
 ## Details
