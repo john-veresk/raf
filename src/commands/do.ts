@@ -1,10 +1,11 @@
+import * as fs from 'node:fs';
 import { Command } from 'commander';
 import { ProjectManager } from '../core/project-manager.js';
 import { ClaudeRunner } from '../core/claude-runner.js';
 import { shutdownHandler } from '../core/shutdown-handler.js';
 import { stashChanges, hasUncommittedChanges, commitProjectFolder } from '../core/git.js';
 import { getExecutionPrompt } from '../prompts/execution.js';
-import { parseOutput, extractSummary, isRetryableFailure } from '../parsers/output-parser.js';
+import { parseOutput, isRetryableFailure } from '../parsers/output-parser.js';
 import { validatePlansExist } from '../utils/validation.js';
 import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFromPlanFile, resolveProjectIdentifierWithDetails, getOutcomeFilePath } from '../utils/paths.js';
 import { logger } from '../utils/logger.js';
@@ -17,6 +18,7 @@ import {
   getDerivedStats,
   isProjectComplete,
   hasProjectFailed,
+  parseOutcomeStatus,
   type DerivedTask,
   type DerivedProjectState,
 } from '../core/state-derivation.js';
@@ -379,20 +381,57 @@ async function executeSingleProject(
     }
 
     if (success) {
-      // Save outcome with status marker
-      // Note: Claude commits its own changes during task execution (when autoCommit is enabled)
-      const summary = extractSummary(lastOutput);
-      const outcomeContent = `## Status: SUCCESS
+      // Check if Claude wrote an outcome file with valid marker
+      // If so, keep it and append metadata; otherwise create fallback
+      let outcomeContent: string;
+      const claudeWroteOutcome = fs.existsSync(outcomeFilePath);
 
-# Task ${task.id} - Completed
+      if (claudeWroteOutcome) {
+        const existingContent = fs.readFileSync(outcomeFilePath, 'utf-8');
+        const status = parseOutcomeStatus(existingContent);
 
-${summary}
+        if (status === 'completed') {
+          // Claude wrote a valid outcome - append metadata
+          outcomeContent = existingContent + `
 
 ## Details
 - Attempts: ${attempts}
 - Elapsed time: ${elapsedFormatted}
 - Completed at: ${new Date().toISOString()}
 `;
+        } else {
+          // Outcome file exists but no valid COMPLETE marker - create fallback
+          outcomeContent = `## Status: SUCCESS
+
+# Task ${task.id} - Completed
+
+Task completed. No detailed report provided.
+
+<promise>COMPLETE</promise>
+
+## Details
+- Attempts: ${attempts}
+- Elapsed time: ${elapsedFormatted}
+- Completed at: ${new Date().toISOString()}
+`;
+        }
+      } else {
+        // No outcome file - create fallback
+        outcomeContent = `## Status: SUCCESS
+
+# Task ${task.id} - Completed
+
+Task completed. No detailed report provided.
+
+<promise>COMPLETE</promise>
+
+## Details
+- Attempts: ${attempts}
+- Elapsed time: ${elapsedFormatted}
+- Completed at: ${new Date().toISOString()}
+`;
+      }
+
       projectManager.saveOutcome(projectPath, task.id, outcomeContent);
 
       logger.success(`  Task ${task.id} completed (${elapsedFormatted})`);
