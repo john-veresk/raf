@@ -60,3 +60,8 @@ Tests:       521 passed, 521 total
 ```
 
 <promise>COMPLETE</promise>
+
+## Details
+- Attempts: 1
+- Elapsed time: verified in 1 pass
+- Completed at: 2026-01-31T11:25:00.000Z
