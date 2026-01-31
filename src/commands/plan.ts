@@ -17,6 +17,7 @@ import {
   getPlansDir,
   getRafDir,
   resolveProjectIdentifier,
+  resolveProjectIdentifierWithDetails,
   getInputPath,
   extractTaskNameFromPlanFile,
   extractProjectNumber,
@@ -199,12 +200,23 @@ async function runAmendCommand(identifier: string): Promise<void> {
 
   // Resolve the project
   const rafDir = getRafDir();
-  const projectPath = resolveProjectIdentifier(rafDir, identifier);
+  const result = resolveProjectIdentifierWithDetails(rafDir, identifier);
 
-  if (!projectPath) {
-    logger.error(`Project not found: ${identifier}`);
+  if (!result.path) {
+    if (result.error === 'ambiguous' && result.matches) {
+      logger.error(`Ambiguous project name: ${identifier}`);
+      logger.error('Multiple projects match:');
+      for (const match of result.matches) {
+        logger.error(`  - ${match.folder}`);
+      }
+      logger.error('Please specify the project ID or full folder name.');
+    } else {
+      logger.error(`Project not found: ${identifier}`);
+    }
     process.exit(1);
   }
+
+  const projectPath = result.path;
 
   // Load existing project state
   const projectState = deriveProjectState(projectPath);

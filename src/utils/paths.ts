@@ -313,7 +313,55 @@ export function getInputPath(projectPath: string): string {
 }
 
 /**
- * Resolve a project identifier to a full project path.
+ * Result of resolving a project identifier.
+ */
+export interface ProjectResolutionResult {
+  /** Resolved project path (null if not found or ambiguous) */
+  path: string | null;
+  /** Error type if resolution failed */
+  error?: 'not_found' | 'ambiguous';
+  /** For ambiguous matches, list of matching projects */
+  matches?: Array<{ number: number; name: string; path: string; folder: string }>;
+}
+
+/**
+ * Parse project information from a folder name.
+ * Returns null if the folder name doesn't match expected project format.
+ */
+function parseProjectFolder(
+  rafDir: string,
+  folderName: string
+): { number: number; name: string; path: string; folder: string } | null {
+  // Try numeric format first
+  const numericMatch = folderName.match(/^(\d{2,3})-(.+)$/);
+  if (numericMatch && numericMatch[1] && numericMatch[2]) {
+    return {
+      number: parseInt(numericMatch[1], 10),
+      name: numericMatch[2],
+      path: path.join(rafDir, folderName),
+      folder: folderName,
+    };
+  }
+
+  // Try base36 format
+  const base36Match = folderName.match(/^([a-z][0-9a-z]{2})-(.+)$/i);
+  if (base36Match && base36Match[1] && base36Match[2]) {
+    const decoded = decodeBase36(base36Match[1].toLowerCase());
+    if (decoded !== null) {
+      return {
+        number: decoded,
+        name: base36Match[2],
+        path: path.join(rafDir, folderName),
+        folder: folderName,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Resolve a project identifier with detailed result including ambiguity detection.
  *
  * Supported identifier formats (checked in this order):
  * 1. Full folder name (e.g., "001-fix-stuff", "a01-important-project")
@@ -325,20 +373,19 @@ export function getInputPath(projectPath: string): string {
  *    - Looks up by base36 project number (for projects >= 1000)
  * 4. Project name (e.g., "my-project", "fix-stuff")
  *    - Looks up by the name portion of the folder (after the prefix)
- *
- * This function is designed to be extensible for future task-level references
- * like "001-project/002-task".
+ *    - Case-insensitive matching
+ *    - Returns error if multiple projects have the same name
  *
  * @param rafDir - The RAF directory containing project folders
  * @param identifier - The identifier to resolve
- * @returns The full project path or null if not found
+ * @returns Resolution result with path, error type, and matches for ambiguous cases
  */
-export function resolveProjectIdentifier(
+export function resolveProjectIdentifierWithDetails(
   rafDir: string,
   identifier: string
-): string | null {
+): ProjectResolutionResult {
   if (!fs.existsSync(rafDir)) {
-    return null;
+    return { path: null, error: 'not_found' };
   }
 
   // Pattern to match full folder names: NNN-name or XXX-name (base36)
@@ -352,12 +399,12 @@ export function resolveProjectIdentifier(
     const entries = fs.readdirSync(rafDir, { withFileTypes: true });
     for (const entry of entries) {
       if (entry.isDirectory() && entry.name.toLowerCase() === identifier.toLowerCase()) {
-        return path.join(rafDir, entry.name);
+        return { path: path.join(rafDir, entry.name) };
       }
     }
-    // Full folder name format but doesn't exist - return null
-    // Don't fall through to name-based matching to avoid partial matches
-    return null;
+    // Full folder name format but doesn't exist as a folder.
+    // Fall through to name-based matching - the entire identifier might be a project name
+    // (e.g., "fix-double-summary-headers" looks like "fix-xxx" but is actually a name).
   }
 
   // Check if it's a numeric identifier (e.g., "003", "3", "1000")
@@ -375,41 +422,72 @@ export function resolveProjectIdentifier(
   }
 
   const entries = fs.readdirSync(rafDir, { withFileTypes: true });
+  const nameMatches: Array<{ number: number; name: string; path: string; folder: string }> = [];
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      let projectNumber: number | null = null;
-      let projectName: string | null = null;
+      const project = parseProjectFolder(rafDir, entry.name);
 
-      // Try numeric format first
-      const numericMatch = entry.name.match(/^(\d{2,3})-(.+)$/);
-      if (numericMatch && numericMatch[1] && numericMatch[2]) {
-        projectNumber = parseInt(numericMatch[1], 10);
-        projectName = numericMatch[2];
-      } else {
-        // Try base36 format
-        const base36Match = entry.name.match(/^([a-z][0-9a-z]{2})-(.+)$/i);
-        if (base36Match && base36Match[1] && base36Match[2]) {
-          projectNumber = decodeBase36(base36Match[1].toLowerCase());
-          projectName = base36Match[2];
-        }
-      }
-
-      if (projectNumber !== null && projectName !== null) {
+      if (project) {
         if (targetNumber !== null) {
           // Match by number (either numeric or base36 identifier)
-          if (projectNumber === targetNumber) {
-            return path.join(rafDir, entry.name);
+          if (project.number === targetNumber) {
+            return { path: project.path };
           }
         } else {
-          // Match by name
-          if (projectName === identifier) {
-            return path.join(rafDir, entry.name);
+          // Match by name (case-insensitive)
+          if (project.name.toLowerCase() === identifier.toLowerCase()) {
+            nameMatches.push(project);
           }
         }
       }
     }
   }
 
-  return null;
+  // Handle name matches
+  if (nameMatches.length === 1) {
+    return { path: nameMatches[0]!.path };
+  } else if (nameMatches.length > 1) {
+    // Multiple projects with the same name - ambiguous
+    return {
+      path: null,
+      error: 'ambiguous',
+      matches: nameMatches.sort((a, b) => a.number - b.number),
+    };
+  }
+
+  return { path: null, error: 'not_found' };
+}
+
+/**
+ * Resolve a project identifier to a full project path.
+ *
+ * Supported identifier formats (checked in this order):
+ * 1. Full folder name (e.g., "001-fix-stuff", "a01-important-project")
+ *    - Must be an exact match to an existing folder
+ *    - Pattern: numeric prefix (2-3 digits) or base36 prefix, followed by hyphen and name
+ * 2. Numeric ID (e.g., "003", "3", "1000")
+ *    - Looks up by project number
+ * 3. Base36 prefix (e.g., "a00", "a01")
+ *    - Looks up by base36 project number (for projects >= 1000)
+ * 4. Project name (e.g., "my-project", "fix-stuff")
+ *    - Looks up by the name portion of the folder (after the prefix)
+ *    - Case-insensitive matching
+ *
+ * Note: For ambiguity detection (multiple projects with same name), use
+ * resolveProjectIdentifierWithDetails instead.
+ *
+ * This function is designed to be extensible for future task-level references
+ * like "001-project/002-task".
+ *
+ * @param rafDir - The RAF directory containing project folders
+ * @param identifier - The identifier to resolve
+ * @returns The full project path or null if not found (or ambiguous)
+ */
+export function resolveProjectIdentifier(
+  rafDir: string,
+  identifier: string
+): string | null {
+  const result = resolveProjectIdentifierWithDetails(rafDir, identifier);
+  return result.path;
 }

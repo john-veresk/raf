@@ -9,6 +9,7 @@ import {
   extractProjectName,
   extractTaskNameFromPlanFile,
   resolveProjectIdentifier,
+  resolveProjectIdentifierWithDetails,
   getDecisionsPath,
   encodeBase36,
   decodeBase36,
@@ -615,6 +616,126 @@ describe('Paths', () => {
       // "001-project" as full folder name should match the first project
       const result = resolveProjectIdentifier(tempDir, '001-project');
       expect(result).toBe(path.join(tempDir, '001-project'));
+    });
+  });
+
+  describe('resolveProjectIdentifier (case-insensitive name matching)', () => {
+    it('should match project name case-insensitively', () => {
+      fs.mkdirSync(path.join(tempDir, '001-fix-double-summary-headers'));
+
+      // All these should match
+      expect(resolveProjectIdentifier(tempDir, 'fix-double-summary-headers')).toBe(
+        path.join(tempDir, '001-fix-double-summary-headers')
+      );
+      expect(resolveProjectIdentifier(tempDir, 'Fix-Double-Summary-Headers')).toBe(
+        path.join(tempDir, '001-fix-double-summary-headers')
+      );
+      expect(resolveProjectIdentifier(tempDir, 'FIX-DOUBLE-SUMMARY-HEADERS')).toBe(
+        path.join(tempDir, '001-fix-double-summary-headers')
+      );
+    });
+
+    it('should match mixed case project name', () => {
+      fs.mkdirSync(path.join(tempDir, '001-MyProject'));
+
+      expect(resolveProjectIdentifier(tempDir, 'myproject')).toBe(
+        path.join(tempDir, '001-MyProject')
+      );
+      expect(resolveProjectIdentifier(tempDir, 'MYPROJECT')).toBe(
+        path.join(tempDir, '001-MyProject')
+      );
+      expect(resolveProjectIdentifier(tempDir, 'MyProject')).toBe(
+        path.join(tempDir, '001-MyProject')
+      );
+    });
+  });
+
+  describe('resolveProjectIdentifierWithDetails', () => {
+    it('should return path for unique name match', () => {
+      fs.mkdirSync(path.join(tempDir, '001-my-project'));
+
+      const result = resolveProjectIdentifierWithDetails(tempDir, 'my-project');
+      expect(result.path).toBe(path.join(tempDir, '001-my-project'));
+      expect(result.error).toBeUndefined();
+      expect(result.matches).toBeUndefined();
+    });
+
+    it('should return ambiguous error for multiple projects with same name', () => {
+      fs.mkdirSync(path.join(tempDir, '001-my-project'));
+      fs.mkdirSync(path.join(tempDir, '002-my-project'));
+
+      const result = resolveProjectIdentifierWithDetails(tempDir, 'my-project');
+      expect(result.path).toBeNull();
+      expect(result.error).toBe('ambiguous');
+      expect(result.matches).toHaveLength(2);
+      expect(result.matches?.[0]?.folder).toBe('001-my-project');
+      expect(result.matches?.[1]?.folder).toBe('002-my-project');
+    });
+
+    it('should return ambiguous error for case-insensitive duplicate names', () => {
+      fs.mkdirSync(path.join(tempDir, '001-MyProject'));
+      fs.mkdirSync(path.join(tempDir, '002-myproject'));
+
+      const result = resolveProjectIdentifierWithDetails(tempDir, 'myproject');
+      expect(result.path).toBeNull();
+      expect(result.error).toBe('ambiguous');
+      expect(result.matches).toHaveLength(2);
+    });
+
+    it('should return not_found error for non-existent project', () => {
+      fs.mkdirSync(path.join(tempDir, '001-existing-project'));
+
+      const result = resolveProjectIdentifierWithDetails(tempDir, 'non-existent');
+      expect(result.path).toBeNull();
+      expect(result.error).toBe('not_found');
+      expect(result.matches).toBeUndefined();
+    });
+
+    it('should return not_found error for non-existent directory', () => {
+      const result = resolveProjectIdentifierWithDetails('/non/existent/path', 'project');
+      expect(result.path).toBeNull();
+      expect(result.error).toBe('not_found');
+    });
+
+    it('should resolve by number even with duplicate names', () => {
+      fs.mkdirSync(path.join(tempDir, '001-my-project'));
+      fs.mkdirSync(path.join(tempDir, '002-my-project'));
+
+      // By number should still work unambiguously
+      const result1 = resolveProjectIdentifierWithDetails(tempDir, '1');
+      expect(result1.path).toBe(path.join(tempDir, '001-my-project'));
+      expect(result1.error).toBeUndefined();
+
+      const result2 = resolveProjectIdentifierWithDetails(tempDir, '2');
+      expect(result2.path).toBe(path.join(tempDir, '002-my-project'));
+      expect(result2.error).toBeUndefined();
+    });
+
+    it('should resolve by full folder name even with duplicate names', () => {
+      fs.mkdirSync(path.join(tempDir, '001-my-project'));
+      fs.mkdirSync(path.join(tempDir, '002-my-project'));
+
+      // Full folder name should work unambiguously
+      const result1 = resolveProjectIdentifierWithDetails(tempDir, '001-my-project');
+      expect(result1.path).toBe(path.join(tempDir, '001-my-project'));
+      expect(result1.error).toBeUndefined();
+
+      const result2 = resolveProjectIdentifierWithDetails(tempDir, '002-my-project');
+      expect(result2.path).toBe(path.join(tempDir, '002-my-project'));
+      expect(result2.error).toBeUndefined();
+    });
+
+    it('should sort matches by project number', () => {
+      fs.mkdirSync(path.join(tempDir, '005-duplicate'));
+      fs.mkdirSync(path.join(tempDir, '001-duplicate'));
+      fs.mkdirSync(path.join(tempDir, '003-duplicate'));
+
+      const result = resolveProjectIdentifierWithDetails(tempDir, 'duplicate');
+      expect(result.error).toBe('ambiguous');
+      expect(result.matches).toHaveLength(3);
+      expect(result.matches?.[0]?.number).toBe(1);
+      expect(result.matches?.[1]?.number).toBe(3);
+      expect(result.matches?.[2]?.number).toBe(5);
     });
   });
 });

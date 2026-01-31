@@ -6,7 +6,7 @@ import { stashChanges, hasUncommittedChanges, commitProjectFolder } from '../cor
 import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, extractSummary, isRetryableFailure } from '../parsers/output-parser.js';
 import { validatePlansExist } from '../utils/validation.js';
-import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFromPlanFile, resolveProjectIdentifier } from '../utils/paths.js';
+import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFromPlanFile, resolveProjectIdentifierWithDetails } from '../utils/paths.js';
 import { logger } from '../utils/logger.js';
 import { getClaudeModel, getConfig } from '../utils/config.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
@@ -70,12 +70,24 @@ async function runDoCommand(projectIdentifiers: string[], options: DoCommandOpti
   const errors: Array<{ identifier: string; error: string }> = [];
 
   for (const identifier of projectIdentifiers) {
-    const projectPath = resolveProjectIdentifier(rafDir, identifier);
+    const result = resolveProjectIdentifierWithDetails(rafDir, identifier);
 
-    if (!projectPath) {
-      errors.push({ identifier, error: 'Project not found' });
+    if (!result.path) {
+      if (result.error === 'ambiguous' && result.matches) {
+        const matchList = result.matches
+          .map((m) => `  - ${m.folder}`)
+          .join('\n');
+        errors.push({
+          identifier,
+          error: `Ambiguous project name. Multiple projects match:\n${matchList}\nPlease specify the project ID or full folder name.`,
+        });
+      } else {
+        errors.push({ identifier, error: 'Project not found' });
+      }
       continue;
     }
+
+    const projectPath = result.path;
 
     // Skip duplicates
     if (seenPaths.has(projectPath)) {
