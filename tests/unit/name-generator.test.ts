@@ -15,7 +15,7 @@ describe('Name Generator', () => {
   });
 
   describe('generateProjectName', () => {
-    it('should return sanitized name from Haiku response', async () => {
+    it('should return sanitized name from Sonnet response', async () => {
       mockExecSync.mockReturnValue('user-auth-system\n');
 
       const result = await generateProjectName('Build a user authentication system');
@@ -23,12 +23,12 @@ describe('Name Generator', () => {
       expect(result).toBe('user-auth-system');
       expect(mockExecSync).toHaveBeenCalledTimes(1);
       expect(mockExecSync).toHaveBeenCalledWith(
-        expect.stringContaining('claude --model haiku --print'),
+        expect.stringContaining('claude --model sonnet --print'),
         expect.any(Object)
       );
     });
 
-    it('should sanitize Haiku response with quotes', async () => {
+    it('should sanitize Sonnet response with quotes', async () => {
       mockExecSync.mockReturnValue('"api-rate-limiter"');
 
       const result = await generateProjectName('Create an API rate limiting service');
@@ -36,7 +36,7 @@ describe('Name Generator', () => {
       expect(result).toBe('api-rate-limiter');
     });
 
-    it('should sanitize Haiku response with special characters', async () => {
+    it('should sanitize Sonnet response with special characters', async () => {
       mockExecSync.mockReturnValue('Some Project! Name');
 
       const result = await generateProjectName('Some project description');
@@ -44,7 +44,7 @@ describe('Name Generator', () => {
       expect(result).toBe('some-project-name');
     });
 
-    it('should fall back to word extraction when Haiku fails', async () => {
+    it('should fall back to word extraction when Sonnet fails', async () => {
       mockExecSync.mockImplementation(() => {
         throw new Error('Command failed');
       });
@@ -54,7 +54,7 @@ describe('Name Generator', () => {
       expect(result).toBe('build-user-authentication');
     });
 
-    it('should fall back to word extraction when Haiku returns empty', async () => {
+    it('should fall back to word extraction when Sonnet returns empty', async () => {
       mockExecSync.mockReturnValue('');
 
       const result = await generateProjectName('Implement caching layer for database');
@@ -62,7 +62,7 @@ describe('Name Generator', () => {
       expect(result).toBe('implement-caching-layer');
     });
 
-    it('should fall back to word extraction when Haiku returns single char', async () => {
+    it('should fall back to word extraction when Sonnet returns single char', async () => {
       mockExecSync.mockReturnValue('a');
 
       const result = await generateProjectName('Add new logging functionality');
@@ -80,7 +80,7 @@ describe('Name Generator', () => {
       expect(result).toBe('project');
     });
 
-    it('should truncate long names from Haiku', async () => {
+    it('should truncate long names from Sonnet', async () => {
       const longName = 'this-is-a-very-long-project-name-that-exceeds-the-maximum-allowed-length-for-folder-names';
       mockExecSync.mockReturnValue(longName);
 
@@ -89,7 +89,7 @@ describe('Name Generator', () => {
       expect(result.length).toBeLessThanOrEqual(50);
     });
 
-    it('should handle multiline Haiku response', async () => {
+    it('should handle multiline Sonnet response', async () => {
       mockExecSync.mockReturnValue('project-name\nSome extra explanation\n');
 
       const result = await generateProjectName('Some project');

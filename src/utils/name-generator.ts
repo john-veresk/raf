@@ -2,24 +2,31 @@ import { execSync } from 'node:child_process';
 import { logger } from './logger.js';
 import { sanitizeProjectName } from './validation.js';
 
-const HAIKU_MODEL = 'haiku';
+const SONNET_MODEL = 'sonnet';
 
-const NAME_GENERATION_PROMPT = `Analyze this project description and generate a short kebab-case name (2-4 words).
-Focus on the most important or core feature being built.
-The name should be action-oriented, describing what the project does.
-Examples: 'add-user-auth', 'fix-payment-flow', 'refactor-api-routes'
+const NAME_GENERATION_PROMPT = `Generate a short, punchy, creative project name (1-3 words, kebab-case).
 
-Output ONLY the name, nothing else - no quotes, no explanation, just the kebab-case name.
+Be creative! Use metaphors, analogies, or evocative words that capture the SPIRIT of the project.
+Don't literally describe what it does - make it memorable and fun.
+
+Good examples:
+- Bug fix → 'bug-squasher', 'exterminator', 'patch-adams'
+- Performance optimization → 'turbo-boost', 'lightning-rod', 'speed-demon'
+- Auth system → 'gatekeeper', 'bouncer', 'key-master'
+- Refactoring → 'spring-cleaning', 'phoenix', 'makeover'
+- New feature → 'moonshot', 'secret-sauce', 'magic-wand'
+
+Output ONLY the kebab-case name. No quotes, no explanation.
 
 Project description:`;
 
 /**
- * Generate a project name using Claude Haiku based on the project description.
+ * Generate a project name using Claude Sonnet based on the project description.
  * Falls back to extracting words from the description if the API call fails.
  */
 export async function generateProjectName(description: string): Promise<string> {
   try {
-    const name = await callHaikuForName(description);
+    const name = await callSonnetForName(description);
     if (name) {
       const sanitized = sanitizeGeneratedName(name);
       if (sanitized) {
@@ -28,7 +35,7 @@ export async function generateProjectName(description: string): Promise<string> 
       }
     }
   } catch (error) {
-    logger.debug(`Failed to generate name with Haiku: ${error}`);
+    logger.debug(`Failed to generate name with Sonnet: ${error}`);
   }
 
   // Fallback to extracting words from description
@@ -36,15 +43,15 @@ export async function generateProjectName(description: string): Promise<string> 
 }
 
 /**
- * Call Claude Haiku to generate a project name.
+ * Call Claude Sonnet to generate a project name.
  */
-async function callHaikuForName(description: string): Promise<string | null> {
+async function callSonnetForName(description: string): Promise<string | null> {
   try {
     const fullPrompt = `${NAME_GENERATION_PROMPT}\n${description}`;
 
-    // Use claude CLI with --model haiku and --print for non-interactive output
+    // Use claude CLI with --model sonnet and --print for non-interactive output
     const result = execSync(
-      `claude --model ${HAIKU_MODEL} --print "${escapeShellArg(fullPrompt)}"`,
+      `claude --model ${SONNET_MODEL} --print "${escapeShellArg(fullPrompt)}"`,
       {
         encoding: 'utf-8',
         timeout: 30000, // 30 second timeout
@@ -54,7 +61,7 @@ async function callHaikuForName(description: string): Promise<string | null> {
 
     return result.trim();
   } catch (error) {
-    logger.debug(`Haiku API call failed: ${error}`);
+    logger.debug(`Sonnet API call failed: ${error}`);
     return null;
   }
 }
