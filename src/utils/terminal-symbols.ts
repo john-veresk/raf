@@ -47,7 +47,8 @@ export function formatTaskProgress(
   const symbol = SYMBOLS[status];
   const displayName = truncate(name || 'task', 40);
 
-  if (status === 'running' && elapsedMs !== undefined) {
+  // Show elapsed time for running tasks, completed tasks, and failed tasks
+  if (elapsedMs !== undefined) {
     const timeStr = formatElapsedTime(elapsedMs);
     return `${symbol} ${displayName} ${timeStr}`;
   }

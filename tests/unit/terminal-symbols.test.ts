@@ -35,14 +35,24 @@ describe('Terminal Symbols', () => {
       expect(result).toBe('● auth-login 1/5');
     });
 
-    it('should format a completed task', () => {
+    it('should format a completed task without elapsed time', () => {
       const result = formatTaskProgress(3, 5, 'completed', 'setup-db');
       expect(result).toBe('✓ setup-db 3/5');
     });
 
-    it('should format a failed task', () => {
+    it('should format a completed task with elapsed time', () => {
+      const result = formatTaskProgress(3, 5, 'completed', 'setup-db', 154000);
+      expect(result).toBe('✓ setup-db 2m 34s');
+    });
+
+    it('should format a failed task without elapsed time', () => {
       const result = formatTaskProgress(2, 5, 'failed', 'deploy');
       expect(result).toBe('✗ deploy 2/5');
+    });
+
+    it('should format a failed task with elapsed time', () => {
+      const result = formatTaskProgress(2, 5, 'failed', 'deploy', 45000);
+      expect(result).toBe('✗ deploy 45s');
     });
 
     it('should format a pending task', () => {

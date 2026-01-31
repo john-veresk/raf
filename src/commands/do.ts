@@ -13,6 +13,12 @@ import { getClaudeModel, getConfig } from '../utils/config.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
 import { createStatusLine } from '../utils/status-line.js';
 import {
+  SYMBOLS,
+  formatProjectHeader,
+  formatSummary,
+  formatTaskProgress,
+} from '../utils/terminal-symbols.js';
+import {
   deriveProjectState,
   getNextExecutableTask,
   getDerivedStats,
@@ -126,9 +132,9 @@ async function runDoCommand(projectIdentifiers: string[], options: DoCommandOpti
   // Configure logger
   logger.configure({ verbose, debug });
 
-  // Log Claude model name once
+  // Log Claude model name once (verbose mode only for multi-project)
   const model = getClaudeModel();
-  if (model && resolvedProjects.length > 1) {
+  if (verbose && model && resolvedProjects.length > 1) {
     logger.info(`Using model: ${model}`);
     logger.newline();
   }
@@ -138,7 +144,7 @@ async function runDoCommand(projectIdentifiers: string[], options: DoCommandOpti
   const isMultiProject = resolvedProjects.length > 1;
 
   for (const [i, project] of resolvedProjects.entries()) {
-    if (isMultiProject) {
+    if (isMultiProject && verbose) {
       logger.info(`=== Project ${i + 1}/${resolvedProjects.length}: ${project.name} ===`);
       logger.newline();
     }
@@ -178,7 +184,7 @@ async function runDoCommand(projectIdentifiers: string[], options: DoCommandOpti
 
   // Show multi-project summary
   if (isMultiProject) {
-    printMultiProjectSummary(results);
+    printMultiProjectSummary(results, verbose);
   }
 
   // Exit with appropriate code
@@ -221,7 +227,12 @@ async function executeSingleProject(
 
   // Check if project is already complete
   if (isProjectComplete(state) && !force) {
-    logger.info('All tasks completed. Use --force to re-run.');
+    if (verbose) {
+      logger.info('All tasks completed. Use --force to re-run.');
+    } else {
+      const stats = getDerivedStats(state);
+      logger.info(formatSummary(stats.completed, stats.failed, stats.pending));
+    }
     const stats = getDerivedStats(state);
     return {
       projectName,
@@ -238,18 +249,26 @@ async function executeSingleProject(
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
-  logger.info(`Executing project: ${projectName}`);
-  logger.info(`Tasks: ${state.tasks.length}, Task timeout: ${timeout} minutes`);
+  // Start project timer
+  const projectStartTime = Date.now();
 
-  // Log Claude model name
-  if (showModel) {
-    const model = getClaudeModel();
-    if (model) {
-      logger.info(`Using model: ${model}`);
+  if (verbose) {
+    logger.info(`Executing project: ${projectName}`);
+    logger.info(`Tasks: ${state.tasks.length}, Task timeout: ${timeout} minutes`);
+
+    // Log Claude model name
+    if (showModel) {
+      const model = getClaudeModel();
+      if (model) {
+        logger.info(`Using model: ${model}`);
+      }
     }
-  }
 
-  logger.newline();
+    logger.newline();
+  } else {
+    // Minimal mode: show project header
+    logger.info(formatProjectHeader(projectName, state.tasks.length));
+  }
 
   // Execute tasks
   const totalTasks = state.tasks.length;
@@ -278,16 +297,20 @@ async function executeSingleProject(
     const taskIndex = state.tasks.findIndex((t) => t.id === task!.id);
     const taskNumber = taskIndex + 1;
     const taskName = extractTaskNameFromPlanFile(task.planFile);
-    const taskContext = `[Task ${taskNumber}/${totalTasks}: ${taskName ?? task.id}]`;
-    logger.setContext(taskContext);
+    const displayName = taskName ?? task.id;
 
-    // Log task execution status
-    if (task.status === 'failed') {
-      logger.info(`Retrying task ${task.id} (previously failed)...`);
-    } else if (task.status === 'completed' && force) {
-      logger.info(`Re-running task ${task.id} (force mode)...`);
-    } else {
-      logger.info(`Executing task ${task.id}...`);
+    if (verbose) {
+      const taskContext = `[Task ${taskNumber}/${totalTasks}: ${displayName}]`;
+      logger.setContext(taskContext);
+
+      // Log task execution status
+      if (task.status === 'failed') {
+        logger.info(`Retrying task ${task.id} (previously failed)...`);
+      } else if (task.status === 'completed' && force) {
+        logger.info(`Re-running task ${task.id} (force mode)...`);
+      } else {
+        logger.info(`Executing task ${task.id}...`);
+      }
     }
 
     // Get previous outcomes for context
@@ -297,7 +320,7 @@ async function executeSingleProject(
     const projectNumber = extractProjectNumber(projectPath) ?? '000';
 
     // Compute outcome file path for this task
-    const outcomeFilePath = getOutcomeFilePath(projectPath, task.id, taskName ?? task.id);
+    const outcomeFilePath = getOutcomeFilePath(projectPath, task.id, displayName);
 
     // Build execution prompt
     const prompt = getExecutionPrompt({
@@ -310,7 +333,7 @@ async function executeSingleProject(
       autoCommit,
       projectName,
       projectNumber,
-      taskName: taskName ?? task.id,
+      taskName: displayName,
       outcomeFilePath,
     });
 
@@ -323,15 +346,15 @@ async function executeSingleProject(
     // Set up timer for elapsed time tracking
     const statusLine = createStatusLine();
     const timer = createTaskTimer(verbose ? undefined : (elapsed) => {
-      const formatted = formatElapsedTime(elapsed);
-      statusLine.update(`  ⏱ ${formatted}`);
+      // Show running status with task name and timer (updates in place)
+      statusLine.update(formatTaskProgress(taskNumber, totalTasks, 'running', displayName, elapsed));
     });
     timer.start();
 
     while (!success && attempts < maxRetries) {
       attempts++;
 
-      if (attempts > 1) {
+      if (verbose && attempts > 1) {
         logger.info(`  Retry ${attempts}/${maxRetries}...`);
       }
 
@@ -435,7 +458,12 @@ Task completed. No detailed report provided.
 
       projectManager.saveOutcome(projectPath, task.id, outcomeContent);
 
-      logger.success(`  Task ${task.id} completed (${elapsedFormatted})`);
+      if (verbose) {
+        logger.success(`  Task ${task.id} completed (${elapsedFormatted})`);
+      } else {
+        // Minimal mode: show completed task line
+        logger.info(formatTaskProgress(taskNumber, totalTasks, 'completed', displayName, elapsedMs));
+      }
       completedInSession.add(task.id);
     } else {
       // Stash any uncommitted changes on complete failure
@@ -444,15 +472,20 @@ Task completed. No detailed report provided.
         const projectNum = extractProjectNumber(projectPath) ?? '000';
         stashName = `raf-${projectNum}-task-${task.id}-failed`;
         const stashed = stashChanges(stashName);
-        if (stashed) {
+        if (verbose && stashed) {
           logger.info(`  Changes stashed as: ${stashName}`);
         }
       }
 
-      logger.error(`  Task ${task.id} failed: ${failureReason} (${elapsedFormatted})`);
+      if (verbose) {
+        logger.error(`  Task ${task.id} failed: ${failureReason} (${elapsedFormatted})`);
+        logger.info('  Analyzing failure...');
+      } else {
+        // Minimal mode: show failed task line
+        logger.info(formatTaskProgress(taskNumber, totalTasks, 'failed', displayName, elapsedMs));
+      }
 
       // Analyze failure and generate structured report
-      logger.info('  Analyzing failure...');
       const analysisReport = await analyzeFailure(lastOutput, failureReason, task.id);
 
       // Save failure outcome with status marker and analysis
@@ -471,7 +504,9 @@ ${stashName ? `- Stash: ${stashName}` : ''}
       projectManager.saveOutcome(projectPath, task.id, outcomeContent);
     }
 
-    logger.newline();
+    if (verbose) {
+      logger.newline();
+    }
 
     // Clear context before next task
     logger.clearContext();
@@ -488,31 +523,59 @@ ${stashName ? `- Stash: ${stashName}` : ''}
 
   // Get final stats
   const stats = getDerivedStats(state);
+  const projectElapsedMs = Date.now() - projectStartTime;
 
   if (isProjectComplete(state)) {
-    logger.success('All tasks completed!');
     // Commit the project folder with outcome type
     const projectNum = extractProjectNumber(projectPath) ?? '000';
     const commitResult = commitProjectFolder(projectPath, projectNum, 'outcome');
-    if (commitResult.success) {
-      if (commitResult.message === 'No changes to commit') {
-        logger.info('Project files already committed.');
+
+    if (verbose) {
+      logger.success('All tasks completed!');
+      if (commitResult.success) {
+        if (commitResult.message === 'No changes to commit') {
+          logger.info('Project files already committed.');
+        } else {
+          logger.success(`Project complete. Committed to git.`);
+        }
       } else {
-        logger.success(`Project complete. Committed to git.`);
+        logger.warn(`Could not commit project files: ${commitResult.error}`);
       }
+
+      // Verbose summary
+      logger.newline();
+      logger.info('Summary:');
+      logger.info(`  Completed: ${stats.completed}`);
+      logger.info(`  Failed: ${stats.failed}`);
+      logger.info(`  Pending: ${stats.pending}`);
     } else {
-      logger.warn(`Could not commit project files: ${commitResult.error}`);
+      // Minimal summary with elapsed time
+      logger.info(formatSummary(stats.completed, stats.failed, stats.pending, projectElapsedMs));
     }
   } else if (hasProjectFailed(state)) {
-    logger.warn('Some tasks failed.');
+    if (verbose) {
+      logger.warn('Some tasks failed.');
+      logger.newline();
+      logger.info('Summary:');
+      logger.info(`  Completed: ${stats.completed}`);
+      logger.info(`  Failed: ${stats.failed}`);
+      logger.info(`  Pending: ${stats.pending}`);
+    } else {
+      // Minimal summary for failures
+      logger.info(formatSummary(stats.completed, stats.failed, stats.pending, projectElapsedMs));
+    }
+  } else {
+    // Project incomplete (pending tasks remain)
+    if (verbose) {
+      logger.newline();
+      logger.info('Summary:');
+      logger.info(`  Completed: ${stats.completed}`);
+      logger.info(`  Failed: ${stats.failed}`);
+      logger.info(`  Pending: ${stats.pending}`);
+    } else {
+      logger.info(formatSummary(stats.completed, stats.failed, stats.pending, projectElapsedMs));
+    }
   }
-
-  // Show summary
-  logger.newline();
-  logger.info('Summary:');
-  logger.info(`  Completed: ${stats.completed}`);
-  logger.info(`  Failed: ${stats.failed}`);
-  logger.info(`  Pending: ${stats.pending}`);
 
   return {
     projectName,
@@ -523,25 +586,34 @@ ${stashName ? `- Stash: ${stashName}` : ''}
   };
 }
 
-function printMultiProjectSummary(results: ProjectExecutionResult[]): void {
-  logger.newline();
-  logger.info('=== Multi-Project Summary ===');
+function printMultiProjectSummary(results: ProjectExecutionResult[], verbose: boolean): void {
   logger.newline();
 
-  for (const result of results) {
-    const statusSymbol = result.success ? '✓' : '✗';
-    const statusText = result.success
-      ? `Completed (${result.tasksCompleted}/${result.totalTasks} tasks)`
-      : result.error
-        ? `Error: ${result.error}`
-        : `Failed (${result.tasksCompleted}/${result.totalTasks} tasks)`;
+  if (verbose) {
+    logger.info('=== Multi-Project Summary ===');
+    logger.newline();
 
-    logger.info(`${statusSymbol} ${result.projectName}: ${statusText}`);
+    for (const result of results) {
+      const statusSymbol = result.success ? SYMBOLS.completed : SYMBOLS.failed;
+      const statusText = result.success
+        ? `Completed (${result.tasksCompleted}/${result.totalTasks} tasks)`
+        : result.error
+          ? `Error: ${result.error}`
+          : `Failed (${result.tasksCompleted}/${result.totalTasks} tasks)`;
+
+      logger.info(`${statusSymbol} ${result.projectName}: ${statusText}`);
+    }
+
+    const completed = results.filter((r) => r.success).length;
+    const failed = results.length - completed;
+
+    logger.newline();
+    logger.info(`Total: ${completed} completed, ${failed} failed`);
+  } else {
+    // Minimal multi-project summary: just show each project result
+    for (const result of results) {
+      const symbol = result.success ? SYMBOLS.completed : SYMBOLS.failed;
+      logger.info(`${symbol} ${result.projectName}`);
+    }
   }
-
-  const completed = results.filter((r) => r.success).length;
-  const failed = results.length - completed;
-
-  logger.newline();
-  logger.info(`Total: ${completed} completed, ${failed} failed`);
 }
