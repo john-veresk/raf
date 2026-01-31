@@ -111,11 +111,26 @@ Support multiple identifier formats in commands:
 Use `resolveProjectIdentifierWithDetails()` from `src/utils/paths.ts`
 
 ### Git Commit Schema
+
+**RAF-generated commits** (fixed format):
 ```
 RAF[<project-number>:plan]      - After planning phase completes
 RAF[<project-number>:outcome]   - After all tasks complete
-RAF[<project-number>:<task>]    - Claude commits during task execution
 ```
+
+**Claude-generated commits** (during task execution):
+```
+RAF[<project-number>:<task>] <description>
+```
+Claude writes a concise description of what was accomplished, focusing on the actual change rather than the task name.
+
+Examples:
+```
+RAF[005:001] Add validation for user input fields
+RAF[005:002] Fix null pointer in auth handler
+RAF[a01:003] Refactor database connection pooling
+```
+
 - Only stage project folder, not entire repo
 - No commits on failure
 - Handle "not in git repo" gracefully (warning, no crash)
