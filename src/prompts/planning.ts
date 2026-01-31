@@ -30,12 +30,18 @@ Project folder: ${projectPath}
 
 ## Instructions
 
-### Step 1: Identify Tasks
+### Step 1: Identify and Order Tasks
 
 Based on the project description, identify 3-8 distinct tasks. Each task should:
 - Be independently completable
 - Have a clear outcome
 - Take roughly 10-30 minutes of work for Claude
+
+**CRITICAL: Order tasks by logical execution order.** Lower-numbered tasks should be completed before higher-numbered ones. Consider:
+- Setup/foundation tasks come first (e.g., defining schemas, creating interfaces)
+- Core implementation tasks come next
+- Integration and extension tasks come later
+- Testing and validation tasks typically come last
 
 ### Step 2: Interview the User
 
@@ -109,19 +115,47 @@ Each plan file should follow this structure:
 [Any additional context, warnings, or considerations]
 \`\`\`
 
-### Step 4: Confirm Completion
+### Step 4: Infer Task Dependencies
+
+For each task, analyze which other tasks must complete successfully before it can begin. Add a \`## Dependencies\` section to plan files that have prerequisites.
+
+**How to identify dependencies:**
+- If task B uses output/artifacts from task A → B depends on A
+- If task B modifies code created by task A → B depends on A
+- If task B tests functionality from task A → B depends on A
+- If task B extends or builds upon task A → B depends on A
+
+**Dependency format examples:**
+\`\`\`markdown
+## Dependencies
+001
+\`\`\`
+or for multiple dependencies:
+\`\`\`markdown
+## Dependencies
+001, 002
+\`\`\`
+
+**Rules for dependencies:**
+- Only reference lower-numbered tasks (tasks are ordered by execution order)
+- Omit the Dependencies section entirely if a task has no prerequisites
+- Keep dependency lists minimal - only direct dependencies, not transitive ones
+- Never create circular dependencies (impossible if you only reference lower-numbered tasks)
+
+### Step 5: Confirm Completion
 
 After creating all plan files, provide a summary of the tasks you've created.
 
 ## Important Rules
 
 1. ALWAYS interview the user before creating plans
-2. Create plans in numbered order (001, 002, 003, etc.)
+2. Create plans in numbered order (001, 002, 003, etc.) reflecting logical execution order
 3. Use descriptive, kebab-case names for plan files
 4. Each plan should be self-contained with all context needed
-5. Specify task dependencies using the ## Dependencies section with task IDs only (e.g., "001, 002")
-6. Tasks without dependencies should omit the Dependencies section entirely
-7. Be specific - vague plans lead to poor execution`;
+5. Infer dependencies automatically - analyze task relationships, don't ask the user about dependencies
+6. Only add Dependencies section when a task genuinely requires another to complete first
+7. Dependencies must only reference lower-numbered tasks to prevent circular dependencies
+8. Be specific - vague plans lead to poor execution`;
 
   const userMessage = `Here is my project description:
 

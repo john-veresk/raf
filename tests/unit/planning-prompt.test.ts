@@ -51,7 +51,7 @@ describe('Planning Prompt', () => {
 
       expect(systemPrompt).toContain('project planning assistant');
       expect(systemPrompt).toContain('RAF');
-      expect(systemPrompt).toContain('Identify Tasks');
+      expect(systemPrompt).toContain('Identify and Order Tasks');
       expect(systemPrompt).toContain('Interview the User');
       expect(systemPrompt).toContain('Create Plan Files');
       expect(systemPrompt).toContain('AskUserQuestion');
