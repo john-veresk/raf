@@ -65,13 +65,22 @@ export function discoverProjects(rafDir: string): DiscoveredProject[] {
 
 /**
  * Parse an outcome file to extract its status.
- * Status is expected to be in the format: "## Status: SUCCESS" or "## Status: FAILED"
- * at the beginning of the file.
+ * Status is determined by the presence of promise markers:
+ * - `<promise>COMPLETE</promise>` → completed
+ * - `<promise>FAILED</promise>` → failed
+ * Uses the last occurrence if multiple markers exist.
  */
 export function parseOutcomeStatus(content: string): DerivedTaskStatus | null {
-  const statusMatch = content.match(/^## Status: (SUCCESS|FAILED)/m);
-  if (statusMatch && statusMatch[1]) {
-    return statusMatch[1] === 'SUCCESS' ? 'completed' : 'failed';
+  const markerRegex = /<promise>(COMPLETE|FAILED)<\/promise>/g;
+  let lastMatch: RegExpExecArray | null = null;
+  let match: RegExpExecArray | null;
+
+  while ((match = markerRegex.exec(content)) !== null) {
+    lastMatch = match;
+  }
+
+  if (lastMatch && lastMatch[1]) {
+    return lastMatch[1] === 'COMPLETE' ? 'completed' : 'failed';
   }
   return null;
 }

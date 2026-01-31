@@ -31,33 +31,45 @@ describe('state-derivation', () => {
   });
 
   describe('parseOutcomeStatus', () => {
-    it('should parse SUCCESS status', () => {
-      const content = `## Status: SUCCESS
-
-# Task 001 - Completed
+    it('should parse COMPLETE promise marker as completed', () => {
+      const content = `# Task 001 - Completed
 
 ## Summary
 Task was successful.
+
+<promise>COMPLETE</promise>
 `;
       expect(parseOutcomeStatus(content)).toBe('completed');
     });
 
-    it('should parse FAILED status', () => {
-      const content = `## Status: FAILED
-
-# Task 001 - Failed
+    it('should parse FAILED promise marker as failed', () => {
+      const content = `# Task 001 - Failed
 
 ## Failure Reason
 Something went wrong.
+
+<promise>FAILED</promise>
 `;
       expect(parseOutcomeStatus(content)).toBe('failed');
     });
 
-    it('should return null for missing status', () => {
+    it('should use last occurrence when multiple markers exist', () => {
+      const content = `# Task 001
+
+<promise>FAILED</promise>
+
+Retry was successful!
+
+<promise>COMPLETE</promise>
+`;
+      expect(parseOutcomeStatus(content)).toBe('completed');
+    });
+
+    it('should return null for missing promise marker', () => {
       const content = `# Task 001 - Completed
 
 ## Summary
-Old format without status marker.
+Old format without promise marker.
 `;
       expect(parseOutcomeStatus(content)).toBeNull();
     });
@@ -185,14 +197,14 @@ Old format without status marker.
       fs.writeFileSync(path.join(projectPath, 'plans', '002-task.md'), '# Task 2');
       fs.writeFileSync(path.join(projectPath, 'plans', '003-task.md'), '# Task 3');
 
-      // Create outcome files with status markers
+      // Create outcome files with promise markers
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '001-task.md'),
-        '## Status: SUCCESS\n\n# Task 001 - Completed'
+        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '002-task.md'),
-        '## Status: FAILED\n\n# Task 002 - Failed'
+        '# Task 002 - Failed\n\n<promise>FAILED</promise>'
       );
 
       const state = deriveProjectState(projectPath);
@@ -208,11 +220,11 @@ Old format without status marker.
       fs.writeFileSync(path.join(projectPath, 'plans', '002-task.md'), '# Task 2');
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '001-task.md'),
-        '## Status: SUCCESS\n\n# Task 001 - Completed'
+        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '002-task.md'),
-        '## Status: SUCCESS\n\n# Task 002 - Completed'
+        '# Task 002 - Completed\n\n<promise>COMPLETE</promise>'
       );
 
       const state = deriveProjectState(projectPath);
@@ -224,18 +236,18 @@ Old format without status marker.
       fs.writeFileSync(path.join(projectPath, 'plans', '002-task.md'), '# Task 2');
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '001-task.md'),
-        '## Status: SUCCESS\n\n# Task 001 - Completed'
+        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
       );
 
       const state = deriveProjectState(projectPath);
       expect(state.status).toBe('executing');
     });
 
-    it('should ignore outcome files without status marker', () => {
+    it('should ignore outcome files without promise marker', () => {
       fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '001-task.md'),
-        '# Task 001 - Completed (old format)'
+        '# Task 001 - Completed (no promise marker)'
       );
 
       const state = deriveProjectState(projectPath);

@@ -115,7 +115,7 @@ describe('Plan Command - Amend Functionality', () => {
       );
       fs.writeFileSync(
         path.join(projectDir, 'outcomes', '001-task-one.md'),
-        '## Status: SUCCESS\n\nTask completed.'
+        'Task completed.\n\n<promise>COMPLETE</promise>'
       );
 
       const state = deriveProjectState(projectDir);
@@ -134,7 +134,7 @@ describe('Plan Command - Amend Functionality', () => {
       );
       fs.writeFileSync(
         path.join(projectDir, 'outcomes', '001-task-one.md'),
-        '## Status: FAILED\n\nTask failed.'
+        'Task failed.\n\n<promise>FAILED</promise>'
       );
 
       const state = deriveProjectState(projectDir);
@@ -161,11 +161,11 @@ describe('Plan Command - Amend Functionality', () => {
       );
       fs.writeFileSync(
         path.join(projectDir, 'outcomes', '001-task-one.md'),
-        '## Status: SUCCESS\n\nTask completed.'
+        'Task completed.\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
         path.join(projectDir, 'outcomes', '002-task-two.md'),
-        '## Status: FAILED\n\nTask failed.'
+        'Task failed.\n\n<promise>FAILED</promise>'
       );
       // Task three has no outcome - pending
 
@@ -193,11 +193,11 @@ describe('Plan Command - Amend Functionality', () => {
       );
       fs.writeFileSync(
         path.join(projectDir, 'outcomes', '001-task-one.md'),
-        '## Status: SUCCESS\n\nTask completed.'
+        'Task completed.\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
         path.join(projectDir, 'outcomes', '002-task-two.md'),
-        '## Status: SUCCESS\n\nTask completed.'
+        'Task completed.\n\n<promise>COMPLETE</promise>'
       );
 
       const state = deriveProjectState(projectDir);
@@ -219,7 +219,7 @@ describe('Plan Command - Amend Functionality', () => {
       );
       fs.writeFileSync(
         path.join(projectDir, 'outcomes', '001-task-one.md'),
-        '## Status: SUCCESS\n\nTask completed.'
+        'Task completed.\n\n<promise>COMPLETE</promise>'
       );
 
       const state = deriveProjectState(projectDir);
@@ -237,7 +237,7 @@ describe('Plan Command - Amend Functionality', () => {
       );
       fs.writeFileSync(
         path.join(projectDir, 'outcomes', '001-task-one.md'),
-        '## Status: FAILED\n\nTask failed.'
+        'Task failed.\n\n<promise>FAILED</promise>'
       );
 
       const state = deriveProjectState(projectDir);

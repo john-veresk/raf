@@ -39,7 +39,7 @@ describe('do command rerun functionality', () => {
       // Mark first task as complete
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '001-task.md'),
-        '## Status: SUCCESS\n\n# Task 001 - Completed'
+        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
       );
 
       const state = deriveProjectState(projectPath);
@@ -57,11 +57,11 @@ describe('do command rerun functionality', () => {
       // Mark first two tasks as complete
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '001-task.md'),
-        '## Status: SUCCESS\n\n# Task 001 - Completed'
+        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '002-task.md'),
-        '## Status: SUCCESS\n\n# Task 002 - Completed'
+        '# Task 002 - Completed\n\n<promise>COMPLETE</promise>'
       );
 
       const state = deriveProjectState(projectPath);
@@ -79,7 +79,7 @@ describe('do command rerun functionality', () => {
       // Mark first task as failed
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '001-task.md'),
-        '## Status: FAILED\n\n# Task 001 - Failed'
+        '# Task 001 - Failed\n\n<promise>FAILED</promise>'
       );
 
       const state = deriveProjectState(projectPath);
@@ -97,11 +97,11 @@ describe('do command rerun functionality', () => {
       // Mark first as complete, second as failed
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '001-task.md'),
-        '## Status: SUCCESS\n\n# Task 001 - Completed'
+        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '002-task.md'),
-        '## Status: FAILED\n\n# Task 002 - Failed'
+        '# Task 002 - Failed\n\n<promise>FAILED</promise>'
       );
 
       const state = deriveProjectState(projectPath);
@@ -153,11 +153,11 @@ describe('do command rerun functionality', () => {
 
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '001-task.md'),
-        '## Status: SUCCESS\n\n# Task 001 - Completed'
+        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '002-task.md'),
-        '## Status: SUCCESS\n\n# Task 002 - Completed'
+        '# Task 002 - Completed\n\n<promise>COMPLETE</promise>'
       );
 
       const state = deriveProjectState(projectPath);
@@ -170,7 +170,7 @@ describe('do command rerun functionality', () => {
       fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '001-task.md'),
-        '## Status: FAILED\n\n# Task 001 - Failed'
+        '# Task 001 - Failed\n\n<promise>FAILED</promise>'
       );
 
       const state = deriveProjectState(projectPath);
@@ -193,15 +193,15 @@ describe('do command rerun functionality', () => {
       // All tasks completed
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '001-task.md'),
-        '## Status: SUCCESS\n\n# Task 001 - Completed'
+        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '002-task.md'),
-        '## Status: SUCCESS\n\n# Task 002 - Completed'
+        '# Task 002 - Completed\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '003-task.md'),
-        '## Status: SUCCESS\n\n# Task 003 - Completed'
+        '# Task 003 - Completed\n\n<promise>COMPLETE</promise>'
       );
 
       const state = deriveProjectState(projectPath);
@@ -252,11 +252,11 @@ describe('do command rerun functionality', () => {
 
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '001-task.md'),
-        '## Status: SUCCESS\n\n# Task 001 - Completed'
+        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '002-task.md'),
-        '## Status: FAILED\n\n# Task 002 - Failed'
+        '# Task 002 - Failed\n\n<promise>FAILED</promise>'
       );
 
       const state = deriveProjectState(projectPath);

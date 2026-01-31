@@ -90,10 +90,10 @@ describe('ProjectManager', () => {
       fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
       fs.writeFileSync(path.join(projectPath, 'plans', '002-task.md'), '# Task 2');
 
-      // Create outcome with SUCCESS status
+      // Create outcome with COMPLETE promise marker
       fs.writeFileSync(
         path.join(projectPath, 'outcomes', '001-task.md'),
-        '## Status: SUCCESS\n\n# Task 001 - Completed'
+        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
       );
 
       const projects = manager.listProjects();
