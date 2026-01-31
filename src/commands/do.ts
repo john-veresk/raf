@@ -33,6 +33,33 @@ import { analyzeFailure } from '../core/failure-analyzer.js';
 import type { DoCommandOptions } from '../types/config.js';
 
 /**
+ * Format failure history as a markdown section.
+ * Includes all failed attempts and optionally the successful final attempt.
+ * Returns empty string if no failures occurred.
+ */
+export function formatFailureHistory(
+  failureHistory: Array<{ attempt: number; reason: string }>,
+  finalAttempt: number,
+  success: boolean
+): string {
+  if (failureHistory.length === 0) {
+    return '';
+  }
+
+  const lines = ['## Failure History'];
+  for (const { attempt, reason } of failureHistory) {
+    lines.push(`- **Attempt ${attempt}**: ${reason}`);
+  }
+
+  // Add final successful attempt if there were prior failures
+  if (success) {
+    lines.push(`- **Attempt ${finalAttempt}**: Success`);
+  }
+
+  return lines.join('\n') + '\n\n';
+}
+
+/**
  * Result of executing a single project.
  */
 interface ProjectExecutionResult {
@@ -357,6 +384,8 @@ async function executeSingleProject(
     let attempts = 0;
     let lastOutput = '';
     let failureReason = '';
+    // Track failure history for each attempt (attempt number -> reason)
+    const failureHistory: Array<{ attempt: number; reason: string }> = [];
 
     // Set up timer for elapsed time tracking
     const statusLine = createStatusLine();
@@ -405,6 +434,7 @@ async function executeSingleProject(
 
       if (result.timedOut) {
         failureReason = 'Task timed out';
+        failureHistory.push({ attempt: attempts, reason: failureReason });
         if (!isRetryableFailure(parsed)) {
           break;
         }
@@ -413,6 +443,7 @@ async function executeSingleProject(
 
       if (result.contextOverflow || parsed.contextOverflow) {
         failureReason = 'Context overflow - task too large';
+        failureHistory.push({ attempt: attempts, reason: failureReason });
         break; // Not retryable
       }
 
@@ -420,6 +451,7 @@ async function executeSingleProject(
         success = true;
       } else if (parsed.result === 'failed') {
         failureReason = parsed.failureReason ?? 'Unknown failure';
+        failureHistory.push({ attempt: attempts, reason: failureReason });
         if (!isRetryableFailure(parsed)) {
           break;
         }
@@ -432,11 +464,14 @@ async function executeSingleProject(
             success = true;
           } else if (outcomeStatus === 'failed') {
             failureReason = 'Task failed (from outcome file)';
+            failureHistory.push({ attempt: attempts, reason: failureReason });
           } else {
             failureReason = 'No completion marker found in output or outcome file';
+            failureHistory.push({ attempt: attempts, reason: failureReason });
           }
         } else {
           failureReason = 'No completion marker found';
+          failureHistory.push({ attempt: attempts, reason: failureReason });
         }
       }
     }
@@ -451,6 +486,9 @@ async function executeSingleProject(
       projectManager.saveLog(projectPath, task.id, lastOutput);
     }
 
+    // Build failure history section (only if there were failures)
+    const failureHistorySection = formatFailureHistory(failureHistory, attempts, success);
+
     if (success) {
       // Check if Claude wrote an outcome file with valid marker
       // If so, keep it and append metadata; otherwise create fallback
@@ -462,14 +500,40 @@ async function executeSingleProject(
         const status = parseOutcomeStatus(existingContent);
 
         if (status === 'completed') {
-          // Claude wrote a valid outcome - append metadata
-          outcomeContent = existingContent + `
+          // Claude wrote a valid outcome - insert failure history before <promise> marker and append metadata
+          if (failureHistorySection) {
+            // Insert failure history before the <promise> marker
+            const promiseMarker = '<promise>COMPLETE</promise>';
+            const markerIndex = existingContent.indexOf(promiseMarker);
+            if (markerIndex !== -1) {
+              const beforeMarker = existingContent.substring(0, markerIndex);
+              const afterMarker = existingContent.substring(markerIndex);
+              outcomeContent = beforeMarker + failureHistorySection + afterMarker + `
 
 ## Details
 - Attempts: ${attempts}
 - Elapsed time: ${elapsedFormatted}
 - Completed at: ${new Date().toISOString()}
 `;
+            } else {
+              // Marker not found (shouldn't happen), just append
+              outcomeContent = existingContent + `
+
+${failureHistorySection}## Details
+- Attempts: ${attempts}
+- Elapsed time: ${elapsedFormatted}
+- Completed at: ${new Date().toISOString()}
+`;
+            }
+          } else {
+            outcomeContent = existingContent + `
+
+## Details
+- Attempts: ${attempts}
+- Elapsed time: ${elapsedFormatted}
+- Completed at: ${new Date().toISOString()}
+`;
+          }
         } else {
           // Outcome file exists but no valid COMPLETE marker - create fallback
           outcomeContent = `## Status: SUCCESS
@@ -478,7 +542,7 @@ async function executeSingleProject(
 
 Task completed. No detailed report provided.
 
-<promise>COMPLETE</promise>
+${failureHistorySection}<promise>COMPLETE</promise>
 
 ## Details
 - Attempts: ${attempts}
@@ -494,7 +558,7 @@ Task completed. No detailed report provided.
 
 Task completed. No detailed report provided.
 
-<promise>COMPLETE</promise>
+${failureHistorySection}<promise>COMPLETE</promise>
 
 ## Details
 - Attempts: ${attempts}
@@ -533,7 +597,18 @@ Task completed. No detailed report provided.
       }
 
       // Analyze failure and generate structured report
-      const analysisReport = await analyzeFailure(lastOutput, failureReason, task.id);
+      let analysisReport = await analyzeFailure(lastOutput, failureReason, task.id);
+
+      // Insert failure history before the <promise>FAILED</promise> marker if there are multiple attempts
+      if (failureHistorySection) {
+        const promiseMarker = '<promise>FAILED</promise>';
+        const markerIndex = analysisReport.indexOf(promiseMarker);
+        if (markerIndex !== -1) {
+          const beforeMarker = analysisReport.substring(0, markerIndex);
+          const afterMarker = analysisReport.substring(markerIndex);
+          analysisReport = beforeMarker + '\n' + failureHistorySection + afterMarker;
+        }
+      }
 
       // Save failure outcome with status marker and analysis
       const outcomeContent = `## Status: FAILED
