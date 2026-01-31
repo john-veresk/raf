@@ -38,6 +38,10 @@
     "automation",
     "task-planning"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/john-veresk/raf.git"
+  },
   "author": "",
   "license": "MIT"
 }
