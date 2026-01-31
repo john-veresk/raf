@@ -9,7 +9,7 @@ export interface ExecutionPromptParams {
   projectName: string;
   projectNumber: string;
   taskName: string;
-  outcomeFilePath?: string;
+  outcomeFilePath: string;
 }
 
 export function getExecutionPrompt(params: ExecutionPromptParams): string {
@@ -48,7 +48,6 @@ ${previousOutcomes.map((o) => `### Task ${o.taskId}\n${o.content}`).join('\n\n')
 After successfully completing the task:
 1. Stage all changes with \`git add -A\`
 2. Commit with message: "RAF[${projectNumber}:${paddedTaskNumber}] ${projectName} ${taskName}"
-${outcomeFilePath ? `\nNote: The outcome file will be written to \`${outcomeFilePath}\` by RAF after your commit.` : ''}
 `
     : '';
 
@@ -89,16 +88,29 @@ Before marking the task complete:
 - Run any relevant tests
 - Ensure no regressions were introduced
 ${commitInstructions}
-### Step 4: Signal Completion
+### Step 4: Write Outcome File
 
-**CRITICAL**: You MUST output one of these markers at the end:
+**CRITICAL**: You MUST write an outcome file to document what was accomplished.
 
-If the task was completed successfully:
+**Outcome file path**: \`${outcomeFilePath}\`
+
+The outcome file should contain:
+1. A summary of what was done
+2. Key changes made (files modified, features added, etc.)
+3. Any important notes or follow-up items
+4. The completion marker as the LAST line
+
+**For code tasks**: Summarize what was changed and why
+**For documentation/report tasks**: The outcome IS the deliverable - include the full content
+
+**CRITICAL**: The outcome file MUST end with one of these markers:
+
+If the task was completed successfully, end the file with:
 \`\`\`
 <promise>COMPLETE</promise>
 \`\`\`
 
-If the task failed and cannot be completed:
+If the task failed and cannot be completed, end the file with:
 \`\`\`
 <promise>FAILED</promise>
 Reason: [explain why the task failed]
@@ -110,13 +122,13 @@ Reason: [explain why the task failed]
 2. Follow the plan precisely
 3. Do not skip any acceptance criteria
 4. If you encounter blockers, try to resolve them
-5. Output EXACTLY ONE completion marker
-6. The completion marker MUST be the last thing you output
+5. The outcome file MUST contain EXACTLY ONE completion marker
+6. The completion marker MUST be the LAST line in the outcome file
 
 ## Error Handling
 
 If you encounter errors:
 - Try to fix them yourself first
-- If an error prevents completion, output FAILED with a clear reason
-- Do not output COMPLETE if there are failing tests or unmet criteria`;
+- If an error prevents completion, write the outcome file with FAILED status and a clear reason
+- Do not mark COMPLETE if there are failing tests or unmet criteria`;
 }

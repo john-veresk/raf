@@ -300,6 +300,10 @@ export function getOutcomesDir(projectPath: string): string {
   return path.join(projectPath, 'outcomes');
 }
 
+export function getOutcomeFilePath(projectPath: string, taskId: string, taskName: string): string {
+  return path.join(projectPath, 'outcomes', `${taskId}-${taskName}.md`);
+}
+
 export function getDecisionsPath(projectPath: string): string {
   return path.join(projectPath, 'decisions.md');
 }

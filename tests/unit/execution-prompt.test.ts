@@ -12,6 +12,7 @@ describe('Execution Prompt', () => {
     projectName: 'task-naming-improvements',
     projectNumber: '005',
     taskName: 'enhance-identifier-resolution',
+    outcomeFilePath: '/Users/test/RAF/005-task-naming-improvements/outcomes/001-enhance-identifier-resolution.md',
   };
 
   describe('Commit Message Format', () => {
@@ -77,6 +78,7 @@ describe('Execution Prompt', () => {
         projectName: 'task-naming-improvements',
         projectNumber: '005',
         taskName: 'update-execution-prompt',
+        outcomeFilePath: '/Users/test/RAF/005-task-naming-improvements/outcomes/006-update-execution-prompt.md',
       };
       const prompt = getExecutionPrompt(params);
       expect(prompt).toContain('RAF[005:006] task-naming-improvements update-execution-prompt');
@@ -94,6 +96,7 @@ describe('Execution Prompt', () => {
         projectName: 'fix-bug',
         projectNumber: '001',
         taskName: 'identify-issue',
+        outcomeFilePath: '/Users/test/RAF/001-fix-bug/outcomes/001-identify-issue.md',
       };
       const prompt = getExecutionPrompt(params);
       expect(prompt).toContain('RAF[001:001] fix-bug identify-issue');
@@ -111,6 +114,7 @@ describe('Execution Prompt', () => {
         projectName: 'feature-branch',
         projectNumber: 'a0b',
         taskName: 'implement-feature',
+        outcomeFilePath: '/Users/test/RAF/a0b-feature-branch/outcomes/002-implement-feature.md',
       };
       const prompt = getExecutionPrompt(params);
       expect(prompt).toContain('RAF[a0b:002] feature-branch implement-feature');
@@ -139,20 +143,35 @@ describe('Execution Prompt', () => {
     });
   });
 
-  describe('Outcome File Note', () => {
-    it('should include outcome file path note when provided', () => {
-      const params = {
-        ...baseParams,
-        outcomeFilePath: '/Users/test/RAF/005-task-naming-improvements/outcomes/001-outcome.md',
-      };
-      const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('The outcome file will be written to');
-      expect(prompt).toContain('001-outcome.md');
+  describe('Outcome File Instructions', () => {
+    it('should include outcome file path in prompt', () => {
+      const prompt = getExecutionPrompt(baseParams);
+      expect(prompt).toContain('Outcome file path');
+      expect(prompt).toContain(baseParams.outcomeFilePath);
     });
 
-    it('should not include outcome file note when not provided', () => {
+    it('should include instructions for writing outcome file', () => {
       const prompt = getExecutionPrompt(baseParams);
-      expect(prompt).not.toContain('The outcome file will be written to');
+      expect(prompt).toContain('You MUST write an outcome file');
+      expect(prompt).toContain('summary of what was done');
+    });
+
+    it('should specify that completion marker must be at end of file', () => {
+      const prompt = getExecutionPrompt(baseParams);
+      expect(prompt).toContain('MUST end with one of these markers');
+      expect(prompt).toContain('<promise>COMPLETE</promise>');
+      expect(prompt).toContain('<promise>FAILED</promise>');
+    });
+
+    it('should distinguish between code tasks and documentation tasks', () => {
+      const prompt = getExecutionPrompt(baseParams);
+      expect(prompt).toContain('For code tasks');
+      expect(prompt).toContain('For documentation/report tasks');
+    });
+
+    it('should instruct that marker is last line in outcome file', () => {
+      const prompt = getExecutionPrompt(baseParams);
+      expect(prompt).toContain('completion marker MUST be the LAST line in the outcome file');
     });
   });
 

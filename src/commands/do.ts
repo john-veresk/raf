@@ -6,7 +6,7 @@ import { stashChanges, hasUncommittedChanges, commitProjectFolder } from '../cor
 import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, extractSummary, isRetryableFailure } from '../parsers/output-parser.js';
 import { validatePlansExist } from '../utils/validation.js';
-import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFromPlanFile, resolveProjectIdentifierWithDetails } from '../utils/paths.js';
+import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFromPlanFile, resolveProjectIdentifierWithDetails, getOutcomeFilePath } from '../utils/paths.js';
 import { logger } from '../utils/logger.js';
 import { getClaudeModel, getConfig } from '../utils/config.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
@@ -293,6 +293,9 @@ async function executeSingleProject(
     // Extract project number for commit message
     const projectNumber = extractProjectNumber(projectPath) ?? '000';
 
+    // Compute outcome file path for this task
+    const outcomeFilePath = getOutcomeFilePath(projectPath, task.id, taskName ?? task.id);
+
     // Build execution prompt
     const prompt = getExecutionPrompt({
       projectPath,
@@ -305,6 +308,7 @@ async function executeSingleProject(
       projectName,
       projectNumber,
       taskName: taskName ?? task.id,
+      outcomeFilePath,
     });
 
     // Execute with retries
