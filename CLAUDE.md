@@ -81,8 +81,20 @@ npm run lint       # Type check without emit
 
 ### State Derivation Over Persistence
 - Task status determined by outcome file existence and content
-- Outcome files must include status marker as first line: `## Status: SUCCESS` or `## Status: FAILED`
+- Outcome files must end with `<promise>COMPLETE</promise>` or `<promise>FAILED</promise>` marker
 - Use `state-derivation.ts` module: `deriveProjectState()`, `getNextPendingTask()`, `isProjectComplete()`
+
+### Outcome File Flow
+- Claude writes outcome files during task execution (not RAF)
+- RAF validates outcome by checking for completion marker
+- If no marker found, RAF generates minimal fallback outcome
+- Metadata (attempts, elapsed time, timestamp) appended to outcome
+
+### Failure Analysis
+- On task failure, RAF analyzes the failure using Claude Haiku
+- Programmatic failures (API errors, timeouts, context overflow) handled without API call
+- Failure reports include: Failure Reason, Analysis, Suggested Fix, Relevant Output
+- All failure outcomes end with `<promise>FAILED</promise>` marker
 
 ### Project Naming Convention
 - Format: `NNN-project-name` (001-999) then base36 `XXX-project-name` (a00-zzz)
