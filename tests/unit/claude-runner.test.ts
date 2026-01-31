@@ -363,6 +363,88 @@ describe('ClaudeRunner', () => {
     });
   });
 
+  describe('model configuration', () => {
+    function createMockProcess() {
+      const stdout = new EventEmitter();
+      const stderr = new EventEmitter();
+      const proc = new EventEmitter() as any;
+      proc.stdout = stdout;
+      proc.stderr = stderr;
+      proc.kill = jest.fn();
+      return proc;
+    }
+
+    it('should use opus as default model', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', { timeout: 60 });
+
+      mockProc.emit('close', 0);
+      await runPromise;
+
+      expect(mockSpawn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContaining(['--model', 'opus']),
+        expect.any(Object)
+      );
+    });
+
+    it('should pass model to Claude CLI in run()', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner({ model: 'sonnet' });
+      const runPromise = runner.run('test prompt', { timeout: 60 });
+
+      mockProc.emit('close', 0);
+      await runPromise;
+
+      expect(mockSpawn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContaining(['--model', 'sonnet']),
+        expect.any(Object)
+      );
+    });
+
+    it('should pass model to Claude CLI in runVerbose()', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner({ model: 'haiku' });
+      const runPromise = runner.runVerbose('test prompt', { timeout: 60 });
+
+      mockProc.emit('close', 0);
+      await runPromise;
+
+      expect(mockSpawn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContaining(['--model', 'haiku']),
+        expect.any(Object)
+      );
+    });
+
+    it('should include model flag in args order before prompt', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner({ model: 'sonnet' });
+      const runPromise = runner.run('test prompt', { timeout: 60 });
+
+      mockProc.emit('close', 0);
+      await runPromise;
+
+      const spawnArgs = mockSpawn.mock.calls[0][1] as string[];
+      const modelIndex = spawnArgs.indexOf('--model');
+      const promptFlagIndex = spawnArgs.indexOf('-p');
+
+      expect(modelIndex).toBeGreaterThanOrEqual(0);
+      expect(promptFlagIndex).toBeGreaterThanOrEqual(0);
+      expect(modelIndex).toBeLessThan(promptFlagIndex);
+    });
+  });
+
   describe('retry isolation (timeout per attempt)', () => {
     function createMockProcess() {
       const stdout = new EventEmitter();

@@ -21,6 +21,14 @@ export interface ClaudeRunnerOptions {
   cwd?: string;
 }
 
+export interface ClaudeRunnerConfig {
+  /**
+   * Claude model to use (sonnet, haiku, opus).
+   * Default: opus.
+   */
+  model?: string;
+}
+
 export interface RunResult {
   output: string;
   exitCode: number;
@@ -38,6 +46,11 @@ const CONTEXT_OVERFLOW_PATTERNS = [
 export class ClaudeRunner {
   private activeProcess: pty.IPty | null = null;
   private killed = false;
+  private model: string;
+
+  constructor(config: ClaudeRunnerConfig = {}) {
+    this.model = config.model ?? 'opus';
+  }
 
   /**
    * Run Claude interactively with stdin/stdout passthrough.
@@ -48,9 +61,9 @@ export class ClaudeRunner {
 
     return new Promise((resolve) => {
       // Don't use --print for interactive sessions - it disables interactivity
-      const args = [prompt];
+      const args = ['--model', this.model, prompt];
 
-      logger.debug('Starting interactive Claude session');
+      logger.debug(`Starting interactive Claude session with model: ${this.model}`);
 
       this.activeProcess = pty.spawn(getClaudePath(), args, {
         name: 'xterm-256color',
@@ -123,13 +136,15 @@ export class ClaudeRunner {
 
       const claudePath = getClaudePath();
 
-      logger.debug('Starting Claude execution session');
+      logger.debug(`Starting Claude execution session with model: ${this.model}`);
       logger.debug(`Claude path: ${claudePath}`);
 
       // Use -p flag to pass prompt as argument (like ralphy does)
       // --dangerously-skip-permissions bypasses interactive prompts
       const proc = spawn(claudePath, [
         '--dangerously-skip-permissions',
+        '--model',
+        this.model,
         '-p',
         prompt,
       ], {
@@ -212,7 +227,7 @@ export class ClaudeRunner {
 
       const claudePath = getClaudePath();
 
-      logger.debug('Starting Claude execution session (verbose)');
+      logger.debug(`Starting Claude execution session (verbose) with model: ${this.model}`);
       logger.debug(`Prompt length: ${prompt.length}, timeout: ${timeoutMs}ms, cwd: ${cwd}`);
       logger.debug(`Claude path: ${claudePath}`);
 
@@ -221,6 +236,8 @@ export class ClaudeRunner {
       // --dangerously-skip-permissions bypasses interactive prompts
       const proc = spawn(claudePath, [
         '--dangerously-skip-permissions',
+        '--model',
+        this.model,
         '-p',
         prompt,
       ], {

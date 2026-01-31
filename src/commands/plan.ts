@@ -10,6 +10,7 @@ import {
   validateEnvironment,
   reportValidation,
   validateProjectName,
+  resolveModelOption,
 } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
 import { generateProjectName } from '../utils/name-generator.js';
@@ -31,6 +32,8 @@ import {
 
 interface PlanCommandOptions {
   amend?: string;
+  model?: string;
+  sonnet?: boolean;
 }
 
 export function createPlanCommand(): Command {
@@ -41,18 +44,29 @@ export function createPlanCommand(): Command {
       '-a, --amend <identifier>',
       'Add tasks to an existing project (number, name, or folder)'
     )
+    .option('-m, --model <name>', 'Claude model to use (sonnet, haiku, opus)')
+    .option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')
     .action(async (projectName: string | undefined, options: PlanCommandOptions) => {
+      // Validate and resolve model option
+      let model: string;
+      try {
+        model = resolveModelOption(options.model, options.sonnet);
+      } catch (error) {
+        logger.error((error as Error).message);
+        process.exit(1);
+      }
+
       if (options.amend) {
-        await runAmendCommand(options.amend);
+        await runAmendCommand(options.amend, model);
       } else {
-        await runPlanCommand(projectName);
+        await runPlanCommand(projectName, model);
       }
     });
 
   return command;
 }
 
-async function runPlanCommand(projectName?: string): Promise<void> {
+async function runPlanCommand(projectName?: string, model?: string): Promise<void> {
   // Validate environment
   const validation = validateEnvironment();
   reportValidation(validation);
@@ -119,7 +133,7 @@ async function runPlanCommand(projectName?: string): Promise<void> {
   projectManager.saveInput(projectPath, userInput);
 
   // Set up shutdown handler
-  const claudeRunner = new ClaudeRunner();
+  const claudeRunner = new ClaudeRunner({ model });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
@@ -131,6 +145,9 @@ async function runPlanCommand(projectName?: string): Promise<void> {
   // Run planning session
   logger.info('Starting planning session with Claude...');
   logger.info('Claude will interview you about each task.');
+  if (model) {
+    logger.info(`Using model: ${model}`);
+  }
   logger.newline();
 
   const prompt = getPlanningPrompt({
@@ -189,7 +206,7 @@ async function runPlanCommand(projectName?: string): Promise<void> {
   }
 }
 
-async function runAmendCommand(identifier: string): Promise<void> {
+async function runAmendCommand(identifier: string, model?: string): Promise<void> {
   // Validate environment
   const validation = validateEnvironment();
   reportValidation(validation);
@@ -293,13 +310,16 @@ async function runAmendCommand(identifier: string): Promise<void> {
   }
 
   // Set up shutdown handler
-  const claudeRunner = new ClaudeRunner();
+  const claudeRunner = new ClaudeRunner({ model });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
   // Run amend planning session
   logger.info('Starting amendment session with Claude...');
   logger.info('Claude will interview you about each new task.');
+  if (model) {
+    logger.info(`Using model: ${model}`);
+  }
   logger.newline();
 
   const prompt = getAmendPrompt({

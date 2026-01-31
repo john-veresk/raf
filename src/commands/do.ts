@@ -6,10 +6,10 @@ import { shutdownHandler } from '../core/shutdown-handler.js';
 import { stashChanges, hasUncommittedChanges, commitProjectFolder } from '../core/git.js';
 import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, isRetryableFailure } from '../parsers/output-parser.js';
-import { validatePlansExist } from '../utils/validation.js';
+import { validatePlansExist, resolveModelOption } from '../utils/validation.js';
 import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFromPlanFile, resolveProjectIdentifierWithDetails, getOutcomeFilePath } from '../utils/paths.js';
 import { logger } from '../utils/logger.js';
-import { getClaudeModel, getConfig } from '../utils/config.js';
+import { getConfig } from '../utils/config.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
 import { createStatusLine } from '../utils/status-line.js';
 import {
@@ -51,6 +51,8 @@ export function createDoCommand(): Command {
     .option('-v, --verbose', 'Show full Claude output')
     .option('-d, --debug', 'Save all logs and show debug output')
     .option('-f, --force', 'Re-run all tasks regardless of status')
+    .option('-m, --model <name>', 'Claude model to use (sonnet, haiku, opus)')
+    .option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')
     .action(async (projects: string[], options: DoCommandOptions) => {
       await runDoCommand(projects, options);
     });
@@ -60,6 +62,15 @@ export function createDoCommand(): Command {
 
 async function runDoCommand(projectIdentifiers: string[], options: DoCommandOptions): Promise<void> {
   const rafDir = getRafDir();
+
+  // Validate and resolve model option
+  let model: string;
+  try {
+    model = resolveModelOption(options.model as string | undefined, options.sonnet);
+  } catch (error) {
+    logger.error((error as Error).message);
+    process.exit(1);
+  }
 
   // Handle empty project list
   if (projectIdentifiers.length === 0) {
@@ -133,7 +144,6 @@ async function runDoCommand(projectIdentifiers: string[], options: DoCommandOpti
   logger.configure({ verbose, debug });
 
   // Log Claude model name once (verbose mode only for multi-project)
-  const model = getClaudeModel();
   if (verbose && model && resolvedProjects.length > 1) {
     logger.info(`Using model: ${model}`);
     logger.newline();
@@ -161,6 +171,7 @@ async function runDoCommand(projectIdentifiers: string[], options: DoCommandOpti
           maxRetries,
           autoCommit,
           showModel: !isMultiProject, // Only show model for single project
+          model,
         }
       );
       results.push(result);
@@ -202,6 +213,7 @@ interface SingleProjectOptions {
   maxRetries: number;
   autoCommit: boolean;
   showModel: boolean;
+  model: string;
 }
 
 async function executeSingleProject(
@@ -209,7 +221,7 @@ async function executeSingleProject(
   projectName: string,
   options: SingleProjectOptions
 ): Promise<ProjectExecutionResult> {
-  const { timeout, verbose, debug, force, maxRetries, autoCommit, showModel } = options;
+  const { timeout, verbose, debug, force, maxRetries, autoCommit, showModel, model } = options;
 
   if (!validatePlansExist(projectPath)) {
     return {
@@ -244,7 +256,7 @@ async function executeSingleProject(
   }
 
   // Set up shutdown handler
-  const claudeRunner = new ClaudeRunner();
+  const claudeRunner = new ClaudeRunner({ model });
   const projectManager = new ProjectManager();
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
@@ -257,11 +269,8 @@ async function executeSingleProject(
     logger.info(`Tasks: ${state.tasks.length}, Task timeout: ${timeout} minutes`);
 
     // Log Claude model name
-    if (showModel) {
-      const model = getClaudeModel();
-      if (model) {
-        logger.info(`Using model: ${model}`);
-      }
+    if (showModel && model) {
+      logger.info(`Using model: ${model}`);
     }
 
     logger.newline();

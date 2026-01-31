@@ -94,3 +94,39 @@ export function reportValidation(result: ValidationResult): void {
     logger.error(error);
   }
 }
+
+const VALID_MODELS = ['sonnet', 'haiku', 'opus'] as const;
+
+export type ValidModelName = (typeof VALID_MODELS)[number];
+
+export function validateModelName(model: string): ValidModelName | null {
+  const normalized = model.toLowerCase();
+  if (VALID_MODELS.includes(normalized as ValidModelName)) {
+    return normalized as ValidModelName;
+  }
+  return null;
+}
+
+export function resolveModelOption(model?: string, sonnet?: boolean): ValidModelName {
+  // Check for conflicting flags
+  if (model && sonnet) {
+    throw new Error('Cannot specify both --model and --sonnet flags');
+  }
+
+  // --sonnet shorthand
+  if (sonnet) {
+    return 'sonnet';
+  }
+
+  // --model flag
+  if (model) {
+    const validated = validateModelName(model);
+    if (!validated) {
+      throw new Error(`Invalid model name: "${model}". Valid options: ${VALID_MODELS.join(', ')}`);
+    }
+    return validated;
+  }
+
+  // Default to opus
+  return 'opus';
+}

@@ -13,8 +13,12 @@ export const DEFAULT_RAF_CONFIG: RafConfig = {
   claudeCommand: 'claude',
 };
 
+export type ClaudeModelName = 'sonnet' | 'haiku' | 'opus';
+
 export interface PlanCommandOptions {
   projectName?: string;
+  model?: ClaudeModelName;
+  sonnet?: boolean;
 }
 
 export interface DoCommandOptions {
@@ -22,6 +26,8 @@ export interface DoCommandOptions {
   verbose?: boolean;
   debug?: boolean;
   force?: boolean;
+  model?: ClaudeModelName;
+  sonnet?: boolean;
 }
 
 export interface StatusCommandOptions {
