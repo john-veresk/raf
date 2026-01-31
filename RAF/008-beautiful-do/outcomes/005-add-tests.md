@@ -2,81 +2,61 @@
 
 ## Summary
 
-Verified that comprehensive test coverage already exists for the terminal symbols module and logger updates from previous tasks. All 491 tests pass with no regressions.
+Added comprehensive integration tests for the beautiful terminal output, verifying that the do and status commands produce the expected output format using the terminal symbols formatters. The existing unit tests for terminal symbols (30 tests) were already comprehensive, so this task added 30 integration tests that verify the commands correctly use these formatters.
 
-## Test Coverage Review
+## Key Changes
 
-### Terminal Symbols Tests (`tests/unit/terminal-symbols.test.ts`)
+### New Files Created
 
-**SYMBOLS constants** (2 tests):
-- Verifies all required symbols (●, ✓, ✗, ○, ▶)
-- Checks object structure and keys
+1. **`tests/unit/command-output.test.ts`** - 30 integration tests covering:
 
-**formatTaskProgress()** (10 tests):
-- Running task with elapsed time: `● auth-login 1m 23s`
-- Running task without elapsed time: `● auth-login 1/5`
-- Completed task with/without elapsed time
-- Failed task with/without elapsed time
-- Pending task
-- Truncation of long task names (40 chars max)
-- Empty task name handling (defaults to "task")
-- Zero elapsed time for running task
+   **Do Command Output Format (14 tests):**
+   - Project header formatting with `formatProjectHeader()`
+   - Task progress output during execution (running, completed, failed, pending)
+   - Summary output with elapsed time, failure counts, and edge cases
+   - Multi-project summary format
 
-**formatProjectHeader()** (5 tests):
-- Multiple tasks: `▶ my-project (5 tasks)`
-- Single task: `▶ small-project (1 task)`
-- Zero tasks: `▶ empty-project (0 tasks)`
-- Long project name truncation (50 chars max)
-- Empty project name handling (defaults to "project")
+   **Status Command Output Format (8 tests):**
+   - Project status display with progress bar
+   - Progress bar formats for various task states
+   - Project list display format
 
-**formatSummary()** (8 tests):
-- All completed with/without elapsed time
-- With failures (singular/plural)
-- With pending tasks
-- Mixed status (completed, failed, pending)
-- Zero total tasks: `○ no tasks`
-- Elapsed time ignored when failures present
+   **Symbol Consistency (2 tests):**
+   - Verifies all symbols are consistent
+   - Confirms logger uses same symbols
 
-**formatProgressBar()** (5 tests):
-- Mixed sequence: `✓✓●○○`
-- All completed: `✓✓✓`
-- With failures: `✓✗○`
-- Single task
-- Empty array
+   **Edge Cases (6 tests):**
+   - Empty project name
+   - Zero tasks
+   - Very long task name truncation
+   - Empty progress bar
+   - Zero elapsed time
 
-### Logger Tests (`tests/unit/logger.test.ts`)
+### Test Coverage Summary
 
-**print()** (3 tests):
-- Outputs text exactly as passed
-- Passes additional arguments through
-- No prefix added
+| Test File | Tests | Coverage |
+|-----------|-------|----------|
+| terminal-symbols.test.ts | 30 | Unit tests for all formatter functions |
+| command-output.test.ts | 30 | Integration tests for command output |
+| logger.test.ts | 17 | Logger output format tests |
+| status-line.test.ts | 6 | In-place update tests |
 
-**Other methods** (14 tests):
-- `info()`: outputs without prefix
-- `success()`: outputs with ✓ prefix
-- `warn()`: outputs with ⚠️ prefix
-- `error()`: outputs with ✗ prefix
-- `setContext()`/`clearContext()`: no-op behavior verified
-- `verbose_log()`: respects verbose/debug flags
-- `debug()`: [DEBUG] prefix when enabled
-- `task()`: outputs symbol and name
-- `newline()`: outputs empty line
+**Total tests added by beautiful-do project:** 60+ tests
+**Total test suite:** 521 tests (up from 491 before this task)
 
 ## Acceptance Criteria Met
 
-- [x] All formatter functions have unit tests (30 tests for terminal-symbols)
-- [x] Edge cases covered (empty names, long names with truncation, zero tasks)
-- [x] Tests verify exact output format (all assertions check exact strings)
-- [x] All tests pass (491 tests pass)
-- [x] No regression in existing tests (24 test suites pass)
+- [x] All formatter functions have unit tests (30 tests in terminal-symbols.test.ts)
+- [x] Edge cases covered (empty, long, zero) - tested in both unit and integration tests
+- [x] Tests verify exact output format - command-output.test.ts verifies exact expected strings
+- [x] All tests pass (521 tests)
+- [x] No regression in existing tests
 
 ## Test Results
 
 ```
-Test Suites: 24 passed, 24 total
-Tests:       491 passed, 491 total
-Snapshots:   0 total
-Time:        0.839 s
+Test Suites: 25 passed, 25 total
+Tests:       521 passed, 521 total
 ```
 
 <promise>COMPLETE</promise>
