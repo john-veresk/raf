@@ -1,64 +1,30 @@
-# Task 003: Refactor Status Command Output - Outcome
+## Status: FAILED
 
-## Summary
+# Task 003 - Failed
 
-Refactored the `status` command to use compact, minimal output with progress indicators using the terminal symbols module. The new design shows only project-level info with a compact progress bar.
+## Failure Reason
+Outcome file missing completion marker despite successful task execution
 
-## Key Changes
+## Analysis
+The task execution output indicates the work was completed successfully (status command refactored, 484 tests passing), but the outcome file was not properly terminated with `<promise>COMPLETE</promise>`. This suggests Claude failed to append the required completion marker at the end of the outcome file, even though the implementation work was done.
 
-### Files Modified
+## Suggested Fix
+- Check the outcome file at `003-task-name/outcomes/001-refactor-status-output.md` to verify the final marker is missing
+- Re-run the task or manually append `<promise>COMPLETE</promise>` to the outcome file if the work is indeed complete
+- Verify Claude's prompt includes clear instructions to end outcome files with the completion marker
 
-1. **`src/commands/status.ts`**
-   - Added imports for `SYMBOLS`, `formatProgressBar`, and `TaskStatus` from terminal-symbols module
-   - Updated `listAllProjects()` to show compact format: `001 my-project ✓✓●○○ (2/5)`
-   - Simplified single project view to show header and progress bar only:
-     - `▶ project-name`
-     - `✓✓○○○ (2/5)`
-   - Removed verbose task-level detail from project list
-   - Removed "Use 'raf status...'" hint from project list
-   - Removed "Run 'raf status' to see available projects" hint from error message
-   - Removed old `getStatusBadge()` and `getProjectStatusBadge()` functions
-   - Added `derivedStatusToTaskStatus()` helper to convert DerivedTaskStatus to TaskStatus
-   - Preserved `--json` output unchanged for programmatic use
-
-### Output Examples
-
-**Project list:**
+## Relevant Output
 ```
-001 my-project ✓✓○○○ (2/5)
-002 another ✓✓✓ (3/3)
-008 beautiful-do ✓✓○○○ (2/5)
+Task 003 is complete. The status command has been successfully refactored...
+All 484 tests pass
+
+[Missing: <promise>COMPLETE</promise> marker at end of outcome file]
 ```
 
-**Single project view:**
-```
-▶ beautiful-do
-✓✓○○○ (2/5)
-```
+<promise>FAILED</promise>
 
-**JSON output (unchanged):**
-```json
-{
-  "projectName": "beautiful-do",
-  "status": "executing",
-  "state": { ... },
-  "stats": { ... }
-}
-```
+## Details
+- Attempts: 3
+- Elapsed time: 5m 45s
+- Failed at: 2026-01-31T11:14:05.358Z
 
-## Acceptance Criteria Met
-
-- [x] Project list shows compact format with progress indicators
-- [x] Progress bar correctly reflects task statuses
-- [x] No task-level detail in list view
-- [x] `--json` output unchanged
-- [x] Clean, minimal output without extra hints
-
-## Test Results
-
-```
-Test Suites: 24 passed, 24 total
-Tests:       484 passed, 484 total
-```
-
-<promise>COMPLETE</promise>

@@ -21,79 +21,112 @@ describe('Logger', () => {
     logger.clearContext();
   });
 
-  describe('context prefix', () => {
-    it('should add context prefix to info messages', () => {
-      logger.setContext('[Task 2/5: fix-login]');
-      logger.info('Starting task');
-
-      expect(consoleLogSpy).toHaveBeenCalledWith('[Task 2/5: fix-login] Starting task');
+  describe('print', () => {
+    it('should output text exactly as passed', () => {
+      logger.print('Hello World');
+      expect(consoleLogSpy).toHaveBeenCalledWith('Hello World');
     });
 
-    it('should add context prefix to success messages', () => {
-      logger.setContext('[Task 1/3: add-feature]');
-      logger.success('Task completed');
-
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('[Task 1/3: add-feature]'));
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Task completed'));
+    it('should pass additional arguments through', () => {
+      logger.print('Value: %d', 42);
+      expect(consoleLogSpy).toHaveBeenCalledWith('Value: %d', 42);
     });
 
-    it('should add context prefix to warn messages', () => {
-      logger.setContext('[Task 3/4: refactor]');
-      logger.warn('Something needs attention');
-
-      expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('[Task 3/4: refactor]'));
-      expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('Something needs attention'));
-    });
-
-    it('should add context prefix to error messages', () => {
-      logger.setContext('[Task 2/2: deploy]');
-      logger.error('Something went wrong');
-
-      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('[Task 2/2: deploy]'));
-      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Something went wrong'));
-    });
-
-    it('should not add prefix when context is cleared', () => {
-      logger.setContext('[Task 1/1: test]');
-      logger.clearContext();
-      logger.info('No prefix here');
-
-      expect(consoleLogSpy).toHaveBeenCalledWith('No prefix here');
-    });
-
-    it('should allow changing context between tasks', () => {
-      logger.setContext('[Task 1/3: first]');
-      logger.info('First task');
-      expect(consoleLogSpy).toHaveBeenLastCalledWith('[Task 1/3: first] First task');
-
-      logger.setContext('[Task 2/3: second]');
-      logger.info('Second task');
-      expect(consoleLogSpy).toHaveBeenLastCalledWith('[Task 2/3: second] Second task');
-    });
-
-    it('should handle empty context string', () => {
-      logger.setContext('');
-      logger.info('Message');
-
-      expect(consoleLogSpy).toHaveBeenCalledWith('Message');
+    it('should not add any prefix', () => {
+      logger.print('raw text');
+      expect(consoleLogSpy).toHaveBeenCalledWith('raw text');
     });
   });
 
-  describe('verbose_log with context', () => {
-    it('should add context prefix when verbose mode is enabled', () => {
-      logger.configure({ verbose: true });
-      logger.setContext('[Task 1/2: verbose-task]');
-      logger.verbose_log('Verbose message');
+  describe('info', () => {
+    it('should output message without prefix', () => {
+      logger.info('Starting task');
+      expect(consoleLogSpy).toHaveBeenCalledWith('Starting task');
+    });
+  });
 
-      expect(consoleLogSpy).toHaveBeenCalledWith('[Task 1/2: verbose-task] Verbose message');
+  describe('success', () => {
+    it('should output with ✓ prefix', () => {
+      logger.success('Task completed');
+      expect(consoleLogSpy).toHaveBeenCalledWith('✓ Task completed');
+    });
+  });
+
+  describe('warn', () => {
+    it('should output with ⚠️ prefix', () => {
+      logger.warn('Something needs attention');
+      expect(consoleWarnSpy).toHaveBeenCalledWith('⚠️  Something needs attention');
+    });
+  });
+
+  describe('error', () => {
+    it('should output with ✗ prefix', () => {
+      logger.error('Something went wrong');
+      expect(consoleErrorSpy).toHaveBeenCalledWith('✗ Something went wrong');
+    });
+  });
+
+  describe('context methods (deprecated)', () => {
+    it('setContext should be a no-op', () => {
+      logger.setContext('[Task 2/5: fix-login]');
+      logger.info('Starting task');
+      // Context should NOT be applied - it's a no-op
+      expect(consoleLogSpy).toHaveBeenCalledWith('Starting task');
+    });
+
+    it('clearContext should be a no-op', () => {
+      logger.setContext('[Task 1/1: test]');
+      logger.clearContext();
+      logger.info('No prefix here');
+      expect(consoleLogSpy).toHaveBeenCalledWith('No prefix here');
+    });
+  });
+
+  describe('verbose_log', () => {
+    it('should log when verbose mode is enabled', () => {
+      logger.configure({ verbose: true });
+      logger.verbose_log('Verbose message');
+      expect(consoleLogSpy).toHaveBeenCalledWith('Verbose message');
     });
 
     it('should not log when verbose mode is disabled', () => {
       logger.configure({ verbose: false });
-      logger.setContext('[Task 1/2: verbose-task]');
       logger.verbose_log('Verbose message');
-
       expect(consoleLogSpy).not.toHaveBeenCalled();
+    });
+
+    it('should log when debug mode is enabled', () => {
+      logger.configure({ debug: true });
+      logger.verbose_log('Verbose message');
+      expect(consoleLogSpy).toHaveBeenCalledWith('Verbose message');
+    });
+  });
+
+  describe('debug', () => {
+    it('should log with [DEBUG] prefix when debug mode is enabled', () => {
+      logger.configure({ debug: true });
+      logger.debug('Debug message');
+      expect(consoleLogSpy).toHaveBeenCalledWith('[DEBUG] Debug message');
+    });
+
+    it('should not log when debug mode is disabled', () => {
+      logger.configure({ debug: false });
+      logger.debug('Debug message');
+      expect(consoleLogSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('task', () => {
+    it('should output status and name', () => {
+      logger.task('●', 'running-task');
+      expect(consoleLogSpy).toHaveBeenCalledWith('● running-task');
+    });
+  });
+
+  describe('newline', () => {
+    it('should output an empty line', () => {
+      logger.newline();
+      expect(consoleLogSpy).toHaveBeenCalledWith();
     });
   });
 });

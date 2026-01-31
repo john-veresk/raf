@@ -8,25 +8,27 @@ interface LoggerOptions {
 class Logger {
   private verbose = false;
   private debugMode = false;
-  private contextPrefix = '';
 
   configure(options: LoggerOptions): void {
     this.verbose = options.verbose ?? false;
     this.debugMode = options.debug ?? false;
   }
 
-  setContext(prefix: string): void {
-    this.contextPrefix = prefix;
+  /**
+   * @deprecated No longer used - kept for backwards compatibility
+   */
+  setContext(_prefix: string): void {
+    // No-op: context prefix feature removed in favor of minimal output style
   }
 
+  /**
+   * @deprecated No longer used - kept for backwards compatibility
+   */
   clearContext(): void {
-    this.contextPrefix = '';
+    // No-op: context prefix feature removed in favor of minimal output style
   }
 
   private formatMessage(message: string): string {
-    if (this.contextPrefix) {
-      return `${this.contextPrefix} ${message}`;
-    }
     return message;
   }
 
@@ -51,7 +53,11 @@ class Logger {
   }
 
   error(message: string, ...args: unknown[]): void {
-    console.error(`Error: ${this.formatMessage(message)}`, ...args);
+    console.error(`✗ ${this.formatMessage(message)}`, ...args);
+  }
+
+  print(message: string, ...args: unknown[]): void {
+    console.log(message, ...args);
   }
 
   success(message: string, ...args: unknown[]): void {
