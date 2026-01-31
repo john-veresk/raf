@@ -151,13 +151,13 @@ async function runPlanCommand(projectName?: string, model?: string): Promise<voi
   }
   logger.newline();
 
-  const prompt = getPlanningPrompt({
+  const { systemPrompt, userMessage } = getPlanningPrompt({
     projectPath,
     inputContent: userInput,
   });
 
   try {
-    const exitCode = await claudeRunner.runInteractive(prompt);
+    const exitCode = await claudeRunner.runInteractive(systemPrompt, userMessage);
 
     if (exitCode !== 0) {
       logger.warn(`Claude exited with code ${exitCode}`);
@@ -308,7 +308,7 @@ async function runAmendCommand(identifier: string, model?: string): Promise<void
   }
   logger.newline();
 
-  const prompt = getAmendPrompt({
+  const { systemPrompt, userMessage } = getAmendPrompt({
     projectPath,
     inputContent: originalInput,
     existingTasks,
@@ -317,7 +317,7 @@ async function runAmendCommand(identifier: string, model?: string): Promise<void
   });
 
   try {
-    const exitCode = await claudeRunner.runInteractive(prompt);
+    const exitCode = await claudeRunner.runInteractive(systemPrompt, userMessage);
 
     if (exitCode !== 0) {
       logger.warn(`Claude exited with code ${exitCode}`);

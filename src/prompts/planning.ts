@@ -3,10 +3,20 @@ export interface PlanningPromptParams {
   inputContent: string;
 }
 
-export function getPlanningPrompt(params: PlanningPromptParams): string {
+export interface PlanningPromptResult {
+  systemPrompt: string;
+  userMessage: string;
+}
+
+/**
+ * Generate planning prompts split into system prompt and user message.
+ * The system prompt contains instructions, while the user message contains
+ * the project description to trigger Claude to start working.
+ */
+export function getPlanningPrompt(params: PlanningPromptParams): PlanningPromptResult {
   const { projectPath, inputContent } = params;
 
-  return `You are a project planning assistant for RAF (Ralph's Automation Framework). Your task is to analyze the user's project description and create detailed task plans.
+  const systemPrompt = `You are a project planning assistant for RAF (Ralph's Automation Framework). Your task is to analyze the user's project description and create detailed task plans.
 
 ## Your Goals
 
@@ -17,10 +27,6 @@ export function getPlanningPrompt(params: PlanningPromptParams): string {
 ## Project Location
 
 Project folder: ${projectPath}
-
-## User's Project Description
-
-${inputContent}
 
 ## Instructions
 
@@ -110,4 +116,10 @@ After creating all plan files, provide a summary of the tasks you've created.
 4. Each plan should be self-contained with all context needed
 5. Reference other tasks by number if there are dependencies
 6. Be specific - vague plans lead to poor execution`;
+
+  const userMessage = `Here is my project description. Please analyze it, identify tasks, and interview me about each one:
+
+${inputContent}`;
+
+  return { systemPrompt, userMessage };
 }

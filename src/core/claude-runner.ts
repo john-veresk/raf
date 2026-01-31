@@ -55,15 +55,23 @@ export class ClaudeRunner {
   /**
    * Run Claude interactively with stdin/stdout passthrough.
    * Used for planning phase where user interaction is needed.
+   *
+   * @param systemPrompt - Instructions appended to system prompt via --append-system-prompt
+   * @param userMessage - Initial user message passed via -p flag to trigger Claude to start working
+   * @param options - Runner options (cwd)
    */
-  async runInteractive(prompt: string, options: ClaudeRunnerOptions = {}): Promise<number> {
+  async runInteractive(
+    systemPrompt: string,
+    userMessage: string,
+    options: ClaudeRunnerOptions = {}
+  ): Promise<number> {
     const { cwd = process.cwd() } = options;
 
     return new Promise((resolve) => {
       // Don't use --print for interactive sessions - it disables interactivity
       // Use --append-system-prompt to add RAF instructions to system prompt
-      // This gives RAF instructions stronger precedence than passing as user message
-      const args = ['--model', this.model, '--append-system-prompt', prompt];
+      // Use -p to pass the user message which triggers Claude to start working
+      const args = ['--model', this.model, '--append-system-prompt', systemPrompt, '-p', userMessage];
 
       logger.debug(`Starting interactive Claude session with model: ${this.model}`);
 

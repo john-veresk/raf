@@ -324,15 +324,15 @@ describe('Plan Command - Amend Functionality', () => {
         newTaskDescription: 'Add new feature X',
       };
 
-      const prompt = getAmendPrompt(params);
+      const { systemPrompt, userMessage } = getAmendPrompt(params);
 
-      expect(prompt).toContain('AMENDMENT MODE');
-      expect(prompt).toContain('Task 001: first [COMPLETED] [PROTECTED]');
-      expect(prompt).toContain('Task 002: second [PENDING] [MODIFIABLE]');
-      expect(prompt).toContain('starting from number 003');
-      expect(prompt).toContain('Add new feature X');
-      expect(prompt).toContain('Original project description');
-      expect(prompt).toContain('/test/project');
+      expect(systemPrompt).toContain('AMENDMENT MODE');
+      expect(systemPrompt).toContain('Task 001: first [COMPLETED] [PROTECTED]');
+      expect(systemPrompt).toContain('Task 002: second [PENDING] [MODIFIABLE]');
+      expect(systemPrompt).toContain('starting from number 003');
+      expect(userMessage).toContain('Add new feature X');
+      expect(systemPrompt).toContain('Original project description');
+      expect(systemPrompt).toContain('/test/project');
     });
 
     it('should instruct to protect completed tasks and allow modifying pending tasks', () => {
@@ -346,13 +346,13 @@ describe('Plan Command - Amend Functionality', () => {
         newTaskDescription: 'New tasks',
       };
 
-      const prompt = getAmendPrompt(params);
+      const { systemPrompt } = getAmendPrompt(params);
 
-      expect(prompt).toContain('NEVER modify [PROTECTED] tasks (completed)');
-      expect(prompt).toContain('DO NOT renumber existing tasks');
-      expect(prompt).toContain('You MAY modify [MODIFIABLE] tasks (pending/failed)');
-      expect(prompt).toContain('NEVER modify COMPLETED task plans - they are [PROTECTED]');
-      expect(prompt).toContain('You MAY modify non-completed task plans (pending/failed)');
+      expect(systemPrompt).toContain('NEVER modify [PROTECTED] tasks (completed)');
+      expect(systemPrompt).toContain('DO NOT renumber existing tasks');
+      expect(systemPrompt).toContain('You MAY modify [MODIFIABLE] tasks (pending/failed)');
+      expect(systemPrompt).toContain('NEVER modify COMPLETED task plans - they are [PROTECTED]');
+      expect(systemPrompt).toContain('You MAY modify non-completed task plans (pending/failed)');
     });
 
     it('should include failed task status with MODIFIABLE indicator in prompt', () => {
@@ -366,9 +366,9 @@ describe('Plan Command - Amend Functionality', () => {
         newTaskDescription: 'New tasks',
       };
 
-      const prompt = getAmendPrompt(params);
+      const { systemPrompt } = getAmendPrompt(params);
 
-      expect(prompt).toContain('Task 001: first [FAILED] [MODIFIABLE]');
+      expect(systemPrompt).toContain('Task 001: first [FAILED] [MODIFIABLE]');
     });
 
     it('should list protected tasks separately', () => {
@@ -384,11 +384,11 @@ describe('Plan Command - Amend Functionality', () => {
         newTaskDescription: 'New tasks',
       };
 
-      const prompt = getAmendPrompt(params);
+      const { systemPrompt } = getAmendPrompt(params);
 
-      expect(prompt).toContain('### Protected Tasks (COMPLETED - cannot be modified)');
-      expect(prompt).toContain('- Task 001: first');
-      expect(prompt).toContain('- Task 002: second');
+      expect(systemPrompt).toContain('### Protected Tasks (COMPLETED - cannot be modified)');
+      expect(systemPrompt).toContain('- Task 001: first');
+      expect(systemPrompt).toContain('- Task 002: second');
     });
 
     it('should list modifiable tasks separately', () => {
@@ -404,11 +404,11 @@ describe('Plan Command - Amend Functionality', () => {
         newTaskDescription: 'New tasks',
       };
 
-      const prompt = getAmendPrompt(params);
+      const { systemPrompt } = getAmendPrompt(params);
 
-      expect(prompt).toContain('### Modifiable Tasks (PENDING/FAILED - can be modified if requested)');
-      expect(prompt).toContain('- Task 002: second');
-      expect(prompt).toContain('- Task 003: third');
+      expect(systemPrompt).toContain('### Modifiable Tasks (PENDING/FAILED - can be modified if requested)');
+      expect(systemPrompt).toContain('- Task 002: second');
+      expect(systemPrompt).toContain('- Task 003: third');
     });
 
     it('should show (none) when there are no protected tasks', () => {
@@ -422,9 +422,9 @@ describe('Plan Command - Amend Functionality', () => {
         newTaskDescription: 'New tasks',
       };
 
-      const prompt = getAmendPrompt(params);
+      const { systemPrompt } = getAmendPrompt(params);
 
-      expect(prompt).toContain('### Protected Tasks (COMPLETED - cannot be modified)\n(none)');
+      expect(systemPrompt).toContain('### Protected Tasks (COMPLETED - cannot be modified)\n(none)');
     });
 
     it('should show (none) when there are no modifiable tasks', () => {
@@ -438,9 +438,9 @@ describe('Plan Command - Amend Functionality', () => {
         newTaskDescription: 'New tasks',
       };
 
-      const prompt = getAmendPrompt(params);
+      const { systemPrompt } = getAmendPrompt(params);
 
-      expect(prompt).toContain('### Modifiable Tasks (PENDING/FAILED - can be modified if requested)\n(none)');
+      expect(systemPrompt).toContain('### Modifiable Tasks (PENDING/FAILED - can be modified if requested)\n(none)');
     });
 
     it('should handle mixed task statuses correctly', () => {
@@ -457,17 +457,17 @@ describe('Plan Command - Amend Functionality', () => {
         newTaskDescription: 'New tasks',
       };
 
-      const prompt = getAmendPrompt(params);
+      const { systemPrompt } = getAmendPrompt(params);
 
       // Check summary list
-      expect(prompt).toContain('Task 001: setup [COMPLETED] [PROTECTED]');
-      expect(prompt).toContain('Task 002: database [COMPLETED] [PROTECTED]');
-      expect(prompt).toContain('Task 003: api [FAILED] [MODIFIABLE]');
-      expect(prompt).toContain('Task 004: tests [PENDING] [MODIFIABLE]');
+      expect(systemPrompt).toContain('Task 001: setup [COMPLETED] [PROTECTED]');
+      expect(systemPrompt).toContain('Task 002: database [COMPLETED] [PROTECTED]');
+      expect(systemPrompt).toContain('Task 003: api [FAILED] [MODIFIABLE]');
+      expect(systemPrompt).toContain('Task 004: tests [PENDING] [MODIFIABLE]');
 
       // Check separate lists
-      expect(prompt).toContain('### Protected Tasks (COMPLETED - cannot be modified)');
-      expect(prompt).toContain('### Modifiable Tasks (PENDING/FAILED - can be modified if requested)');
+      expect(systemPrompt).toContain('### Protected Tasks (COMPLETED - cannot be modified)');
+      expect(systemPrompt).toContain('### Modifiable Tasks (PENDING/FAILED - can be modified if requested)');
     });
 
     it('should include correct plans directory path', () => {
@@ -481,10 +481,64 @@ describe('Plan Command - Amend Functionality', () => {
         newTaskDescription: 'New tasks',
       };
 
-      const prompt = getAmendPrompt(params);
+      const { systemPrompt } = getAmendPrompt(params);
 
-      expect(prompt).toContain('/my/project/path/plans/002-task-name.md');
-      expect(prompt).toContain('/my/project/path/plans/003-task-name.md');
+      expect(systemPrompt).toContain('/my/project/path/plans/002-task-name.md');
+      expect(systemPrompt).toContain('/my/project/path/plans/003-task-name.md');
+    });
+
+    it('should return separate systemPrompt and userMessage', () => {
+      const params: AmendPromptParams = {
+        projectPath: '/test/project',
+        inputContent: 'Original description',
+        existingTasks: [
+          { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
+        ],
+        nextTaskNumber: 2,
+        newTaskDescription: 'Add a new logging feature',
+      };
+
+      const result = getAmendPrompt(params);
+
+      expect(result).toHaveProperty('systemPrompt');
+      expect(result).toHaveProperty('userMessage');
+      expect(typeof result.systemPrompt).toBe('string');
+      expect(typeof result.userMessage).toBe('string');
+    });
+
+    it('should include new task description in userMessage', () => {
+      const params: AmendPromptParams = {
+        projectPath: '/test/project',
+        inputContent: 'Original description',
+        existingTasks: [],
+        nextTaskNumber: 1,
+        newTaskDescription: 'Add authentication and authorization',
+      };
+
+      const { userMessage } = getAmendPrompt(params);
+
+      expect(userMessage).toContain('Add authentication and authorization');
+    });
+
+    it('should include instructions in systemPrompt, not in userMessage', () => {
+      const params: AmendPromptParams = {
+        projectPath: '/test/project',
+        inputContent: 'Original description',
+        existingTasks: [],
+        nextTaskNumber: 1,
+        newTaskDescription: 'New feature',
+      };
+
+      const { systemPrompt, userMessage } = getAmendPrompt(params);
+
+      // Instructions should be in system prompt
+      expect(systemPrompt).toContain('AMENDMENT MODE');
+      expect(systemPrompt).toContain('AskUserQuestion');
+      expect(systemPrompt).toContain('Interview the User');
+
+      // User message should just contain the task description
+      expect(userMessage).not.toContain('AMENDMENT MODE');
+      expect(userMessage).not.toContain('AskUserQuestion');
     });
   });
 

@@ -8,10 +8,16 @@ export interface AmendPromptParams {
   newTaskDescription: string;
 }
 
+export interface AmendPromptResult {
+  systemPrompt: string;
+  userMessage: string;
+}
+
 /**
- * Generate a prompt for amending an existing project with new tasks.
+ * Generate prompts for amending an existing project with new tasks.
+ * Returns both system prompt and user message to trigger Claude to start working.
  */
-export function getAmendPrompt(params: AmendPromptParams): string {
+export function getAmendPrompt(params: AmendPromptParams): AmendPromptResult {
   const {
     projectPath,
     inputContent,
@@ -46,7 +52,7 @@ export function getAmendPrompt(params: AmendPromptParams): string {
       ? modifiableTasks.map((t) => `- Task ${t.id}: ${t.taskName}`).join('\n')
       : '(none)';
 
-  return `You are a project planning assistant for RAF (Ralph's Automation Framework). Your task is to ADD NEW TASKS or MODIFY PENDING tasks in an existing project.
+  const systemPrompt = `You are a project planning assistant for RAF (Ralph's Automation Framework). Your task is to ADD NEW TASKS or MODIFY PENDING tasks in an existing project.
 
 ## IMPORTANT: Amendment Mode
 
@@ -75,10 +81,6 @@ ${protectedTasksList}
 
 ### Modifiable Tasks (PENDING/FAILED - can be modified if requested)
 ${modifiableTasksList}
-
-## User's Description of New Tasks
-
-${newTaskDescription}
 
 ## Instructions
 
@@ -166,4 +168,12 @@ After creating all new plan files, provide a summary of:
 6. Each plan should be self-contained with all context needed
 7. Reference existing tasks by number if there are dependencies
 8. Be specific - vague plans lead to poor execution`;
+
+  const userMessage = `I want to add new tasks to this project. Here is my description of what I need:
+
+${newTaskDescription}
+
+Please analyze my request, identify new tasks, and interview me about each one.`;
+
+  return { systemPrompt, userMessage };
 }
