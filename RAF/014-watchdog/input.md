@@ -1,0 +1,2 @@
+- [ ] support --amend after project name/id
+- [ ] append details to output file only if task failed

@@ -50,3 +50,9 @@ Retry history:
 ```
 
 <promise>COMPLETE</promise>
+
+
+## Details
+- Attempts: 1
+- Elapsed time: 5m 27s
+- Completed at: 2026-01-31T17:16:19.006Z

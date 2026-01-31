@@ -42,3 +42,9 @@ Both syntaxes now work because:
 - [x] New tests added for both syntax variants
 
 <promise>COMPLETE</promise>
+
+
+## Details
+- Attempts: 1
+- Elapsed time: 2m 5s
+- Completed at: 2026-01-31T17:10:51.923Z
