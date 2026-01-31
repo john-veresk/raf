@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { getPlansDir, getOutcomesDir, getInputPath } from '../utils/paths.js';
 
-export type DerivedTaskStatus = 'pending' | 'completed' | 'failed';
+export type DerivedTaskStatus = 'pending' | 'completed' | 'failed' | 'blocked';
 
 export type DerivedProjectStatus =
   | 'planning'
@@ -15,6 +15,7 @@ export interface DerivedTask {
   id: string;
   planFile: string;
   status: DerivedTaskStatus;
+  dependencies: string[];
 }
 
 export interface DerivedProjectState {
@@ -32,6 +33,7 @@ export interface DerivedStats {
   pending: number;
   completed: number;
   failed: number;
+  blocked: number;
   total: number;
 }
 
@@ -64,14 +66,38 @@ export function discoverProjects(rafDir: string): DiscoveredProject[] {
 }
 
 /**
+ * Parse the Dependencies section from plan file content.
+ * Format: `## Dependencies\n001, 002` → ["001", "002"]
+ * Returns empty array if no Dependencies section exists.
+ */
+export function parseDependencies(content: string): string[] {
+  const dependenciesMatch = content.match(/^## Dependencies\s*\n([^\n#]+)/m);
+  if (!dependenciesMatch || !dependenciesMatch[1]) {
+    return [];
+  }
+
+  const dependenciesLine = dependenciesMatch[1].trim();
+  if (!dependenciesLine) {
+    return [];
+  }
+
+  // Parse comma-separated task IDs
+  return dependenciesLine
+    .split(',')
+    .map((id) => id.trim())
+    .filter((id) => /^\d{2,3}$/.test(id));
+}
+
+/**
  * Parse an outcome file to extract its status.
  * Status is determined by the presence of promise markers:
  * - `<promise>COMPLETE</promise>` → completed
  * - `<promise>FAILED</promise>` → failed
+ * - `<promise>BLOCKED</promise>` → blocked
  * Uses the last occurrence if multiple markers exist.
  */
 export function parseOutcomeStatus(content: string): DerivedTaskStatus | null {
-  const markerRegex = /<promise>(COMPLETE|FAILED)<\/promise>/g;
+  const markerRegex = /<promise>(COMPLETE|FAILED|BLOCKED)<\/promise>/g;
   let lastMatch: RegExpExecArray | null = null;
   let match: RegExpExecArray | null;
 
@@ -80,7 +106,14 @@ export function parseOutcomeStatus(content: string): DerivedTaskStatus | null {
   }
 
   if (lastMatch && lastMatch[1]) {
-    return lastMatch[1] === 'COMPLETE' ? 'completed' : 'failed';
+    switch (lastMatch[1]) {
+      case 'COMPLETE':
+        return 'completed';
+      case 'FAILED':
+        return 'failed';
+      case 'BLOCKED':
+        return 'blocked';
+    }
   }
   return null;
 }
@@ -143,6 +176,7 @@ export function deriveProjectStatus(
  * Derive project state from the folder structure.
  * Scans plans/ for plan files and outcomes/ for outcome files.
  * Matches them by task ID (NNN prefix) and determines status.
+ * Also parses dependencies and derives blocked status.
  */
 export function deriveProjectState(projectPath: string): DerivedProjectState {
   const plansDir = getPlansDir(projectPath);
@@ -180,17 +214,49 @@ export function deriveProjectState(projectPath: string): DerivedProjectState {
     }
   }
 
-  // Match plan files to outcomes
+  // First pass: Match plan files to outcomes and parse dependencies
   for (const planFile of planFiles) {
     const match = planFile.match(/^(\d{2,3})-(.+)\.md$/);
     if (match && match[1]) {
       const taskId = match[1];
       const status = outcomeStatuses.get(taskId) ?? 'pending';
+
+      // Read plan file to extract dependencies
+      const planContent = fs.readFileSync(path.join(plansDir, planFile), 'utf-8');
+      const dependencies = parseDependencies(planContent);
+
       tasks.push({
         id: taskId,
         planFile: path.join('plans', planFile),
         status,
+        dependencies,
       });
+    }
+  }
+
+  // Second pass: Derive blocked status for pending tasks
+  // A task is blocked if any of its dependencies are failed or blocked
+  const taskStatusMap = new Map<string, DerivedTaskStatus>();
+  for (const task of tasks) {
+    taskStatusMap.set(task.id, task.status);
+  }
+
+  // Process blocked status (may need multiple passes for transitive blocking)
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const task of tasks) {
+      if (task.status === 'pending' && task.dependencies.length > 0) {
+        const isBlocked = task.dependencies.some((depId) => {
+          const depStatus = taskStatusMap.get(depId);
+          return depStatus === 'failed' || depStatus === 'blocked';
+        });
+        if (isBlocked) {
+          task.status = 'blocked';
+          taskStatusMap.set(task.id, 'blocked');
+          changed = true;
+        }
+      }
     }
   }
 
@@ -212,9 +278,10 @@ export function getNextPendingTask(state: DerivedProjectState): DerivedTask | nu
 
 /**
  * Get the next task that should be executed (pending or failed).
+ * Skips blocked tasks - they cannot be executed until their dependencies pass.
  */
 export function getNextExecutableTask(state: DerivedProjectState): DerivedTask | null {
-  // First try pending tasks
+  // First try pending tasks (blocked tasks have status 'blocked', not 'pending')
   for (const task of state.tasks) {
     if (task.status === 'pending') {
       return task;
@@ -237,6 +304,7 @@ export function getDerivedStats(state: DerivedProjectState): DerivedStats {
     pending: 0,
     completed: 0,
     failed: 0,
+    blocked: 0,
     total: state.tasks.length,
   };
 
@@ -250,6 +318,9 @@ export function getDerivedStats(state: DerivedProjectState): DerivedStats {
         break;
       case 'failed':
         stats.failed++;
+        break;
+      case 'blocked':
+        stats.blocked++;
         break;
     }
   }
