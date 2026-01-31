@@ -291,7 +291,7 @@ async function executeSingleProject(
       logger.info('All tasks completed. Use --force to re-run.');
     } else {
       const stats = getDerivedStats(state);
-      logger.info(formatSummary(stats.completed, stats.failed, stats.pending));
+      logger.info(formatSummary(stats.completed, stats.failed, stats.pending, undefined, stats.blocked));
     }
     const stats = getDerivedStats(state);
     return {
@@ -333,8 +333,8 @@ async function executeSingleProject(
   // Track tasks completed in this session (for force mode)
   const completedInSession = new Set<string>();
 
-  // Helper function to get the next task to execute
-  function getNextTask(currentState: DerivedProjectState): DerivedTask | null {
+  // Helper function to get the next task to process (including blocked tasks for outcome generation)
+  function getNextTaskToProcess(currentState: DerivedProjectState): DerivedTask | null {
     if (force) {
       // Find first task that hasn't been executed in this session
       for (const t of currentState.tasks) {
@@ -344,17 +344,111 @@ async function executeSingleProject(
       }
       return null;
     }
-    // Normal mode: get next executable task (pending or failed)
+    // Normal mode: first check for blocked tasks that need outcome files generated
+    for (const t of currentState.tasks) {
+      if (t.status === 'blocked') {
+        const outcomeFilePath = getOutcomeFilePath(projectPath, t.id, extractTaskNameFromPlanFile(t.planFile) ?? t.id);
+        // Only return blocked task if it doesn't have an outcome file yet
+        if (!fs.existsSync(outcomeFilePath)) {
+          return t;
+        }
+      }
+    }
+    // Then get next executable task (pending or failed)
     return getNextExecutableTask(currentState);
   }
 
-  let task = getNextTask(state);
+  /**
+   * Generate a blocked outcome file for a task.
+   * @param task - The blocked task
+   * @param taskState - Current state to find which dependencies caused the block
+   */
+  function generateBlockedOutcome(task: DerivedTask, taskState: DerivedProjectState): string {
+    // Find which dependencies are failed or blocked
+    const failedDeps: string[] = [];
+    const blockedDeps: string[] = [];
+
+    for (const depId of task.dependencies) {
+      const depTask = taskState.tasks.find((t) => t.id === depId);
+      if (depTask) {
+        if (depTask.status === 'failed') {
+          failedDeps.push(depId);
+        } else if (depTask.status === 'blocked') {
+          blockedDeps.push(depId);
+        }
+      }
+    }
+
+    const lines: string[] = [
+      `# Outcome: Task ${task.id} Blocked`,
+      '',
+      '## Summary',
+      '',
+      'This task was automatically blocked because one or more of its dependencies failed or are blocked.',
+      '',
+      '## Blocking Dependencies',
+      '',
+    ];
+
+    if (failedDeps.length > 0) {
+      lines.push(`**Failed dependencies**: ${failedDeps.join(', ')}`);
+    }
+    if (blockedDeps.length > 0) {
+      lines.push(`**Blocked dependencies**: ${blockedDeps.join(', ')}`);
+    }
+
+    lines.push('');
+    lines.push(`**Task dependencies**: ${task.dependencies.join(', ')}`);
+    lines.push('');
+    lines.push('## Resolution');
+    lines.push('');
+    lines.push('To unblock this task:');
+    lines.push('1. Fix the failed dependency task(s)');
+    lines.push('2. Re-run the project with `raf do`');
+    lines.push('');
+    lines.push('<promise>BLOCKED</promise>');
+
+    return lines.join('\n');
+  }
+
+  let task = getNextTaskToProcess(state);
 
   while (task) {
     const taskIndex = state.tasks.findIndex((t) => t.id === task!.id);
     const taskNumber = taskIndex + 1;
     const taskName = extractTaskNameFromPlanFile(task.planFile);
     const displayName = taskName ?? task.id;
+
+    // Handle blocked tasks separately - skip Claude execution
+    if (task.status === 'blocked') {
+      // Find which dependency caused the block for the message
+      const failedOrBlockedDeps = task.dependencies.filter((depId) => {
+        const depTask = state.tasks.find((t) => t.id === depId);
+        return depTask && (depTask.status === 'failed' || depTask.status === 'blocked');
+      });
+      const blockingDep = failedOrBlockedDeps[0] ?? task.dependencies[0];
+
+      if (verbose) {
+        const taskContext = `[Task ${taskNumber}/${totalTasks}: ${displayName}]`;
+        logger.setContext(taskContext);
+        logger.warn(`Task ${task.id} blocked by failed dependency: ${blockingDep}`);
+      } else {
+        // Minimal mode: show blocked task line with distinct symbol
+        logger.info(formatTaskProgress(taskNumber, totalTasks, 'blocked', displayName));
+      }
+
+      // Generate blocked outcome file
+      const blockedOutcome = generateBlockedOutcome(task, state);
+      projectManager.saveOutcome(projectPath, task.id, blockedOutcome);
+
+      completedInSession.add(task.id);
+      logger.clearContext();
+
+      // Re-derive state to cascade blocking to dependent tasks
+      state = deriveProjectState(projectPath);
+      task = getNextTaskToProcess(state);
+      continue;
+    }
 
     if (verbose) {
       const taskContext = `[Task ${taskNumber}/${totalTasks}: ${displayName}]`;
@@ -636,8 +730,8 @@ ${stashName ? `- Stash: ${stashName}` : ''}
     // Re-derive state to get updated task statuses
     state = deriveProjectState(projectPath);
 
-    // Get next task to execute
-    task = getNextTask(state);
+    // Get next task to process
+    task = getNextTaskToProcess(state);
   }
 
   // Ensure context is cleared for summary
@@ -656,10 +750,11 @@ ${stashName ? `- Stash: ${stashName}` : ''}
       logger.info('Summary:');
       logger.info(`  Completed: ${stats.completed}`);
       logger.info(`  Failed: ${stats.failed}`);
+      logger.info(`  Blocked: ${stats.blocked}`);
       logger.info(`  Pending: ${stats.pending}`);
     } else {
       // Minimal summary with elapsed time
-      logger.info(formatSummary(stats.completed, stats.failed, stats.pending, projectElapsedMs));
+      logger.info(formatSummary(stats.completed, stats.failed, stats.pending, projectElapsedMs, stats.blocked));
     }
   } else if (hasProjectFailed(state)) {
     if (verbose) {
@@ -668,10 +763,11 @@ ${stashName ? `- Stash: ${stashName}` : ''}
       logger.info('Summary:');
       logger.info(`  Completed: ${stats.completed}`);
       logger.info(`  Failed: ${stats.failed}`);
+      logger.info(`  Blocked: ${stats.blocked}`);
       logger.info(`  Pending: ${stats.pending}`);
     } else {
       // Minimal summary for failures
-      logger.info(formatSummary(stats.completed, stats.failed, stats.pending, projectElapsedMs));
+      logger.info(formatSummary(stats.completed, stats.failed, stats.pending, projectElapsedMs, stats.blocked));
     }
   } else {
     // Project incomplete (pending tasks remain)
@@ -680,9 +776,10 @@ ${stashName ? `- Stash: ${stashName}` : ''}
       logger.info('Summary:');
       logger.info(`  Completed: ${stats.completed}`);
       logger.info(`  Failed: ${stats.failed}`);
+      logger.info(`  Blocked: ${stats.blocked}`);
       logger.info(`  Pending: ${stats.pending}`);
     } else {
-      logger.info(formatSummary(stats.completed, stats.failed, stats.pending, projectElapsedMs));
+      logger.info(formatSummary(stats.completed, stats.failed, stats.pending, projectElapsedMs, stats.blocked));
     }
   }
 

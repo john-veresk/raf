@@ -14,13 +14,14 @@ describe('Terminal Symbols', () => {
       expect(SYMBOLS.completed).toBe('✓');
       expect(SYMBOLS.failed).toBe('✗');
       expect(SYMBOLS.pending).toBe('○');
+      expect(SYMBOLS.blocked).toBe('⊘');
       expect(SYMBOLS.project).toBe('▶');
     });
 
     it('should be a const object with correct types', () => {
       // TypeScript's 'as const' provides compile-time immutability
       // Verify all expected keys exist
-      expect(Object.keys(SYMBOLS)).toEqual(['running', 'completed', 'failed', 'pending', 'project']);
+      expect(Object.keys(SYMBOLS)).toEqual(['running', 'completed', 'failed', 'pending', 'blocked', 'project']);
     });
   });
 
@@ -75,6 +76,11 @@ describe('Terminal Symbols', () => {
     it('should handle zero elapsed time for running task', () => {
       const result = formatTaskProgress(1, 1, 'running', 'test', 0);
       expect(result).toBe('● test 0s');
+    });
+
+    it('should format a blocked task', () => {
+      const result = formatTaskProgress(2, 5, 'blocked', 'depends-on-failed');
+      expect(result).toBe('⊘ depends-on-failed 2/5');
     });
   });
 
@@ -147,6 +153,26 @@ describe('Terminal Symbols', () => {
       const result = formatSummary(3, 2, 0, 60000);
       expect(result).toBe('✗ 3/5 (2 failed)');
     });
+
+    it('should format with blocked tasks only', () => {
+      const result = formatSummary(3, 0, 0, undefined, 2);
+      expect(result).toBe('✗ 3/5 (2 blocked)');
+    });
+
+    it('should format single blocked task', () => {
+      const result = formatSummary(4, 0, 0, undefined, 1);
+      expect(result).toBe('✗ 4/5 (1 blocked)');
+    });
+
+    it('should format with failures and blocked tasks', () => {
+      const result = formatSummary(2, 1, 0, undefined, 2);
+      expect(result).toBe('✗ 2/5 (1 failed, 2 blocked)');
+    });
+
+    it('should include blocked in total count', () => {
+      const result = formatSummary(2, 1, 1, undefined, 1);
+      expect(result).toBe('✗ 2/5 (1 failed, 1 blocked)');
+    });
   });
 
   describe('formatProgressBar', () => {
@@ -177,6 +203,12 @@ describe('Terminal Symbols', () => {
     it('should handle empty array', () => {
       const result = formatProgressBar([]);
       expect(result).toBe('');
+    });
+
+    it('should format blocked tasks', () => {
+      const tasks: TaskStatus[] = ['completed', 'failed', 'blocked', 'pending'];
+      const result = formatProgressBar(tasks);
+      expect(result).toBe('✓✗⊘○');
     });
   });
 });
