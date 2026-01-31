@@ -7,8 +7,8 @@ import {
   getDerivedStats,
   discoverProjects,
   type DerivedTaskStatus,
-  type DerivedProjectStatus,
 } from '../core/state-derivation.js';
+import { SYMBOLS, formatProgressBar, type TaskStatus } from '../utils/terminal-symbols.js';
 
 export function createStatusCommand(): Command {
   const command = new Command('status')
@@ -39,7 +39,6 @@ async function runStatusCommand(
 
   if (!projectPath) {
     logger.error(`Project not found: ${identifier}`);
-    logger.info(`Run 'raf status' to see available projects.`);
     process.exit(1);
   }
 
@@ -54,25 +53,13 @@ async function runStatusCommand(
     return;
   }
 
-  // Display project status
-  logger.info(`Project: ${projectName}`);
-  logger.info(`Status: ${projectStatus}`);
-  logger.newline();
+  // Convert derived task statuses to TaskStatus for progress bar
+  const taskStatuses: TaskStatus[] = state.tasks.map((t) => derivedStatusToTaskStatus(t.status));
+  const progressBar = formatProgressBar(taskStatuses);
 
-  logger.info('Tasks:');
-  logger.newline();
-
-  for (const task of state.tasks) {
-    const badge = getStatusBadge(task.status);
-    logger.info(`  ${badge} ${task.id}: ${task.planFile}`);
-  }
-
-  logger.newline();
-  logger.info('Summary:');
-  logger.info(`  Completed: ${stats.completed}`);
-  logger.info(`  Failed: ${stats.failed}`);
-  logger.info(`  Pending: ${stats.pending}`);
-  logger.info(`  Total: ${stats.total}`);
+  // Display compact project status
+  logger.info(`${SYMBOLS.project} ${projectName}`);
+  logger.info(`${progressBar} (${stats.completed}/${stats.total})`);
 }
 
 async function listAllProjects(
@@ -83,7 +70,6 @@ async function listAllProjects(
 
   if (projects.length === 0) {
     logger.info('No projects found.');
-    logger.info(`Run 'raf plan' to create a new project.`);
     return;
   }
 
@@ -106,56 +92,40 @@ async function listAllProjects(
     return;
   }
 
-  logger.info('Projects:');
-  logger.newline();
-
   for (const project of projects) {
-    let taskInfo = '';
-    let projectStatus: DerivedProjectStatus = 'planning';
-
     try {
       const state = deriveProjectState(project.path);
       const stats = getDerivedStats(state);
-      taskInfo = ` (${stats.completed}/${stats.total} tasks)`;
-      projectStatus = state.status;
+
+      // Convert derived task statuses to TaskStatus for progress bar
+      const taskStatuses: TaskStatus[] = state.tasks.map((t) => derivedStatusToTaskStatus(t.status));
+      const progressBar = formatProgressBar(taskStatuses);
+
+      // Format: "001 my-project ✓✓●○○ (2/5)"
+      const projectNumber = String(project.number).padStart(3, '0');
+      const counts = `(${stats.completed}/${stats.total})`;
+      logger.info(`${projectNumber} ${project.name} ${progressBar} ${counts}`);
     } catch {
-      // Failed to derive state
+      // Failed to derive state - show minimal info
+      const projectNumber = String(project.number).padStart(3, '0');
+      logger.info(`${projectNumber} ${project.name}`);
     }
-
-    const statusBadge = getProjectStatusBadge(projectStatus);
-    logger.info(`  ${statusBadge} ${project.name}${taskInfo}`);
   }
-
-  logger.newline();
-  logger.info(`Use 'raf status <projectName>' for details.`);
 }
 
-function getStatusBadge(status: DerivedTaskStatus): string {
+/**
+ * Convert DerivedTaskStatus to TaskStatus for terminal symbols.
+ * Note: DerivedTaskStatus doesn't have 'running' - tasks are either pending, completed, or failed.
+ */
+function derivedStatusToTaskStatus(status: DerivedTaskStatus): TaskStatus {
   switch (status) {
     case 'pending':
-      return '[ ]';
+      return 'pending';
     case 'completed':
-      return '[x]';
+      return 'completed';
     case 'failed':
-      return '[!]';
+      return 'failed';
     default:
-      return '[?]';
-  }
-}
-
-function getProjectStatusBadge(status: DerivedProjectStatus): string {
-  switch (status) {
-    case 'planning':
-      return '[P]';
-    case 'ready':
-      return '[R]';
-    case 'executing':
-      return '[~]';
-    case 'completed':
-      return '[x]';
-    case 'failed':
-      return '[!]';
-    default:
-      return '[?]';
+      return 'pending';
   }
 }
