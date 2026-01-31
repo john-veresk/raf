@@ -1,0 +1,2 @@
+- [ ] output seems edited two times. what is the reason? i would put full outcome from claude there without harsh summary. for example in commit 156af076c1dd866d043c3f504b00f31317b242c7 usefull report was from claude was cut with "task sucessfully commited message"
+- [ ] change success marker from ## Status: SUCCESS to something that not interfiers with markdown heading. we already have <promise> markers for output completion. use simular pattern in the end of the file. like `<status>SUCCESS</status>`
