@@ -33,11 +33,13 @@ import { analyzeFailure } from '../core/failure-analyzer.js';
 import type { DoCommandOptions } from '../types/config.js';
 
 /**
- * Format failure history as a markdown section.
- * Includes all failed attempts and optionally the successful final attempt.
+ * Format failure history for console output.
+ * Shows attempts that failed before eventual success or final failure.
  * Returns empty string if no failures occurred.
  */
-export function formatFailureHistory(
+export function formatRetryHistoryForConsole(
+  taskId: string,
+  taskName: string,
   failureHistory: Array<{ attempt: number; reason: string }>,
   finalAttempt: number,
   success: boolean
@@ -46,17 +48,30 @@ export function formatFailureHistory(
     return '';
   }
 
-  const lines = ['## Failure History'];
+  const lines: string[] = [];
+  const displayName = taskName !== taskId ? `${taskId} (${taskName})` : taskId;
+  lines.push(`  Task ${displayName}:`);
+
   for (const { attempt, reason } of failureHistory) {
-    lines.push(`- **Attempt ${attempt}**: ${reason}`);
+    lines.push(`    Attempt ${attempt}: Failed - ${reason}`);
   }
 
-  // Add final successful attempt if there were prior failures
   if (success) {
-    lines.push(`- **Attempt ${finalAttempt}**: Success`);
+    lines.push(`    Attempt ${finalAttempt}: Succeeded`);
   }
 
-  return lines.join('\n') + '\n\n';
+  return lines.join('\n');
+}
+
+/**
+ * Retry history for a single task.
+ */
+interface TaskRetryHistory {
+  taskId: string;
+  taskName: string;
+  failureHistory: Array<{ attempt: number; reason: string }>;
+  finalAttempt: number;
+  success: boolean;
 }
 
 /**
@@ -69,6 +84,7 @@ interface ProjectExecutionResult {
   tasksCompleted: number;
   totalTasks: number;
   error?: string;
+  retryHistory?: TaskRetryHistory[];
 }
 
 export function createDoCommand(): Command {
@@ -334,6 +350,9 @@ async function executeSingleProject(
   // Track tasks completed in this session (for force mode)
   const completedInSession = new Set<string>();
 
+  // Track retry history for console output at the end
+  const projectRetryHistory: TaskRetryHistory[] = [];
+
   // Helper function to get the next task to process (including blocked tasks for outcome generation)
   function getNextTaskToProcess(currentState: DerivedProjectState): DerivedTask | null {
     if (force) {
@@ -589,12 +608,21 @@ async function executeSingleProject(
       projectManager.saveLog(projectPath, task.id, lastOutput);
     }
 
-    // Build failure history section (only if there were failures)
-    const failureHistorySection = formatFailureHistory(failureHistory, attempts, success);
+    // Track retry history if there were failures (for console output)
+    if (failureHistory.length > 0) {
+      projectRetryHistory.push({
+        taskId: task.id,
+        taskName: displayName,
+        failureHistory,
+        finalAttempt: attempts,
+        success,
+      });
+    }
 
     if (success) {
       // Check if Claude wrote an outcome file with valid marker
-      // If so, keep it and append metadata; otherwise create fallback
+      // If so, keep it as-is; otherwise create fallback
+      // NOTE: Successful outcomes do NOT get ## Details section appended
       let outcomeContent: string;
       const claudeWroteOutcome = fs.existsSync(outcomeFilePath);
 
@@ -603,40 +631,8 @@ async function executeSingleProject(
         const status = parseOutcomeStatus(existingContent);
 
         if (status === 'completed') {
-          // Claude wrote a valid outcome - insert failure history before <promise> marker and append metadata
-          if (failureHistorySection) {
-            // Insert failure history before the <promise> marker
-            const promiseMarker = '<promise>COMPLETE</promise>';
-            const markerIndex = existingContent.indexOf(promiseMarker);
-            if (markerIndex !== -1) {
-              const beforeMarker = existingContent.substring(0, markerIndex);
-              const afterMarker = existingContent.substring(markerIndex);
-              outcomeContent = beforeMarker + failureHistorySection + afterMarker + `
-
-## Details
-- Attempts: ${attempts}
-- Elapsed time: ${elapsedFormatted}
-- Completed at: ${new Date().toISOString()}
-`;
-            } else {
-              // Marker not found (shouldn't happen), just append
-              outcomeContent = existingContent + `
-
-${failureHistorySection}## Details
-- Attempts: ${attempts}
-- Elapsed time: ${elapsedFormatted}
-- Completed at: ${new Date().toISOString()}
-`;
-            }
-          } else {
-            outcomeContent = existingContent + `
-
-## Details
-- Attempts: ${attempts}
-- Elapsed time: ${elapsedFormatted}
-- Completed at: ${new Date().toISOString()}
-`;
-          }
+          // Claude wrote a valid outcome - keep it as-is (no metadata added)
+          outcomeContent = existingContent;
         } else {
           // Outcome file exists but no valid COMPLETE marker - create fallback
           outcomeContent = `## Status: SUCCESS
@@ -645,12 +641,7 @@ ${failureHistorySection}## Details
 
 Task completed. No detailed report provided.
 
-${failureHistorySection}<promise>COMPLETE</promise>
-
-## Details
-- Attempts: ${attempts}
-- Elapsed time: ${elapsedFormatted}
-- Completed at: ${new Date().toISOString()}
+<promise>COMPLETE</promise>
 `;
         }
       } else {
@@ -661,12 +652,7 @@ ${failureHistorySection}<promise>COMPLETE</promise>
 
 Task completed. No detailed report provided.
 
-${failureHistorySection}<promise>COMPLETE</promise>
-
-## Details
-- Attempts: ${attempts}
-- Elapsed time: ${elapsedFormatted}
-- Completed at: ${new Date().toISOString()}
+<promise>COMPLETE</promise>
 `;
       }
 
@@ -700,20 +686,10 @@ ${failureHistorySection}<promise>COMPLETE</promise>
       }
 
       // Analyze failure and generate structured report
-      let analysisReport = await analyzeFailure(lastOutput, failureReason, task.id);
+      const analysisReport = await analyzeFailure(lastOutput, failureReason, task.id);
 
-      // Insert failure history before the <promise>FAILED</promise> marker if there are multiple attempts
-      if (failureHistorySection) {
-        const promiseMarker = '<promise>FAILED</promise>';
-        const markerIndex = analysisReport.indexOf(promiseMarker);
-        if (markerIndex !== -1) {
-          const beforeMarker = analysisReport.substring(0, markerIndex);
-          const afterMarker = analysisReport.substring(markerIndex);
-          analysisReport = beforeMarker + '\n' + failureHistorySection + afterMarker;
-        }
-      }
-
-      // Save failure outcome with status marker and analysis
+      // Save failure outcome with status marker, analysis, and details
+      // NOTE: Failed outcomes keep ## Details section for debugging
       const outcomeContent = `## Status: FAILED
 
 # Task ${task.id} - Failed
@@ -792,12 +768,31 @@ ${stashName ? `- Stash: ${stashName}` : ''}
     }
   }
 
+  // Show retry history for tasks that had failures (even if eventually successful)
+  if (projectRetryHistory.length > 0) {
+    logger.newline();
+    logger.info('Retry history:');
+    for (const history of projectRetryHistory) {
+      const retryOutput = formatRetryHistoryForConsole(
+        history.taskId,
+        history.taskName,
+        history.failureHistory,
+        history.finalAttempt,
+        history.success
+      );
+      if (retryOutput) {
+        logger.info(retryOutput);
+      }
+    }
+  }
+
   return {
     projectName,
     projectPath,
     success: stats.failed === 0 && stats.pending === 0,
     tasksCompleted: stats.completed,
     totalTasks: stats.total,
+    retryHistory: projectRetryHistory,
   };
 }
 

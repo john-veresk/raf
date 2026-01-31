@@ -1,112 +1,166 @@
-import { extractSummary } from '../../src/parsers/output-parser.js';
+import { formatRetryHistoryForConsole } from '../../src/commands/do.js';
 
 /**
- * Tests for outcome content generation.
- * Ensures the outcome template doesn't create duplicate Summary headers
- * when Claude's output already contains a ## Summary section.
+ * Tests for outcome content generation and retry history formatting.
+ * Verifies:
+ * - Successful outcomes do NOT contain ## Details or ## Failure History
+ * - Failed outcomes DO contain ## Details (for debugging)
+ * - Retry history is correctly formatted for console output
  */
 describe('Outcome Content Format', () => {
   /**
-   * Helper that generates outcome content matching the template in do.ts.
-   * This should be kept in sync with the actual template in src/commands/do.ts.
+   * Helper that generates a successful outcome content matching the template in do.ts.
+   * NOTE: Successful outcomes no longer include ## Details section.
    */
-  function generateSuccessOutcome(
-    taskId: string,
-    summary: string,
-    attempts: number = 1,
-    elapsed: string = '1m 30s'
-  ): string {
+  function generateSuccessOutcome(taskId: string): string {
     return `## Status: SUCCESS
 
 # Task ${taskId} - Completed
 
-${summary}
+Task completed. No detailed report provided.
+
+<promise>COMPLETE</promise>
+`;
+  }
+
+  /**
+   * Helper that generates a failed outcome content matching the template in do.ts.
+   * NOTE: Failed outcomes still include ## Details section for debugging.
+   */
+  function generateFailedOutcome(
+    taskId: string,
+    attempts: number = 1,
+    elapsed: string = '1m 30s',
+    stashName?: string
+  ): string {
+    return `## Status: FAILED
+
+# Task ${taskId} - Failed
+
+## Failure Reason
+Task failed for some reason.
+
+<promise>FAILED</promise>
 
 ## Details
 - Attempts: ${attempts}
 - Elapsed time: ${elapsed}
-- Completed at: ${new Date().toISOString()}
+- Failed at: ${new Date().toISOString()}
+${stashName ? `- Stash: ${stashName}` : ''}
 `;
   }
 
-  describe('no duplicate Summary headers', () => {
-    it('should not add duplicate ## Summary when Claude output contains summary header', () => {
-      // Claude's output typically includes a ## Summary header
-      const claudeOutput = `## Summary
-Task completed successfully. All tests pass and the build succeeds.
+  describe('successful outcomes', () => {
+    it('should not contain ## Details section', () => {
+      const outcome = generateSuccessOutcome('001');
 
-The implementation followed the plan exactly as specified.
-
-<promise>COMPLETE</promise>`;
-
-      const summary = extractSummary(claudeOutput);
-      const outcome = generateSuccessOutcome('001', summary);
-
-      // Count occurrences of "## Summary"
-      const summaryHeaders = (outcome.match(/## Summary/g) || []).length;
-      expect(summaryHeaders).toBe(1);
+      expect(outcome).not.toContain('## Details');
+      expect(outcome).not.toContain('Attempts:');
+      expect(outcome).not.toContain('Elapsed time:');
+      expect(outcome).not.toContain('Completed at:');
     });
 
-    it('should work correctly when Claude output has no summary header', () => {
-      const claudeOutput = `Task completed successfully.
-All tests pass and the build succeeds.
+    it('should not contain ## Failure History section', () => {
+      const outcome = generateSuccessOutcome('001');
 
-<promise>COMPLETE</promise>`;
-
-      const summary = extractSummary(claudeOutput);
-      const outcome = generateSuccessOutcome('001', summary);
-
-      // The outcome should contain the summary content
-      expect(outcome).toContain('Task completed successfully');
-      // Should not have any ## Summary headers since Claude didn't provide one
-      // and RAF no longer adds one
-      const summaryHeaders = (outcome.match(/## Summary/g) || []).length;
-      expect(summaryHeaders).toBe(0);
+      expect(outcome).not.toContain('## Failure History');
     });
 
-    it('should preserve Claude summary header when present', () => {
-      const claudeOutput = `## Summary
-Implementation complete.
+    it('should contain the completion marker', () => {
+      const outcome = generateSuccessOutcome('001');
 
-Multiple changes were made to the codebase.
-
-<promise>COMPLETE</promise>`;
-
-      const summary = extractSummary(claudeOutput);
-      const outcome = generateSuccessOutcome('001', summary);
-
-      // The outcome should contain exactly one ## Summary header (from Claude)
-      expect(outcome).toContain('## Summary');
-      expect(outcome).toContain('Implementation complete');
-
-      const summaryHeaders = (outcome.match(/## Summary/g) || []).length;
-      expect(summaryHeaders).toBe(1);
-    });
-  });
-
-  describe('outcome structure', () => {
-    it('should have correct section order', () => {
-      const summary = 'Task summary content';
-      const outcome = generateSuccessOutcome('001', summary);
-
-      // Verify section order: Status first, then Task header, then summary, then Details
-      const statusIndex = outcome.indexOf('## Status:');
-      const taskIndex = outcome.indexOf('# Task');
-      const detailsIndex = outcome.indexOf('## Details');
-
-      expect(statusIndex).toBeLessThan(taskIndex);
-      expect(taskIndex).toBeLessThan(detailsIndex);
+      expect(outcome).toContain('<promise>COMPLETE</promise>');
     });
 
-    it('should include all required metadata', () => {
-      const summary = 'Task completed';
-      const outcome = generateSuccessOutcome('002', summary, 2, '5m 10s');
+    it('should contain basic structure', () => {
+      const outcome = generateSuccessOutcome('002');
 
       expect(outcome).toContain('## Status: SUCCESS');
       expect(outcome).toContain('# Task 002 - Completed');
-      expect(outcome).toContain('Attempts: 2');
+    });
+  });
+
+  describe('failed outcomes', () => {
+    it('should contain ## Details section for debugging', () => {
+      const outcome = generateFailedOutcome('001', 3, '5m 10s');
+
+      expect(outcome).toContain('## Details');
+      expect(outcome).toContain('Attempts: 3');
       expect(outcome).toContain('Elapsed time: 5m 10s');
-      expect(outcome).toContain('Completed at:');
+      expect(outcome).toContain('Failed at:');
+    });
+
+    it('should not contain ## Failure History section', () => {
+      const outcome = generateFailedOutcome('001');
+
+      expect(outcome).not.toContain('## Failure History');
+    });
+
+    it('should contain the failure marker', () => {
+      const outcome = generateFailedOutcome('001');
+
+      expect(outcome).toContain('<promise>FAILED</promise>');
+    });
+
+    it('should include stash name when provided', () => {
+      const outcome = generateFailedOutcome('001', 2, '3m', 'raf-001-task-001-failed');
+
+      expect(outcome).toContain('Stash: raf-001-task-001-failed');
+    });
+  });
+});
+
+describe('Retry History Console Output', () => {
+  describe('formatRetryHistoryForConsole', () => {
+    it('should return empty string when no failures', () => {
+      const result = formatRetryHistoryForConsole('001', 'my-task', [], 1, true);
+      expect(result).toBe('');
+    });
+
+    it('should format single failure with eventual success', () => {
+      const failureHistory = [{ attempt: 1, reason: 'Connection timeout' }];
+      const result = formatRetryHistoryForConsole('001', 'my-task', failureHistory, 2, true);
+
+      expect(result).toContain('Task 001 (my-task):');
+      expect(result).toContain('Attempt 1: Failed - Connection timeout');
+      expect(result).toContain('Attempt 2: Succeeded');
+    });
+
+    it('should format multiple failures with eventual success', () => {
+      const failureHistory = [
+        { attempt: 1, reason: 'Connection timeout' },
+        { attempt: 2, reason: 'API error' },
+      ];
+      const result = formatRetryHistoryForConsole('001', 'my-task', failureHistory, 3, true);
+
+      expect(result).toContain('Task 001 (my-task):');
+      expect(result).toContain('Attempt 1: Failed - Connection timeout');
+      expect(result).toContain('Attempt 2: Failed - API error');
+      expect(result).toContain('Attempt 3: Succeeded');
+    });
+
+    it('should format failures without success (final failure)', () => {
+      const failureHistory = [
+        { attempt: 1, reason: 'Connection timeout' },
+        { attempt: 2, reason: 'API error' },
+        { attempt: 3, reason: 'Max retries exceeded' },
+      ];
+      const result = formatRetryHistoryForConsole('001', 'my-task', failureHistory, 3, false);
+
+      expect(result).toContain('Task 001 (my-task):');
+      expect(result).toContain('Attempt 1: Failed - Connection timeout');
+      expect(result).toContain('Attempt 2: Failed - API error');
+      expect(result).toContain('Attempt 3: Failed - Max retries exceeded');
+      expect(result).not.toContain('Succeeded');
+    });
+
+    it('should handle task name same as task id', () => {
+      const failureHistory = [{ attempt: 1, reason: 'Error' }];
+      const result = formatRetryHistoryForConsole('001', '001', failureHistory, 2, true);
+
+      // When taskName equals taskId, should just show taskId
+      expect(result).toContain('Task 001:');
+      expect(result).not.toContain('Task 001 (001):');
     });
   });
 });
