@@ -17,3 +17,12 @@ Just produce a report on how to publish to npm, no code changes needed. This is 
 
 ## What is your GitHub repository URL for this project?
 https://github.com/john-veresk/raf
+
+## [Amendment] For project name matching, should it be an exact match or support partial/fuzzy matching?
+Exact match only - Project name must match exactly (case-insensitive).
+
+## [Amendment] If a project name exists in multiple project folders, how should the command handle this ambiguity?
+Show error with options - Display error listing all matching projects, require user to specify ID.
+
+## [Amendment] Should project name matching be case-sensitive?
+Case-insensitive - 'Fix-Double' matches 'fix-double-summary-headers'.
