@@ -74,9 +74,9 @@ export class ClaudeRunner {
     const { cwd = process.cwd(), dangerouslySkipPermissions = false } = options;
 
     return new Promise((resolve) => {
-      // Don't use --print for interactive sessions - it disables interactivity
-      // Use --append-system-prompt to add RAF instructions to system prompt
-      // Use -p to pass the user message which triggers Claude to start working
+      // Don't use -p for interactive sessions - it disables interactivity
+      // Combine system prompt and user message into --append-system-prompt
+      const combinedPrompt = `${systemPrompt}\n\n## User's Request\n\n${userMessage}`;
       const args = ['--model', this.model];
 
       // Add --dangerously-skip-permissions if requested (for --auto mode)
@@ -84,7 +84,7 @@ export class ClaudeRunner {
         args.push('--dangerously-skip-permissions');
       }
 
-      args.push('--append-system-prompt', systemPrompt, '-p', userMessage);
+      args.push('--append-system-prompt', combinedPrompt);
 
       logger.debug(`Starting interactive Claude session with model: ${this.model}`);
 

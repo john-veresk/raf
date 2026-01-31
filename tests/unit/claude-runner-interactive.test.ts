@@ -73,7 +73,7 @@ describe('ClaudeRunner - runInteractive', () => {
   }
 
   describe('argument passing', () => {
-    it('should pass systemPrompt via --append-system-prompt and userMessage via -p', async () => {
+    it('should combine systemPrompt and userMessage into --append-system-prompt', async () => {
       const mockProc = createMockPtyProcess();
       const mockStdin = createMockStdin();
       const mockStdout = createMockStdout();
@@ -93,15 +93,15 @@ describe('ClaudeRunner - runInteractive', () => {
       expect(mockPtySpawn).toHaveBeenCalledTimes(1);
       const spawnArgs = mockPtySpawn.mock.calls[0][1] as string[];
 
-      // Check --append-system-prompt flag and system prompt
+      // Check --append-system-prompt flag contains combined prompt
       expect(spawnArgs).toContain('--append-system-prompt');
       const appendIndex = spawnArgs.indexOf('--append-system-prompt');
-      expect(spawnArgs[appendIndex + 1]).toBe('System instructions here');
+      const combinedPrompt = spawnArgs[appendIndex + 1];
+      expect(combinedPrompt).toContain('System instructions here');
+      expect(combinedPrompt).toContain('User message here');
 
-      // Check -p flag and user message
-      expect(spawnArgs).toContain('-p');
-      const pIndex = spawnArgs.indexOf('-p');
-      expect(spawnArgs[pIndex + 1]).toBe('User message here');
+      // Should NOT use -p flag (it triggers non-interactive mode)
+      expect(spawnArgs).not.toContain('-p');
 
       // Simulate process exit
       mockProc._exitCallback({ exitCode: 0 });
@@ -173,7 +173,7 @@ describe('ClaudeRunner - runInteractive', () => {
   });
 
   describe('flags order', () => {
-    it('should have correct order: --model, --append-system-prompt, -p', async () => {
+    it('should have correct order: --model, --append-system-prompt', async () => {
       const mockProc = createMockPtyProcess();
       const mockStdin = createMockStdin();
       const mockStdout = createMockStdout();
@@ -193,16 +193,17 @@ describe('ClaudeRunner - runInteractive', () => {
 
       const modelIndex = spawnArgs.indexOf('--model');
       const appendIndex = spawnArgs.indexOf('--append-system-prompt');
-      const pIndex = spawnArgs.indexOf('-p');
 
-      // Verify order: --model before --append-system-prompt before -p
+      // Verify order: --model before --append-system-prompt
       expect(modelIndex).toBeLessThan(appendIndex);
-      expect(appendIndex).toBeLessThan(pIndex);
 
       // Verify values follow their flags
       expect(spawnArgs[modelIndex + 1]).toBe('haiku');
-      expect(spawnArgs[appendIndex + 1]).toBe('System prompt content');
-      expect(spawnArgs[pIndex + 1]).toBe('User message content');
+
+      // Combined prompt should contain both system and user content
+      const combinedPrompt = spawnArgs[appendIndex + 1];
+      expect(combinedPrompt).toContain('System prompt content');
+      expect(combinedPrompt).toContain('User message content');
 
       mockProc._exitCallback({ exitCode: 0 });
       await runPromise;

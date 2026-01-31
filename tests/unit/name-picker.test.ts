@@ -9,9 +9,20 @@ jest.unstable_mockModule('@inquirer/prompts', () => ({
 }));
 
 // Import after mocking
-const { pickProjectName } = await import('../../src/ui/name-picker.js');
+const { pickProjectName, enableDirectMode, disableDirectMode } = await import(
+  '../../src/ui/name-picker.js'
+);
 
 describe('Name Picker', () => {
+  beforeAll(async () => {
+    // Enable direct mode for testing (bypasses subprocess)
+    await enableDirectMode();
+  });
+
+  afterAll(() => {
+    disableDirectMode();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
