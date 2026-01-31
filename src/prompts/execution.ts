@@ -50,6 +50,8 @@ After successfully completing the task:
 2. Commit with message: "RAF[${projectNumber}:${paddedTaskNumber}] <description>"
    - Write a concise description of what was accomplished
    - Focus on the actual change, not the task name
+
+**IMPORTANT - On Failure**: If the task fails, do NOT commit. Just write the outcome file with the \`<promise>FAILED</promise>\` marker and stop. Uncommitted changes will be preserved for debugging.
 `
     : '';
 
@@ -144,6 +146,8 @@ Reason: [explain why the task failed]
 4. If you encounter blockers, try to resolve them
 5. The outcome file MUST contain EXACTLY ONE completion marker
 6. The completion marker MUST be the LAST line in the outcome file
+7. On SUCCESS: Commit code changes AND outcome file together BEFORE you finish
+8. On FAILURE: Do NOT commit - just write the outcome file with FAILED marker
 
 ## Error Handling
 

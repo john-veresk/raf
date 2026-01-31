@@ -55,6 +55,20 @@ describe('Execution Prompt', () => {
       expect(prompt).not.toContain('Git Instructions');
       expect(prompt).not.toContain('RAF[');
     });
+
+    it('should include instruction not to commit on failure', () => {
+      const prompt = getExecutionPrompt(baseParams);
+      expect(prompt).toContain('On Failure');
+      expect(prompt).toContain('do NOT commit');
+      expect(prompt).toContain('<promise>FAILED</promise>');
+    });
+
+    it('should not include failure commit instruction when autoCommit is false', () => {
+      const params = { ...baseParams, autoCommit: false };
+      const prompt = getExecutionPrompt(params);
+      expect(prompt).not.toContain('On Failure');
+      expect(prompt).not.toContain('do NOT commit');
+    });
   });
 
   describe('Complete Commit Message', () => {
@@ -158,6 +172,23 @@ describe('Execution Prompt', () => {
     it('should instruct that marker is last line in outcome file', () => {
       const prompt = getExecutionPrompt(baseParams);
       expect(prompt).toContain('completion marker MUST be the LAST line in the outcome file');
+    });
+  });
+
+  describe('Commit Workflow Rules', () => {
+    it('should include rule to commit code and outcome together on success', () => {
+      const prompt = getExecutionPrompt(baseParams);
+      expect(prompt).toContain('On SUCCESS: Commit code changes AND outcome file together');
+    });
+
+    it('should include rule not to commit on failure', () => {
+      const prompt = getExecutionPrompt(baseParams);
+      expect(prompt).toContain('On FAILURE: Do NOT commit');
+    });
+
+    it('should specify that changes are preserved for debugging on failure', () => {
+      const prompt = getExecutionPrompt(baseParams);
+      expect(prompt).toContain('preserved for debugging');
     });
   });
 
