@@ -65,8 +65,33 @@ npm run lint       # Type check without emit
 - Detect context overflow patterns
 - Parse task completion status
 
+## Version Management
+
+Use npm's version command to bump the version following Semantic Versioning:
+
+### Version Types
+
+| Command | When to Use | Example |
+|---------|-------------|---------|
+| `npm version patch` | Bug fixes, minor changes | 0.2.7 → 0.2.8 |
+| `npm version minor` | New features, backwards compatible | 0.2.7 → 0.3.0 |
+| `npm version major` | Breaking changes | 0.2.7 → 1.0.0 |
+
+### Version Bump Example
+
+```bash
+# Bump patch version (bug fixes)
+npm version patch
+
+# Bump minor version (new features)
+npm version minor
+
+# Bump major version (breaking changes)
+npm version major
+```
+
 ### Important
 After task completion update README.md (user facing) and CLAUDE.md (internal)
-Update version in package.json after task completion
+Run appropriate npm version command on feature completiong  
 Cover your changes with tests. Use TDD approach
 Use Clean Architecture principles (SOLID)
