@@ -22,6 +22,7 @@ import {
   type DerivedTask,
   type DerivedProjectState,
 } from '../core/state-derivation.js';
+import { analyzeFailure } from '../core/failure-analyzer.js';
 import type { DoCommandOptions } from '../types/config.js';
 
 /**
@@ -450,13 +451,16 @@ Task completed. No detailed report provided.
 
       logger.error(`  Task ${task.id} failed: ${failureReason} (${elapsedFormatted})`);
 
-      // Save failure outcome with status marker
+      // Analyze failure and generate structured report
+      logger.info('  Analyzing failure...');
+      const analysisReport = await analyzeFailure(lastOutput, failureReason, task.id);
+
+      // Save failure outcome with status marker and analysis
       const outcomeContent = `## Status: FAILED
 
 # Task ${task.id} - Failed
 
-## Failure Reason
-${failureReason}
+${analysisReport}
 
 ## Details
 - Attempts: ${attempts}
