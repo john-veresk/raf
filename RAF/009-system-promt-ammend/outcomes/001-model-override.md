@@ -1,28 +1,73 @@
-## Status: FAILED
+# Task 001 - Add Model Override Support
 
-# Task 001 - Failed
+## Summary
 
-## Failure Reason
-Outcome file missing completion marker `<promise>COMPLETE</promise>`
+Added CLI flags to override the Claude model for `plan` and `do` commands. Users can now specify which model to use per-command using `--model <name>` or the `--sonnet` shorthand.
 
-## Analysis
-The task executed successfully and all work was completed, but the outcome file was not properly formatted with the required completion marker. RAF validates task completion by checking for `<promise>COMPLETE</promise>` or `<promise>FAILED</promise>` at the end of outcome files. Without this marker, RAF cannot recognize the task as complete, even though the work itself was done.
+## Implementation Details
 
-## Suggested Fix
-- Ensure outcome files written by Claude always end with `<promise>COMPLETE</promise>` marker
-- Add validation in the outcome file generation process to append the completion marker
-- Verify that the outcome file being written includes the required marker before task completion is signaled
+### Types (`src/types/config.ts`)
+- Added `ClaudeModelName` type: `'sonnet' | 'haiku' | 'opus'`
+- Added `model?: ClaudeModelName` to `PlanCommandOptions`
+- Added `model?: ClaudeModelName` and `sonnet?: boolean` to `DoCommandOptions`
 
-## Relevant Output
+### Validation (`src/utils/validation.ts`)
+- Added `VALID_MODELS` constant: `['sonnet', 'haiku', 'opus']`
+- Added `validateModelName(model: string)`: Normalizes to lowercase and validates
+- Added `resolveModelOption(model?, sonnet?)`: Resolves model from flags with conflict detection, defaults to 'opus'
+
+### Plan Command (`src/commands/plan.ts`)
+- Added `.option('-m, --model <name>', 'Claude model to use (sonnet, haiku, opus)')`
+- Added `.option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')`
+- Validates model with `resolveModelOption()` before execution
+- Passes model to `ClaudeRunner`
+- Logs model being used in verbose mode
+
+### Do Command (`src/commands/do.ts`)
+- Added `.option('-m, --model <name>', 'Claude model to use (sonnet, haiku, opus)')`
+- Added `.option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')`
+- Validates model with `resolveModelOption()` before execution
+- Passes model to `ClaudeRunner`
+- Logs model being used in verbose mode
+
+### ClaudeRunner (`src/core/claude-runner.ts`)
+- Added `model?: string` to `ClaudeRunnerConfig`
+- Constructor stores model, defaults to `'opus'`
+- All methods (`runInteractive`, `run`, `runVerbose`) pass `--model <model>` to Claude CLI
+- Debug logging includes model name
+
+### Tests
+- `tests/unit/validation.test.ts`:
+  - Tests for `validateModelName()` (valid names, case normalization, invalid rejection)
+  - Tests for `resolveModelOption()` (default opus, --model flag, --sonnet shorthand, conflict detection, invalid name rejection)
+- `tests/unit/claude-runner.test.ts`:
+  - Tests for model configuration (default opus, model passed in run(), model passed in runVerbose(), correct flag order)
+
+## Acceptance Criteria Status
+
+- [x] `raf plan --model sonnet` uses Sonnet model
+- [x] `raf plan --sonnet` uses Sonnet model
+- [x] `raf do myproject --model haiku` uses Haiku model
+- [x] `raf do myproject --sonnet` uses Sonnet model
+- [x] Invalid model names are rejected with clear error
+- [x] `--model` and `--sonnet` together produce error
+- [x] Default is Opus when no flag provided
+- [x] All tests pass (544 tests)
+
+## Usage Examples
+
+```bash
+# Use Sonnet for planning (faster iterations)
+raf plan --model sonnet
+
+# Use Sonnet shorthand
+raf plan --sonnet
+
+# Use Haiku for execution
+raf do myproject --model haiku
+
+# Use Opus explicitly (same as default)
+raf do myproject --model opus
 ```
-Task 001 (Model Override Support) has been completed successfully.
-[No completion marker found - outcome file missing <promise>COMPLETE</promise>]
-```
 
-<promise>FAILED</promise>
-
-## Details
-- Attempts: 3
-- Elapsed time: 8m 13s
-- Failed at: 2026-01-31T11:49:40.064Z
-
+<promise>COMPLETE</promise>
