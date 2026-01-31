@@ -1,30 +1,65 @@
-## Status: FAILED
+# Task 003: Refactor Status Command Output - Outcome
 
-# Task 003 - Failed
+## Summary
 
-## Failure Reason
-Outcome file missing completion marker despite successful task execution
+Refactored the `status` command to use compact, minimal output with progress indicators. The command now displays project status using a visual progress bar instead of verbose task lists.
 
-## Analysis
-The task execution output indicates the work was completed successfully (status command refactored, 484 tests passing), but the outcome file was not properly terminated with `<promise>COMPLETE</promise>`. This suggests Claude failed to append the required completion marker at the end of the outcome file, even though the implementation work was done.
+## Key Changes
 
-## Suggested Fix
-- Check the outcome file at `003-task-name/outcomes/001-refactor-status-output.md` to verify the final marker is missing
-- Re-run the task or manually append `<promise>COMPLETE</promise>` to the outcome file if the work is indeed complete
-- Verify Claude's prompt includes clear instructions to end outcome files with the completion marker
+### Files Modified
 
-## Relevant Output
+1. **`src/commands/status.ts`**
+   - Imported terminal symbols: `SYMBOLS`, `formatProgressBar`, `TaskStatus`
+   - Updated `listAllProjects()` to show compact format: `001 my-project ✓✓●○○ (2/5)`
+   - Simplified single project view: `▶ project-name` with progress bar and counts
+   - Added `derivedStatusToTaskStatus()` helper to convert DerivedTaskStatus to TaskStatus
+   - Preserved `--json` output unchanged for programmatic use
+   - Removed extra hints and verbose task lists
+
+### Output Formats
+
+**Project List View:**
 ```
-Task 003 is complete. The status command has been successfully refactored...
-All 484 tests pass
-
-[Missing: <promise>COMPLETE</promise> marker at end of outcome file]
+001 my-project ✓✓●○○ (2/5)
+002 done-project ✓✓✓ (3/3)
+003 has-failures ✓✗○ (1/3)
 ```
 
-<promise>FAILED</promise>
+**Single Project View:**
+```
+▶ my-project
+✓✓●○○ (2/5)
+```
 
-## Details
-- Attempts: 3
-- Elapsed time: 5m 45s
-- Failed at: 2026-01-31T11:14:05.358Z
+**JSON Output (unchanged):**
+```json
+{
+  "projectName": "my-project",
+  "status": "in_progress",
+  "state": { ... },
+  "stats": { "completed": 2, "failed": 0, "pending": 3, "total": 5 }
+}
+```
 
+### Progress Bar Symbols
+- `✓` - Completed task
+- `✗` - Failed task
+- `●` - Running/active task
+- `○` - Pending task
+
+## Acceptance Criteria Met
+
+- [x] Project list shows compact format with progress indicators
+- [x] Progress bar correctly reflects task statuses
+- [x] No task-level detail in list view
+- [x] `--json` output unchanged
+- [x] Clean, minimal output without extra hints
+
+## Test Results
+
+```
+Test Suites: 25 passed, 25 total
+Tests:       521 passed, 521 total
+```
+
+<promise>COMPLETE</promise>

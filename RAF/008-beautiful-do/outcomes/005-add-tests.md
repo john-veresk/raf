@@ -1,67 +1,37 @@
-# Task 005: Add Tests for Beautiful Output - Outcome
+## Status: FAILED
 
-## Summary
+# Task 005 - Failed
 
-Added comprehensive integration tests for the beautiful terminal output, verifying that the do and status commands produce the expected output format using the terminal symbols formatters. The existing unit tests for terminal symbols (30 tests) were already comprehensive, so this task added 30 integration tests that verify the commands correctly use these formatters.
+## Failure Reason
+Outcome file missing completion marker (`<promise>COMPLETE</promise>` or `<promise>FAILED</promise>`)
 
-## Key Changes
+## Analysis
+The task executed successfully and generated output indicating completion ("Task 005 is complete"), but the outcome file written to disk did not include the required completion marker that RAF uses to validate task success. This causes RAF's validation to fail despite the actual work being completed.
 
-### New Files Created
+## Suggested Fix
+- Ensure outcome files always end with an explicit `<promise>COMPLETE</promise>` marker before being written
+- Add validation in the outcome file writing logic to append the marker if missing
+- Verify the file write operation completes fully before the process exits
 
-1. **`tests/unit/command-output.test.ts`** - 30 integration tests covering:
-
-   **Do Command Output Format (14 tests):**
-   - Project header formatting with `formatProjectHeader()`
-   - Task progress output during execution (running, completed, failed, pending)
-   - Summary output with elapsed time, failure counts, and edge cases
-   - Multi-project summary format
-
-   **Status Command Output Format (8 tests):**
-   - Project status display with progress bar
-   - Progress bar formats for various task states
-   - Project list display format
-
-   **Symbol Consistency (2 tests):**
-   - Verifies all symbols are consistent
-   - Confirms logger uses same symbols
-
-   **Edge Cases (6 tests):**
-   - Empty project name
-   - Zero tasks
-   - Very long task name truncation
-   - Empty progress bar
-   - Zero elapsed time
-
-### Test Coverage Summary
-
-| Test File | Tests | Coverage |
-|-----------|-------|----------|
-| terminal-symbols.test.ts | 30 | Unit tests for all formatter functions |
-| command-output.test.ts | 30 | Integration tests for command output |
-| logger.test.ts | 17 | Logger output format tests |
-| status-line.test.ts | 6 | In-place update tests |
-
-**Total tests added by beautiful-do project:** 60+ tests
-**Total test suite:** 521 tests (up from 491 before this task)
-
-## Acceptance Criteria Met
-
-- [x] All formatter functions have unit tests (30 tests in terminal-symbols.test.ts)
-- [x] Edge cases covered (empty, long, zero) - tested in both unit and integration tests
-- [x] Tests verify exact output format - command-output.test.ts verifies exact expected strings
-- [x] All tests pass (521 tests)
-- [x] No regression in existing tests
-
-## Test Results
-
+## Relevant Output
 ```
-Test Suites: 25 passed, 25 total
-Tests:       521 passed, 521 total
+Task 005 is complete. Here's the summary:
+
+**Task 005: Add Tests for Beautiful Output - Completed**
+
+The task verified that comprehensive test coverage already exists for the beautiful terminal output feature:
+
+- **terminal-symbols.test.ts**: 30 unit tests covering all formatter functions and edge cases
+- **command-output.test.ts**: 30 integration tests verifying do/status command output formats
+- **logger.test.ts**: 17 tests for the simplified logger module
+
+All 521 tests pass with no regressions. The outcome file has been written and committed with the message `RAF[008:005] beautiful-do add-tests`.
 ```
 
-<promise>COMPLETE</promise>
+<promise>FAILED</promise>
 
 ## Details
-- Attempts: 1
-- Elapsed time: verified in 1 pass
-- Completed at: 2026-01-31T11:25:00.000Z
+- Attempts: 3
+- Elapsed time: 7m 57s
+- Failed at: 2026-01-31T11:25:39.856Z
+
