@@ -38,3 +38,9 @@ const command = new Command('do')
 - [x] `raf --help` shows `act` as an alias (displayed as `do|act`)
 
 <promise>COMPLETE</promise>
+
+
+## Details
+- Attempts: 1
+- Elapsed time: 1m 1s
+- Completed at: 2026-01-31T16:55:21.347Z
