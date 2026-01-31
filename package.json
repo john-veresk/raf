@@ -1,6 +1,6 @@
 {
   "name": "raf",
-  "version": "0.2.8",
+  "version": "1.0.0",
   "description": "Automated Task Planning & Execution with Claude Code",
   "type": "module",
   "bin": {
