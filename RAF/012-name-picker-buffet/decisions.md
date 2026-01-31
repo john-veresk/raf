@@ -32,3 +32,9 @@ Same commit as code - one commit contains both the code changes and the outcome 
 
 ## How should name generation handle projects with many unrelated tasks?
 When the project description has many unrelated/disconnected tasks, prefer more abstract, metaphorical, or fun names instead of trying to be descriptive. A name like "spring-cleaning" or "grab-bag" is better than trying to describe all the unrelated tasks.
+
+## [Amendment] For the plan mode fix: Should the user's project description from input.md be passed as the user message (with instructions in system prompt)?
+Project description as user message - Pass the input.md content as user message, keep planning instructions in system prompt.
+
+## [Amendment] For the dangerously-skip-permissions flag in plan mode: What should the CLI flag be named?
+CLI flag --auto or -y - A shorter flag name that implies auto-approve, matching common CLI conventions.
