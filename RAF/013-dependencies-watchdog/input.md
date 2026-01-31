@@ -1,0 +1,1 @@
+when "raf do" add dependency check on other tasks, account for this in planning prompts. for example when building complex project plan could be dependant on each other, we order them on planning stage, that is good, but what if dependancy task fails, we need to account for that and don't do other tasks (fail them). instruct claude to check for it in system prompts

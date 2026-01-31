@@ -41,6 +41,43 @@ RAF/
         └── 002-another-task.md
 ```
 
+### Plan File Structure
+
+Each plan file follows this structure:
+```markdown
+# Task: [Task Name]
+
+## Objective
+[Clear, one-sentence description]
+
+## Context
+[Why this task is needed]
+
+## Dependencies
+[Optional - comma-separated task IDs, e.g., "001, 002"]
+[If a dependency fails, this task is blocked]
+
+## Requirements
+- Requirement 1
+- Requirement 2
+
+## Implementation Steps
+1. Step 1
+2. Step 2
+
+## Acceptance Criteria
+- [ ] Criterion 1
+- [ ] Criterion 2
+
+## Notes
+[Additional context]
+```
+
+**Dependencies Section**:
+- Optional - omit if task has no dependencies
+- Uses task IDs only (e.g., `001, 002`)
+- If a dependency fails, dependent tasks are automatically blocked
+
 ## Development Commands
 
 ```bash

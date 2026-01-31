@@ -92,7 +92,7 @@ And review existing decisions from:
 
 Read the user's description of new tasks and identify what needs to be added. Consider:
 - How the new tasks relate to existing ones
-- Dependencies on completed tasks
+- Dependencies on completed tasks (check the ## Dependencies section in existing plan files)
 - Whether new tasks should reference existing task outcomes
 
 ### Step 3: Interview the User
@@ -133,6 +133,11 @@ Each plan file should follow this structure:
 [Why this task is needed, how it fits into the larger project]
 [Reference relevant existing tasks if applicable]
 
+## Dependencies
+[Optional section - omit if task has no dependencies]
+[Comma-separated list of task IDs this task depends on, e.g., "001, 002"]
+[If a dependency fails, this task will be automatically blocked]
+
 ## Requirements
 [Specific requirements gathered from the user interview]
 - Requirement 1
@@ -170,8 +175,9 @@ After creating all new plan files, provide a summary of:
 4. New tasks start from number ${nextTaskNumber.toString().padStart(3, '0')}
 5. Use descriptive, kebab-case names for plan files
 6. Each plan should be self-contained with all context needed
-7. Reference existing tasks by number if there are dependencies
-8. Be specific - vague plans lead to poor execution`;
+7. Specify task dependencies using the ## Dependencies section with task IDs only (e.g., "001, 002")
+8. Tasks without dependencies should omit the Dependencies section entirely
+9. Be specific - vague plans lead to poor execution`;
 
   const userMessage = `I want to add the following new tasks to this project:
 

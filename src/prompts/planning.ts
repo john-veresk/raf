@@ -83,6 +83,11 @@ Each plan file should follow this structure:
 ## Context
 [Why this task is needed, how it fits into the larger project]
 
+## Dependencies
+[Optional section - omit if task has no dependencies]
+[Comma-separated list of task IDs this task depends on, e.g., "001, 002"]
+[If a dependency fails, this task will be automatically blocked]
+
 ## Requirements
 [Specific requirements gathered from the user interview]
 - Requirement 1
@@ -114,8 +119,9 @@ After creating all plan files, provide a summary of the tasks you've created.
 2. Create plans in numbered order (001, 002, 003, etc.)
 3. Use descriptive, kebab-case names for plan files
 4. Each plan should be self-contained with all context needed
-5. Reference other tasks by number if there are dependencies
-6. Be specific - vague plans lead to poor execution`;
+5. Specify task dependencies using the ## Dependencies section with task IDs only (e.g., "001, 002")
+6. Tasks without dependencies should omit the Dependencies section entirely
+7. Be specific - vague plans lead to poor execution`;
 
   const userMessage = `Here is my project description:
 
