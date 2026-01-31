@@ -33,6 +33,7 @@ interface PlanCommandOptions {
   amend?: string;
   model?: string;
   sonnet?: boolean;
+  auto?: boolean;
 }
 
 export function createPlanCommand(): Command {
@@ -45,6 +46,7 @@ export function createPlanCommand(): Command {
     )
     .option('-m, --model <name>', 'Claude model to use (sonnet, haiku, opus)')
     .option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')
+    .option('-y, --auto', "Skip Claude's permission prompts for file operations")
     .action(async (projectName: string | undefined, options: PlanCommandOptions) => {
       // Validate and resolve model option
       let model: string;
@@ -55,17 +57,19 @@ export function createPlanCommand(): Command {
         process.exit(1);
       }
 
+      const autoMode = options.auto ?? false;
+
       if (options.amend) {
-        await runAmendCommand(options.amend, model);
+        await runAmendCommand(options.amend, model, autoMode);
       } else {
-        await runPlanCommand(projectName, model);
+        await runPlanCommand(projectName, model, autoMode);
       }
     });
 
   return command;
 }
 
-async function runPlanCommand(projectName?: string, model?: string): Promise<void> {
+async function runPlanCommand(projectName?: string, model?: string, autoMode: boolean = false): Promise<void> {
   // Validate environment
   const validation = validateEnvironment();
   reportValidation(validation);
@@ -149,6 +153,9 @@ async function runPlanCommand(projectName?: string, model?: string): Promise<voi
   if (model) {
     logger.info(`Using model: ${model}`);
   }
+  if (autoMode) {
+    logger.warn('Auto mode enabled: permission prompts will be skipped.');
+  }
   logger.newline();
 
   const { systemPrompt, userMessage } = getPlanningPrompt({
@@ -157,7 +164,9 @@ async function runPlanCommand(projectName?: string, model?: string): Promise<voi
   });
 
   try {
-    const exitCode = await claudeRunner.runInteractive(systemPrompt, userMessage);
+    const exitCode = await claudeRunner.runInteractive(systemPrompt, userMessage, {
+      dangerouslySkipPermissions: autoMode,
+    });
 
     if (exitCode !== 0) {
       logger.warn(`Claude exited with code ${exitCode}`);
@@ -192,7 +201,7 @@ async function runPlanCommand(projectName?: string, model?: string): Promise<voi
   }
 }
 
-async function runAmendCommand(identifier: string, model?: string): Promise<void> {
+async function runAmendCommand(identifier: string, model?: string, autoMode: boolean = false): Promise<void> {
   // Validate environment
   const validation = validateEnvironment();
   reportValidation(validation);
@@ -306,6 +315,9 @@ async function runAmendCommand(identifier: string, model?: string): Promise<void
   if (model) {
     logger.info(`Using model: ${model}`);
   }
+  if (autoMode) {
+    logger.warn('Auto mode enabled: permission prompts will be skipped.');
+  }
   logger.newline();
 
   const { systemPrompt, userMessage } = getAmendPrompt({
@@ -317,7 +329,9 @@ async function runAmendCommand(identifier: string, model?: string): Promise<void
   });
 
   try {
-    const exitCode = await claudeRunner.runInteractive(systemPrompt, userMessage);
+    const exitCode = await claudeRunner.runInteractive(systemPrompt, userMessage, {
+      dangerouslySkipPermissions: autoMode,
+    });
 
     if (exitCode !== 0) {
       logger.warn(`Claude exited with code ${exitCode}`);

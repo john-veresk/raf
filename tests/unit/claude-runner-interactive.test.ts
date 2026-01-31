@@ -247,8 +247,8 @@ describe('ClaudeRunner - runInteractive', () => {
     });
   });
 
-  describe('no --dangerously-skip-permissions flag', () => {
-    it('should NOT include --dangerously-skip-permissions for interactive sessions', async () => {
+  describe('--dangerously-skip-permissions flag', () => {
+    it('should NOT include --dangerously-skip-permissions by default', async () => {
       const mockProc = createMockPtyProcess();
       const mockStdin = createMockStdin();
       const mockStdout = createMockStdout();
@@ -262,8 +262,80 @@ describe('ClaudeRunner - runInteractive', () => {
       const runPromise = runner.runInteractive('system', 'user');
 
       const spawnArgs = mockPtySpawn.mock.calls[0][1] as string[];
-      // Interactive mode should NOT skip permissions - user needs to approve
+      // Interactive mode should NOT skip permissions by default
       expect(spawnArgs).not.toContain('--dangerously-skip-permissions');
+
+      mockProc._exitCallback({ exitCode: 0 });
+      await runPromise;
+    });
+
+    it('should include --dangerously-skip-permissions when option is true', async () => {
+      const mockProc = createMockPtyProcess();
+      const mockStdin = createMockStdin();
+      const mockStdout = createMockStdout();
+
+      Object.defineProperty(process, 'stdin', { value: mockStdin, configurable: true });
+      Object.defineProperty(process, 'stdout', { value: mockStdout, configurable: true });
+
+      mockPtySpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.runInteractive('system', 'user', {
+        dangerouslySkipPermissions: true,
+      });
+
+      const spawnArgs = mockPtySpawn.mock.calls[0][1] as string[];
+      expect(spawnArgs).toContain('--dangerously-skip-permissions');
+
+      mockProc._exitCallback({ exitCode: 0 });
+      await runPromise;
+    });
+
+    it('should NOT include --dangerously-skip-permissions when option is false', async () => {
+      const mockProc = createMockPtyProcess();
+      const mockStdin = createMockStdin();
+      const mockStdout = createMockStdout();
+
+      Object.defineProperty(process, 'stdin', { value: mockStdin, configurable: true });
+      Object.defineProperty(process, 'stdout', { value: mockStdout, configurable: true });
+
+      mockPtySpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.runInteractive('system', 'user', {
+        dangerouslySkipPermissions: false,
+      });
+
+      const spawnArgs = mockPtySpawn.mock.calls[0][1] as string[];
+      expect(spawnArgs).not.toContain('--dangerously-skip-permissions');
+
+      mockProc._exitCallback({ exitCode: 0 });
+      await runPromise;
+    });
+
+    it('should place --dangerously-skip-permissions after --model', async () => {
+      const mockProc = createMockPtyProcess();
+      const mockStdin = createMockStdin();
+      const mockStdout = createMockStdout();
+
+      Object.defineProperty(process, 'stdin', { value: mockStdin, configurable: true });
+      Object.defineProperty(process, 'stdout', { value: mockStdout, configurable: true });
+
+      mockPtySpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner({ model: 'sonnet' });
+      const runPromise = runner.runInteractive('system', 'user', {
+        dangerouslySkipPermissions: true,
+      });
+
+      const spawnArgs = mockPtySpawn.mock.calls[0][1] as string[];
+      const modelIndex = spawnArgs.indexOf('--model');
+      const skipIndex = spawnArgs.indexOf('--dangerously-skip-permissions');
+      const appendIndex = spawnArgs.indexOf('--append-system-prompt');
+
+      // --dangerously-skip-permissions should be after --model and before --append-system-prompt
+      expect(skipIndex).toBeGreaterThan(modelIndex);
+      expect(skipIndex).toBeLessThan(appendIndex);
 
       mockProc._exitCallback({ exitCode: 0 });
       await runPromise;
