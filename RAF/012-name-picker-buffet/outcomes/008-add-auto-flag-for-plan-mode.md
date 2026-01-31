@@ -69,3 +69,9 @@ raf plan --auto --model sonnet
 - This flag only affects file operation permissions; Claude can still ask planning interview questions
 
 <promise>COMPLETE</promise>
+
+
+## Details
+- Attempts: 1
+- Elapsed time: 3m 29s
+- Completed at: 2026-01-31T14:24:13.579Z
