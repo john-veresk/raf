@@ -8,6 +8,7 @@ import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, isRetryableFailure } from '../parsers/output-parser.js';
 import { validatePlansExist, resolveModelOption } from '../utils/validation.js';
 import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFromPlanFile, resolveProjectIdentifierWithDetails, getOutcomeFilePath } from '../utils/paths.js';
+import { pickPendingProject, getPendingProjects } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
 import { getConfig } from '../utils/config.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
@@ -46,7 +47,7 @@ interface ProjectExecutionResult {
 export function createDoCommand(): Command {
   const command = new Command('do')
     .description('Execute planned tasks for one or more projects')
-    .argument('<projects...>', 'Project identifier(s): number (3), name (my-project), or folder (001-my-project)')
+    .argument('[projects...]', 'Project identifier(s): number (3), name (my-project), or folder (001-my-project)')
     .option('-t, --timeout <minutes>', 'Timeout per task in minutes', '60')
     .option('-v, --verbose', 'Show full Claude output')
     .option('-d, --debug', 'Save all logs and show debug output')
@@ -60,8 +61,9 @@ export function createDoCommand(): Command {
   return command;
 }
 
-async function runDoCommand(projectIdentifiers: string[], options: DoCommandOptions): Promise<void> {
+async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandOptions): Promise<void> {
   const rafDir = getRafDir();
+  let projectIdentifiers = projectIdentifiersArg;
 
   // Validate and resolve model option
   let model: string;
@@ -72,16 +74,35 @@ async function runDoCommand(projectIdentifiers: string[], options: DoCommandOpti
     process.exit(1);
   }
 
-  // Handle empty project list
+  // Handle empty project list - show interactive picker
   if (projectIdentifiers.length === 0) {
-    logger.error('No projects specified.');
-    logger.info("Usage: raf do <project1> [project2] [project3] ...");
-    logger.info("Examples:");
-    logger.info("  raf do my-project");
-    logger.info("  raf do 003 004 005");
-    logger.info("  raf do 001-my-project");
-    logger.info("  raf do 003 my-project 001-another-project");
-    process.exit(1);
+    // Check if there are any pending projects
+    const pendingProjects = getPendingProjects(rafDir);
+
+    if (pendingProjects.length === 0) {
+      logger.info('No pending projects found.');
+      logger.info("Run 'raf plan' to create a new project.");
+      process.exit(0);
+    }
+
+    try {
+      const selectedProject = await pickPendingProject(rafDir);
+
+      if (!selectedProject) {
+        // This shouldn't happen since we already checked pendingProjects.length
+        logger.info('No pending projects found.');
+        process.exit(0);
+      }
+
+      // Use the selected project
+      projectIdentifiers = [selectedProject];
+    } catch (error) {
+      // Handle Ctrl+C (user cancellation)
+      if (error instanceof Error && error.message.includes('User force closed')) {
+        process.exit(0);
+      }
+      throw error;
+    }
   }
 
   // Resolve all project identifiers and remove duplicates
