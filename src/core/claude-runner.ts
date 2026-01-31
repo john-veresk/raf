@@ -62,8 +62,8 @@ export class ClaudeRunner {
    * Run Claude interactively with stdin/stdout passthrough.
    * Used for planning phase where user interaction is needed.
    *
-   * @param systemPrompt - Instructions appended to system prompt via --append-system-prompt
-   * @param userMessage - Initial user message passed via -p flag to trigger Claude to start working
+   * @param systemPrompt - Instructions appended to Claude's system prompt via --append-system-prompt
+   * @param userMessage - User message passed as positional argument to trigger Claude to start
    * @param options - Runner options (cwd, dangerouslySkipPermissions)
    */
   async runInteractive(
@@ -74,9 +74,6 @@ export class ClaudeRunner {
     const { cwd = process.cwd(), dangerouslySkipPermissions = false } = options;
 
     return new Promise((resolve) => {
-      // Don't use -p for interactive sessions - it disables interactivity
-      // Combine system prompt and user message into --append-system-prompt
-      const combinedPrompt = `${systemPrompt}\n\n## User's Request\n\n${userMessage}`;
       const args = ['--model', this.model];
 
       // Add --dangerously-skip-permissions if requested (for --auto mode)
@@ -84,7 +81,11 @@ export class ClaudeRunner {
         args.push('--dangerously-skip-permissions');
       }
 
-      args.push('--append-system-prompt', combinedPrompt);
+      // System instructions via --append-system-prompt
+      args.push('--append-system-prompt', systemPrompt);
+
+      // User message as positional argument - Claude starts immediately
+      args.push(userMessage);
 
       logger.debug(`Starting interactive Claude session with model: ${this.model}`);
 

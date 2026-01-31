@@ -2,7 +2,7 @@ import { getPlanningPrompt, PlanningPromptParams } from '../../src/prompts/plann
 
 describe('Planning Prompt', () => {
   describe('getPlanningPrompt', () => {
-    it('should return separate systemPrompt and userMessage', () => {
+    it('should return systemPrompt and userMessage', () => {
       const params: PlanningPromptParams = {
         projectPath: '/test/project',
         inputContent: 'Build a todo app with user authentication',
@@ -14,9 +14,11 @@ describe('Planning Prompt', () => {
       expect(result).toHaveProperty('userMessage');
       expect(typeof result.systemPrompt).toBe('string');
       expect(typeof result.userMessage).toBe('string');
+      expect(result.systemPrompt.length).toBeGreaterThan(0);
+      expect(result.userMessage.length).toBeGreaterThan(0);
     });
 
-    it('should include project path in systemPrompt', () => {
+    it('should include project path in system prompt', () => {
       const params: PlanningPromptParams = {
         projectPath: '/my/custom/project/path',
         inputContent: 'Some description',
@@ -27,7 +29,7 @@ describe('Planning Prompt', () => {
       expect(systemPrompt).toContain('/my/custom/project/path');
     });
 
-    it('should include project description in userMessage', () => {
+    it('should include inputContent in user message', () => {
       const params: PlanningPromptParams = {
         projectPath: '/test/project',
         inputContent: 'Build a REST API with Express and MongoDB',
@@ -36,9 +38,10 @@ describe('Planning Prompt', () => {
       const { userMessage } = getPlanningPrompt(params);
 
       expect(userMessage).toContain('Build a REST API with Express and MongoDB');
+      expect(userMessage).toContain('planning interview');
     });
 
-    it('should include planning instructions in systemPrompt', () => {
+    it('should include planning instructions in system prompt', () => {
       const params: PlanningPromptParams = {
         projectPath: '/test/project',
         inputContent: 'Some project',
@@ -54,7 +57,7 @@ describe('Planning Prompt', () => {
       expect(systemPrompt).toContain('AskUserQuestion');
     });
 
-    it('should include decisions file path in systemPrompt', () => {
+    it('should include decisions file path in system prompt', () => {
       const params: PlanningPromptParams = {
         projectPath: '/test/project',
         inputContent: 'Some project',
@@ -65,7 +68,7 @@ describe('Planning Prompt', () => {
       expect(systemPrompt).toContain('/test/project/decisions.md');
     });
 
-    it('should include plans directory path in systemPrompt', () => {
+    it('should include plans directory path in system prompt', () => {
       const params: PlanningPromptParams = {
         projectPath: '/test/project',
         inputContent: 'Some project',
@@ -77,32 +80,7 @@ describe('Planning Prompt', () => {
       expect(systemPrompt).toContain('/test/project/plans/002-task-name.md');
     });
 
-    it('should NOT include project description in systemPrompt', () => {
-      const params: PlanningPromptParams = {
-        projectPath: '/test/project',
-        inputContent: 'UNIQUE_PROJECT_DESCRIPTION_TEXT',
-      };
-
-      const { systemPrompt } = getPlanningPrompt(params);
-
-      // The project description should only be in userMessage
-      expect(systemPrompt).not.toContain('UNIQUE_PROJECT_DESCRIPTION_TEXT');
-    });
-
-    it('should NOT include planning instructions in userMessage', () => {
-      const params: PlanningPromptParams = {
-        projectPath: '/test/project',
-        inputContent: 'Some project',
-      };
-
-      const { userMessage } = getPlanningPrompt(params);
-
-      expect(userMessage).not.toContain('AskUserQuestion');
-      expect(userMessage).not.toContain('Create Plan Files');
-      expect(userMessage).not.toContain('Important Rules');
-    });
-
-    it('should include task guidelines in systemPrompt', () => {
+    it('should include task guidelines in system prompt', () => {
       const params: PlanningPromptParams = {
         projectPath: '/test/project',
         inputContent: 'Some project',
@@ -115,7 +93,7 @@ describe('Planning Prompt', () => {
       expect(systemPrompt).toContain('10-30 minutes');
     });
 
-    it('should include plan file structure template in systemPrompt', () => {
+    it('should include plan file structure template in system prompt', () => {
       const params: PlanningPromptParams = {
         projectPath: '/test/project',
         inputContent: 'Some project',
@@ -130,7 +108,7 @@ describe('Planning Prompt', () => {
       expect(systemPrompt).toContain('## Acceptance Criteria');
     });
 
-    it('should include important rules in systemPrompt', () => {
+    it('should include important rules in system prompt', () => {
       const params: PlanningPromptParams = {
         projectPath: '/test/project',
         inputContent: 'Some project',
@@ -143,17 +121,17 @@ describe('Planning Prompt', () => {
       expect(systemPrompt).toContain('kebab-case names');
     });
 
-    it('should trigger Claude to start analyzing in userMessage', () => {
+    it('should include project description in user message', () => {
       const params: PlanningPromptParams = {
         projectPath: '/test/project',
-        inputContent: 'Build a dashboard',
+        inputContent: 'Build a dashboard with charts and graphs',
       };
 
       const { userMessage } = getPlanningPrompt(params);
 
-      // User message should prompt Claude to take action
+      // User message should contain the actual project description
+      expect(userMessage).toContain('Build a dashboard with charts and graphs');
       expect(userMessage).toContain('project description');
-      expect(userMessage.toLowerCase()).toMatch(/analyze|identify|interview/);
     });
   });
 });

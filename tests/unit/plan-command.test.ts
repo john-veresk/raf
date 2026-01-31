@@ -312,7 +312,7 @@ describe('Plan Command - Amend Functionality', () => {
   });
 
   describe('Amend Prompt Generation', () => {
-    it('should generate amend prompt with existing tasks context', () => {
+    it('should return systemPrompt and userMessage', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
         inputContent: 'Original project description',
@@ -324,15 +324,48 @@ describe('Plan Command - Amend Functionality', () => {
         newTaskDescription: 'Add new feature X',
       };
 
-      const { systemPrompt, userMessage } = getAmendPrompt(params);
+      const result = getAmendPrompt(params);
+
+      expect(result).toHaveProperty('systemPrompt');
+      expect(result).toHaveProperty('userMessage');
+      expect(typeof result.systemPrompt).toBe('string');
+      expect(typeof result.userMessage).toBe('string');
+    });
+
+    it('should generate amend system prompt with existing tasks context', () => {
+      const params: AmendPromptParams = {
+        projectPath: '/test/project',
+        inputContent: 'Original project description',
+        existingTasks: [
+          { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
+          { id: '002', planFile: 'plans/002-second.md', status: 'pending', taskName: 'second' },
+        ],
+        nextTaskNumber: 3,
+        newTaskDescription: 'Add new feature X',
+      };
+
+      const { systemPrompt } = getAmendPrompt(params);
 
       expect(systemPrompt).toContain('AMENDMENT MODE');
       expect(systemPrompt).toContain('Task 001: first [COMPLETED] [PROTECTED]');
       expect(systemPrompt).toContain('Task 002: second [PENDING] [MODIFIABLE]');
       expect(systemPrompt).toContain('starting from number 003');
-      expect(userMessage).toContain('Add new feature X');
-      expect(systemPrompt).toContain('Original project description');
       expect(systemPrompt).toContain('/test/project');
+    });
+
+    it('should include new task description in user message', () => {
+      const params: AmendPromptParams = {
+        projectPath: '/test/project',
+        inputContent: 'Original project description',
+        existingTasks: [],
+        nextTaskNumber: 1,
+        newTaskDescription: 'Add new feature X',
+      };
+
+      const { userMessage } = getAmendPrompt(params);
+
+      expect(userMessage).toContain('Add new feature X');
+      expect(userMessage).toContain('planning interview');
     });
 
     it('should instruct to protect completed tasks and allow modifying pending tasks', () => {
@@ -355,7 +388,7 @@ describe('Plan Command - Amend Functionality', () => {
       expect(systemPrompt).toContain('You MAY modify non-completed task plans (pending/failed)');
     });
 
-    it('should include failed task status with MODIFIABLE indicator in prompt', () => {
+    it('should include failed task status with MODIFIABLE indicator in system prompt', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
         inputContent: 'Original description',
@@ -487,26 +520,7 @@ describe('Plan Command - Amend Functionality', () => {
       expect(systemPrompt).toContain('/my/project/path/plans/003-task-name.md');
     });
 
-    it('should return separate systemPrompt and userMessage', () => {
-      const params: AmendPromptParams = {
-        projectPath: '/test/project',
-        inputContent: 'Original description',
-        existingTasks: [
-          { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
-        ],
-        nextTaskNumber: 2,
-        newTaskDescription: 'Add a new logging feature',
-      };
-
-      const result = getAmendPrompt(params);
-
-      expect(result).toHaveProperty('systemPrompt');
-      expect(result).toHaveProperty('userMessage');
-      expect(typeof result.systemPrompt).toBe('string');
-      expect(typeof result.userMessage).toBe('string');
-    });
-
-    it('should include new task description in userMessage', () => {
+    it('should include new task description in user message', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
         inputContent: 'Original description',
@@ -520,7 +534,7 @@ describe('Plan Command - Amend Functionality', () => {
       expect(userMessage).toContain('Add authentication and authorization');
     });
 
-    it('should include instructions in systemPrompt, not in userMessage', () => {
+    it('should include interview instructions in system prompt', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
         inputContent: 'Original description',
@@ -529,16 +543,26 @@ describe('Plan Command - Amend Functionality', () => {
         newTaskDescription: 'New feature',
       };
 
-      const { systemPrompt, userMessage } = getAmendPrompt(params);
+      const { systemPrompt } = getAmendPrompt(params);
 
-      // Instructions should be in system prompt
       expect(systemPrompt).toContain('AMENDMENT MODE');
       expect(systemPrompt).toContain('AskUserQuestion');
       expect(systemPrompt).toContain('Interview the User');
+    });
 
-      // User message should just contain the task description
-      expect(userMessage).not.toContain('AMENDMENT MODE');
-      expect(userMessage).not.toContain('AskUserQuestion');
+    it('should include new task description directly in user message', () => {
+      const params: AmendPromptParams = {
+        projectPath: '/test/project',
+        inputContent: 'Original description',
+        existingTasks: [],
+        nextTaskNumber: 1,
+        newTaskDescription: 'Add a caching layer for API responses',
+      };
+
+      const { userMessage } = getAmendPrompt(params);
+
+      expect(userMessage).toContain('Add a caching layer for API responses');
+      expect(userMessage).toContain('planning interview');
     });
   });
 

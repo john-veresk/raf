@@ -73,7 +73,7 @@ describe('ClaudeRunner - runInteractive', () => {
   }
 
   describe('argument passing', () => {
-    it('should combine systemPrompt and userMessage into --append-system-prompt', async () => {
+    it('should pass system prompt via --append-system-prompt and user message as positional arg', async () => {
       const mockProc = createMockPtyProcess();
       const mockStdin = createMockStdin();
       const mockStdout = createMockStdout();
@@ -84,23 +84,22 @@ describe('ClaudeRunner - runInteractive', () => {
       mockPtySpawn.mockReturnValue(mockProc);
 
       const runner = new ClaudeRunner();
-      const runPromise = runner.runInteractive(
-        'System instructions here',
-        'User message here'
-      );
+      const runPromise = runner.runInteractive('System instructions here', 'User message here');
 
       // Verify pty.spawn was called with correct arguments
       expect(mockPtySpawn).toHaveBeenCalledTimes(1);
       const spawnArgs = mockPtySpawn.mock.calls[0][1] as string[];
 
-      // Check --append-system-prompt flag contains combined prompt
+      // System prompt should be passed via --append-system-prompt
       expect(spawnArgs).toContain('--append-system-prompt');
       const appendIndex = spawnArgs.indexOf('--append-system-prompt');
-      const combinedPrompt = spawnArgs[appendIndex + 1];
-      expect(combinedPrompt).toContain('System instructions here');
-      expect(combinedPrompt).toContain('User message here');
+      expect(spawnArgs[appendIndex + 1]).toBe('System instructions here');
 
-      // Should NOT use -p flag (it triggers non-interactive mode)
+      // User message should be passed as positional argument (last in args)
+      expect(spawnArgs).toContain('User message here');
+      expect(spawnArgs[spawnArgs.length - 1]).toBe('User message here');
+
+      // Should NOT use -p flag (print mode)
       expect(spawnArgs).not.toContain('-p');
 
       // Simulate process exit
@@ -173,7 +172,7 @@ describe('ClaudeRunner - runInteractive', () => {
   });
 
   describe('flags order', () => {
-    it('should have correct order: --model, --append-system-prompt', async () => {
+    it('should have correct order: --model, --append-system-prompt, user message', async () => {
       const mockProc = createMockPtyProcess();
       const mockStdin = createMockStdin();
       const mockStdout = createMockStdout();
@@ -184,26 +183,23 @@ describe('ClaudeRunner - runInteractive', () => {
       mockPtySpawn.mockReturnValue(mockProc);
 
       const runner = new ClaudeRunner({ model: 'haiku' });
-      const runPromise = runner.runInteractive(
-        'System prompt content',
-        'User message content'
-      );
+      const runPromise = runner.runInteractive('My system prompt', 'My user message');
 
       const spawnArgs = mockPtySpawn.mock.calls[0][1] as string[];
 
+      // Expected order: ['--model', 'haiku', '--append-system-prompt', 'system', 'user message']
       const modelIndex = spawnArgs.indexOf('--model');
       const appendIndex = spawnArgs.indexOf('--append-system-prompt');
+      const userMessageIndex = spawnArgs.indexOf('My user message');
 
-      // Verify order: --model before --append-system-prompt
+      // Verify order: --model before --append-system-prompt before user message
       expect(modelIndex).toBeLessThan(appendIndex);
-
-      // Verify values follow their flags
+      expect(appendIndex).toBeLessThan(userMessageIndex);
       expect(spawnArgs[modelIndex + 1]).toBe('haiku');
+      expect(spawnArgs[appendIndex + 1]).toBe('My system prompt');
 
-      // Combined prompt should contain both system and user content
-      const combinedPrompt = spawnArgs[appendIndex + 1];
-      expect(combinedPrompt).toContain('System prompt content');
-      expect(combinedPrompt).toContain('User message content');
+      // User message should be last
+      expect(spawnArgs[spawnArgs.length - 1]).toBe('My user message');
 
       mockProc._exitCallback({ exitCode: 0 });
       await runPromise;
@@ -314,7 +310,7 @@ describe('ClaudeRunner - runInteractive', () => {
       await runPromise;
     });
 
-    it('should place --dangerously-skip-permissions after --model', async () => {
+    it('should place --dangerously-skip-permissions after --model and before --append-system-prompt', async () => {
       const mockProc = createMockPtyProcess();
       const mockStdin = createMockStdin();
       const mockStdout = createMockStdout();
@@ -325,7 +321,7 @@ describe('ClaudeRunner - runInteractive', () => {
       mockPtySpawn.mockReturnValue(mockProc);
 
       const runner = new ClaudeRunner({ model: 'sonnet' });
-      const runPromise = runner.runInteractive('system', 'user', {
+      const runPromise = runner.runInteractive('my system prompt', 'my user message', {
         dangerouslySkipPermissions: true,
       });
 
@@ -333,10 +329,12 @@ describe('ClaudeRunner - runInteractive', () => {
       const modelIndex = spawnArgs.indexOf('--model');
       const skipIndex = spawnArgs.indexOf('--dangerously-skip-permissions');
       const appendIndex = spawnArgs.indexOf('--append-system-prompt');
+      const userMessageIndex = spawnArgs.indexOf('my user message');
 
       // --dangerously-skip-permissions should be after --model and before --append-system-prompt
       expect(skipIndex).toBeGreaterThan(modelIndex);
       expect(skipIndex).toBeLessThan(appendIndex);
+      expect(appendIndex).toBeLessThan(userMessageIndex);
 
       mockProc._exitCallback({ exitCode: 0 });
       await runPromise;

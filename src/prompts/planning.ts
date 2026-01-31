@@ -9,12 +9,12 @@ export interface PlanningPromptResult {
 }
 
 /**
- * Generate planning prompts split into system prompt and user message.
- * The system prompt contains instructions, while the user message contains
- * the project description to trigger Claude to start working.
+ * Generate the planning prompt with system instructions and user message separated.
+ * - systemPrompt: RAF planning conventions, file structure, interview process (via --append-system-prompt)
+ * - userMessage: Reference to input.md file (via positional argument, triggers Claude to start)
  */
 export function getPlanningPrompt(params: PlanningPromptParams): PlanningPromptResult {
-  const { projectPath, inputContent } = params;
+  const { projectPath } = params;
 
   const systemPrompt = `You are a project planning assistant for RAF (Ralph's Automation Framework). Your task is to analyze the user's project description and create detailed task plans.
 
@@ -32,7 +32,7 @@ Project folder: ${projectPath}
 
 ### Step 1: Identify Tasks
 
-Read the project description and identify 3-8 distinct tasks. Each task should:
+Based on the project description, identify 3-8 distinct tasks. Each task should:
 - Be independently completable
 - Have a clear outcome
 - Take roughly 10-30 minutes of work for Claude
@@ -117,9 +117,11 @@ After creating all plan files, provide a summary of the tasks you've created.
 5. Reference other tasks by number if there are dependencies
 6. Be specific - vague plans lead to poor execution`;
 
-  const userMessage = `Here is my project description. Please analyze it, identify tasks, and interview me about each one:
+  const userMessage = `Here is my project description:
 
-${inputContent}`;
+${params.inputContent}
+
+Please analyze this and start the planning interview.`;
 
   return { systemPrompt, userMessage };
 }

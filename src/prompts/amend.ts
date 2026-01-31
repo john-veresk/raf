@@ -14,13 +14,13 @@ export interface AmendPromptResult {
 }
 
 /**
- * Generate prompts for amending an existing project with new tasks.
- * Returns both system prompt and user message to trigger Claude to start working.
+ * Generate a prompt for amending an existing project with new tasks.
+ * - systemPrompt: Amendment mode conventions, existing tasks context (via --append-system-prompt)
+ * - userMessage: Reference to input.md and new task description (via positional argument, triggers Claude to start)
  */
 export function getAmendPrompt(params: AmendPromptParams): AmendPromptResult {
   const {
     projectPath,
-    inputContent,
     existingTasks,
     nextTaskNumber,
     newTaskDescription,
@@ -66,10 +66,6 @@ You are in AMENDMENT MODE. This means:
 
 Project folder: ${projectPath}
 
-## Original Project Description
-
-${inputContent}
-
 ## Existing Tasks
 
 The following tasks already exist in this project:
@@ -84,14 +80,22 @@ ${modifiableTasksList}
 
 ## Instructions
 
-### Step 1: Analyze New Requirements
+### Step 1: Read Context
+
+First, read the original project description from:
+- ${projectPath}/input.md
+
+And review existing decisions from:
+- ${projectPath}/decisions.md (if it exists)
+
+### Step 2: Analyze New Requirements
 
 Read the user's description of new tasks and identify what needs to be added. Consider:
 - How the new tasks relate to existing ones
 - Dependencies on completed tasks
 - Whether new tasks should reference existing task outcomes
 
-### Step 2: Interview the User
+### Step 3: Interview the User
 
 For EACH new task you identify, use the AskUserQuestion tool to gather:
 - Specific requirements and constraints
@@ -99,7 +103,7 @@ For EACH new task you identify, use the AskUserQuestion tool to gather:
 - Any existing code or patterns to follow
 - Edge cases to handle
 
-### Step 2.5: Record Decisions
+### Step 3.5: Record Decisions
 
 After EACH interview question is answered, append the Q&A pair to the existing decisions file:
 - ${projectPath}/decisions.md
@@ -110,7 +114,7 @@ Use this format:
 [User's answer]
 \`\`\`
 
-### Step 3: Create New Plan Files
+### Step 4: Create New Plan Files
 
 After interviewing the user about all NEW tasks, create plan files starting from the next available number:
 - ${projectPath}/plans/${nextTaskNumber.toString().padStart(3, '0')}-task-name.md
@@ -151,7 +155,7 @@ Each plan file should follow this structure:
 [Reference to existing task outcomes if relevant]
 \`\`\`
 
-### Step 4: Confirm Completion
+### Step 5: Confirm Completion
 
 After creating all new plan files, provide a summary of:
 - The new tasks you've created
@@ -169,11 +173,11 @@ After creating all new plan files, provide a summary of:
 7. Reference existing tasks by number if there are dependencies
 8. Be specific - vague plans lead to poor execution`;
 
-  const userMessage = `I want to add new tasks to this project. Here is my description of what I need:
+  const userMessage = `I want to add the following new tasks to this project:
 
 ${newTaskDescription}
 
-Please analyze my request, identify new tasks, and interview me about each one.`;
+Please analyze this and start the planning interview for the new tasks.`;
 
   return { systemPrompt, userMessage };
 }
