@@ -4,6 +4,7 @@ import { ProjectManager } from '../core/project-manager.js';
 import { ClaudeRunner } from '../core/claude-runner.js';
 import { openEditor, getInputTemplate } from '../core/editor.js';
 import { shutdownHandler } from '../core/shutdown-handler.js';
+import { commitPlanningArtifacts } from '../core/git.js';
 import { getPlanningPrompt } from '../prompts/planning.js';
 import { getAmendPrompt } from '../prompts/amend.js';
 import {
@@ -203,6 +204,9 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
         logger.info(`  - plans/${planFile}`);
       }
 
+      // Commit planning artifacts (input.md and decisions.md)
+      await commitPlanningArtifacts(projectPath);
+
       logger.newline();
       logger.info(`Run 'raf do ${finalProjectName}' to execute the plans.`);
     }
@@ -380,6 +384,9 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
       for (const planFile of newPlanFiles) {
         logger.info(`  - plans/${planFile}`);
       }
+
+      // Commit planning artifacts (input.md and decisions.md)
+      await commitPlanningArtifacts(projectPath);
 
       logger.newline();
       logger.info(`Total tasks: ${allPlanFiles.length}`);
