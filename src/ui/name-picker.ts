@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as pty from 'node-pty';
+import type { IDisposable } from 'node-pty';
 
 // For testing: allow direct import of @inquirer/prompts functions
 let directSelect: typeof import('@inquirer/prompts').select | null = null;
@@ -74,18 +75,42 @@ export async function pickProjectName(names: string[]): Promise<string> {
     };
     process.stdin.on('data', onData);
 
-    // Forward output from PTY to our stdout
-    ptyProcess.onData((data) => {
-      process.stdout.write(data);
-    });
+    // Store disposables for proper cleanup
+    const disposables: IDisposable[] = [];
 
-    ptyProcess.onExit(({ exitCode }) => {
+    // Helper to clean up PTY resources
+    const cleanupPty = (): void => {
+      // Dispose all event listeners to prevent FD leaks
+      for (const disposable of disposables) {
+        try {
+          disposable.dispose();
+        } catch {
+          // Ignore disposal errors
+        }
+      }
+      // Ensure PTY is fully cleaned up
+      try {
+        ptyProcess.kill();
+      } catch {
+        // Ignore - process may already be dead
+      }
+    };
+
+    // Forward output from PTY to our stdout
+    disposables.push(ptyProcess.onData((data) => {
+      process.stdout.write(data);
+    }));
+
+    disposables.push(ptyProcess.onExit(({ exitCode }) => {
       // Cleanup stdin
       process.stdin.off('data', onData);
       if (process.stdin.isTTY) {
         process.stdin.setRawMode(false);
       }
       process.stdin.pause();
+
+      // Clean up PTY resources
+      cleanupPty();
 
       if (exitCode === 130) {
         // SIGINT - user cancelled
@@ -130,7 +155,7 @@ export async function pickProjectName(names: string[]): Promise<string> {
       } catch (error) {
         reject(error);
       }
-    });
+    }));
   });
 }
 

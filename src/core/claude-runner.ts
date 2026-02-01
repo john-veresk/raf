@@ -1,4 +1,5 @@
 import * as pty from 'node-pty';
+import type { IDisposable } from 'node-pty';
 import { execSync, spawn } from 'node:child_process';
 import { logger } from '../utils/logger.js';
 
@@ -111,26 +112,47 @@ export class ClaudeRunner {
       };
       process.stdin.on('data', onData);
 
-      // Pipe output to stdout
-      this.activeProcess.onData((data) => {
-        process.stdout.write(data);
-      });
+      // Store disposables for proper cleanup
+      const disposables: IDisposable[] = [];
 
-      this.activeProcess.onExit(({ exitCode }) => {
-        // Cleanup
+      // Pipe output to stdout
+      disposables.push(this.activeProcess.onData((data) => {
+        process.stdout.write(data);
+      }));
+
+      disposables.push(this.activeProcess.onExit(({ exitCode }) => {
+        // Cleanup stdin
         process.stdin.off('data', onData);
         if (process.stdin.isTTY) {
           process.stdin.setRawMode(false);
         }
         process.stdin.pause();
-        this.activeProcess = null;
+
+        // Dispose all event listeners to prevent FD leaks
+        for (const disposable of disposables) {
+          try {
+            disposable.dispose();
+          } catch {
+            // Ignore disposal errors
+          }
+        }
+
+        // Ensure PTY is fully cleaned up
+        if (this.activeProcess) {
+          try {
+            this.activeProcess.kill();
+          } catch {
+            // Ignore - process may already be dead
+          }
+          this.activeProcess = null;
+        }
 
         if (this.killed) {
           resolve(130); // SIGINT exit code
         } else {
           resolve(exitCode);
         }
-      });
+      }));
     });
   }
 
