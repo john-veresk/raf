@@ -92,6 +92,7 @@ ${previousOutcomes.map((o) => `### Task ${o.taskId}\n${o.content}`).join('\n\n')
 
 After successfully completing the task:
 1. Stage all changes with \`git add -A\`
+   - This includes any new plan files in the \`plans/\` folder
 2. Commit with message: "RAF[${projectNumber}:${paddedTaskNumber}] <description>"
    - Write a concise description of what was accomplished
    - Focus on the actual change, not the task name
