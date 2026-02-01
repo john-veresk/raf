@@ -315,7 +315,6 @@ describe('Plan Command - Amend Functionality', () => {
     it('should return systemPrompt and userMessage', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
-        inputContent: 'Original project description',
         existingTasks: [
           { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
           { id: '002', planFile: 'plans/002-second.md', status: 'pending', taskName: 'second' },
@@ -335,7 +334,6 @@ describe('Plan Command - Amend Functionality', () => {
     it('should generate amend system prompt with existing tasks context', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
-        inputContent: 'Original project description',
         existingTasks: [
           { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
           { id: '002', planFile: 'plans/002-second.md', status: 'pending', taskName: 'second' },
@@ -356,7 +354,6 @@ describe('Plan Command - Amend Functionality', () => {
     it('should include new task description in user message', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
-        inputContent: 'Original project description',
         existingTasks: [],
         nextTaskNumber: 1,
         newTaskDescription: 'Add new feature X',
@@ -371,7 +368,6 @@ describe('Plan Command - Amend Functionality', () => {
     it('should instruct to protect completed tasks and allow modifying pending tasks', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
-        inputContent: 'Original description',
         existingTasks: [
           { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
         ],
@@ -391,7 +387,6 @@ describe('Plan Command - Amend Functionality', () => {
     it('should include failed task status with MODIFIABLE indicator in system prompt', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
-        inputContent: 'Original description',
         existingTasks: [
           { id: '001', planFile: 'plans/001-first.md', status: 'failed', taskName: 'first' },
         ],
@@ -407,7 +402,6 @@ describe('Plan Command - Amend Functionality', () => {
     it('should list protected tasks separately', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
-        inputContent: 'Original description',
         existingTasks: [
           { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
           { id: '002', planFile: 'plans/002-second.md', status: 'completed', taskName: 'second' },
@@ -427,7 +421,6 @@ describe('Plan Command - Amend Functionality', () => {
     it('should list modifiable tasks separately', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
-        inputContent: 'Original description',
         existingTasks: [
           { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
           { id: '002', planFile: 'plans/002-second.md', status: 'pending', taskName: 'second' },
@@ -447,7 +440,6 @@ describe('Plan Command - Amend Functionality', () => {
     it('should show (none) when there are no protected tasks', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
-        inputContent: 'Original description',
         existingTasks: [
           { id: '001', planFile: 'plans/001-first.md', status: 'pending', taskName: 'first' },
         ],
@@ -463,7 +455,6 @@ describe('Plan Command - Amend Functionality', () => {
     it('should show (none) when there are no modifiable tasks', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
-        inputContent: 'Original description',
         existingTasks: [
           { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
         ],
@@ -479,7 +470,6 @@ describe('Plan Command - Amend Functionality', () => {
     it('should handle mixed task statuses correctly', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
-        inputContent: 'Original description',
         existingTasks: [
           { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'setup' },
           { id: '002', planFile: 'plans/002-second.md', status: 'completed', taskName: 'database' },
@@ -506,7 +496,6 @@ describe('Plan Command - Amend Functionality', () => {
     it('should include correct plans directory path', () => {
       const params: AmendPromptParams = {
         projectPath: '/my/project/path',
-        inputContent: 'Description',
         existingTasks: [
           { id: '001', planFile: 'plans/001-task.md', status: 'pending', taskName: 'task' },
         ],
@@ -523,7 +512,6 @@ describe('Plan Command - Amend Functionality', () => {
     it('should include new task description in user message', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
-        inputContent: 'Original description',
         existingTasks: [],
         nextTaskNumber: 1,
         newTaskDescription: 'Add authentication and authorization',
@@ -537,7 +525,6 @@ describe('Plan Command - Amend Functionality', () => {
     it('should include interview instructions in system prompt', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
-        inputContent: 'Original description',
         existingTasks: [],
         nextTaskNumber: 1,
         newTaskDescription: 'New feature',
@@ -553,7 +540,6 @@ describe('Plan Command - Amend Functionality', () => {
     it('should include new task description directly in user message', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
-        inputContent: 'Original description',
         existingTasks: [],
         nextTaskNumber: 1,
         newTaskDescription: 'Add a caching layer for API responses',

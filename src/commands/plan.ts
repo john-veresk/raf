@@ -318,6 +318,13 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
     process.exit(1);
   }
 
+  // Append new task description to input.md with separator
+  const separator = '\n\n---\n\n';
+  const updatedInput = originalInput.trim()
+    ? `${originalInput.trimEnd()}${separator}${cleanInput}`
+    : cleanInput;
+  fs.writeFileSync(inputPath, updatedInput);
+
   // Set up shutdown handler
   const claudeRunner = new ClaudeRunner({ model });
   shutdownHandler.init();
@@ -336,7 +343,6 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
 
   const { systemPrompt, userMessage } = getAmendPrompt({
     projectPath,
-    inputContent: originalInput,
     existingTasks,
     nextTaskNumber,
     newTaskDescription: cleanInput,

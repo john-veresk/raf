@@ -2,7 +2,6 @@ import { DerivedTask } from '../core/state-derivation.js';
 
 export interface AmendPromptParams {
   projectPath: string;
-  inputContent: string;
   existingTasks: Array<DerivedTask & { taskName: string }>;
   nextTaskNumber: number;
   newTaskDescription: string;
