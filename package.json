@@ -1,5 +1,5 @@
 {
-  "name": "raf",
+  "name": "rafcode",
   "version": "1.0.0",
   "description": "Automated Task Planning & Execution with Claude Code",
   "type": "module",
@@ -37,7 +37,14 @@
     "claude",
     "cli",
     "automation",
-    "task-planning"
+    "task-planning",
+    "ai",
+    "workflow",
+    "task-execution",
+    "orchestration",
+    "developer-tools",
+    "productivity",
+    "anthropic"
   ],
   "repository": {
     "type": "git",
