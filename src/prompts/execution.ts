@@ -91,8 +91,10 @@ ${previousOutcomes.map((o) => `### Task ${o.taskId}\n${o.content}`).join('\n\n')
 ## Git Instructions
 
 After successfully completing the task:
-1. Stage all changes with \`git add -A\`
-   - This includes any new plan files in the \`plans/\` folder
+1. Stage only the files you modified during this task:
+   - Add each code file you changed: \`git add <file1> <file2> ...\`
+   - Add the outcome file: \`git add ${outcomeFilePath}\`
+   - Add this task's plan file: \`git add ${planPath}\`
 2. Commit with message: "RAF[${projectNumber}:${paddedTaskNumber}] <description>"
    - Write a concise description of what was accomplished
    - Focus on the actual change, not the task name
