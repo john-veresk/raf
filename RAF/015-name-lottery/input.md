@@ -1,0 +1,3 @@
+- [ ] if --auto or -y flag is provided - randomly select project name in the case name was not provided (raf plan -y)
+- [ ] mention in amend prompt for "raf do" that it should also commit plan files
+- [ ] during "raf plan --amend id" (amend flow) RAF overrides input.md with ammended tasks, it should rather concatanated it to input.md. make sure that as user input to claude you provide only new part of input during amend flow

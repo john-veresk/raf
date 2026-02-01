@@ -125,7 +125,15 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
     logger.info('Generating project name suggestions...');
     const suggestedNames = await generateProjectNames(cleanInput);
     logger.newline();
-    finalProjectName = await pickProjectName(suggestedNames);
+
+    if (autoMode) {
+      // Auto-select the first generated name
+      // generateProjectNames always returns at least one fallback name
+      finalProjectName = suggestedNames[0] ?? 'project';
+      logger.info(`Auto-selected project name: ${finalProjectName}`);
+    } else {
+      finalProjectName = await pickProjectName(suggestedNames);
+    }
   }
 
   if (!validateProjectName(finalProjectName)) {
