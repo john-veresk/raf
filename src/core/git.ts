@@ -1,5 +1,7 @@
 import { execSync } from 'node:child_process';
+import * as path from 'node:path';
 import { logger } from '../utils/logger.js';
+import { extractProjectNumber, extractProjectName } from '../utils/paths.js';
 
 export interface GitStatus {
   isRepo: boolean;
@@ -162,5 +164,74 @@ export function stashChanges(name: string): boolean {
   } catch (error) {
     logger.error(`Failed to stash changes: ${error}`);
     return false;
+  }
+}
+
+/**
+ * Commit planning artifacts (input.md and decisions.md) for a project.
+ * Uses commit message format: RAF[NNN] Plan: project-name
+ *
+ * @param projectPath - Full path to the project folder (e.g., /path/to/RAF/017-decision-vault)
+ * @returns Promise that resolves when commit is complete (or fails silently)
+ */
+export async function commitPlanningArtifacts(projectPath: string): Promise<void> {
+  // Check if we're in a git repository
+  if (!isGitRepo()) {
+    logger.warn('Not in a git repository, skipping planning artifacts commit');
+    return;
+  }
+
+  // Extract project number and name from path
+  const projectNumber = extractProjectNumber(projectPath);
+  const projectName = extractProjectName(projectPath);
+
+  if (!projectNumber || !projectName) {
+    logger.warn('Could not extract project number or name from path, skipping commit');
+    return;
+  }
+
+  // Build file paths relative to the project folder
+  const inputFile = path.join(projectPath, 'input.md');
+  const decisionsFile = path.join(projectPath, 'decisions.md');
+
+  // Build commit message
+  const commitMessage = `RAF[${projectNumber}] Plan: ${projectName}`;
+
+  try {
+    // Stage only the specific files (input.md and decisions.md)
+    // Use --force to add even if in .gitignore, and -- to handle paths with special chars
+    execSync(`git add -- "${inputFile}" "${decisionsFile}"`, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    });
+
+    // Check if there's anything staged to commit
+    const stagedStatus = execSync('git diff --cached --name-only', {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    }).trim();
+
+    if (!stagedStatus) {
+      logger.debug('No changes to planning artifacts to commit');
+      return;
+    }
+
+    // Commit the staged files
+    execSync(`git commit -m "${commitMessage.replace(/"/g, '\\"')}"`, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    });
+
+    logger.debug(`Committed planning artifacts: ${commitMessage}`);
+  } catch (error) {
+    // Handle "nothing to commit" gracefully - this is not an error
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes('nothing to commit')) {
+      logger.debug('Planning artifacts already committed or no changes');
+      return;
+    }
+
+    // Log warning for other errors, but don't throw
+    logger.warn(`Failed to commit planning artifacts: ${errorMessage}`);
   }
 }
