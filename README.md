@@ -48,6 +48,7 @@ That's it! RAF will guide you through breaking down your task and then execute i
 
 - **Interactive Planning**: Claude interviews you to break down complex tasks into 3-8 distinct tasks
 - **Automated Execution**: Execute plans with retry logic and progress tracking
+- **Resume Support**: Continue from where you left off after interruption
 - **Git Integration**: Automatic commits after each completed task
 - **Task Dependencies**: Tasks can depend on other tasks, with automatic blocking on failure
 
@@ -87,6 +88,7 @@ raf status 3          # Show details for project #3
 
 ```
 ○  pending     - task not yet started
+●  running     - task currently executing
 ✓  completed   - task finished successfully
 ✗  failed      - task failed
 ⊘  blocked     - task blocked by failed dependency
