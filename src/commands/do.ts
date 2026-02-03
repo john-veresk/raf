@@ -23,6 +23,7 @@ import {
   deriveProjectState,
   getNextExecutableTask,
   getDerivedStats,
+  getDerivedStatsForTasks,
   isProjectComplete,
   hasProjectFailed,
   parseOutcomeStatus,
@@ -319,6 +320,12 @@ async function executeSingleProject(
       totalTasks: stats.total,
     };
   }
+
+  const sessionTaskIds = new Set<string>(
+    force
+      ? state.tasks.map((t) => t.id)
+      : state.tasks.filter((t) => t.status !== 'completed').map((t) => t.id)
+  );
 
   // Set up shutdown handler
   const claudeRunner = new ClaudeRunner({ model });
@@ -724,6 +731,7 @@ ${stashName ? `- Stash: ${stashName}` : ''}
 
   // Get final stats
   const stats = getDerivedStats(state);
+  const sessionStats = getDerivedStatsForTasks(state, sessionTaskIds);
   const projectElapsedMs = Date.now() - projectStartTime;
 
   if (isProjectComplete(state)) {
@@ -739,7 +747,13 @@ ${stashName ? `- Stash: ${stashName}` : ''}
       logger.info(`  Pending: ${stats.pending}`);
     } else {
       // Minimal summary with elapsed time
-      logger.info(formatSummary(stats.completed, stats.failed, stats.pending, projectElapsedMs, stats.blocked));
+      logger.info(formatSummary(
+        sessionStats.completed,
+        sessionStats.failed,
+        sessionStats.pending,
+        projectElapsedMs,
+        sessionStats.blocked
+      ));
     }
   } else if (hasProjectFailed(state)) {
     if (verbose) {
@@ -752,7 +766,13 @@ ${stashName ? `- Stash: ${stashName}` : ''}
       logger.info(`  Pending: ${stats.pending}`);
     } else {
       // Minimal summary for failures
-      logger.info(formatSummary(stats.completed, stats.failed, stats.pending, projectElapsedMs, stats.blocked));
+      logger.info(formatSummary(
+        sessionStats.completed,
+        sessionStats.failed,
+        sessionStats.pending,
+        projectElapsedMs,
+        sessionStats.blocked
+      ));
     }
   } else {
     // Project incomplete (pending tasks remain)
@@ -764,7 +784,13 @@ ${stashName ? `- Stash: ${stashName}` : ''}
       logger.info(`  Blocked: ${stats.blocked}`);
       logger.info(`  Pending: ${stats.pending}`);
     } else {
-      logger.info(formatSummary(stats.completed, stats.failed, stats.pending, projectElapsedMs, stats.blocked));
+      logger.info(formatSummary(
+        sessionStats.completed,
+        sessionStats.failed,
+        sessionStats.pending,
+        projectElapsedMs,
+        sessionStats.blocked
+      ));
     }
   }
 

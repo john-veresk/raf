@@ -329,6 +329,50 @@ export function getDerivedStats(state: DerivedProjectState): DerivedStats {
 }
 
 /**
+ * Calculate statistics for a subset of tasks by ID.
+ */
+export function getDerivedStatsForTasks(
+  state: DerivedProjectState,
+  taskIds: Iterable<string>
+): DerivedStats {
+  const idSet = taskIds instanceof Set ? taskIds : new Set(taskIds);
+  const stats: DerivedStats = {
+    pending: 0,
+    completed: 0,
+    failed: 0,
+    blocked: 0,
+    total: 0,
+  };
+
+  if (idSet.size === 0) {
+    return stats;
+  }
+
+  for (const task of state.tasks) {
+    if (!idSet.has(task.id)) {
+      continue;
+    }
+    stats.total++;
+    switch (task.status) {
+      case 'pending':
+        stats.pending++;
+        break;
+      case 'completed':
+        stats.completed++;
+        break;
+      case 'failed':
+        stats.failed++;
+        break;
+      case 'blocked':
+        stats.blocked++;
+        break;
+    }
+  }
+
+  return stats;
+}
+
+/**
  * Check if all tasks are completed.
  */
 export function isProjectComplete(state: DerivedProjectState): boolean {

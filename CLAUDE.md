@@ -179,6 +179,7 @@ RAF[a01:003] Refactor database connection pooling
 - Sequential execution (not parallel) for git safety
 - Continue on failure, report results at end
 - Deduplicates repeated projects
+- Non-verbose per-project summaries reflect tasks executed in the current run (remaining tasks at start) so elapsed time matches the work performed
 
 ## Important Reminders
 

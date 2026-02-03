@@ -75,6 +75,8 @@ raf do my-project     # Execute by name
 raf do 3 4 5          # Execute multiple projects
 ```
 
+Note: In non-verbose mode, the completion summary reflects the tasks executed in that run (the remaining tasks at start), so the elapsed time maps to those tasks.
+
 ### `raf status`
 
 Check project status.

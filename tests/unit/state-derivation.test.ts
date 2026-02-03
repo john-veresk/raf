@@ -10,6 +10,7 @@ import {
   getNextPendingTask,
   getNextExecutableTask,
   getDerivedStats,
+  getDerivedStatsForTasks,
   isProjectComplete,
   hasProjectFailed,
   type DerivedProjectStatus,
@@ -623,6 +624,42 @@ Later it was blocked...
       expect(stats.pending).toBe(1);
       expect(stats.blocked).toBe(2);
       expect(stats.total).toBe(4);
+    });
+  });
+
+  describe('getDerivedStatsForTasks', () => {
+    it('should calculate stats for a subset of tasks', () => {
+      const state = {
+        status: 'executing' as DerivedProjectStatus,
+        tasks: [
+          { id: '001', planFile: 'plans/001.md', status: 'completed' as const, dependencies: [] },
+          { id: '002', planFile: 'plans/002.md', status: 'failed' as const, dependencies: [] },
+          { id: '003', planFile: 'plans/003.md', status: 'pending' as const, dependencies: [] },
+          { id: '004', planFile: 'plans/004.md', status: 'blocked' as const, dependencies: ['002'] },
+        ],
+      };
+      const stats = getDerivedStatsForTasks(state, ['001', '003', '004']);
+      expect(stats.completed).toBe(1);
+      expect(stats.failed).toBe(0);
+      expect(stats.pending).toBe(1);
+      expect(stats.blocked).toBe(1);
+      expect(stats.total).toBe(3);
+    });
+
+    it('should ignore task IDs not present in state', () => {
+      const state = {
+        status: 'executing' as DerivedProjectStatus,
+        tasks: [
+          { id: '001', planFile: 'plans/001.md', status: 'completed' as const, dependencies: [] },
+          { id: '002', planFile: 'plans/002.md', status: 'failed' as const, dependencies: [] },
+        ],
+      };
+      const stats = getDerivedStatsForTasks(state, ['999']);
+      expect(stats.completed).toBe(0);
+      expect(stats.failed).toBe(0);
+      expect(stats.pending).toBe(0);
+      expect(stats.blocked).toBe(0);
+      expect(stats.total).toBe(0);
     });
   });
 
