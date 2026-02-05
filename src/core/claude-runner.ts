@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import * as pty from 'node-pty';
 import type { IDisposable } from 'node-pty';
 import { execSync, spawn } from 'node:child_process';
@@ -26,6 +27,14 @@ export interface ClaudeRunnerOptions {
    * Claude will still ask planning interview questions.
    */
   dangerouslySkipPermissions?: boolean;
+  /**
+   * Path to the outcome file. When provided, enables completion detection:
+   * - Monitors stdout for completion markers (<promise>COMPLETE/FAILED</promise>)
+   * - Polls the outcome file for completion markers
+   * When detected, starts a grace period before terminating the process,
+   * allowing time for git commit operations to complete.
+   */
+  outcomeFilePath?: string;
 }
 
 export interface ClaudeRunnerConfig {
@@ -49,6 +58,90 @@ const CONTEXT_OVERFLOW_PATTERNS = [
   /maximum context/i,
   /context window/i,
 ];
+
+const COMPLETION_MARKER_PATTERN = /<promise>(COMPLETE|FAILED)<\/promise>/i;
+
+/**
+ * Grace period in ms after completion marker is detected before terminating.
+ * Allows time for git commit operations to complete.
+ */
+export const COMPLETION_GRACE_PERIOD_MS = 60_000;
+
+/**
+ * Interval in ms for polling the outcome file for completion markers.
+ */
+export const OUTCOME_POLL_INTERVAL_MS = 5_000;
+
+/**
+ * Monitors for task completion markers in stdout and outcome files.
+ * When a marker is detected, starts a grace period before killing the process.
+ */
+interface CompletionDetector {
+  /** Check accumulated stdout output for completion markers. */
+  checkOutput(output: string): void;
+  /** Clean up all timers. Must be called when the process exits. */
+  cleanup(): void;
+}
+
+function createCompletionDetector(
+  killFn: () => void,
+  outcomeFilePath?: string,
+): CompletionDetector {
+  let graceHandle: ReturnType<typeof setTimeout> | null = null;
+  let pollHandle: ReturnType<typeof setInterval> | null = null;
+  let initialMtime = 0;
+
+  // Record initial mtime of outcome file to avoid false positives from previous runs
+  if (outcomeFilePath) {
+    try {
+      if (fs.existsSync(outcomeFilePath)) {
+        initialMtime = fs.statSync(outcomeFilePath).mtimeMs;
+      }
+    } catch {
+      // Ignore stat errors
+    }
+  }
+
+  function startGracePeriod(): void {
+    if (graceHandle) return; // Already started
+    logger.debug('Completion marker detected - starting grace period before termination');
+    graceHandle = setTimeout(() => {
+      logger.debug('Grace period expired - terminating Claude process');
+      killFn();
+    }, COMPLETION_GRACE_PERIOD_MS);
+  }
+
+  function checkOutput(output: string): void {
+    if (!graceHandle && COMPLETION_MARKER_PATTERN.test(output)) {
+      startGracePeriod();
+    }
+  }
+
+  // Start outcome file polling if path provided
+  if (outcomeFilePath) {
+    const filePath = outcomeFilePath;
+    pollHandle = setInterval(() => {
+      try {
+        if (!fs.existsSync(filePath)) return;
+        const stat = fs.statSync(filePath);
+        if (stat.mtimeMs <= initialMtime) return; // File unchanged from before execution
+        const content = fs.readFileSync(filePath, 'utf-8');
+        if (COMPLETION_MARKER_PATTERN.test(content)) {
+          startGracePeriod();
+        }
+      } catch {
+        // Ignore read errors - file may be mid-write
+      }
+    }, OUTCOME_POLL_INTERVAL_MS);
+  }
+
+  function cleanup(): void {
+    if (graceHandle) clearTimeout(graceHandle);
+    if (pollHandle) clearInterval(pollHandle);
+  }
+
+  return { checkOutput, cleanup };
+}
 
 export class ClaudeRunner {
   private activeProcess: pty.IPty | null = null;
@@ -169,7 +262,7 @@ export class ClaudeRunner {
    * - Default timeout is 60 minutes if not specified
    */
   async run(prompt: string, options: ClaudeRunnerOptions = {}): Promise<RunResult> {
-    const { timeout = 60, cwd = process.cwd() } = options;
+    const { timeout = 60, cwd = process.cwd(), outcomeFilePath } = options;
     // Ensure timeout is a positive number, fallback to 60 minutes
     const validatedTimeout = Number(timeout) > 0 ? Number(timeout) : 60;
     const timeoutMs = validatedTimeout * 60 * 1000;
@@ -213,10 +306,19 @@ export class ClaudeRunner {
         proc.kill('SIGTERM');
       }, timeoutMs);
 
+      // Set up completion detection (stdout marker + outcome file polling)
+      const completionDetector = createCompletionDetector(
+        () => proc.kill('SIGTERM'),
+        outcomeFilePath,
+      );
+
       // Collect stdout
       proc.stdout.on('data', (data) => {
         const text = data.toString();
         output += text;
+
+        // Check for completion marker to start grace period
+        completionDetector.checkOutput(output);
 
         // Check for context overflow
         for (const pattern of CONTEXT_OVERFLOW_PATTERNS) {
@@ -236,6 +338,7 @@ export class ClaudeRunner {
 
       proc.on('close', (exitCode) => {
         clearTimeout(timeoutHandle);
+        completionDetector.cleanup();
         this.activeProcess = null;
 
         if (stderr) {
@@ -264,7 +367,7 @@ export class ClaudeRunner {
    * - Default timeout is 60 minutes if not specified
    */
   async runVerbose(prompt: string, options: ClaudeRunnerOptions = {}): Promise<RunResult> {
-    const { timeout = 60, cwd = process.cwd() } = options;
+    const { timeout = 60, cwd = process.cwd(), outcomeFilePath } = options;
     // Ensure timeout is a positive number, fallback to 60 minutes
     const validatedTimeout = Number(timeout) > 0 ? Number(timeout) : 60;
     const timeoutMs = validatedTimeout * 60 * 1000;
@@ -311,6 +414,12 @@ export class ClaudeRunner {
         proc.kill('SIGTERM');
       }, timeoutMs);
 
+      // Set up completion detection (stdout marker + outcome file polling)
+      const completionDetector = createCompletionDetector(
+        () => proc.kill('SIGTERM'),
+        outcomeFilePath,
+      );
+
       // Collect and display stdout
       let dataReceived = false;
       proc.stdout.on('data', (data) => {
@@ -321,6 +430,9 @@ export class ClaudeRunner {
         const text = data.toString();
         output += text;
         process.stdout.write(text);
+
+        // Check for completion marker to start grace period
+        completionDetector.checkOutput(output);
 
         // Check for context overflow
         for (const pattern of CONTEXT_OVERFLOW_PATTERNS) {
@@ -340,6 +452,7 @@ export class ClaudeRunner {
 
       proc.on('close', (exitCode) => {
         clearTimeout(timeoutHandle);
+        completionDetector.cleanup();
         this.activeProcess = null;
         logger.debug(`Claude exited with code ${exitCode}, output length: ${output.length}, timedOut: ${timedOut}, contextOverflow: ${contextOverflow}`);
 

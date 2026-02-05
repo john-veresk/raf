@@ -554,8 +554,8 @@ async function executeSingleProject(
 
       // Run Claude
       const result = verbose
-        ? await claudeRunner.runVerbose(prompt, { timeout })
-        : await claudeRunner.run(prompt, { timeout });
+        ? await claudeRunner.runVerbose(prompt, { timeout, outcomeFilePath })
+        : await claudeRunner.run(prompt, { timeout, outcomeFilePath });
 
       lastOutput = result.output;
 

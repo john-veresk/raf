@@ -5,13 +5,29 @@ import { EventEmitter } from 'events';
 const mockSpawn = jest.fn();
 const mockExecSync = jest.fn();
 
+// Create mock fs functions
+const mockExistsSync = jest.fn();
+const mockStatSync = jest.fn();
+const mockReadFileSync = jest.fn();
+
 jest.unstable_mockModule('node:child_process', () => ({
   spawn: mockSpawn,
   execSync: mockExecSync,
 }));
 
+jest.unstable_mockModule('node:fs', () => ({
+  default: {
+    existsSync: mockExistsSync,
+    statSync: mockStatSync,
+    readFileSync: mockReadFileSync,
+  },
+  existsSync: mockExistsSync,
+  statSync: mockStatSync,
+  readFileSync: mockReadFileSync,
+}));
+
 // Import after mocking
-const { ClaudeRunner } = await import('../../src/core/claude-runner.js');
+const { ClaudeRunner, COMPLETION_GRACE_PERIOD_MS, OUTCOME_POLL_INTERVAL_MS } = await import('../../src/core/claude-runner.js');
 
 describe('ClaudeRunner', () => {
   beforeEach(() => {
@@ -624,6 +640,231 @@ describe('ClaudeRunner', () => {
 
       const result2 = await runPromise2;
       expect(result2.timedOut).toBe(true);
+    });
+  });
+
+  describe('completion detection', () => {
+    function createMockProcess() {
+      const stdout = new EventEmitter();
+      const stderr = new EventEmitter();
+      const proc = new EventEmitter() as any;
+      proc.stdout = stdout;
+      proc.stderr = stderr;
+      proc.kill = jest.fn().mockImplementation(() => {
+        setImmediate(() => proc.emit('close', 1));
+      });
+      return proc;
+    }
+
+    beforeEach(() => {
+      // Default: no outcome file exists
+      mockExistsSync.mockReturnValue(false);
+    });
+
+    it('should start grace period when COMPLETE marker detected in stdout', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', { timeout: 60 });
+
+      // Emit output with completion marker
+      mockProc.stdout.emit('data', Buffer.from('Writing outcome...\n<promise>COMPLETE</promise>\n'));
+
+      // Process should not be killed immediately
+      expect(mockProc.kill).not.toHaveBeenCalled();
+
+      // Advance to just before grace period expires
+      jest.advanceTimersByTime(COMPLETION_GRACE_PERIOD_MS - 1);
+      expect(mockProc.kill).not.toHaveBeenCalled();
+
+      // Advance past grace period
+      jest.advanceTimersByTime(2);
+      expect(mockProc.kill).toHaveBeenCalledWith('SIGTERM');
+
+      const result = await runPromise;
+      expect(result.timedOut).toBe(false); // Not a timeout, it's a grace period kill
+      expect(result.output).toContain('<promise>COMPLETE</promise>');
+    });
+
+    it('should start grace period when FAILED marker detected in stdout', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', { timeout: 60 });
+
+      // Emit output with failed marker
+      mockProc.stdout.emit('data', Buffer.from('<promise>FAILED</promise>\nReason: test error'));
+
+      // Advance past grace period
+      jest.advanceTimersByTime(COMPLETION_GRACE_PERIOD_MS + 1);
+      expect(mockProc.kill).toHaveBeenCalledWith('SIGTERM');
+
+      const result = await runPromise;
+      expect(result.timedOut).toBe(false);
+    });
+
+    it('should detect marker across multiple stdout chunks', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', { timeout: 60 });
+
+      // Emit partial output (no marker yet)
+      mockProc.stdout.emit('data', Buffer.from('Working on task...\n'));
+      jest.advanceTimersByTime(10000);
+      expect(mockProc.kill).not.toHaveBeenCalled();
+
+      // Emit marker in second chunk
+      mockProc.stdout.emit('data', Buffer.from('<promise>COMPLETE</promise>\n'));
+
+      // Grace period starts now - advance past it
+      jest.advanceTimersByTime(COMPLETION_GRACE_PERIOD_MS + 1);
+      expect(mockProc.kill).toHaveBeenCalledWith('SIGTERM');
+
+      await runPromise;
+    });
+
+    it('should not start grace period if process exits before grace period expires', async () => {
+      const mockProc = createMockProcess();
+      // Override kill to NOT auto-close (so we can test natural close)
+      mockProc.kill = jest.fn();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', { timeout: 60 });
+
+      // Emit completion marker
+      mockProc.stdout.emit('data', Buffer.from('<promise>COMPLETE</promise>\n'));
+
+      // Process exits naturally before grace period
+      jest.advanceTimersByTime(5000);
+      mockProc.emit('close', 0);
+
+      const result = await runPromise;
+      expect(result.exitCode).toBe(0);
+      expect(result.output).toContain('<promise>COMPLETE</promise>');
+
+      // Grace period should have been cleaned up - advancing further should not call kill
+      jest.advanceTimersByTime(COMPLETION_GRACE_PERIOD_MS);
+      expect(mockProc.kill).not.toHaveBeenCalled();
+    });
+
+    it('should detect completion via outcome file polling', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const outcomePath = '/test/project/outcomes/001-task.md';
+
+      // Outcome file doesn't exist initially
+      mockExistsSync.mockReturnValue(false);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', {
+        timeout: 60,
+        outcomeFilePath: outcomePath,
+      });
+
+      // No output marker in stdout - just regular output
+      mockProc.stdout.emit('data', Buffer.from('Working on task...'));
+
+      // After some time, outcome file appears with marker
+      jest.advanceTimersByTime(OUTCOME_POLL_INTERVAL_MS - 1);
+      expect(mockProc.kill).not.toHaveBeenCalled();
+
+      // Mock that file now exists with COMPLETE marker
+      mockExistsSync.mockReturnValue(true);
+      mockStatSync.mockReturnValue({ mtimeMs: Date.now() + 1000 });
+      mockReadFileSync.mockReturnValue('# Outcome\n\n<promise>COMPLETE</promise>\n');
+
+      // Advance to trigger poll
+      jest.advanceTimersByTime(2);
+
+      // Grace period started - advance past it
+      jest.advanceTimersByTime(COMPLETION_GRACE_PERIOD_MS + 1);
+      expect(mockProc.kill).toHaveBeenCalledWith('SIGTERM');
+
+      await runPromise;
+    });
+
+    it('should not trigger on pre-existing outcome file from previous run', async () => {
+      const mockProc = createMockProcess();
+      // Override kill to NOT auto-close
+      mockProc.kill = jest.fn();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const outcomePath = '/test/project/outcomes/001-task.md';
+
+      // Outcome file already exists from previous failed run
+      mockExistsSync.mockReturnValue(true);
+      mockStatSync.mockReturnValue({ mtimeMs: 1000 }); // Old timestamp
+      mockReadFileSync.mockReturnValue('# Outcome\n\n<promise>FAILED</promise>\n');
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', {
+        timeout: 60,
+        outcomeFilePath: outcomePath,
+      });
+
+      // Advance past several poll intervals - should not trigger because mtime unchanged
+      jest.advanceTimersByTime(OUTCOME_POLL_INTERVAL_MS * 5);
+      expect(mockProc.kill).not.toHaveBeenCalled();
+
+      // Complete normally
+      mockProc.stdout.emit('data', Buffer.from('done'));
+      mockProc.emit('close', 0);
+
+      await runPromise;
+    });
+
+    it('should work with runVerbose() too', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.runVerbose('test prompt', { timeout: 60 });
+
+      // Emit output with completion marker
+      mockProc.stdout.emit('data', Buffer.from('<promise>COMPLETE</promise>\n'));
+
+      // Advance past grace period
+      jest.advanceTimersByTime(COMPLETION_GRACE_PERIOD_MS + 1);
+      expect(mockProc.kill).toHaveBeenCalledWith('SIGTERM');
+
+      const result = await runPromise;
+      expect(result.timedOut).toBe(false);
+    });
+
+    it('should not start multiple grace periods for repeated markers', async () => {
+      const mockProc = createMockProcess();
+      // Override kill to NOT auto-close (to test multiple markers)
+      mockProc.kill = jest.fn();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', { timeout: 60 });
+
+      // Emit first marker
+      mockProc.stdout.emit('data', Buffer.from('<promise>COMPLETE</promise>\n'));
+
+      // Advance halfway through grace period
+      jest.advanceTimersByTime(COMPLETION_GRACE_PERIOD_MS / 2);
+
+      // Emit second marker (e.g., Claude reading back what it wrote)
+      mockProc.stdout.emit('data', Buffer.from('Verified: <promise>COMPLETE</promise>\n'));
+
+      // Advance remaining grace period from FIRST detection
+      jest.advanceTimersByTime(COMPLETION_GRACE_PERIOD_MS / 2 + 1);
+
+      // Should be killed once (from the first grace period)
+      expect(mockProc.kill).toHaveBeenCalledTimes(1);
+      expect(mockProc.kill).toHaveBeenCalledWith('SIGTERM');
+
+      // Close process manually for cleanup
+      mockProc.emit('close', 1);
+      await runPromise;
     });
   });
 });
