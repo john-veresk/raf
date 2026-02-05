@@ -1,0 +1,2 @@
+- [ ] add task number to "raf do" progress reporting
+- [ ] update "plan" and "do" prompts. "plan" prompt should mention that the plan should output should be high level but detailed, excluding technical details and code snippets. i "do" specify the following "use task tool to split work and delegate to subagents task execution" 
