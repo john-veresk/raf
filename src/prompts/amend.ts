@@ -182,7 +182,20 @@ Planning complete! Press Ctrl-C twice to exit to exit this session
 6. Each plan should be self-contained with all context needed
 7. Specify task dependencies using the ## Dependencies section with task IDs only (e.g., "001, 002")
 8. Tasks without dependencies should omit the Dependencies section entirely
-9. Be specific - vague plans lead to poor execution`;
+9. Be specific - vague plans lead to poor execution
+
+## Plan Output Style
+
+**CRITICAL**: Plans should be HIGH-LEVEL and CONCEPTUAL:
+- Describe WHAT needs to be done, not HOW to code it
+- Focus on architecture, data flow, and component interactions
+- NO code snippets or implementation details in plans
+- File paths ARE acceptable when referencing:
+  - Existing project files to modify
+  - Previous plan/outcome files for context
+  - Project structure and directories
+- Let the executing agent decide implementation specifics
+- Plans guide the work; they don't prescribe exact code`;
 
   const userMessage = `I want to add the following new tasks to this project:
 

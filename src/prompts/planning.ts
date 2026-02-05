@@ -163,7 +163,20 @@ Planning complete! To exit this session and run your tasks:
 5. Infer dependencies automatically - analyze task relationships, don't ask the user about dependencies
 6. Only add Dependencies section when a task genuinely requires another to complete first
 7. Dependencies must only reference lower-numbered tasks to prevent circular dependencies
-8. Be specific - vague plans lead to poor execution`;
+8. Be specific - vague plans lead to poor execution
+
+## Plan Output Style
+
+**CRITICAL**: Plans should be HIGH-LEVEL and CONCEPTUAL:
+- Describe WHAT needs to be done, not HOW to code it
+- Focus on architecture, data flow, and component interactions
+- NO code snippets or implementation details in plans
+- File paths ARE acceptable when referencing:
+  - Existing project files to modify
+  - Previous plan/outcome files for context
+  - Project structure and directories
+- Let the executing agent decide implementation specifics
+- Plans guide the work; they don't prescribe exact code`;
 
   const userMessage = `Here is my project description:
 

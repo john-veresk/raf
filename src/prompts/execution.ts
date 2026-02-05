@@ -164,6 +164,7 @@ First, read the plan file to understand exactly what needs to be done.
 ### Step 2: Execute the Task
 
 Follow the implementation steps in the plan. Key guidelines:
+- **Use the Task tool to delegate work to subagents** - Split complex work into subtasks and use specialized agents (Explore for codebase investigation, Plan for design decisions, general-purpose for implementation)
 - Write clean, maintainable code
 - Follow existing code patterns in the project
 - Add appropriate error handling
