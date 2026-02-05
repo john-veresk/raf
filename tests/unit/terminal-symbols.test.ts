@@ -82,6 +82,26 @@ describe('Terminal Symbols', () => {
       const result = formatTaskProgress(2, 5, 'blocked', 'depends-on-failed');
       expect(result).toBe('⊘ depends-on-failed 2/5');
     });
+
+    it('should include task ID prefix when provided', () => {
+      const result = formatTaskProgress(1, 5, 'running', 'auth-login', undefined, '001');
+      expect(result).toBe('● [001] auth-login 1/5');
+    });
+
+    it('should include task ID prefix with elapsed time', () => {
+      const result = formatTaskProgress(1, 5, 'completed', 'auth-login', 83000, '001');
+      expect(result).toBe('✓ [001] auth-login 1m 23s');
+    });
+
+    it('should include task ID prefix for blocked tasks', () => {
+      const result = formatTaskProgress(2, 5, 'blocked', 'depends-on-failed', undefined, '002');
+      expect(result).toBe('⊘ [002] depends-on-failed 2/5');
+    });
+
+    it('should include task ID prefix for failed tasks with elapsed time', () => {
+      const result = formatTaskProgress(3, 5, 'failed', 'deploy', 45000, '003');
+      expect(result).toBe('✗ [003] deploy 45s');
+    });
   });
 
   describe('formatProjectHeader', () => {

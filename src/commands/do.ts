@@ -445,6 +445,7 @@ async function executeSingleProject(
     const taskNumber = taskIndex + 1;
     const taskName = extractTaskNameFromPlanFile(task.planFile);
     const displayName = taskName ?? task.id;
+    const taskId = task.id;  // Capture for closure
 
     // Handle blocked tasks separately - skip Claude execution
     if (task.status === 'blocked') {
@@ -461,7 +462,7 @@ async function executeSingleProject(
         logger.warn(`Task ${task.id} blocked by failed dependency: ${blockingDep}`);
       } else {
         // Minimal mode: show blocked task line with distinct symbol
-        logger.info(formatTaskProgress(taskNumber, totalTasks, 'blocked', displayName));
+        logger.info(formatTaskProgress(taskNumber, totalTasks, 'blocked', displayName, undefined, task.id));
       }
 
       // Generate blocked outcome file
@@ -518,7 +519,7 @@ async function executeSingleProject(
     const statusLine = createStatusLine();
     const timer = createTaskTimer(verbose ? undefined : (elapsed) => {
       // Show running status with task name and timer (updates in place)
-      statusLine.update(formatTaskProgress(taskNumber, totalTasks, 'running', displayName, elapsed));
+      statusLine.update(formatTaskProgress(taskNumber, totalTasks, 'running', displayName, elapsed, taskId));
     });
     timer.start();
 
@@ -669,7 +670,7 @@ Task completed. No detailed report provided.
         logger.success(`  Task ${task.id} completed (${elapsedFormatted})`);
       } else {
         // Minimal mode: show completed task line
-        logger.info(formatTaskProgress(taskNumber, totalTasks, 'completed', displayName, elapsedMs));
+        logger.info(formatTaskProgress(taskNumber, totalTasks, 'completed', displayName, elapsedMs, task.id));
       }
       completedInSession.add(task.id);
     } else {
@@ -689,7 +690,7 @@ Task completed. No detailed report provided.
         logger.info('  Analyzing failure...');
       } else {
         // Minimal mode: show failed task line
-        logger.info(formatTaskProgress(taskNumber, totalTasks, 'failed', displayName, elapsedMs));
+        logger.info(formatTaskProgress(taskNumber, totalTasks, 'failed', displayName, elapsedMs, task.id));
       }
 
       // Analyze failure and generate structured report
