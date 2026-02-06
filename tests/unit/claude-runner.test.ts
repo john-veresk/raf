@@ -10,6 +10,11 @@ const mockExistsSync = jest.fn();
 const mockStatSync = jest.fn();
 const mockReadFileSync = jest.fn();
 
+// Create mock git functions
+const mockGetHeadCommitHash = jest.fn();
+const mockGetHeadCommitMessage = jest.fn();
+const mockIsFileCommittedInHead = jest.fn();
+
 jest.unstable_mockModule('node:child_process', () => ({
   spawn: mockSpawn,
   execSync: mockExecSync,
@@ -26,8 +31,14 @@ jest.unstable_mockModule('node:fs', () => ({
   readFileSync: mockReadFileSync,
 }));
 
+jest.unstable_mockModule('../../src/core/git.js', () => ({
+  getHeadCommitHash: mockGetHeadCommitHash,
+  getHeadCommitMessage: mockGetHeadCommitMessage,
+  isFileCommittedInHead: mockIsFileCommittedInHead,
+}));
+
 // Import after mocking
-const { ClaudeRunner, COMPLETION_GRACE_PERIOD_MS, OUTCOME_POLL_INTERVAL_MS } = await import('../../src/core/claude-runner.js');
+const { ClaudeRunner, COMPLETION_GRACE_PERIOD_MS, COMPLETION_HARD_MAX_MS, COMMIT_POLL_INTERVAL_MS, OUTCOME_POLL_INTERVAL_MS } = await import('../../src/core/claude-runner.js');
 
 describe('ClaudeRunner', () => {
   beforeEach(() => {
@@ -950,6 +961,233 @@ describe('ClaudeRunner', () => {
       expect(mockProc.kill).toHaveBeenCalledWith('SIGTERM');
 
       // Close process manually for cleanup
+      mockProc.emit('close', 1);
+      await runPromise;
+    });
+  });
+
+  describe('commit verification during grace period', () => {
+    function createMockProcess() {
+      const stdout = new EventEmitter();
+      const stderr = new EventEmitter();
+      const proc = new EventEmitter() as any;
+      proc.stdout = stdout;
+      proc.stderr = stderr;
+      proc.kill = jest.fn().mockImplementation(() => {
+        setImmediate(() => proc.emit('close', 1));
+      });
+      return proc;
+    }
+
+    const commitContext = {
+      preExecutionHead: 'aaa111',
+      expectedPrefix: 'RAF[005:001]',
+      outcomeFilePath: '/project/outcomes/001-task.md',
+    };
+
+    beforeEach(() => {
+      mockExistsSync.mockReturnValue(false);
+      mockGetHeadCommitHash.mockReturnValue('aaa111');
+      mockGetHeadCommitMessage.mockReturnValue(null);
+      mockIsFileCommittedInHead.mockReturnValue(false);
+    });
+
+    it('should kill immediately after grace period when commit is verified within grace period', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      // Commit lands during grace period
+      mockGetHeadCommitHash.mockReturnValue('bbb222');
+      mockGetHeadCommitMessage.mockReturnValue('RAF[005:001] Add feature');
+      mockIsFileCommittedInHead.mockReturnValue(true);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', {
+        timeout: 60,
+        commitContext,
+      });
+
+      // Emit COMPLETE marker
+      mockProc.stdout.emit('data', Buffer.from('<promise>COMPLETE</promise>\n'));
+
+      // Advance to grace period expiry - commit already verified
+      jest.advanceTimersByTime(COMPLETION_GRACE_PERIOD_MS + 1);
+      expect(mockProc.kill).toHaveBeenCalledWith('SIGTERM');
+
+      await runPromise;
+    });
+
+    it('should extend grace period and find commit during extended polling', async () => {
+      const mockProc = createMockProcess();
+      // Override kill to NOT auto-close so we can test polling
+      mockProc.kill = jest.fn();
+      mockSpawn.mockReturnValue(mockProc);
+
+      // Commit not yet made
+      mockGetHeadCommitHash.mockReturnValue('aaa111');
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', {
+        timeout: 60,
+        commitContext,
+      });
+
+      // Emit COMPLETE marker
+      mockProc.stdout.emit('data', Buffer.from('<promise>COMPLETE</promise>\n'));
+
+      // Advance past initial grace period - commit not found, should extend
+      jest.advanceTimersByTime(COMPLETION_GRACE_PERIOD_MS + 1);
+      // Should NOT be killed yet because commit verification failed and we extend
+      expect(mockProc.kill).not.toHaveBeenCalled();
+
+      // Now simulate commit landing during extended polling
+      mockGetHeadCommitHash.mockReturnValue('bbb222');
+      mockGetHeadCommitMessage.mockReturnValue('RAF[005:001] Add feature');
+      mockIsFileCommittedInHead.mockReturnValue(true);
+
+      // Advance to next commit poll interval
+      jest.advanceTimersByTime(COMMIT_POLL_INTERVAL_MS);
+      expect(mockProc.kill).toHaveBeenCalledWith('SIGTERM');
+
+      // Clean up
+      mockProc.emit('close', 1);
+      await runPromise;
+    });
+
+    it('should kill after hard maximum when commit never lands', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      // Commit never lands
+      mockGetHeadCommitHash.mockReturnValue('aaa111');
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', {
+        timeout: 60,
+        commitContext,
+      });
+
+      // Emit COMPLETE marker
+      mockProc.stdout.emit('data', Buffer.from('<promise>COMPLETE</promise>\n'));
+
+      // Advance past initial grace period
+      jest.advanceTimersByTime(COMPLETION_GRACE_PERIOD_MS + 1);
+      expect(mockProc.kill).not.toHaveBeenCalled();
+
+      // Advance to hard maximum
+      jest.advanceTimersByTime(COMPLETION_HARD_MAX_MS - COMPLETION_GRACE_PERIOD_MS);
+      expect(mockProc.kill).toHaveBeenCalledWith('SIGTERM');
+
+      await runPromise;
+    });
+
+    it('should NOT extend grace period for FAILED markers', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      // Commit never lands (doesn't matter - FAILED shouldn't check)
+      mockGetHeadCommitHash.mockReturnValue('aaa111');
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', {
+        timeout: 60,
+        commitContext,
+      });
+
+      // Emit FAILED marker (not COMPLETE)
+      mockProc.stdout.emit('data', Buffer.from('<promise>FAILED</promise>\n'));
+
+      // Grace period should expire normally without extension
+      jest.advanceTimersByTime(COMPLETION_GRACE_PERIOD_MS + 1);
+      expect(mockProc.kill).toHaveBeenCalledWith('SIGTERM');
+
+      await runPromise;
+    });
+
+    it('should work without commitContext (backward compatible)', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', {
+        timeout: 60,
+        // No commitContext provided
+      });
+
+      // Emit COMPLETE marker
+      mockProc.stdout.emit('data', Buffer.from('<promise>COMPLETE</promise>\n'));
+
+      // Grace period should expire normally (no commit check)
+      jest.advanceTimersByTime(COMPLETION_GRACE_PERIOD_MS + 1);
+      expect(mockProc.kill).toHaveBeenCalledWith('SIGTERM');
+
+      await runPromise;
+    });
+
+    it('should verify commit message prefix matches', async () => {
+      const mockProc = createMockProcess();
+      mockProc.kill = jest.fn();
+      mockSpawn.mockReturnValue(mockProc);
+
+      // HEAD changed but message doesn't match expected prefix
+      mockGetHeadCommitHash.mockReturnValue('bbb222');
+      mockGetHeadCommitMessage.mockReturnValue('RAF[005:002] Wrong task');
+      mockIsFileCommittedInHead.mockReturnValue(true);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', {
+        timeout: 60,
+        commitContext,
+      });
+
+      // Emit COMPLETE marker
+      mockProc.stdout.emit('data', Buffer.from('<promise>COMPLETE</promise>\n'));
+
+      // Grace period expires - commit message doesn't match, should extend
+      jest.advanceTimersByTime(COMPLETION_GRACE_PERIOD_MS + 1);
+      expect(mockProc.kill).not.toHaveBeenCalled();
+
+      // Fix commit message
+      mockGetHeadCommitMessage.mockReturnValue('RAF[005:001] Correct task');
+
+      // Next poll finds it
+      jest.advanceTimersByTime(COMMIT_POLL_INTERVAL_MS);
+      expect(mockProc.kill).toHaveBeenCalledWith('SIGTERM');
+
+      mockProc.emit('close', 1);
+      await runPromise;
+    });
+
+    it('should verify outcome file is committed', async () => {
+      const mockProc = createMockProcess();
+      mockProc.kill = jest.fn();
+      mockSpawn.mockReturnValue(mockProc);
+
+      // HEAD changed and message matches, but file not committed
+      mockGetHeadCommitHash.mockReturnValue('bbb222');
+      mockGetHeadCommitMessage.mockReturnValue('RAF[005:001] Add feature');
+      mockIsFileCommittedInHead.mockReturnValue(false);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', {
+        timeout: 60,
+        commitContext,
+      });
+
+      // Emit COMPLETE marker
+      mockProc.stdout.emit('data', Buffer.from('<promise>COMPLETE</promise>\n'));
+
+      // Grace period expires - file not committed, should extend
+      jest.advanceTimersByTime(COMPLETION_GRACE_PERIOD_MS + 1);
+      expect(mockProc.kill).not.toHaveBeenCalled();
+
+      // File now committed
+      mockIsFileCommittedInHead.mockReturnValue(true);
+
+      // Next poll finds it
+      jest.advanceTimersByTime(COMMIT_POLL_INTERVAL_MS);
+      expect(mockProc.kill).toHaveBeenCalledWith('SIGTERM');
+
       mockProc.emit('close', 1);
       await runPromise;
     });

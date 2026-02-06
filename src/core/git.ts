@@ -168,6 +168,50 @@ export function stashChanges(name: string): boolean {
 }
 
 /**
+ * Get the current HEAD commit hash.
+ * Returns null if not in a git repo or HEAD doesn't exist.
+ */
+export function getHeadCommitHash(): string | null {
+  try {
+    return execSync('git rev-parse HEAD', { encoding: 'utf-8', stdio: 'pipe' }).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get the current HEAD commit message (first line only).
+ * Returns null if not in a git repo or HEAD doesn't exist.
+ */
+export function getHeadCommitMessage(): string | null {
+  try {
+    return execSync('git log -1 --format=%s', { encoding: 'utf-8', stdio: 'pipe' }).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Check if a file is tracked in the HEAD commit.
+ * Returns true if the file appears in the latest commit's tree.
+ */
+export function isFileCommittedInHead(filePath: string): boolean {
+  try {
+    // Use git ls-tree to check if the file exists in HEAD
+    // We need the path relative to the repo root
+    const repoRoot = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8', stdio: 'pipe' }).trim();
+    const relativePath = path.relative(repoRoot, path.resolve(filePath));
+    const result = execSync(`git ls-tree HEAD -- "${relativePath.replace(/"/g, '\\"')}"`, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    }).trim();
+    return result.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Commit planning artifacts (input.md and decisions.md) for a project.
  * Uses commit message format: RAF[NNN] Plan: project-name
  *

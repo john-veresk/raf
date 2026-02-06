@@ -4,6 +4,7 @@ import type { IDisposable } from 'node-pty';
 import { execSync, spawn } from 'node:child_process';
 import { logger } from '../utils/logger.js';
 import { renderStreamEvent } from '../parsers/stream-renderer.js';
+import { getHeadCommitHash, getHeadCommitMessage, isFileCommittedInHead } from './git.js';
 
 function getClaudePath(): string {
   try {
@@ -36,6 +37,19 @@ export interface ClaudeRunnerOptions {
    * allowing time for git commit operations to complete.
    */
   outcomeFilePath?: string;
+  /**
+   * Commit verification context. When provided, the grace period will verify
+   * that the expected git commit has been made before terminating.
+   * Only applies when a COMPLETE marker is detected (not FAILED).
+   */
+  commitContext?: {
+    /** HEAD commit hash recorded before task execution began. */
+    preExecutionHead: string;
+    /** Expected commit message prefix (e.g., "RAF[005:001]"). */
+    expectedPrefix: string;
+    /** Path to the outcome file that should be committed. */
+    outcomeFilePath: string;
+  };
 }
 
 export interface ClaudeRunnerConfig {
@@ -69,9 +83,32 @@ const COMPLETION_MARKER_PATTERN = /<promise>(COMPLETE|FAILED)<\/promise>/i;
 export const COMPLETION_GRACE_PERIOD_MS = 60_000;
 
 /**
+ * Hard maximum grace period in ms. If the commit hasn't landed by this point,
+ * the process is killed regardless.
+ */
+export const COMPLETION_HARD_MAX_MS = 180_000;
+
+/**
+ * Interval in ms for polling commit verification after the initial grace period expires.
+ */
+export const COMMIT_POLL_INTERVAL_MS = 10_000;
+
+/**
  * Interval in ms for polling the outcome file for completion markers.
  */
 export const OUTCOME_POLL_INTERVAL_MS = 5_000;
+
+/**
+ * Context for commit verification during grace period.
+ */
+export interface CommitContext {
+  /** HEAD commit hash recorded before task execution began. */
+  preExecutionHead: string;
+  /** Expected commit message prefix (e.g., "RAF[005:001]"). */
+  expectedPrefix: string;
+  /** Path to the outcome file that should be committed. */
+  outcomeFilePath: string;
+}
 
 /**
  * Monitors for task completion markers in stdout and outcome files.
@@ -84,13 +121,41 @@ interface CompletionDetector {
   cleanup(): void;
 }
 
+const COMPLETE_MARKER_PATTERN = /<promise>COMPLETE<\/promise>/i;
+
+/**
+ * Verify that the expected commit has been made.
+ * Checks: HEAD changed, commit message matches prefix, outcome file is committed.
+ */
+function verifyCommit(commitContext: CommitContext): boolean {
+  const currentHead = getHeadCommitHash();
+  if (!currentHead || currentHead === commitContext.preExecutionHead) {
+    return false;
+  }
+
+  const message = getHeadCommitMessage();
+  if (!message || !message.startsWith(commitContext.expectedPrefix)) {
+    return false;
+  }
+
+  if (!isFileCommittedInHead(commitContext.outcomeFilePath)) {
+    return false;
+  }
+
+  return true;
+}
+
 function createCompletionDetector(
   killFn: () => void,
   outcomeFilePath?: string,
+  commitContext?: CommitContext,
 ): CompletionDetector {
   let graceHandle: ReturnType<typeof setTimeout> | null = null;
+  let commitPollHandle: ReturnType<typeof setInterval> | null = null;
+  let hardMaxHandle: ReturnType<typeof setTimeout> | null = null;
   let pollHandle: ReturnType<typeof setInterval> | null = null;
   let initialMtime = 0;
+  let detectedMarkerIsComplete = false;
 
   // Record initial mtime of outcome file to avoid false positives from previous runs
   if (outcomeFilePath) {
@@ -103,18 +168,55 @@ function createCompletionDetector(
     }
   }
 
-  function startGracePeriod(): void {
-    if (graceHandle) return; // Already started
-    logger.debug('Completion marker detected - starting grace period before termination');
-    graceHandle = setTimeout(() => {
+  /**
+   * Called when the initial grace period expires.
+   * If commit verification is needed and the commit hasn't landed yet,
+   * start polling for the commit up to the hard maximum.
+   */
+  function onGracePeriodExpired(): void {
+    if (commitContext && detectedMarkerIsComplete) {
+      // Check if commit already landed
+      if (verifyCommit(commitContext)) {
+        logger.debug('Grace period expired - commit verified, terminating Claude process');
+        killFn();
+        return;
+      }
+
+      // Commit not found yet - extend with polling
+      logger.debug('Grace period expired but commit not verified - extending with polling');
+      const remainingMs = COMPLETION_HARD_MAX_MS - COMPLETION_GRACE_PERIOD_MS;
+
+      hardMaxHandle = setTimeout(() => {
+        logger.warn('Hard maximum grace period reached without commit verification - terminating Claude process');
+        if (commitPollHandle) clearInterval(commitPollHandle);
+        killFn();
+      }, remainingMs);
+
+      commitPollHandle = setInterval(() => {
+        if (commitContext && verifyCommit(commitContext)) {
+          logger.debug('Commit verified during extended grace period - terminating Claude process');
+          if (commitPollHandle) clearInterval(commitPollHandle);
+          if (hardMaxHandle) clearTimeout(hardMaxHandle);
+          killFn();
+        }
+      }, COMMIT_POLL_INTERVAL_MS);
+    } else {
+      // No commit verification needed (FAILED marker or no context) - kill immediately
       logger.debug('Grace period expired - terminating Claude process');
       killFn();
-    }, COMPLETION_GRACE_PERIOD_MS);
+    }
+  }
+
+  function startGracePeriod(markerOutput: string): void {
+    if (graceHandle) return; // Already started
+    detectedMarkerIsComplete = COMPLETE_MARKER_PATTERN.test(markerOutput);
+    logger.debug('Completion marker detected - starting grace period before termination');
+    graceHandle = setTimeout(onGracePeriodExpired, COMPLETION_GRACE_PERIOD_MS);
   }
 
   function checkOutput(output: string): void {
     if (!graceHandle && COMPLETION_MARKER_PATTERN.test(output)) {
-      startGracePeriod();
+      startGracePeriod(output);
     }
   }
 
@@ -128,7 +230,7 @@ function createCompletionDetector(
         if (stat.mtimeMs <= initialMtime) return; // File unchanged from before execution
         const content = fs.readFileSync(filePath, 'utf-8');
         if (COMPLETION_MARKER_PATTERN.test(content)) {
-          startGracePeriod();
+          startGracePeriod(content);
         }
       } catch {
         // Ignore read errors - file may be mid-write
@@ -139,6 +241,8 @@ function createCompletionDetector(
   function cleanup(): void {
     if (graceHandle) clearTimeout(graceHandle);
     if (pollHandle) clearInterval(pollHandle);
+    if (commitPollHandle) clearInterval(commitPollHandle);
+    if (hardMaxHandle) clearTimeout(hardMaxHandle);
   }
 
   return { checkOutput, cleanup };
@@ -263,7 +367,7 @@ export class ClaudeRunner {
    * - Default timeout is 60 minutes if not specified
    */
   async run(prompt: string, options: ClaudeRunnerOptions = {}): Promise<RunResult> {
-    const { timeout = 60, cwd = process.cwd(), outcomeFilePath } = options;
+    const { timeout = 60, cwd = process.cwd(), outcomeFilePath, commitContext } = options;
     // Ensure timeout is a positive number, fallback to 60 minutes
     const validatedTimeout = Number(timeout) > 0 ? Number(timeout) : 60;
     const timeoutMs = validatedTimeout * 60 * 1000;
@@ -311,6 +415,7 @@ export class ClaudeRunner {
       const completionDetector = createCompletionDetector(
         () => proc.kill('SIGTERM'),
         outcomeFilePath,
+        commitContext,
       );
 
       // Collect stdout
@@ -369,7 +474,7 @@ export class ClaudeRunner {
    * - Default timeout is 60 minutes if not specified
    */
   async runVerbose(prompt: string, options: ClaudeRunnerOptions = {}): Promise<RunResult> {
-    const { timeout = 60, cwd = process.cwd(), outcomeFilePath } = options;
+    const { timeout = 60, cwd = process.cwd(), outcomeFilePath, commitContext } = options;
     // Ensure timeout is a positive number, fallback to 60 minutes
     const validatedTimeout = Number(timeout) > 0 ? Number(timeout) : 60;
     const timeoutMs = validatedTimeout * 60 * 1000;
@@ -423,6 +528,7 @@ export class ClaudeRunner {
       const completionDetector = createCompletionDetector(
         () => proc.kill('SIGTERM'),
         outcomeFilePath,
+        commitContext,
       );
 
       // Buffer for incomplete NDJSON lines (data chunks may split across line boundaries)
