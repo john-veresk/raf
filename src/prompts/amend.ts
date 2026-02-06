@@ -35,7 +35,11 @@ export function getAmendPrompt(params: AmendPromptParams): AmendPromptResult {
             : '[PENDING]';
       const modifiability =
         task.status === 'completed' ? '[PROTECTED]' : '[MODIFIABLE]';
-      return `- Task ${task.id}: ${task.taskName} ${status} ${modifiability}`;
+      const outcomeRef =
+        task.status === 'completed'
+          ? `\n  Outcome: ${projectPath}/outcomes/${task.planFile.replace('plans/', '').replace(/\.md$/, '')}.md`
+          : '';
+      return `- Task ${task.id}: ${task.taskName} ${status} ${modifiability}${outcomeRef}`;
     })
     .join('\n');
 
@@ -94,6 +98,13 @@ Read the user's description of new tasks and identify what needs to be added. Co
 - Dependencies on completed tasks (check the ## Dependencies section in existing plan files)
 - Whether new tasks should reference existing task outcomes
 
+**Identifying Follow-up Tasks**: When a new task is a follow-up, fix, or iteration of a previously completed task, you MUST reference the previous task's outcome in the new plan's Context section. This gives the executing agent full context about what was done before.
+
+Use this format in the Context section:
+\`This is a follow-up to task NNN. See outcome: {projectPath}/outcomes/NNN-task-name.md\`
+
+The outcome file paths for completed tasks are listed above in the Existing Tasks section.
+
 ### Step 3: Interview the User
 
 For EACH new task you identify, use the AskUserQuestion tool to gather:
@@ -131,6 +142,7 @@ Each plan file should follow this structure:
 ## Context
 [Why this task is needed, how it fits into the larger project]
 [Reference relevant existing tasks if applicable]
+[For follow-up/fix tasks: "This is a follow-up to task NNN. See outcome: {projectPath}/outcomes/NNN-task-name.md"]
 
 ## Dependencies
 [Optional section - omit if task has no dependencies]

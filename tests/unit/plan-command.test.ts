@@ -550,6 +550,57 @@ describe('Plan Command - Amend Functionality', () => {
       expect(userMessage).toContain('Add a caching layer for API responses');
       expect(userMessage).toContain('planning interview');
     });
+
+    it('should include outcome file paths for completed tasks in task summary', () => {
+      const params: AmendPromptParams = {
+        projectPath: '/test/project',
+        existingTasks: [
+          { id: '001', planFile: 'plans/001-setup.md', status: 'completed', taskName: 'setup' },
+          { id: '002', planFile: 'plans/002-database.md', status: 'completed', taskName: 'database' },
+        ],
+        nextTaskNumber: 3,
+        newTaskDescription: 'Fix setup issues',
+      };
+
+      const { systemPrompt } = getAmendPrompt(params);
+
+      expect(systemPrompt).toContain('Outcome: /test/project/outcomes/001-setup.md');
+      expect(systemPrompt).toContain('Outcome: /test/project/outcomes/002-database.md');
+    });
+
+    it('should not include outcome file paths for non-completed tasks', () => {
+      const params: AmendPromptParams = {
+        projectPath: '/test/project',
+        existingTasks: [
+          { id: '001', planFile: 'plans/001-pending-task.md', status: 'pending', taskName: 'pending-task' },
+          { id: '002', planFile: 'plans/002-failed-task.md', status: 'failed', taskName: 'failed-task' },
+        ],
+        nextTaskNumber: 3,
+        newTaskDescription: 'New tasks',
+      };
+
+      const { systemPrompt } = getAmendPrompt(params);
+
+      expect(systemPrompt).not.toContain('Outcome: /test/project/outcomes/001-pending-task.md');
+      expect(systemPrompt).not.toContain('Outcome: /test/project/outcomes/002-failed-task.md');
+    });
+
+    it('should include follow-up task instructions in system prompt', () => {
+      const params: AmendPromptParams = {
+        projectPath: '/test/project',
+        existingTasks: [
+          { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
+        ],
+        nextTaskNumber: 2,
+        newTaskDescription: 'Fix issues from first task',
+      };
+
+      const { systemPrompt } = getAmendPrompt(params);
+
+      expect(systemPrompt).toContain('Identifying Follow-up Tasks');
+      expect(systemPrompt).toContain('follow-up to task NNN');
+      expect(systemPrompt).toContain('outcome file paths for completed tasks are listed above');
+    });
   });
 
   describe('Existing Project Detection Without Amend Flag', () => {
