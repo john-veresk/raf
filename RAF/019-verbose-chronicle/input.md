@@ -1,0 +1,3 @@
+- [ ] in amendment, if new task looks like follow up or fix to previous completed task in the project - you should reference it in new plan (iteration plan)
+- [ ] in 'raf do --verbose' add task name  (not just "Executing task 011..."). also steam output from claude into terminal in verbose mode
+- [ ] raf halted before commit was done. make sure commit is there before halting claude by checking commits. see previous halt work in commit 4d3868c3ef4c607c59829e94462ffd0490d82a98
