@@ -3,6 +3,7 @@ import * as pty from 'node-pty';
 import type { IDisposable } from 'node-pty';
 import { execSync, spawn } from 'node:child_process';
 import { logger } from '../utils/logger.js';
+import { renderStreamEvent } from '../parsers/stream-renderer.js';
 
 function getClaudePath(): string {
   try {
@@ -357,7 +358,8 @@ export class ClaudeRunner {
 
   /**
    * Run Claude non-interactively with verbose output to stdout.
-   * Uses child_process.spawn with -p flag for prompt (like ralphy).
+   * Uses --output-format stream-json --verbose to get real-time streaming
+   * of tool calls, file operations, and thinking steps.
    *
    * TIMEOUT BEHAVIOR:
    * - The timeout is applied per individual call to this method
@@ -380,13 +382,13 @@ export class ClaudeRunner {
 
       const claudePath = getClaudePath();
 
-      logger.debug(`Starting Claude execution session (verbose) with model: ${this.model}`);
+      logger.debug(`Starting Claude execution session (verbose/stream-json) with model: ${this.model}`);
       logger.debug(`Prompt length: ${prompt.length}, timeout: ${timeoutMs}ms, cwd: ${cwd}`);
       logger.debug(`Claude path: ${claudePath}`);
 
       logger.debug('Spawning process...');
-      // Use --append-system-prompt to add RAF instructions to system prompt
-      // This gives RAF instructions stronger precedence than passing as user message
+      // Use --output-format stream-json --verbose to get real-time streaming events
+      // including tool calls, file operations, and intermediate output.
       // --dangerously-skip-permissions bypasses interactive prompts
       // -p enables print mode (non-interactive)
       const proc = spawn(claudePath, [
@@ -395,6 +397,9 @@ export class ClaudeRunner {
         this.model,
         '--append-system-prompt',
         prompt,
+        '--output-format',
+        'stream-json',
+        '--verbose',
         '-p',
         'Execute the task as described in the system prompt.',
       ], {
@@ -420,27 +425,45 @@ export class ClaudeRunner {
         outcomeFilePath,
       );
 
-      // Collect and display stdout
+      // Buffer for incomplete NDJSON lines (data chunks may split across line boundaries)
+      let lineBuffer = '';
       let dataReceived = false;
+
       proc.stdout.on('data', (data) => {
         if (!dataReceived) {
           logger.debug('First data chunk received');
           dataReceived = true;
         }
-        const text = data.toString();
-        output += text;
-        process.stdout.write(text);
 
-        // Check for completion marker to start grace period
-        completionDetector.checkOutput(output);
+        lineBuffer += data.toString();
 
-        // Check for context overflow
-        for (const pattern of CONTEXT_OVERFLOW_PATTERNS) {
-          if (pattern.test(text)) {
-            contextOverflow = true;
-            logger.warn('Context overflow detected');
-            proc.kill('SIGTERM');
-            break;
+        // Process complete lines from the NDJSON stream
+        let newlineIndex: number;
+        while ((newlineIndex = lineBuffer.indexOf('\n')) !== -1) {
+          const line = lineBuffer.substring(0, newlineIndex);
+          lineBuffer = lineBuffer.substring(newlineIndex + 1);
+
+          const { display, textContent } = renderStreamEvent(line);
+
+          if (textContent) {
+            output += textContent;
+
+            // Check for completion marker to start grace period
+            completionDetector.checkOutput(output);
+
+            // Check for context overflow
+            for (const pattern of CONTEXT_OVERFLOW_PATTERNS) {
+              if (pattern.test(textContent)) {
+                contextOverflow = true;
+                logger.warn('Context overflow detected');
+                proc.kill('SIGTERM');
+                break;
+              }
+            }
+          }
+
+          if (display) {
+            process.stdout.write(display);
           }
         }
       });
@@ -451,6 +474,17 @@ export class ClaudeRunner {
       });
 
       proc.on('close', (exitCode) => {
+        // Process any remaining data in the line buffer
+        if (lineBuffer.trim()) {
+          const { display, textContent } = renderStreamEvent(lineBuffer);
+          if (textContent) {
+            output += textContent;
+          }
+          if (display) {
+            process.stdout.write(display);
+          }
+        }
+
         clearTimeout(timeoutHandle);
         completionDetector.cleanup();
         this.activeProcess = null;

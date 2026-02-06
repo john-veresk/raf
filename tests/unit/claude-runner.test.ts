@@ -555,6 +555,93 @@ describe('ClaudeRunner', () => {
     });
   });
 
+  describe('verbose stream-json output', () => {
+    function createMockProcess() {
+      const stdout = new EventEmitter();
+      const stderr = new EventEmitter();
+      const proc = new EventEmitter() as any;
+      proc.stdout = stdout;
+      proc.stderr = stderr;
+      proc.kill = jest.fn();
+      return proc;
+    }
+
+    it('should include --output-format stream-json and --verbose flags in runVerbose()', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.runVerbose('test prompt', { timeout: 60 });
+
+      mockProc.emit('close', 0);
+      await runPromise;
+
+      const spawnArgs = mockSpawn.mock.calls[0][1] as string[];
+      expect(spawnArgs).toContain('--output-format');
+      expect(spawnArgs).toContain('stream-json');
+      expect(spawnArgs).toContain('--verbose');
+    });
+
+    it('should NOT include --output-format or --verbose flags in run()', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', { timeout: 60 });
+
+      mockProc.emit('close', 0);
+      await runPromise;
+
+      const spawnArgs = mockSpawn.mock.calls[0][1] as string[];
+      expect(spawnArgs).not.toContain('--output-format');
+      expect(spawnArgs).not.toContain('stream-json');
+      expect(spawnArgs).not.toContain('--verbose');
+    });
+
+    it('should extract text from NDJSON assistant events', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.runVerbose('test prompt', { timeout: 60 });
+
+      // Emit NDJSON lines like real stream-json output
+      const systemEvent = JSON.stringify({ type: 'system', subtype: 'init' });
+      const assistantEvent = JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'text', text: 'Task complete.\n<promise>COMPLETE</promise>' }] },
+      });
+      const resultEvent = JSON.stringify({ type: 'result', subtype: 'success', result: 'Task complete.' });
+
+      mockProc.stdout.emit('data', Buffer.from(systemEvent + '\n' + assistantEvent + '\n' + resultEvent + '\n'));
+      mockProc.emit('close', 0);
+
+      const result = await runPromise;
+      expect(result.output).toContain('Task complete.');
+      expect(result.output).toContain('<promise>COMPLETE</promise>');
+    });
+
+    it('should extract text from tool_use NDJSON events without adding to output', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.runVerbose('test prompt', { timeout: 60 });
+
+      const toolEvent = JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name: 'Read', input: { file_path: '/test.ts' } }] },
+      });
+
+      mockProc.stdout.emit('data', Buffer.from(toolEvent + '\n'));
+      mockProc.emit('close', 0);
+
+      const result = await runPromise;
+      // Tool use events don't add text to output
+      expect(result.output).toBe('');
+    });
+  });
+
   describe('retry isolation (timeout per attempt)', () => {
     function createMockProcess() {
       const stdout = new EventEmitter();
