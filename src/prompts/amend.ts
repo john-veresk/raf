@@ -109,7 +109,7 @@ After EACH interview question is answered, append the Q&A pair to the existing d
 
 Use this format:
 \`\`\`markdown
-## [Amendment] [Question asked]
+## [Question asked]
 [User's answer]
 \`\`\`
 

@@ -20,7 +20,7 @@ export function getPlanningPrompt(params: PlanningPromptParams): PlanningPromptR
 
 ## Your Goals
 
-1. **Analyze the input** and identify 3-8 distinct, actionable tasks
+1. **Analyze the input** and identify distinct, actionable tasks
 2. **Interview the user** about EACH task to gather specific requirements
 3. **Create plan files** for each task with clear instructions
 
@@ -32,7 +32,7 @@ Project folder: ${projectPath}
 
 ### Step 1: Identify and Order Tasks
 
-Based on the project description, identify 3-8 distinct tasks. Each task should:
+Based on the project description, identify distinct tasks. Each task should:
 - Be independently completable
 - Have a clear outcome
 - Take roughly 10-30 minutes of work for Claude
