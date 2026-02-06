@@ -446,6 +446,7 @@ async function executeSingleProject(
     const taskName = extractTaskNameFromPlanFile(task.planFile);
     const displayName = taskName ?? task.id;
     const taskId = task.id;  // Capture for closure
+    const taskLabel = displayName !== task.id ? `${task.id} (${displayName})` : task.id;
 
     // Handle blocked tasks separately - skip Claude execution
     if (task.status === 'blocked') {
@@ -459,7 +460,7 @@ async function executeSingleProject(
       if (verbose) {
         const taskContext = `[Task ${taskNumber}/${totalTasks}: ${displayName}]`;
         logger.setContext(taskContext);
-        logger.warn(`Task ${task.id} blocked by failed dependency: ${blockingDep}`);
+        logger.warn(`Task ${taskLabel} blocked by failed dependency: ${blockingDep}`);
       } else {
         // Minimal mode: show blocked task line with distinct symbol
         logger.info(formatTaskProgress(taskNumber, totalTasks, 'blocked', displayName, undefined, task.id));
@@ -484,11 +485,11 @@ async function executeSingleProject(
 
       // Log task execution status
       if (task.status === 'failed') {
-        logger.info(`Retrying task ${task.id} (previously failed)...`);
+        logger.info(`Retrying task ${taskLabel} (previously failed)...`);
       } else if (task.status === 'completed' && force) {
-        logger.info(`Re-running task ${task.id} (force mode)...`);
+        logger.info(`Re-running task ${taskLabel} (force mode)...`);
       } else {
-        logger.info(`Executing task ${task.id}...`);
+        logger.info(`Executing task ${taskLabel}...`);
       }
     }
 
@@ -527,7 +528,7 @@ async function executeSingleProject(
       attempts++;
 
       if (verbose && attempts > 1) {
-        logger.info(`  Retry ${attempts}/${maxRetries}...`);
+        logger.info(`  Retry ${attempts}/${maxRetries} for task ${taskLabel}...`);
       }
 
       // Build execution prompt (inside loop to include retry context on retries)
@@ -667,7 +668,7 @@ Task completed. No detailed report provided.
       projectManager.saveOutcome(projectPath, task.id, outcomeContent);
 
       if (verbose) {
-        logger.success(`  Task ${task.id} completed (${elapsedFormatted})`);
+        logger.success(`  Task ${taskLabel} completed (${elapsedFormatted})`);
       } else {
         // Minimal mode: show completed task line
         logger.info(formatTaskProgress(taskNumber, totalTasks, 'completed', displayName, elapsedMs, task.id));
@@ -681,12 +682,12 @@ Task completed. No detailed report provided.
         stashName = `raf-${projectNum}-task-${task.id}-failed`;
         const stashed = stashChanges(stashName);
         if (verbose && stashed) {
-          logger.info(`  Changes stashed as: ${stashName}`);
+          logger.info(`  Changes for task ${taskLabel} stashed as: ${stashName}`);
         }
       }
 
       if (verbose) {
-        logger.error(`  Task ${task.id} failed: ${failureReason} (${elapsedFormatted})`);
+        logger.error(`  Task ${taskLabel} failed: ${failureReason} (${elapsedFormatted})`);
         logger.info('  Analyzing failure...');
       } else {
         // Minimal mode: show failed task line
