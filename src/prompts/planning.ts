@@ -1,6 +1,7 @@
 export interface PlanningPromptParams {
   projectPath: string;
   inputContent: string;
+  worktreeMode?: boolean;
 }
 
 export interface PlanningPromptResult {
@@ -14,7 +15,8 @@ export interface PlanningPromptResult {
  * - userMessage: Reference to input.md file (via positional argument, triggers Claude to start)
  */
 export function getPlanningPrompt(params: PlanningPromptParams): PlanningPromptResult {
-  const { projectPath } = params;
+  const { projectPath, worktreeMode } = params;
+  const worktreeFlag = worktreeMode ? ' --worktree' : '';
 
   const systemPrompt = `You are a project planning assistant for RAF (Ralph's Automation Framework). Your task is to analyze the user's project description and create detailed task plans.
 
@@ -151,7 +153,7 @@ After creating all plan files:
 \`\`\`
 Planning complete! To exit this session and run your tasks:
   1. Press Ctrl-C twice to exit
-  2. Then run: raf do <project>
+  2. Then run: raf do <project>${worktreeFlag}
 \`\`\`
 
 ## Important Rules

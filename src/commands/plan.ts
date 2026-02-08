@@ -262,6 +262,7 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
   const { systemPrompt, userMessage } = getPlanningPrompt({
     projectPath,
     inputContent: userInput,
+    worktreeMode,
   });
 
   try {
@@ -526,6 +527,7 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
     existingTasks,
     nextTaskNumber,
     newTaskDescription: cleanInput,
+    worktreeMode,
   });
 
   try {

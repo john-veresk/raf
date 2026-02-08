@@ -5,6 +5,7 @@ export interface AmendPromptParams {
   existingTasks: Array<DerivedTask & { taskName: string }>;
   nextTaskNumber: number;
   newTaskDescription: string;
+  worktreeMode?: boolean;
 }
 
 export interface AmendPromptResult {
@@ -23,7 +24,9 @@ export function getAmendPrompt(params: AmendPromptParams): AmendPromptResult {
     existingTasks,
     nextTaskNumber,
     newTaskDescription,
+    worktreeMode,
   } = params;
+  const worktreeFlag = worktreeMode ? ' --worktree' : '';
 
   const existingTasksSummary = existingTasks
     .map((task) => {
@@ -181,7 +184,9 @@ After creating all new plan files:
 2. Display this exit message to the user:
 
 \`\`\`
-Planning complete! Press Ctrl-C twice to exit to exit this session 
+Planning complete! To exit this session and run your tasks:
+  1. Press Ctrl-C twice to exit
+  2. Then run: raf do <project>${worktreeFlag}
 \`\`\`
 
 ## Important Rules

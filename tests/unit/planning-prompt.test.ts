@@ -121,6 +121,43 @@ describe('Planning Prompt', () => {
       expect(systemPrompt).toContain('kebab-case names');
     });
 
+    it('should show raf do without --worktree when worktreeMode is false', () => {
+      const params: PlanningPromptParams = {
+        projectPath: '/test/project',
+        inputContent: 'Some project',
+        worktreeMode: false,
+      };
+
+      const { systemPrompt } = getPlanningPrompt(params);
+
+      expect(systemPrompt).toContain('raf do <project>');
+      expect(systemPrompt).not.toContain('--worktree');
+    });
+
+    it('should show raf do without --worktree when worktreeMode is undefined', () => {
+      const params: PlanningPromptParams = {
+        projectPath: '/test/project',
+        inputContent: 'Some project',
+      };
+
+      const { systemPrompt } = getPlanningPrompt(params);
+
+      expect(systemPrompt).toContain('raf do <project>');
+      expect(systemPrompt).not.toContain('--worktree');
+    });
+
+    it('should show raf do with --worktree when worktreeMode is true', () => {
+      const params: PlanningPromptParams = {
+        projectPath: '/test/project',
+        inputContent: 'Some project',
+        worktreeMode: true,
+      };
+
+      const { systemPrompt } = getPlanningPrompt(params);
+
+      expect(systemPrompt).toContain('raf do <project> --worktree');
+    });
+
     it('should include project description in user message', () => {
       const params: PlanningPromptParams = {
         projectPath: '/test/project',
