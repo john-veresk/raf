@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { Command } from 'commander';
 import { ProjectManager } from '../core/project-manager.js';
 import { ClaudeRunner } from '../core/claude-runner.js';
@@ -19,22 +20,36 @@ import { pickProjectName } from '../ui/name-picker.js';
 import {
   getPlansDir,
   getRafDir,
+  getNextProjectNumber,
+  formatProjectNumber,
   resolveProjectIdentifier,
   resolveProjectIdentifierWithDetails,
   getInputPath,
+  getDecisionsPath,
+  getOutcomesDir,
   extractTaskNameFromPlanFile,
 } from '../utils/paths.js';
+import { sanitizeProjectName } from '../utils/validation.js';
 import {
   deriveProjectState,
   isProjectComplete,
   DerivedTask,
 } from '../core/state-derivation.js';
+import {
+  getRepoBasename,
+  getRepoRoot,
+  createWorktree,
+  validateWorktree,
+  removeWorktree,
+  computeWorktreeBaseDir,
+} from '../core/worktree.js';
 
 interface PlanCommandOptions {
   amend?: boolean;
   model?: string;
   sonnet?: boolean;
   auto?: boolean;
+  worktree?: boolean;
 }
 
 export function createPlanCommand(): Command {
@@ -48,6 +63,7 @@ export function createPlanCommand(): Command {
     .option('-m, --model <name>', 'Claude model to use (sonnet, haiku, opus)')
     .option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')
     .option('-y, --auto', "Skip Claude's permission prompts for file operations")
+    .option('-w, --worktree', 'Create a git worktree for isolated planning')
     .action(async (projectName: string | undefined, options: PlanCommandOptions) => {
       // Validate and resolve model option
       let model: string;
@@ -59,6 +75,7 @@ export function createPlanCommand(): Command {
       }
 
       const autoMode = options.auto ?? false;
+      const worktreeMode = options.worktree ?? false;
 
       if (options.amend) {
         if (!projectName) {
@@ -67,16 +84,16 @@ export function createPlanCommand(): Command {
           logger.error('   or: raf plan --amend <project>');
           process.exit(1);
         }
-        await runAmendCommand(projectName, model, autoMode);
+        await runAmendCommand(projectName, model, autoMode, worktreeMode);
       } else {
-        await runPlanCommand(projectName, model, autoMode);
+        await runPlanCommand(projectName, model, autoMode, worktreeMode);
       }
     });
 
   return command;
 }
 
-async function runPlanCommand(projectName?: string, model?: string, autoMode: boolean = false): Promise<void> {
+async function runPlanCommand(projectName?: string, model?: string, autoMode: boolean = false, worktreeMode: boolean = false): Promise<void> {
   // Validate environment
   const validation = validateEnvironment();
   reportValidation(validation);
@@ -92,6 +109,15 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
     if (existingProject) {
       logger.error(`Project already exists: ${existingProject}`);
       logger.error(`To add tasks to an existing project, use: raf plan --amend ${projectName}`);
+      process.exit(1);
+    }
+  }
+
+  // Validate git repo for worktree mode
+  if (worktreeMode) {
+    const repoRoot = getRepoRoot();
+    if (!repoRoot) {
+      logger.error('--worktree requires a git repository');
       process.exit(1);
     }
   }
@@ -142,24 +168,84 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
     process.exit(1);
   }
 
-  // Create project
-  const projectManager = new ProjectManager();
-  const projectPath = projectManager.createProject(finalProjectName);
+  let projectPath: string;
+  let worktreePath: string | null = null;
+  let worktreeBranch: string | null = null;
 
-  logger.success(`Created project: ${projectPath}`);
-  logger.newline();
+  if (worktreeMode) {
+    // Worktree mode: create worktree, then project folder inside it
+    const repoBasename = getRepoBasename()!;
+    const repoRoot = getRepoRoot()!;
+    const rafDir = getRafDir();
 
-  // Save input
-  projectManager.saveInput(projectPath, userInput);
+    // Compute project number from main repo's RAF directory
+    const projectNumber = getNextProjectNumber(rafDir);
+    const sanitizedName = sanitizeProjectName(finalProjectName);
+    const folderName = `${formatProjectNumber(projectNumber)}-${sanitizedName}`;
+
+    // Create worktree
+    const result = createWorktree(repoBasename, folderName);
+    if (!result.success) {
+      logger.error(`Failed to create worktree: ${result.error}`);
+      process.exit(1);
+    }
+
+    worktreePath = result.worktreePath;
+    worktreeBranch = result.branch;
+
+    // Compute project path inside worktree at the same relative path
+    const rafRelativePath = path.relative(repoRoot, rafDir);
+    projectPath = path.join(worktreePath, rafRelativePath, folderName);
+
+    // Create project folder structure inside the worktree
+    fs.mkdirSync(projectPath, { recursive: true });
+    fs.mkdirSync(getPlansDir(projectPath), { recursive: true });
+    fs.mkdirSync(getOutcomesDir(projectPath), { recursive: true });
+    fs.writeFileSync(getDecisionsPath(projectPath), '# Project Decisions\n');
+
+    // Save input inside worktree project folder
+    fs.writeFileSync(getInputPath(projectPath), userInput);
+
+    logger.success(`Created worktree: ${worktreePath}`);
+    logger.success(`Branch: ${worktreeBranch}`);
+    logger.success(`Project: ${projectPath}`);
+    logger.newline();
+  } else {
+    // Standard mode: create project in main repo
+    const projectManager = new ProjectManager();
+    projectPath = projectManager.createProject(finalProjectName);
+
+    logger.success(`Created project: ${projectPath}`);
+    logger.newline();
+
+    // Save input
+    projectManager.saveInput(projectPath, userInput);
+  }
 
   // Set up shutdown handler
   const claudeRunner = new ClaudeRunner({ model });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
-  // Register cleanup callback for empty project folder
+  // Register cleanup callback
   shutdownHandler.onShutdown(() => {
-    projectManager.cleanupEmptyProject(projectPath);
+    if (worktreeMode && worktreePath) {
+      // Clean up worktree if no plans were created
+      const plansDir = getPlansDir(projectPath);
+      const hasPlanFiles = fs.existsSync(plansDir) &&
+        fs.readdirSync(plansDir).filter((f) => f.endsWith('.md')).length > 0;
+      if (!hasPlanFiles) {
+        const removal = removeWorktree(worktreePath);
+        if (removal.success) {
+          logger.debug(`Cleaned up worktree: ${worktreePath}`);
+        } else {
+          logger.warn(`Failed to clean up worktree: ${removal.error}`);
+        }
+      }
+    } else {
+      const projectManager = new ProjectManager();
+      projectManager.cleanupEmptyProject(projectPath);
+    }
   });
 
   // Run planning session
@@ -181,6 +267,8 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
   try {
     const exitCode = await claudeRunner.runInteractive(systemPrompt, userMessage, {
       dangerouslySkipPermissions: autoMode,
+      // Run Claude session in the worktree root if in worktree mode
+      cwd: worktreePath ?? undefined,
     });
 
     if (exitCode !== 0) {
@@ -205,21 +293,43 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
       }
 
       // Commit planning artifacts (input.md and decisions.md)
-      await commitPlanningArtifacts(projectPath);
+      await commitPlanningArtifacts(projectPath, worktreePath ? { cwd: worktreePath } : undefined);
 
       logger.newline();
-      logger.info(`Run 'raf do ${finalProjectName}' to execute the plans.`);
+      if (worktreeMode) {
+        logger.info(`Worktree: ${worktreePath}`);
+        logger.info(`Branch: ${worktreeBranch}`);
+        logger.info(`Run 'raf do ${finalProjectName} --worktree' to execute the plans.`);
+      } else {
+        logger.info(`Run 'raf do ${finalProjectName}' to execute the plans.`);
+      }
     }
   } catch (error) {
     logger.error(`Planning failed: ${error}`);
     throw error;
   } finally {
-    // Cleanup empty project folder if no plans were created
-    projectManager.cleanupEmptyProject(projectPath);
+    if (worktreeMode && worktreePath) {
+      // Clean up worktree if no plans were created
+      const plansDir = getPlansDir(projectPath);
+      const hasPlanFiles = fs.existsSync(plansDir) &&
+        fs.readdirSync(plansDir).filter((f) => f.endsWith('.md')).length > 0;
+      if (!hasPlanFiles) {
+        const removal = removeWorktree(worktreePath);
+        if (removal.success) {
+          logger.debug(`Cleaned up worktree: ${worktreePath}`);
+        } else {
+          logger.warn(`Failed to clean up worktree: ${removal.error}`);
+        }
+      }
+    } else if (!worktreeMode) {
+      // Cleanup empty project folder if no plans were created (standard mode only)
+      const projectManager = new ProjectManager();
+      projectManager.cleanupEmptyProject(projectPath);
+    }
   }
 }
 
-async function runAmendCommand(identifier: string, model?: string, autoMode: boolean = false): Promise<void> {
+async function runAmendCommand(identifier: string, model?: string, autoMode: boolean = false, worktreeMode: boolean = false): Promise<void> {
   // Validate environment
   const validation = validateEnvironment();
   reportValidation(validation);
@@ -228,25 +338,88 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
     process.exit(1);
   }
 
-  // Resolve the project
-  const rafDir = getRafDir();
-  const result = resolveProjectIdentifierWithDetails(rafDir, identifier);
+  let worktreePath: string | null = null;
+  let projectPath: string;
 
-  if (!result.path) {
-    if (result.error === 'ambiguous' && result.matches) {
-      logger.error(`Ambiguous project name: ${identifier}`);
-      logger.error('Multiple projects match:');
-      for (const match of result.matches) {
-        logger.error(`  - ${match.folder}`);
-      }
-      logger.error('Please specify the project ID or full folder name.');
-    } else {
-      logger.error(`Project not found: ${identifier}`);
+  if (worktreeMode) {
+    // Worktree mode: resolve project from worktree directory
+    const repoBasename = getRepoBasename();
+    if (!repoBasename) {
+      logger.error('--worktree requires a git repository');
+      process.exit(1);
     }
-    process.exit(1);
-  }
 
-  const projectPath = result.path;
+    const repoRoot = getRepoRoot()!;
+    const rafDir = getRafDir();
+    const rafRelativePath = path.relative(repoRoot, rafDir);
+
+    const worktreeBaseDir = computeWorktreeBaseDir(repoBasename);
+    if (!fs.existsSync(worktreeBaseDir)) {
+      logger.error(`No worktrees found for this repository at: ${worktreeBaseDir}`);
+      logger.error('Create a worktree first with: raf plan --worktree');
+      process.exit(1);
+    }
+
+    // Search through worktree directories for the project
+    const entries = fs.readdirSync(worktreeBaseDir, { withFileTypes: true });
+    let matchedWorktreeDir: string | null = null;
+    let matchedProjectPath: string | null = null;
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const wtPath = path.join(worktreeBaseDir, entry.name);
+      const wtRafDir = path.join(wtPath, rafRelativePath);
+      if (!fs.existsSync(wtRafDir)) continue;
+
+      const resolution = resolveProjectIdentifierWithDetails(wtRafDir, identifier);
+      if (resolution.path) {
+        if (matchedWorktreeDir) {
+          logger.error(`Ambiguous: project "${identifier}" found in multiple worktrees`);
+          process.exit(1);
+        }
+        matchedWorktreeDir = wtPath;
+        matchedProjectPath = resolution.path;
+      }
+    }
+
+    if (!matchedWorktreeDir || !matchedProjectPath) {
+      logger.error(`Project not found in any worktree: ${identifier}`);
+      logger.error(`Searched in: ${worktreeBaseDir}`);
+      process.exit(1);
+    }
+
+    worktreePath = matchedWorktreeDir;
+    projectPath = matchedProjectPath;
+
+    // Validate the worktree is valid
+    const relProjectPath = path.relative(worktreePath, projectPath);
+    const wtValidation = validateWorktree(worktreePath, relProjectPath);
+    if (!wtValidation.isValidWorktree) {
+      logger.error(`Invalid worktree at: ${worktreePath}`);
+      logger.error('The worktree may have been removed or corrupted.');
+      process.exit(1);
+    }
+  } else {
+    // Standard mode: resolve from main repo
+    const rafDir = getRafDir();
+    const resolution = resolveProjectIdentifierWithDetails(rafDir, identifier);
+
+    if (!resolution.path) {
+      if (resolution.error === 'ambiguous' && resolution.matches) {
+        logger.error(`Ambiguous project name: ${identifier}`);
+        logger.error('Multiple projects match:');
+        for (const match of resolution.matches) {
+          logger.error(`  - ${match.folder}`);
+        }
+        logger.error('Please specify the project ID or full folder name.');
+      } else {
+        logger.error(`Project not found: ${identifier}`);
+      }
+      process.exit(1);
+    }
+
+    projectPath = resolution.path;
+  }
 
   // Load existing project state
   const projectState = deriveProjectState(projectPath);
@@ -287,6 +460,9 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
   // Show existing tasks summary
   logger.info('Amending existing project:');
   logger.info(`  Path: ${projectPath}`);
+  if (worktreeMode && worktreePath) {
+    logger.info(`  Worktree: ${worktreePath}`);
+  }
   logger.info(`  Existing tasks: ${existingTasks.length}`);
   logger.newline();
   logger.info('Current tasks:');
@@ -355,6 +531,8 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
   try {
     const exitCode = await claudeRunner.runInteractive(systemPrompt, userMessage, {
       dangerouslySkipPermissions: autoMode,
+      // Run Claude session in the worktree root if in worktree mode
+      cwd: worktreePath ?? undefined,
     });
 
     if (exitCode !== 0) {
@@ -386,11 +564,15 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
       }
 
       // Commit planning artifacts (input.md and decisions.md)
-      await commitPlanningArtifacts(projectPath);
+      await commitPlanningArtifacts(projectPath, worktreePath ? { cwd: worktreePath } : undefined);
 
       logger.newline();
       logger.info(`Total tasks: ${allPlanFiles.length}`);
-      logger.info(`Run 'raf do ${identifier}' to execute the new tasks.`);
+      if (worktreeMode) {
+        logger.info(`Run 'raf do ${identifier} --worktree' to execute the new tasks.`);
+      } else {
+        logger.info(`Run 'raf do ${identifier}' to execute the new tasks.`);
+      }
     }
   } catch (error) {
     logger.error(`Amendment failed: ${error}`);

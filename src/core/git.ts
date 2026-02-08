@@ -216,9 +216,12 @@ export function isFileCommittedInHead(filePath: string): boolean {
  * Uses commit message format: RAF[NNN] Plan: project-name
  *
  * @param projectPath - Full path to the project folder (e.g., /path/to/RAF/017-decision-vault)
+ * @param options - Optional settings (cwd for worktree support)
  * @returns Promise that resolves when commit is complete (or fails silently)
  */
-export async function commitPlanningArtifacts(projectPath: string): Promise<void> {
+export async function commitPlanningArtifacts(projectPath: string, options?: { cwd?: string }): Promise<void> {
+  const execCwd = options?.cwd;
+
   // Check if we're in a git repository
   if (!isGitRepo()) {
     logger.warn('Not in a git repository, skipping planning artifacts commit');
@@ -247,12 +250,14 @@ export async function commitPlanningArtifacts(projectPath: string): Promise<void
     execSync(`git add -- "${inputFile}" "${decisionsFile}"`, {
       encoding: 'utf-8',
       stdio: 'pipe',
+      ...(execCwd ? { cwd: execCwd } : {}),
     });
 
     // Check if there's anything staged to commit
     const stagedStatus = execSync('git diff --cached --name-only', {
       encoding: 'utf-8',
       stdio: 'pipe',
+      ...(execCwd ? { cwd: execCwd } : {}),
     }).trim();
 
     if (!stagedStatus) {
@@ -264,6 +269,7 @@ export async function commitPlanningArtifacts(projectPath: string): Promise<void
     execSync(`git commit -m "${commitMessage.replace(/"/g, '\\"')}"`, {
       encoding: 'utf-8',
       stdio: 'pipe',
+      ...(execCwd ? { cwd: execCwd } : {}),
     });
 
     logger.debug(`Committed planning artifacts: ${commitMessage}`);
