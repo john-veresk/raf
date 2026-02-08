@@ -186,9 +186,12 @@ RAF[a01:003] Refactor database connection pooling
 - Lifecycle: create worktree -> plan in worktree -> execute in worktree -> optionally merge with `--merge`
 - Merge strategy: fast-forward preferred, merge-commit fallback, abort on conflicts
 - Worktrees are automatically cleaned up after successful completion (branch is preserved for future amend). On failure, worktree is kept for inspection
+- `raf plan --amend --worktree` auto-recreates the worktree when it was cleaned up:
+  - If the branch exists (common after cleanup): recreates worktree from the existing branch
+  - If no branch exists: creates a fresh worktree and copies project files from the main repo
 - `--merge` is only valid with `--worktree`; merges the worktree branch into the original branch after all tasks succeed
 - On plan failure with no plan files created, the worktree is cleaned up automatically
-- Core utilities in `src/core/worktree.ts`: `createWorktree()`, `validateWorktree()`, `mergeWorktreeBranch()`, `removeWorktree()`, `listWorktreeProjects()`
+- Core utilities in `src/core/worktree.ts`: `createWorktree()`, `createWorktreeFromBranch()`, `branchExists()`, `validateWorktree()`, `mergeWorktreeBranch()`, `removeWorktree()`, `listWorktreeProjects()`
 
 ## Important Reminders
 

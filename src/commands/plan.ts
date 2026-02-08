@@ -39,6 +39,8 @@ import {
   getRepoBasename,
   getRepoRoot,
   createWorktree,
+  createWorktreeFromBranch,
+  branchExists,
   validateWorktree,
   removeWorktree,
   computeWorktreeBaseDir,
@@ -355,38 +357,68 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
     const rafRelativePath = path.relative(repoRoot, rafDir);
 
     const worktreeBaseDir = computeWorktreeBaseDir(repoBasename);
-    if (!fs.existsSync(worktreeBaseDir)) {
-      logger.error(`No worktrees found for this repository at: ${worktreeBaseDir}`);
-      logger.error('Create a worktree first with: raf plan --worktree');
-      process.exit(1);
-    }
 
-    // Search through worktree directories for the project
-    const entries = fs.readdirSync(worktreeBaseDir, { withFileTypes: true });
+    // Search through existing worktree directories for the project
     let matchedWorktreeDir: string | null = null;
     let matchedProjectPath: string | null = null;
 
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const wtPath = path.join(worktreeBaseDir, entry.name);
-      const wtRafDir = path.join(wtPath, rafRelativePath);
-      if (!fs.existsSync(wtRafDir)) continue;
+    if (fs.existsSync(worktreeBaseDir)) {
+      const entries = fs.readdirSync(worktreeBaseDir, { withFileTypes: true });
 
-      const resolution = resolveProjectIdentifierWithDetails(wtRafDir, identifier);
-      if (resolution.path) {
-        if (matchedWorktreeDir) {
-          logger.error(`Ambiguous: project "${identifier}" found in multiple worktrees`);
-          process.exit(1);
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const wtPath = path.join(worktreeBaseDir, entry.name);
+        const wtRafDir = path.join(wtPath, rafRelativePath);
+        if (!fs.existsSync(wtRafDir)) continue;
+
+        const resolution = resolveProjectIdentifierWithDetails(wtRafDir, identifier);
+        if (resolution.path) {
+          if (matchedWorktreeDir) {
+            logger.error(`Ambiguous: project "${identifier}" found in multiple worktrees`);
+            process.exit(1);
+          }
+          matchedWorktreeDir = wtPath;
+          matchedProjectPath = resolution.path;
         }
-        matchedWorktreeDir = wtPath;
-        matchedProjectPath = resolution.path;
       }
     }
 
     if (!matchedWorktreeDir || !matchedProjectPath) {
-      logger.error(`Project not found in any worktree: ${identifier}`);
-      logger.error(`Searched in: ${worktreeBaseDir}`);
-      process.exit(1);
+      // Worktree not found — try to recreate it
+      // First, resolve the project from the main repo to get the folder name
+      const mainResolution = resolveProjectIdentifierWithDetails(rafDir, identifier);
+      if (!mainResolution.path) {
+        logger.error(`Project not found in any worktree or main repo: ${identifier}`);
+        logger.error(`Searched in: ${worktreeBaseDir}`);
+        process.exit(1);
+      }
+
+      const folderName = path.basename(mainResolution.path);
+
+      if (branchExists(folderName)) {
+        // Branch exists — recreate worktree from it
+        const result = createWorktreeFromBranch(repoBasename, folderName);
+        if (!result.success) {
+          logger.error(`Failed to recreate worktree from branch: ${result.error}`);
+          process.exit(1);
+        }
+        matchedWorktreeDir = result.worktreePath;
+        matchedProjectPath = path.join(result.worktreePath, rafRelativePath, folderName);
+        logger.info(`Recreated worktree from branch: ${folderName}`);
+      } else {
+        // No branch — create fresh worktree and copy project files
+        const result = createWorktree(repoBasename, folderName);
+        if (!result.success) {
+          logger.error(`Failed to create worktree: ${result.error}`);
+          process.exit(1);
+        }
+        matchedWorktreeDir = result.worktreePath;
+        const wtProjectPath = path.join(result.worktreePath, rafRelativePath, folderName);
+        // Copy project folder from main repo into the new worktree
+        fs.cpSync(mainResolution.path, wtProjectPath, { recursive: true });
+        matchedProjectPath = wtProjectPath;
+        logger.info(`Created fresh worktree and copied project files: ${folderName}`);
+      }
     }
 
     worktreePath = matchedWorktreeDir;
