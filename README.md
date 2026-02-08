@@ -51,6 +51,7 @@ That's it! RAF will guide you through breaking down your task and then execute i
 - **Resume Support**: Continue from where you left off after interruption
 - **Git Integration**: Automatic commits after each completed task
 - **Task Dependencies**: Tasks can depend on other tasks, with automatic blocking on failure
+- **Worktree Mode**: Isolate planning and execution in a git worktree branch with `--worktree`
 
 ## Commands
 
@@ -62,6 +63,7 @@ Opens your `$EDITOR` to write a project description, then Claude will interview 
 raf plan              # Create a new project
 raf plan my-feature   # Create with a specific name
 raf plan --amend 3    # Add tasks to existing project #3
+raf plan --worktree   # Plan in an isolated git worktree
 ```
 
 ### `raf do`
@@ -73,6 +75,8 @@ raf do                # Interactive picker
 raf do 3              # Execute project #3
 raf do my-project     # Execute by name
 raf do 3 4 5          # Execute multiple projects
+raf do --worktree     # Pick and execute a worktree project
+raf do my-feature -w --merge  # Execute in worktree, merge on success
 ```
 
 Note: In non-verbose mode, the completion summary reflects the tasks executed in that run (the remaining tasks at start), so the elapsed time maps to those tasks.
@@ -112,6 +116,30 @@ RAF creates a `./RAF/` folder with numbered project directories:
     └── ...
 ```
 
+## Worktree Mode
+
+Worktree mode runs planning and execution in an isolated git worktree, keeping your main branch clean while RAF works on a separate branch.
+
+### Basic workflow
+
+```bash
+# Plan in a worktree (creates branch and worktree directory)
+raf plan my-feature --worktree
+
+# Execute tasks in the worktree, merge back on success
+raf do my-feature --worktree --merge
+```
+
+### How it works
+
+- `--worktree` creates a git worktree at `~/.raf/worktrees/<repo>/<project>/` with a new branch named after the project folder (e.g., `020-my-feature`)
+- All planning artifacts, code changes, and commits happen in the worktree branch
+- `--merge` on `raf do` merges the branch back after all tasks succeed (fast-forward preferred, merge commit as fallback)
+- On merge conflicts, the merge is aborted and you get instructions for manual resolution
+- If tasks fail, the worktree branch is preserved for inspection
+- Worktrees persist after completion — clean them up manually with `git worktree remove` when done
+- `--worktree` supports a single project at a time (no multi-project)
+
 ## Command Reference
 
 ### `raf plan [projectName]`
@@ -120,6 +148,7 @@ RAF creates a `./RAF/` folder with numbered project directories:
 |--------|-------------|
 | `--amend <id>` | Add tasks to existing project |
 | `-y, --auto` | Skip permission prompts (runs in dangerous mode) |
+| `-w, --worktree` | Create a git worktree for isolated planning |
 
 ### `raf do [projects...]`
 
@@ -130,6 +159,8 @@ RAF creates a `./RAF/` folder with numbered project directories:
 | `-d, --debug` | Save all logs and show debug output |
 | `-m, --model <name>` | Claude model (sonnet, haiku, opus) |
 | `--sonnet` | Shorthand for `--model sonnet` |
+| `-w, --worktree` | Execute tasks in a git worktree |
+| `--merge` | Merge worktree branch after successful completion (requires `--worktree`) |
 
 Alias: `raf act`
 

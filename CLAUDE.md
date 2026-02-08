@@ -174,6 +174,19 @@ RAF[a01:003] Refactor database connection pooling
 - New tasks numbered sequentially after last task
 - No modification of existing plan files
 
+### Worktree Mode
+- `raf plan --worktree` and `raf do --worktree` run in an isolated git worktree
+- Worktree path: `~/.raf/worktrees/<repo-basename>/<project-id>` (e.g., `~/.raf/worktrees/myapp/020-my-feature`)
+- Branch name matches the project folder name (e.g., `020-my-feature`)
+- `--worktree` flag is required on both `plan` and `do` — it is not auto-detected
+- Lifecycle: create worktree -> plan in worktree -> execute in worktree -> optionally merge with `--merge`
+- Merge strategy: fast-forward preferred, merge-commit fallback, abort on conflicts
+- Worktrees are NOT cleaned up after completion or merge (user removes manually)
+- `--worktree` supports single project only (no multi-project)
+- `--merge` is only valid with `--worktree`; merges the worktree branch into the original branch after all tasks succeed
+- On plan failure with no plan files created, the worktree is cleaned up automatically
+- Core utilities in `src/core/worktree.ts`: `createWorktree()`, `validateWorktree()`, `mergeWorktreeBranch()`, `removeWorktree()`, `listWorktreeProjects()`
+
 ### Multi-Project Execution
 - `raf do <projects...>` supports multiple projects
 - Sequential execution (not parallel) for git safety
