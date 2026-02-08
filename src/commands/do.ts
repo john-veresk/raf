@@ -1,5 +1,7 @@
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { Command } from 'commander';
+import { select } from '@inquirer/prompts';
 import { ProjectManager } from '../core/project-manager.js';
 import { ClaudeRunner } from '../core/claude-runner.js';
 import { shutdownHandler } from '../core/shutdown-handler.js';
@@ -7,7 +9,7 @@ import { stashChanges, hasUncommittedChanges, isGitRepo, getHeadCommitHash } fro
 import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, isRetryableFailure } from '../parsers/output-parser.js';
 import { validatePlansExist, resolveModelOption } from '../utils/validation.js';
-import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFromPlanFile, resolveProjectIdentifierWithDetails, getOutcomeFilePath } from '../utils/paths.js';
+import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFromPlanFile, resolveProjectIdentifierWithDetails, getOutcomeFilePath, parseProjectPrefix } from '../utils/paths.js';
 import { pickPendingProject, getPendingProjects } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
 import { getConfig } from '../utils/config.js';
@@ -21,6 +23,7 @@ import {
 } from '../utils/terminal-symbols.js';
 import {
   deriveProjectState,
+  discoverProjects,
   getNextExecutableTask,
   getDerivedStats,
   getDerivedStatsForTasks,
@@ -31,6 +34,14 @@ import {
   type DerivedProjectState,
 } from '../core/state-derivation.js';
 import { analyzeFailure } from '../core/failure-analyzer.js';
+import {
+  getRepoRoot,
+  getRepoBasename,
+  computeWorktreePath,
+  computeWorktreeBaseDir,
+  validateWorktree,
+  listWorktreeProjects,
+} from '../core/worktree.js';
 import type { DoCommandOptions } from '../types/config.js';
 
 /**
@@ -99,6 +110,7 @@ export function createDoCommand(): Command {
     .option('-f, --force', 'Re-run all tasks regardless of status')
     .option('-m, --model <name>', 'Claude model to use (sonnet, haiku, opus)')
     .option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')
+    .option('-w, --worktree', 'Execute tasks in a git worktree')
     .action(async (projects: string[], options: DoCommandOptions) => {
       await runDoCommand(projects, options);
     });
@@ -109,6 +121,7 @@ export function createDoCommand(): Command {
 async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandOptions): Promise<void> {
   const rafDir = getRafDir();
   let projectIdentifiers = projectIdentifiersArg;
+  const worktreeMode = options.worktree ?? false;
 
   // Validate and resolve model option
   let model: string;
@@ -119,7 +132,39 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
     process.exit(1);
   }
 
-  // Handle empty project list - show interactive picker
+  // Worktree mode: only a single project is supported
+  if (worktreeMode && projectIdentifiers.length > 1) {
+    logger.error('--worktree supports only a single project at a time.');
+    logger.error('Please specify one project identifier.');
+    process.exit(1);
+  }
+
+  // Variables for worktree context (set when --worktree is used)
+  let worktreeRoot: string | undefined;
+
+  if (worktreeMode) {
+    // Validate git repo
+    const repoRoot = getRepoRoot();
+    if (!repoRoot) {
+      logger.error('--worktree requires a git repository');
+      process.exit(1);
+    }
+    const repoBasename = getRepoBasename()!;
+    const rafRelativePath = path.relative(repoRoot, rafDir);
+
+    if (projectIdentifiers.length === 0) {
+      // Auto-discovery flow
+      const selected = await discoverAndPickWorktreeProject(repoBasename, rafDir, rafRelativePath);
+      if (!selected) {
+        process.exit(0);
+      }
+      worktreeRoot = selected.worktreeRoot;
+      projectIdentifiers = [selected.projectFolder];
+      // The project path is inside the worktree - we'll resolve below
+    }
+  }
+
+  // Handle empty project list (non-worktree mode) - show interactive picker
   if (projectIdentifiers.length === 0) {
     // Check if there are any pending projects
     const pendingProjects = getPendingProjects(rafDir);
@@ -150,40 +195,125 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
     }
   }
 
-  // Resolve all project identifiers and remove duplicates
+  // Resolve project identifiers
   const resolvedProjects: Array<{ identifier: string; path: string; name: string }> = [];
   const seenPaths = new Set<string>();
   const errors: Array<{ identifier: string; error: string }> = [];
 
-  for (const identifier of projectIdentifiers) {
-    const result = resolveProjectIdentifierWithDetails(rafDir, identifier);
+  if (worktreeMode) {
+    // Worktree mode: resolve project inside the worktree
+    const repoRoot = getRepoRoot()!;
+    const repoBasename = getRepoBasename()!;
+    const rafRelativePath = path.relative(repoRoot, rafDir);
+    const identifier = projectIdentifiers[0]!;
 
-    if (!result.path) {
-      if (result.error === 'ambiguous' && result.matches) {
-        const matchList = result.matches
-          .map((m) => `  - ${m.folder}`)
-          .join('\n');
-        errors.push({
-          identifier,
-          error: `Ambiguous project name. Multiple projects match:\n${matchList}\nPlease specify the project ID or full folder name.`,
-        });
-      } else {
-        errors.push({ identifier, error: 'Project not found' });
+    // If worktreeRoot was set by auto-discovery, use it directly
+    if (worktreeRoot) {
+      const wtRafDir = path.join(worktreeRoot, rafRelativePath);
+      const result = resolveProjectIdentifierWithDetails(wtRafDir, identifier);
+      if (!result.path) {
+        logger.error(`Project not found in worktree: ${identifier}`);
+        process.exit(1);
       }
-      continue;
+      const projectName = extractProjectName(result.path) ?? identifier;
+      resolvedProjects.push({ identifier, path: result.path, name: projectName });
+    } else {
+      // Explicit identifier: resolve from main repo to get folder name, then validate worktree
+      const mainResult = resolveProjectIdentifierWithDetails(rafDir, identifier);
+
+      let projectFolderName: string;
+      if (mainResult.path) {
+        // Found in main repo - use its folder name
+        projectFolderName = path.basename(mainResult.path);
+      } else {
+        // Not found in main repo - try to find it in worktrees directly
+        // This handles projects that only exist in worktrees
+        const worktreeBaseDir = computeWorktreeBaseDir(repoBasename);
+        if (!fs.existsSync(worktreeBaseDir)) {
+          logger.error(`No worktree found for project "${identifier}". Did you plan with --worktree?`);
+          process.exit(1);
+        }
+
+        // Search worktrees for the project
+        const wtProjects = listWorktreeProjects(repoBasename);
+        let found = false;
+        for (const wtProjectDir of wtProjects) {
+          const wtPath = computeWorktreePath(repoBasename, wtProjectDir);
+          const wtRafDir = path.join(wtPath, rafRelativePath);
+          if (!fs.existsSync(wtRafDir)) continue;
+
+          const resolution = resolveProjectIdentifierWithDetails(wtRafDir, identifier);
+          if (resolution.path) {
+            projectFolderName = path.basename(resolution.path);
+            worktreeRoot = wtPath;
+            found = true;
+            break;
+          }
+        }
+
+        if (!found) {
+          logger.error(`No worktree found for project "${identifier}". Did you plan with --worktree?`);
+          process.exit(1);
+        }
+      }
+
+      // Compute worktree path if not already set
+      if (!worktreeRoot) {
+        worktreeRoot = computeWorktreePath(repoBasename, projectFolderName!);
+      }
+
+      // Validate the worktree
+      const wtProjectRelPath = path.join(rafRelativePath, projectFolderName!);
+      const validation = validateWorktree(worktreeRoot, wtProjectRelPath);
+
+      if (!validation.exists || !validation.isValidWorktree) {
+        logger.error(`No worktree found for project "${identifier}". Did you plan with --worktree?`);
+        logger.error(`Expected worktree at: ${worktreeRoot}`);
+        process.exit(1);
+      }
+
+      if (!validation.hasProjectFolder || !validation.hasPlans) {
+        logger.error(`Worktree exists but project content is missing.`);
+        logger.error(`Expected project folder at: ${validation.projectPath ?? path.join(worktreeRoot, wtProjectRelPath)}`);
+        process.exit(1);
+      }
+
+      const projectPath = validation.projectPath!;
+      const projectName = extractProjectName(projectPath) ?? identifier;
+      resolvedProjects.push({ identifier, path: projectPath, name: projectName });
     }
+  } else {
+    // Standard mode: resolve from main repo
+    for (const identifier of projectIdentifiers) {
+      const result = resolveProjectIdentifierWithDetails(rafDir, identifier);
 
-    const projectPath = result.path;
+      if (!result.path) {
+        if (result.error === 'ambiguous' && result.matches) {
+          const matchList = result.matches
+            .map((m) => `  - ${m.folder}`)
+            .join('\n');
+          errors.push({
+            identifier,
+            error: `Ambiguous project name. Multiple projects match:\n${matchList}\nPlease specify the project ID or full folder name.`,
+          });
+        } else {
+          errors.push({ identifier, error: 'Project not found' });
+        }
+        continue;
+      }
 
-    // Skip duplicates
-    if (seenPaths.has(projectPath)) {
-      logger.info(`Skipping duplicate: ${identifier}`);
-      continue;
+      const projectPath = result.path;
+
+      // Skip duplicates
+      if (seenPaths.has(projectPath)) {
+        logger.info(`Skipping duplicate: ${identifier}`);
+        continue;
+      }
+
+      seenPaths.add(projectPath);
+      const projectName = extractProjectName(projectPath) ?? identifier;
+      resolvedProjects.push({ identifier, path: projectPath, name: projectName });
     }
-
-    seenPaths.add(projectPath);
-    const projectName = extractProjectName(projectPath) ?? identifier;
-    resolvedProjects.push({ identifier, path: projectPath, name: projectName });
   }
 
   // Report resolution errors
@@ -238,6 +368,7 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
           autoCommit,
           showModel: !isMultiProject, // Only show model for single project
           model,
+          worktreeCwd: worktreeRoot,
         }
       );
       results.push(result);
@@ -271,6 +402,123 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
   }
 }
 
+/**
+ * Auto-discovery flow for `raf do --worktree` without a project identifier.
+ * Lists worktree projects, finds latest completed main-tree project, filters,
+ * and shows an interactive picker.
+ *
+ * @returns Selected project info or null if cancelled/no projects
+ */
+async function discoverAndPickWorktreeProject(
+  repoBasename: string,
+  rafDir: string,
+  rafRelativePath: string,
+): Promise<{ worktreeRoot: string; projectFolder: string } | null> {
+  // List all worktree projects for this repo
+  const wtProjects = listWorktreeProjects(repoBasename);
+
+  if (wtProjects.length === 0) {
+    logger.error('No worktree projects found. Did you plan with --worktree?');
+    process.exit(1);
+  }
+
+  // Find the highest-numbered completed project in the MAIN tree
+  const mainProjects = discoverProjects(rafDir);
+  let highestCompletedNumber = 0;
+
+  for (const project of mainProjects) {
+    const state = deriveProjectState(project.path);
+    if (isProjectComplete(state) && state.tasks.length > 0) {
+      if (project.number > highestCompletedNumber) {
+        highestCompletedNumber = project.number;
+      }
+    }
+  }
+
+  // Filter threshold: highest completed - 3 (or 0 if none completed)
+  const threshold = highestCompletedNumber > 3 ? highestCompletedNumber - 3 : 0;
+
+  // Filter worktree projects by number threshold and completion status
+  const uncompletedProjects: Array<{
+    folder: string;
+    worktreeRoot: string;
+    projectPath: string;
+    completedTasks: number;
+    totalTasks: number;
+    projectNumber: number;
+  }> = [];
+
+  for (const wtProjectDir of wtProjects) {
+    // Extract project number from the worktree directory name
+    const numPrefix = extractProjectNumber(wtProjectDir);
+    if (!numPrefix) continue;
+    const projectNumber = parseProjectPrefix(numPrefix);
+    if (projectNumber === null) continue;
+
+    // Apply threshold filter
+    if (projectNumber < threshold) continue;
+
+    // Check if this worktree has a valid project
+    const wtPath = computeWorktreePath(repoBasename, wtProjectDir);
+    const wtProjectPath = path.join(wtPath, rafRelativePath, wtProjectDir);
+
+    if (!fs.existsSync(wtProjectPath)) continue;
+
+    // Derive project state from worktree
+    const state = deriveProjectState(wtProjectPath);
+    if (state.tasks.length === 0) continue;
+
+    // Keep only uncompleted projects
+    if (isProjectComplete(state)) continue;
+
+    const stats = getDerivedStats(state);
+    uncompletedProjects.push({
+      folder: wtProjectDir,
+      worktreeRoot: wtPath,
+      projectPath: wtProjectPath,
+      completedTasks: stats.completed,
+      totalTasks: stats.total,
+      projectNumber,
+    });
+  }
+
+  if (uncompletedProjects.length === 0) {
+    logger.info('All worktree projects are completed.');
+    return null;
+  }
+
+  // Sort by project number
+  uncompletedProjects.sort((a, b) => a.projectNumber - b.projectNumber);
+
+  // Show interactive picker (even if only one project)
+  const choices = uncompletedProjects.map((p) => {
+    const name = extractProjectName(p.folder) ?? p.folder;
+    const numPrefix = extractProjectNumber(p.folder) ?? '';
+    return {
+      name: `${numPrefix} ${name} (${p.completedTasks}/${p.totalTasks} tasks)`,
+      value: p,
+    };
+  });
+
+  try {
+    const selected = await select({
+      message: 'Select a worktree project to execute:',
+      choices,
+    });
+
+    return {
+      worktreeRoot: selected.worktreeRoot,
+      projectFolder: selected.folder,
+    };
+  } catch (error) {
+    // Handle Ctrl+C (user cancellation)
+    if (error instanceof Error && error.message.includes('User force closed')) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 interface SingleProjectOptions {
   timeout: number;
   verbose: boolean;
@@ -280,6 +528,8 @@ interface SingleProjectOptions {
   autoCommit: boolean;
   showModel: boolean;
   model: string;
+  /** Worktree root directory. When set, Claude runs with cwd in the worktree. */
+  worktreeCwd?: string;
 }
 
 async function executeSingleProject(
@@ -287,7 +537,7 @@ async function executeSingleProject(
   projectName: string,
   options: SingleProjectOptions
 ): Promise<ProjectExecutionResult> {
-  const { timeout, verbose, debug, force, maxRetries, autoCommit, showModel, model } = options;
+  const { timeout, verbose, debug, force, maxRetries, autoCommit, showModel, model, worktreeCwd } = options;
 
   if (!validatePlansExist(projectPath)) {
     return {
@@ -554,17 +804,17 @@ async function executeSingleProject(
       });
 
       // Capture HEAD hash before execution for commit verification
-      const preExecutionHead = isGitRepo() ? getHeadCommitHash() : null;
+      const preExecutionHead = isGitRepo(worktreeCwd) ? getHeadCommitHash(worktreeCwd) : null;
       const commitContext = preExecutionHead ? {
         preExecutionHead,
         expectedPrefix: `RAF[${projectNumber}:${task.id}]`,
         outcomeFilePath,
       } : undefined;
 
-      // Run Claude
+      // Run Claude (use worktree root as cwd if in worktree mode)
       const result = verbose
-        ? await claudeRunner.runVerbose(prompt, { timeout, outcomeFilePath, commitContext })
-        : await claudeRunner.run(prompt, { timeout, outcomeFilePath, commitContext });
+        ? await claudeRunner.runVerbose(prompt, { timeout, outcomeFilePath, commitContext, cwd: worktreeCwd })
+        : await claudeRunner.run(prompt, { timeout, outcomeFilePath, commitContext, cwd: worktreeCwd });
 
       lastOutput = result.output;
 
@@ -685,10 +935,10 @@ Task completed. No detailed report provided.
     } else {
       // Stash any uncommitted changes on complete failure
       let stashName: string | undefined;
-      if (hasUncommittedChanges()) {
+      if (hasUncommittedChanges(worktreeCwd)) {
         const projectNum = extractProjectNumber(projectPath) ?? '000';
         stashName = `raf-${projectNum}-task-${task.id}-failed`;
-        const stashed = stashChanges(stashName);
+        const stashed = stashChanges(stashName, worktreeCwd);
         if (verbose && stashed) {
           logger.info(`  Changes for task ${taskLabel} stashed as: ${stashName}`);
         }

@@ -12,9 +12,9 @@ export interface GitStatus {
 /**
  * Check if we're in a git repository.
  */
-export function isGitRepo(): boolean {
+export function isGitRepo(cwd?: string): boolean {
   try {
-    execSync('git rev-parse --is-inside-work-tree', { encoding: 'utf-8', stdio: 'pipe' });
+    execSync('git rev-parse --is-inside-work-tree', { encoding: 'utf-8', stdio: 'pipe', ...(cwd ? { cwd } : {}) });
     return true;
   } catch {
     return false;
@@ -58,9 +58,9 @@ export function getGitStatus(): GitStatus {
 /**
  * Check if there are uncommitted changes.
  */
-export function hasUncommittedChanges(): boolean {
+export function hasUncommittedChanges(cwd?: string): boolean {
   try {
-    const status = execSync('git status --porcelain', { encoding: 'utf-8', stdio: 'pipe' });
+    const status = execSync('git status --porcelain', { encoding: 'utf-8', stdio: 'pipe', ...(cwd ? { cwd } : {}) });
     return status.trim().length > 0;
   } catch {
     return false;
@@ -144,13 +144,13 @@ export function getChangedFiles(): string[] {
  * @param name - Name for the stash (e.g., "raf-001-task-3-failed")
  * @returns true if stash was created, false otherwise
  */
-export function stashChanges(name: string): boolean {
-  if (!isGitRepo()) {
+export function stashChanges(name: string, cwd?: string): boolean {
+  if (!isGitRepo(cwd)) {
     logger.warn('Not in a git repository, skipping stash');
     return false;
   }
 
-  if (!hasUncommittedChanges()) {
+  if (!hasUncommittedChanges(cwd)) {
     logger.debug('No uncommitted changes to stash');
     return false;
   }
@@ -159,6 +159,7 @@ export function stashChanges(name: string): boolean {
     execSync(`git stash push -m "${name.replace(/"/g, '\\"')}"`, {
       encoding: 'utf-8',
       stdio: 'pipe',
+      ...(cwd ? { cwd } : {}),
     });
     return true;
   } catch (error) {
@@ -171,9 +172,9 @@ export function stashChanges(name: string): boolean {
  * Get the current HEAD commit hash.
  * Returns null if not in a git repo or HEAD doesn't exist.
  */
-export function getHeadCommitHash(): string | null {
+export function getHeadCommitHash(cwd?: string): string | null {
   try {
-    return execSync('git rev-parse HEAD', { encoding: 'utf-8', stdio: 'pipe' }).trim() || null;
+    return execSync('git rev-parse HEAD', { encoding: 'utf-8', stdio: 'pipe', ...(cwd ? { cwd } : {}) }).trim() || null;
   } catch {
     return null;
   }
