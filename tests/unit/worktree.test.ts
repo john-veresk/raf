@@ -36,6 +36,8 @@ const {
   computeWorktreeBaseDir,
   getWorktreeProjectPath,
   createWorktree,
+  createWorktreeFromBranch,
+  branchExists,
   validateWorktree,
   mergeWorktreeBranch,
   removeWorktree,
@@ -364,6 +366,104 @@ describe('worktree utilities', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Failed to remove worktree');
+    });
+  });
+
+  describe('branchExists', () => {
+    it('should return true when branch exists', () => {
+      mockExecSync.mockReturnValue('  022-prune-cycle\n');
+      expect(branchExists('022-prune-cycle')).toBe(true);
+      expect(mockExecSync).toHaveBeenCalledWith(
+        'git branch --list "022-prune-cycle"',
+        expect.any(Object)
+      );
+    });
+
+    it('should return false when branch does not exist', () => {
+      mockExecSync.mockReturnValue('');
+      expect(branchExists('nonexistent-branch')).toBe(false);
+    });
+
+    it('should return false when git command fails', () => {
+      mockExecSync.mockImplementation(() => {
+        throw new Error('not a git repository');
+      });
+      expect(branchExists('any-branch')).toBe(false);
+    });
+  });
+
+  describe('createWorktreeFromBranch', () => {
+    it('should create worktree from existing branch successfully', () => {
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('git branch --list')) return '  022-prune-cycle\n';
+        return '';
+      });
+      mockMkdirSync.mockReturnValue(undefined);
+
+      const result = createWorktreeFromBranch('myapp', '022-prune-cycle');
+
+      expect(result.success).toBe(true);
+      expect(result.branch).toBe('022-prune-cycle');
+      expect(result.worktreePath).toBe(
+        path.join(HOME, '.raf', 'worktrees', 'myapp', '022-prune-cycle')
+      );
+      expect(mockExecSync).toHaveBeenCalledWith(
+        expect.stringContaining('git worktree add'),
+        expect.any(Object)
+      );
+      // Should NOT have -b flag
+      const worktreeCall = mockExecSync.mock.calls.find(
+        (call: unknown[]) => (call[0] as string).includes('git worktree add')
+      );
+      expect(worktreeCall).toBeDefined();
+      expect(worktreeCall![0]).not.toContain('-b');
+    });
+
+    it('should return error when branch does not exist', () => {
+      mockExecSync.mockReturnValue('');
+
+      const result = createWorktreeFromBranch('myapp', 'nonexistent-branch');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('does not exist locally');
+    });
+
+    it('should return error when parent directory creation fails', () => {
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('git branch --list')) return '  022-prune-cycle\n';
+        return '';
+      });
+      mockMkdirSync.mockImplementation(() => {
+        throw new Error('permission denied');
+      });
+
+      const result = createWorktreeFromBranch('myapp', '022-prune-cycle');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Failed to create parent directory');
+    });
+
+    it('should return error when git worktree add fails', () => {
+      let branchChecked = false;
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('git branch --list')) {
+          branchChecked = true;
+          return '  022-prune-cycle\n';
+        }
+        if (cmdStr.includes('git worktree add') && branchChecked) {
+          throw new Error('worktree path already exists');
+        }
+        return '';
+      });
+      mockMkdirSync.mockReturnValue(undefined);
+
+      const result = createWorktreeFromBranch('myapp', '022-prune-cycle');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Failed to create worktree');
     });
   });
 

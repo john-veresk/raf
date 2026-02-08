@@ -263,6 +263,73 @@ export function removeWorktree(worktreePath: string): { success: boolean; error?
 }
 
 /**
+ * Check if a local branch exists.
+ *
+ * @param branchName - The branch name to check
+ * @returns true if the branch exists locally
+ */
+export function branchExists(branchName: string): boolean {
+  try {
+    const output = execSync(`git branch --list "${branchName}"`, { encoding: 'utf-8', stdio: 'pipe' }).trim();
+    return output.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Create a git worktree at the computed path from an existing branch.
+ * Unlike `createWorktree()`, this does NOT create a new branch — it attaches
+ * to a branch that already exists locally.
+ *
+ * @param repoBasename - The basename of the repo root directory
+ * @param projectId - The full project folder name (used as both directory name and branch name)
+ */
+export function createWorktreeFromBranch(repoBasename: string, projectId: string): WorktreeCreateResult {
+  const worktreePath = computeWorktreePath(repoBasename, projectId);
+  const branch = projectId;
+
+  // Check branch exists
+  if (!branchExists(branch)) {
+    return {
+      success: false,
+      worktreePath,
+      branch,
+      error: `Branch "${branch}" does not exist locally`,
+    };
+  }
+
+  // Ensure parent directory exists
+  const baseDir = computeWorktreeBaseDir(repoBasename);
+  try {
+    fs.mkdirSync(baseDir, { recursive: true });
+  } catch (error) {
+    return {
+      success: false,
+      worktreePath,
+      branch,
+      error: `Failed to create parent directory ${baseDir}: ${error}`,
+    };
+  }
+
+  try {
+    execSync(`git worktree add "${worktreePath}" "${branch}"`, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    });
+    return { success: true, worktreePath, branch };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      worktreePath,
+      branch,
+      error: `Failed to create worktree: ${msg}`,
+    };
+  }
+}
+
+/**
  * List all worktree project directories for the current repo.
  * Scans `~/.raf/worktrees/<repo-basename>/` and returns the list of project folder names.
  *
