@@ -229,4 +229,92 @@ describe('commitPlanningArtifacts', () => {
     expect(addCmd).not.toContain('--all');
     expect(addCmd).not.toContain('*');
   });
+
+  it('should use "Amend:" prefix when isAmend is true', async () => {
+    mockExecSync.mockImplementation((cmd: unknown) => {
+      const cmdStr = cmd as string;
+      if (cmdStr.includes('rev-parse')) {
+        return 'true\n';
+      }
+      if (cmdStr.includes('git add') || cmdStr.includes('git commit')) {
+        return '';
+      }
+      if (cmdStr.includes('git diff --cached')) {
+        return 'RAF/017-decision-vault/input.md\n';
+      }
+      return '';
+    });
+
+    await commitPlanningArtifacts('/Users/test/RAF/017-decision-vault', { isAmend: true });
+
+    expect(mockExecSync).toHaveBeenCalledWith(
+      expect.stringMatching(/git commit -m "RAF\[017\] Amend: decision-vault"/),
+      expect.any(Object)
+    );
+  });
+
+  it('should stage additional files when provided', async () => {
+    mockExecSync.mockImplementation((cmd: unknown) => {
+      const cmdStr = cmd as string;
+      if (cmdStr.includes('rev-parse')) {
+        return 'true\n';
+      }
+      if (cmdStr.includes('git add') || cmdStr.includes('git commit')) {
+        return '';
+      }
+      if (cmdStr.includes('git diff --cached')) {
+        return 'RAF/017-decision-vault/input.md\nRAF/017-decision-vault/plans/004-new-task.md\n';
+      }
+      return '';
+    });
+
+    const additionalFiles = [
+      '/Users/test/RAF/017-decision-vault/plans/004-new-task.md',
+      '/Users/test/RAF/017-decision-vault/plans/005-another-task.md',
+    ];
+
+    await commitPlanningArtifacts('/Users/test/RAF/017-decision-vault', {
+      additionalFiles,
+      isAmend: true,
+    });
+
+    // Verify git add includes plan files
+    const addCall = mockExecSync.mock.calls.find(
+      (call) => (call[0] as string).includes('git add')
+    );
+    expect(addCall).toBeDefined();
+    const addCmd = addCall?.[0] as string;
+
+    expect(addCmd).toContain('input.md');
+    expect(addCmd).toContain('decisions.md');
+    expect(addCmd).toContain('004-new-task.md');
+    expect(addCmd).toContain('005-another-task.md');
+  });
+
+  it('should pass cwd to isGitRepo for worktree support', async () => {
+    mockExecSync.mockImplementation((cmd: unknown) => {
+      const cmdStr = cmd as string;
+      if (cmdStr.includes('rev-parse')) {
+        return 'true\n';
+      }
+      if (cmdStr.includes('git add') || cmdStr.includes('git commit')) {
+        return '';
+      }
+      if (cmdStr.includes('git diff --cached')) {
+        return 'RAF/017-decision-vault/input.md\n';
+      }
+      return '';
+    });
+
+    await commitPlanningArtifacts('/Users/test/RAF/017-decision-vault', {
+      cwd: '/tmp/worktree',
+    });
+
+    // The first call should be isGitRepo with cwd
+    const revParseCall = mockExecSync.mock.calls.find(
+      (call) => (call[0] as string).includes('rev-parse')
+    );
+    expect(revParseCall).toBeDefined();
+    expect(revParseCall?.[1]).toEqual(expect.objectContaining({ cwd: '/tmp/worktree' }));
+  });
 });

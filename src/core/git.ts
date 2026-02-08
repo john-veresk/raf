@@ -215,16 +215,20 @@ export function isFileCommittedInHead(filePath: string): boolean {
 /**
  * Commit planning artifacts (input.md and decisions.md) for a project.
  * Uses commit message format: RAF[NNN] Plan: project-name
+ * For amendments: RAF[NNN] Amend: project-name
  *
  * @param projectPath - Full path to the project folder (e.g., /path/to/RAF/017-decision-vault)
- * @param options - Optional settings (cwd for worktree support)
+ * @param options - Optional settings
+ * @param options.cwd - Working directory for git commands (worktree support)
+ * @param options.additionalFiles - Extra file paths to stage (e.g., plan files for amend)
+ * @param options.isAmend - Use "Amend:" prefix instead of "Plan:" in commit message
  * @returns Promise that resolves when commit is complete (or fails silently)
  */
-export async function commitPlanningArtifacts(projectPath: string, options?: { cwd?: string }): Promise<void> {
+export async function commitPlanningArtifacts(projectPath: string, options?: { cwd?: string; additionalFiles?: string[]; isAmend?: boolean }): Promise<void> {
   const execCwd = options?.cwd;
 
   // Check if we're in a git repository
-  if (!isGitRepo()) {
+  if (!isGitRepo(execCwd)) {
     logger.warn('Not in a git repository, skipping planning artifacts commit');
     return;
   }
@@ -243,12 +247,17 @@ export async function commitPlanningArtifacts(projectPath: string, options?: { c
   const decisionsFile = path.join(projectPath, 'decisions.md');
 
   // Build commit message
-  const commitMessage = `RAF[${projectNumber}] Plan: ${projectName}`;
+  const prefix = options?.isAmend ? 'Amend' : 'Plan';
+  const commitMessage = `RAF[${projectNumber}] ${prefix}: ${projectName}`;
+
+  // Build list of files to stage
+  const filesToStage = [inputFile, decisionsFile, ...(options?.additionalFiles ?? [])];
+  const quotedFiles = filesToStage.map(f => `"${f}"`).join(' ');
 
   try {
-    // Stage only the specific files (input.md and decisions.md)
-    // Use --force to add even if in .gitignore, and -- to handle paths with special chars
-    execSync(`git add -- "${inputFile}" "${decisionsFile}"`, {
+    // Stage the specific files
+    // Use -- to handle paths with special chars
+    execSync(`git add -- ${quotedFiles}`, {
       encoding: 'utf-8',
       stdio: 'pipe',
       ...(execCwd ? { cwd: execCwd } : {}),
