@@ -244,7 +244,8 @@ export function mergeWorktreeBranch(branch: string, originalBranch: string): Wor
 
 /**
  * Remove a single worktree.
- * Used only for failed-plan cleanup, NOT for post-completion cleanup.
+ * Used for failed-plan cleanup and post-completion cleanup.
+ * The git branch is preserved — only the worktree directory is removed.
  *
  * @param worktreePath - The worktree directory to remove
  * @returns true if removal succeeded, false otherwise

@@ -185,7 +185,7 @@ RAF[a01:003] Refactor database connection pooling
   - Identical worktree projects are hidden; worktree-only projects always shown
 - Lifecycle: create worktree -> plan in worktree -> execute in worktree -> optionally merge with `--merge`
 - Merge strategy: fast-forward preferred, merge-commit fallback, abort on conflicts
-- Worktrees are NOT cleaned up after completion or merge (user removes manually)
+- Worktrees are automatically cleaned up after successful completion (branch is preserved for future amend). On failure, worktree is kept for inspection
 - `--merge` is only valid with `--worktree`; merges the worktree branch into the original branch after all tasks succeed
 - On plan failure with no plan files created, the worktree is cleaned up automatically
 - Core utilities in `src/core/worktree.ts`: `createWorktree()`, `validateWorktree()`, `mergeWorktreeBranch()`, `removeWorktree()`, `listWorktreeProjects()`

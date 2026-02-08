@@ -42,6 +42,7 @@ import {
   validateWorktree,
   listWorktreeProjects,
   mergeWorktreeBranch,
+  removeWorktree,
 } from '../core/worktree.js';
 import type { DoCommandOptions } from '../types/config.js';
 
@@ -340,6 +341,16 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(`Project ${resolvedProject.name} failed: ${errorMessage}`);
     process.exit(1);
+  }
+
+  // Clean up worktree directory on success (branch is preserved for future amend)
+  if (worktreeMode && worktreeRoot && result.success) {
+    const cleanupResult = removeWorktree(worktreeRoot);
+    if (cleanupResult.success) {
+      logger.info(`Cleaned up worktree: ${worktreeRoot}`);
+    } else {
+      logger.warn(`Could not clean up worktree: ${cleanupResult.error}`);
+    }
   }
 
   // Auto-merge worktree branch if --merge is set
