@@ -186,17 +186,9 @@ RAF[a01:003] Refactor database connection pooling
 - Lifecycle: create worktree -> plan in worktree -> execute in worktree -> optionally merge with `--merge`
 - Merge strategy: fast-forward preferred, merge-commit fallback, abort on conflicts
 - Worktrees are NOT cleaned up after completion or merge (user removes manually)
-- `--worktree` supports single project only (no multi-project)
 - `--merge` is only valid with `--worktree`; merges the worktree branch into the original branch after all tasks succeed
 - On plan failure with no plan files created, the worktree is cleaned up automatically
 - Core utilities in `src/core/worktree.ts`: `createWorktree()`, `validateWorktree()`, `mergeWorktreeBranch()`, `removeWorktree()`, `listWorktreeProjects()`
-
-### Multi-Project Execution
-- `raf do <projects...>` supports multiple projects
-- Sequential execution (not parallel) for git safety
-- Continue on failure, report results at end
-- Deduplicates repeated projects
-- Non-verbose per-project summaries reflect tasks executed in the current run (remaining tasks at start) so elapsed time matches the work performed
 
 ## Important Reminders
 

@@ -74,7 +74,6 @@ Execute project tasks. Without arguments, shows a picker to select a pending pro
 raf do                # Interactive picker
 raf do 3              # Execute project #3
 raf do my-project     # Execute by name
-raf do 3 4 5          # Execute multiple projects
 raf do --worktree     # Pick and execute a worktree project
 raf do my-feature -w --merge  # Execute in worktree, merge on success
 ```
@@ -138,7 +137,6 @@ raf do my-feature --worktree --merge
 - On merge conflicts, the merge is aborted and you get instructions for manual resolution
 - If tasks fail, the worktree branch is preserved for inspection
 - Worktrees persist after completion — clean them up manually with `git worktree remove` when done
-- `--worktree` supports a single project at a time (no multi-project)
 
 ## Command Reference
 
@@ -150,7 +148,7 @@ raf do my-feature --worktree --merge
 | `-y, --auto` | Skip permission prompts (runs in dangerous mode) |
 | `-w, --worktree` | Create a git worktree for isolated planning |
 
-### `raf do [projects...]`
+### `raf do [project]`
 
 | Option | Description |
 |--------|-------------|

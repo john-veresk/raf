@@ -16,7 +16,6 @@ import { getConfig } from '../utils/config.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
 import { createStatusLine } from '../utils/status-line.js';
 import {
-  SYMBOLS,
   formatProjectHeader,
   formatSummary,
   formatTaskProgress,
@@ -103,9 +102,9 @@ interface ProjectExecutionResult {
 
 export function createDoCommand(): Command {
   const command = new Command('do')
-    .description('Execute planned tasks for one or more projects')
+    .description('Execute planned tasks for a project')
     .alias('act')
-    .argument('[projects...]', 'Project identifier(s): number (3), name (my-project), or folder (001-my-project)')
+    .argument('[project]', 'Project identifier: number (3), name (my-project), or folder (001-my-project)')
     .option('-t, --timeout <minutes>', 'Timeout per task in minutes', '60')
     .option('-v, --verbose', 'Show full Claude output')
     .option('-d, --debug', 'Save all logs and show debug output')
@@ -114,16 +113,16 @@ export function createDoCommand(): Command {
     .option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')
     .option('-w, --worktree', 'Execute tasks in a git worktree')
     .option('--merge', 'Merge worktree branch after successful completion (requires --worktree)')
-    .action(async (projects: string[], options: DoCommandOptions) => {
-      await runDoCommand(projects, options);
+    .action(async (project: string | undefined, options: DoCommandOptions) => {
+      await runDoCommand(project, options);
     });
 
   return command;
 }
 
-async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandOptions): Promise<void> {
+async function runDoCommand(projectIdentifierArg: string | undefined, options: DoCommandOptions): Promise<void> {
   const rafDir = getRafDir();
-  let projectIdentifiers = projectIdentifiersArg;
+  let projectIdentifier = projectIdentifierArg;
   const worktreeMode = options.worktree ?? false;
   const mergeMode = options.merge ?? false;
 
@@ -139,13 +138,6 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
     model = resolveModelOption(options.model as string | undefined, options.sonnet);
   } catch (error) {
     logger.error((error as Error).message);
-    process.exit(1);
-  }
-
-  // Worktree mode: only a single project is supported
-  if (worktreeMode && projectIdentifiers.length > 1) {
-    logger.error('--worktree supports only a single project at a time.');
-    logger.error('Please specify one project identifier.');
     process.exit(1);
   }
 
@@ -166,20 +158,19 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
     // Record original branch before any worktree operations
     originalBranch = getCurrentBranch() ?? undefined;
 
-    if (projectIdentifiers.length === 0) {
+    if (!projectIdentifier) {
       // Auto-discovery flow
       const selected = await discoverAndPickWorktreeProject(repoBasename, rafDir, rafRelativePath);
       if (!selected) {
         process.exit(0);
       }
       worktreeRoot = selected.worktreeRoot;
-      projectIdentifiers = [selected.projectFolder];
-      // The project path is inside the worktree - we'll resolve below
+      projectIdentifier = selected.projectFolder;
     }
   }
 
-  // Handle empty project list (non-worktree mode) - show interactive picker
-  if (projectIdentifiers.length === 0) {
+  // Handle no project identifier (non-worktree mode) - show interactive picker
+  if (!projectIdentifier) {
     // Check if there are any pending projects
     const pendingProjects = getPendingProjects(rafDir);
 
@@ -199,7 +190,7 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
       }
 
       // Use the selected project
-      projectIdentifiers = [selectedProject];
+      projectIdentifier = selectedProject;
     } catch (error) {
       // Handle Ctrl+C (user cancellation)
       if (error instanceof Error && error.message.includes('User force closed')) {
@@ -209,31 +200,28 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
     }
   }
 
-  // Resolve project identifiers
-  const resolvedProjects: Array<{ identifier: string; path: string; name: string }> = [];
-  const seenPaths = new Set<string>();
-  const errors: Array<{ identifier: string; error: string }> = [];
+  // Resolve project identifier
+  let resolvedProject: { identifier: string; path: string; name: string };
 
   if (worktreeMode) {
     // Worktree mode: resolve project inside the worktree
     const repoRoot = getRepoRoot()!;
     const repoBasename = getRepoBasename()!;
     const rafRelativePath = path.relative(repoRoot, rafDir);
-    const identifier = projectIdentifiers[0]!;
 
     // If worktreeRoot was set by auto-discovery, use it directly
     if (worktreeRoot) {
       const wtRafDir = path.join(worktreeRoot, rafRelativePath);
-      const result = resolveProjectIdentifierWithDetails(wtRafDir, identifier);
+      const result = resolveProjectIdentifierWithDetails(wtRafDir, projectIdentifier);
       if (!result.path) {
-        logger.error(`Project not found in worktree: ${identifier}`);
+        logger.error(`Project not found in worktree: ${projectIdentifier}`);
         process.exit(1);
       }
-      const projectName = extractProjectName(result.path) ?? identifier;
-      resolvedProjects.push({ identifier, path: result.path, name: projectName });
+      const projectName = extractProjectName(result.path) ?? projectIdentifier;
+      resolvedProject = { identifier: projectIdentifier, path: result.path, name: projectName };
     } else {
       // Explicit identifier: resolve from main repo to get folder name, then validate worktree
-      const mainResult = resolveProjectIdentifierWithDetails(rafDir, identifier);
+      const mainResult = resolveProjectIdentifierWithDetails(rafDir, projectIdentifier);
 
       let projectFolderName: string;
       if (mainResult.path) {
@@ -244,7 +232,7 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
         // This handles projects that only exist in worktrees
         const worktreeBaseDir = computeWorktreeBaseDir(repoBasename);
         if (!fs.existsSync(worktreeBaseDir)) {
-          logger.error(`No worktree found for project "${identifier}". Did you plan with --worktree?`);
+          logger.error(`No worktree found for project "${projectIdentifier}". Did you plan with --worktree?`);
           process.exit(1);
         }
 
@@ -256,7 +244,7 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
           const wtRafDir = path.join(wtPath, rafRelativePath);
           if (!fs.existsSync(wtRafDir)) continue;
 
-          const resolution = resolveProjectIdentifierWithDetails(wtRafDir, identifier);
+          const resolution = resolveProjectIdentifierWithDetails(wtRafDir, projectIdentifier);
           if (resolution.path) {
             projectFolderName = path.basename(resolution.path);
             worktreeRoot = wtPath;
@@ -266,7 +254,7 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
         }
 
         if (!found) {
-          logger.error(`No worktree found for project "${identifier}". Did you plan with --worktree?`);
+          logger.error(`No worktree found for project "${projectIdentifier}". Did you plan with --worktree?`);
           process.exit(1);
         }
       }
@@ -281,7 +269,7 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
       const validation = validateWorktree(worktreeRoot, wtProjectRelPath);
 
       if (!validation.exists || !validation.isValidWorktree) {
-        logger.error(`No worktree found for project "${identifier}". Did you plan with --worktree?`);
+        logger.error(`No worktree found for project "${projectIdentifier}". Did you plan with --worktree?`);
         logger.error(`Expected worktree at: ${worktreeRoot}`);
         process.exit(1);
       }
@@ -293,52 +281,28 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
       }
 
       const projectPath = validation.projectPath!;
-      const projectName = extractProjectName(projectPath) ?? identifier;
-      resolvedProjects.push({ identifier, path: projectPath, name: projectName });
+      const projectName = extractProjectName(projectPath) ?? projectIdentifier;
+      resolvedProject = { identifier: projectIdentifier, path: projectPath, name: projectName };
     }
   } else {
     // Standard mode: resolve from main repo
-    for (const identifier of projectIdentifiers) {
-      const result = resolveProjectIdentifierWithDetails(rafDir, identifier);
+    const result = resolveProjectIdentifierWithDetails(rafDir, projectIdentifier);
 
-      if (!result.path) {
-        if (result.error === 'ambiguous' && result.matches) {
-          const matchList = result.matches
-            .map((m) => `  - ${m.folder}`)
-            .join('\n');
-          errors.push({
-            identifier,
-            error: `Ambiguous project name. Multiple projects match:\n${matchList}\nPlease specify the project ID or full folder name.`,
-          });
-        } else {
-          errors.push({ identifier, error: 'Project not found' });
-        }
-        continue;
+    if (!result.path) {
+      if (result.error === 'ambiguous' && result.matches) {
+        const matchList = result.matches
+          .map((m) => `  - ${m.folder}`)
+          .join('\n');
+        logger.error(`${projectIdentifier}: Ambiguous project name. Multiple projects match:\n${matchList}\nPlease specify the project ID or full folder name.`);
+      } else {
+        logger.error(`${projectIdentifier}: Project not found`);
       }
-
-      const projectPath = result.path;
-
-      // Skip duplicates
-      if (seenPaths.has(projectPath)) {
-        logger.info(`Skipping duplicate: ${identifier}`);
-        continue;
-      }
-
-      seenPaths.add(projectPath);
-      const projectName = extractProjectName(projectPath) ?? identifier;
-      resolvedProjects.push({ identifier, path: projectPath, name: projectName });
+      logger.info("Run 'raf status' to see available projects.");
+      process.exit(1);
     }
-  }
 
-  // Report resolution errors
-  for (const { identifier, error } of errors) {
-    logger.error(`${identifier}: ${error}`);
-  }
-
-  if (resolvedProjects.length === 0) {
-    logger.error('No valid projects to execute.');
-    logger.info("Run 'raf status' to see available projects.");
-    process.exit(1);
+    const projectName = extractProjectName(result.path) ?? projectIdentifier;
+    resolvedProject = { identifier: projectIdentifier, path: result.path, name: projectName };
   }
 
   // Get configuration
@@ -353,68 +317,36 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
   // Configure logger
   logger.configure({ verbose, debug });
 
-  // Log Claude model name once (verbose mode only for multi-project)
-  if (verbose && model && resolvedProjects.length > 1) {
-    logger.info(`Using model: ${model}`);
-    logger.newline();
-  }
+  // Execute project
+  let result: ProjectExecutionResult;
 
-  // Execute projects
-  const results: ProjectExecutionResult[] = [];
-  const isMultiProject = resolvedProjects.length > 1;
-
-  for (const [i, project] of resolvedProjects.entries()) {
-    if (isMultiProject && verbose) {
-      logger.info(`=== Project ${i + 1}/${resolvedProjects.length}: ${project.name} ===`);
-      logger.newline();
-    }
-
-    try {
-      const result = await executeSingleProject(
-        project.path,
-        project.name,
-        {
-          timeout,
-          verbose,
-          debug,
-          force,
-          maxRetries,
-          autoCommit,
-          showModel: !isMultiProject, // Only show model for single project
-          model,
-          worktreeCwd: worktreeRoot,
-        }
-      );
-      results.push(result);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      results.push({
-        projectName: project.name,
-        projectPath: project.path,
-        success: false,
-        tasksCompleted: 0,
-        totalTasks: 0,
-        error: errorMessage,
-      });
-      logger.error(`Project ${project.name} failed: ${errorMessage}`);
-    }
-
-    if (isMultiProject && i < resolvedProjects.length - 1) {
-      logger.newline();
-    }
-  }
-
-  // Show multi-project summary
-  if (isMultiProject) {
-    printMultiProjectSummary(results, verbose);
+  try {
+    result = await executeSingleProject(
+      resolvedProject.path,
+      resolvedProject.name,
+      {
+        timeout,
+        verbose,
+        debug,
+        force,
+        maxRetries,
+        autoCommit,
+        showModel: true,
+        model,
+        worktreeCwd: worktreeRoot,
+      }
+    );
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Project ${resolvedProject.name} failed: ${errorMessage}`);
+    process.exit(1);
   }
 
   // Auto-merge worktree branch if --merge is set
   if (mergeMode && worktreeRoot && originalBranch) {
-    const allSucceeded = results.every((r) => r.success);
     const worktreeBranch = path.basename(worktreeRoot);
 
-    if (allSucceeded) {
+    if (result.success) {
       logger.newline();
       logger.info(`Merging branch "${worktreeBranch}" into "${originalBranch}"...`);
 
@@ -434,8 +366,7 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
   }
 
   // Exit with appropriate code
-  const anyFailed = results.some((r) => !r.success);
-  if (anyFailed) {
+  if (!result.success) {
     process.exit(1);
   }
 }
@@ -1120,34 +1051,3 @@ ${stashName ? `- Stash: ${stashName}` : ''}
   };
 }
 
-function printMultiProjectSummary(results: ProjectExecutionResult[], verbose: boolean): void {
-  logger.newline();
-
-  if (verbose) {
-    logger.info('=== Multi-Project Summary ===');
-    logger.newline();
-
-    for (const result of results) {
-      const statusSymbol = result.success ? SYMBOLS.completed : SYMBOLS.failed;
-      const statusText = result.success
-        ? `Completed (${result.tasksCompleted}/${result.totalTasks} tasks)`
-        : result.error
-          ? `Error: ${result.error}`
-          : `Failed (${result.tasksCompleted}/${result.totalTasks} tasks)`;
-
-      logger.info(`${statusSymbol} ${result.projectName}: ${statusText}`);
-    }
-
-    const completed = results.filter((r) => r.success).length;
-    const failed = results.length - completed;
-
-    logger.newline();
-    logger.info(`Total: ${completed} completed, ${failed} failed`);
-  } else {
-    // Minimal multi-project summary: just show each project result
-    for (const result of results) {
-      const symbol = result.success ? SYMBOLS.completed : SYMBOLS.failed;
-      logger.info(`${symbol} ${result.projectName}`);
-    }
-  }
-}
