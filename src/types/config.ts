@@ -29,6 +29,7 @@ export interface DoCommandOptions {
   model?: ClaudeModelName;
   sonnet?: boolean;
   worktree?: boolean;
+  merge?: boolean;
 }
 
 export interface StatusCommandOptions {

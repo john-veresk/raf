@@ -37,10 +37,12 @@ import { analyzeFailure } from '../core/failure-analyzer.js';
 import {
   getRepoRoot,
   getRepoBasename,
+  getCurrentBranch,
   computeWorktreePath,
   computeWorktreeBaseDir,
   validateWorktree,
   listWorktreeProjects,
+  mergeWorktreeBranch,
 } from '../core/worktree.js';
 import type { DoCommandOptions } from '../types/config.js';
 
@@ -111,6 +113,7 @@ export function createDoCommand(): Command {
     .option('-m, --model <name>', 'Claude model to use (sonnet, haiku, opus)')
     .option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')
     .option('-w, --worktree', 'Execute tasks in a git worktree')
+    .option('--merge', 'Merge worktree branch after successful completion (requires --worktree)')
     .action(async (projects: string[], options: DoCommandOptions) => {
       await runDoCommand(projects, options);
     });
@@ -122,6 +125,13 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
   const rafDir = getRafDir();
   let projectIdentifiers = projectIdentifiersArg;
   const worktreeMode = options.worktree ?? false;
+  const mergeMode = options.merge ?? false;
+
+  // Validate --merge requires --worktree
+  if (mergeMode && !worktreeMode) {
+    logger.error('--merge requires --worktree');
+    process.exit(1);
+  }
 
   // Validate and resolve model option
   let model: string;
@@ -141,6 +151,7 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
 
   // Variables for worktree context (set when --worktree is used)
   let worktreeRoot: string | undefined;
+  let originalBranch: string | undefined;
 
   if (worktreeMode) {
     // Validate git repo
@@ -151,6 +162,9 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
     }
     const repoBasename = getRepoBasename()!;
     const rafRelativePath = path.relative(repoRoot, rafDir);
+
+    // Record original branch before any worktree operations
+    originalBranch = getCurrentBranch() ?? undefined;
 
     if (projectIdentifiers.length === 0) {
       // Auto-discovery flow
@@ -393,6 +407,30 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
   // Show multi-project summary
   if (isMultiProject) {
     printMultiProjectSummary(results, verbose);
+  }
+
+  // Auto-merge worktree branch if --merge is set
+  if (mergeMode && worktreeRoot && originalBranch) {
+    const allSucceeded = results.every((r) => r.success);
+    const worktreeBranch = path.basename(worktreeRoot);
+
+    if (allSucceeded) {
+      logger.newline();
+      logger.info(`Merging branch "${worktreeBranch}" into "${originalBranch}"...`);
+
+      const mergeResult = mergeWorktreeBranch(worktreeBranch, originalBranch);
+
+      if (mergeResult.success) {
+        const mergeType = mergeResult.fastForward ? 'fast-forward' : 'merge commit';
+        logger.success(`Merged "${worktreeBranch}" into "${originalBranch}" (${mergeType})`);
+      } else {
+        logger.warn(`Could not auto-merge: ${mergeResult.error}`);
+        logger.warn(`You can merge manually: git merge ${worktreeBranch}`);
+      }
+    } else {
+      logger.newline();
+      logger.info(`Skipping merge — project has failures. Worktree branch "${worktreeBranch}" is available for inspection.`);
+    }
   }
 
   // Exit with appropriate code
