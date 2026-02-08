@@ -83,11 +83,11 @@ Note: In non-verbose mode, the completion summary reflects the tasks executed in
 
 ### `raf status`
 
-Check project status.
+Check project status. Worktree projects are discovered automatically when inside a git repo — no flag needed.
 
 ```bash
-raf status            # List all projects
-raf status 3          # Show details for project #3
+raf status            # List all projects (includes worktree projects that differ)
+raf status 3          # Show details for project #3 (shows both main and worktree if they differ)
 ```
 
 ## Status Symbols

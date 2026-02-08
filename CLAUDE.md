@@ -179,6 +179,10 @@ RAF[a01:003] Refactor database connection pooling
 - Worktree path: `~/.raf/worktrees/<repo-basename>/<project-id>` (e.g., `~/.raf/worktrees/myapp/020-my-feature`)
 - Branch name matches the project folder name (e.g., `020-my-feature`)
 - `--worktree` flag is required on both `plan` and `do` — it is not auto-detected
+- `raf status` automatically discovers and displays worktree projects (no flag needed)
+  - List mode: worktree projects that differ from main repo shown under `Worktrees:` header
+  - Single project mode: shows both main and worktree state when they differ
+  - Identical worktree projects are hidden; worktree-only projects always shown
 - Lifecycle: create worktree -> plan in worktree -> execute in worktree -> optionally merge with `--merge`
 - Merge strategy: fast-forward preferred, merge-commit fallback, abort on conflicts
 - Worktrees are NOT cleaned up after completion or merge (user removes manually)

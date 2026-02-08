@@ -2,7 +2,12 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { resolveProjectIdentifier, extractProjectName } from '../../src/utils/paths.js';
-import { discoverProjects } from '../../src/core/state-derivation.js';
+import {
+  deriveProjectState,
+  getDerivedStats,
+  discoverProjects,
+  type DerivedProjectState,
+} from '../../src/core/state-derivation.js';
 
 describe('Status Command - Identifier Support', () => {
   let tempDir: string;
@@ -266,6 +271,290 @@ describe('Status Command - Truncation Behavior', () => {
       expect(hiddenCount).toBe(1);
       expect(displayedProjects.length).toBe(MAX_DISPLAYED_PROJECTS);
       expect(displayedProjects[0].number).toBe(2);
+    });
+  });
+});
+
+describe('Status Command - Worktree Discovery', () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-wt-status-test-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  /**
+   * Helper to create a project with plans and optional outcomes.
+   */
+  function createProjectWithTasks(
+    baseDir: string,
+    projectFolder: string,
+    tasks: Array<{ id: string; name: string; status?: 'completed' | 'failed' | 'pending' }>
+  ): string {
+    const projectPath = path.join(baseDir, projectFolder);
+    fs.mkdirSync(path.join(projectPath, 'plans'), { recursive: true });
+    fs.mkdirSync(path.join(projectPath, 'outcomes'), { recursive: true });
+    fs.writeFileSync(path.join(projectPath, 'input.md'), '# Test Input\n');
+
+    for (const task of tasks) {
+      // Write plan file
+      fs.writeFileSync(
+        path.join(projectPath, 'plans', `${task.id}-${task.name}.md`),
+        `# Task: ${task.name}\n\n## Objective\nTest task\n`
+      );
+
+      // Write outcome file if not pending
+      if (task.status === 'completed') {
+        fs.writeFileSync(
+          path.join(projectPath, 'outcomes', `${task.id}-${task.name}.md`),
+          `# Outcome\nCompleted.\n\n<promise>COMPLETE</promise>\n`
+        );
+      } else if (task.status === 'failed') {
+        fs.writeFileSync(
+          path.join(projectPath, 'outcomes', `${task.id}-${task.name}.md`),
+          `# Outcome\nFailed.\n\n<promise>FAILED</promise>\n`
+        );
+      }
+    }
+
+    return projectPath;
+  }
+
+  describe('Project State Comparison', () => {
+    it('should detect identical project states', () => {
+      // Create two identical project directories
+      const mainDir = path.join(tempDir, 'main');
+      const wtDir = path.join(tempDir, 'worktree');
+
+      createProjectWithTasks(mainDir, '001-test', [
+        { id: '001', name: 'task-a', status: 'completed' },
+        { id: '002', name: 'task-b', status: 'completed' },
+      ]);
+      createProjectWithTasks(wtDir, '001-test', [
+        { id: '001', name: 'task-a', status: 'completed' },
+        { id: '002', name: 'task-b', status: 'completed' },
+      ]);
+
+      const mainState = deriveProjectState(path.join(mainDir, '001-test'));
+      const wtState = deriveProjectState(path.join(wtDir, '001-test'));
+
+      // Same task count and same statuses
+      expect(mainState.tasks.length).toBe(wtState.tasks.length);
+      expect(mainState.tasks.length).toBe(2);
+      for (let i = 0; i < mainState.tasks.length; i++) {
+        expect(mainState.tasks[i].status).toBe(wtState.tasks[i].status);
+      }
+    });
+
+    it('should detect differing task counts (amendment scenario)', () => {
+      const mainDir = path.join(tempDir, 'main');
+      const wtDir = path.join(tempDir, 'worktree');
+
+      // Main: 2 tasks completed
+      createProjectWithTasks(mainDir, '001-test', [
+        { id: '001', name: 'task-a', status: 'completed' },
+        { id: '002', name: 'task-b', status: 'completed' },
+      ]);
+      // Worktree: 4 tasks (2 completed + 2 pending from amend)
+      createProjectWithTasks(wtDir, '001-test', [
+        { id: '001', name: 'task-a', status: 'completed' },
+        { id: '002', name: 'task-b', status: 'completed' },
+        { id: '003', name: 'task-c' },
+        { id: '004', name: 'task-d' },
+      ]);
+
+      const mainState = deriveProjectState(path.join(mainDir, '001-test'));
+      const wtState = deriveProjectState(path.join(wtDir, '001-test'));
+
+      expect(mainState.tasks.length).toBe(2);
+      expect(wtState.tasks.length).toBe(4);
+    });
+
+    it('should detect differing task statuses', () => {
+      const mainDir = path.join(tempDir, 'main');
+      const wtDir = path.join(tempDir, 'worktree');
+
+      // Main: all pending
+      createProjectWithTasks(mainDir, '001-test', [
+        { id: '001', name: 'task-a' },
+        { id: '002', name: 'task-b' },
+      ]);
+      // Worktree: some completed
+      createProjectWithTasks(wtDir, '001-test', [
+        { id: '001', name: 'task-a', status: 'completed' },
+        { id: '002', name: 'task-b' },
+      ]);
+
+      const mainState = deriveProjectState(path.join(mainDir, '001-test'));
+      const wtState = deriveProjectState(path.join(wtDir, '001-test'));
+
+      expect(mainState.tasks[0].status).toBe('pending');
+      expect(wtState.tasks[0].status).toBe('completed');
+    });
+  });
+
+  describe('Worktree Project Discovery', () => {
+    it('should discover worktree projects via listWorktreeProjects pattern', () => {
+      // Simulate the worktree base dir structure
+      const worktreeBaseDir = path.join(tempDir, 'worktree-base');
+      fs.mkdirSync(path.join(worktreeBaseDir, '020-feature-a'), { recursive: true });
+      fs.mkdirSync(path.join(worktreeBaseDir, '021-feature-b'), { recursive: true });
+
+      // Read directory to simulate what listWorktreeProjects does
+      const entries = fs.readdirSync(worktreeBaseDir, { withFileTypes: true });
+      const projects = entries
+        .filter(entry => entry.isDirectory())
+        .map(entry => entry.name)
+        .sort();
+
+      expect(projects).toEqual(['020-feature-a', '021-feature-b']);
+    });
+
+    it('should derive state from worktree project path', () => {
+      // Simulate worktree project path: <wtPath>/<rafRelativePath>/<projectFolder>
+      const wtPath = path.join(tempDir, 'wt-root');
+      const rafRelativePath = 'RAF';
+      const projectFolder = '020-feature';
+      const wtProjectPath = path.join(wtPath, rafRelativePath, projectFolder);
+
+      createProjectWithTasks(path.join(wtPath, rafRelativePath), projectFolder, [
+        { id: '001', name: 'setup', status: 'completed' },
+        { id: '002', name: 'implement' },
+        { id: '003', name: 'test' },
+      ]);
+
+      const state = deriveProjectState(wtProjectPath);
+      const stats = getDerivedStats(state);
+
+      expect(stats.total).toBe(3);
+      expect(stats.completed).toBe(1);
+      expect(stats.pending).toBe(2);
+    });
+
+    it('should filter out worktree-only projects correctly', () => {
+      // Create main repo projects
+      const mainRafDir = path.join(tempDir, 'main-raf');
+      createProjectWithTasks(mainRafDir, '001-auth', [
+        { id: '001', name: 'login', status: 'completed' },
+      ]);
+
+      // Main repo folders
+      const mainFolderNames = new Set(
+        discoverProjects(mainRafDir).map(p => path.basename(p.path))
+      );
+
+      // Worktree folders include one that doesn't exist in main
+      const worktreeFolders = ['001-auth', '020-new-feature'];
+
+      // Worktree-only projects
+      const worktreeOnly = worktreeFolders.filter(f => !mainFolderNames.has(f));
+      expect(worktreeOnly).toEqual(['020-new-feature']);
+
+      // Projects with main counterpart
+      const withCounterpart = worktreeFolders.filter(f => mainFolderNames.has(f));
+      expect(withCounterpart).toEqual(['001-auth']);
+    });
+
+    it('should identify differing worktree projects for display', () => {
+      const mainRafDir = path.join(tempDir, 'main');
+      const wtRafDir = path.join(tempDir, 'worktree');
+
+      // Main: 2 tasks all completed
+      createProjectWithTasks(mainRafDir, '001-auth', [
+        { id: '001', name: 'login', status: 'completed' },
+        { id: '002', name: 'signup', status: 'completed' },
+      ]);
+
+      // Worktree: same 2 tasks completed + 2 new pending (amendment)
+      createProjectWithTasks(wtRafDir, '001-auth', [
+        { id: '001', name: 'login', status: 'completed' },
+        { id: '002', name: 'signup', status: 'completed' },
+        { id: '003', name: 'oauth' },
+        { id: '004', name: 'sso' },
+      ]);
+
+      const mainState = deriveProjectState(path.join(mainRafDir, '001-auth'));
+      const wtState = deriveProjectState(path.join(wtRafDir, '001-auth'));
+
+      // Different task counts = states differ
+      expect(mainState.tasks.length).not.toBe(wtState.tasks.length);
+
+      // Main is completed, worktree is executing
+      expect(mainState.status).toBe('completed');
+      expect(wtState.status).toBe('executing');
+    });
+
+    it('should not show worktree project when identical to main', () => {
+      const mainRafDir = path.join(tempDir, 'main');
+      const wtRafDir = path.join(tempDir, 'worktree');
+
+      // Both have identical state
+      createProjectWithTasks(mainRafDir, '001-auth', [
+        { id: '001', name: 'login', status: 'completed' },
+        { id: '002', name: 'signup', status: 'completed' },
+      ]);
+      createProjectWithTasks(wtRafDir, '001-auth', [
+        { id: '001', name: 'login', status: 'completed' },
+        { id: '002', name: 'signup', status: 'completed' },
+      ]);
+
+      const mainState = deriveProjectState(path.join(mainRafDir, '001-auth'));
+      const wtState = deriveProjectState(path.join(wtRafDir, '001-auth'));
+
+      // Same task count
+      expect(mainState.tasks.length).toBe(wtState.tasks.length);
+
+      // Same statuses
+      for (let i = 0; i < mainState.tasks.length; i++) {
+        expect(mainState.tasks[i].status).toBe(wtState.tasks[i].status);
+      }
+
+      // The comparison function logic: these are identical so should NOT be shown
+      const differs = mainState.tasks.length !== wtState.tasks.length ||
+        mainState.tasks.some((t, i) => t.status !== wtState.tasks[i].status);
+      expect(differs).toBe(false);
+    });
+  });
+
+  describe('Worktree Stats Display', () => {
+    it('should compute correct stats for worktree project with mixed states', () => {
+      const wtRafDir = path.join(tempDir, 'worktree');
+
+      createProjectWithTasks(wtRafDir, '020-feature', [
+        { id: '001', name: 'setup', status: 'completed' },
+        { id: '002', name: 'implement', status: 'completed' },
+        { id: '003', name: 'test', status: 'failed' },
+        { id: '004', name: 'deploy' },
+      ]);
+
+      const state = deriveProjectState(path.join(wtRafDir, '020-feature'));
+      const stats = getDerivedStats(state);
+
+      expect(stats.completed).toBe(2);
+      expect(stats.failed).toBe(1);
+      expect(stats.pending).toBe(1);
+      expect(stats.total).toBe(4);
+    });
+
+    it('should show worktree-only project stats correctly', () => {
+      const wtRafDir = path.join(tempDir, 'worktree');
+
+      createProjectWithTasks(wtRafDir, '025-new-only', [
+        { id: '001', name: 'step-a' },
+        { id: '002', name: 'step-b' },
+        { id: '003', name: 'step-c' },
+      ]);
+
+      const state = deriveProjectState(path.join(wtRafDir, '025-new-only'));
+      const stats = getDerivedStats(state);
+
+      expect(stats.completed).toBe(0);
+      expect(stats.pending).toBe(3);
+      expect(stats.total).toBe(3);
+      expect(state.status).toBe('ready');
     });
   });
 });
