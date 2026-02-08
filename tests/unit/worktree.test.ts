@@ -106,6 +106,26 @@ describe('worktree utilities', () => {
       const result = computeWorktreePath('myapp', '020-worktree-weaver');
       expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'myapp', '020-worktree-weaver'));
     });
+
+    it('should handle repo names with dots', () => {
+      const result = computeWorktreePath('my.app.v2', '001-feature');
+      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'my.app.v2', '001-feature'));
+    });
+
+    it('should handle repo names with underscores', () => {
+      const result = computeWorktreePath('my_app', '001-feature');
+      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'my_app', '001-feature'));
+    });
+
+    it('should handle repo names with hyphens', () => {
+      const result = computeWorktreePath('my-cool-app', 'a00-base36-project');
+      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'my-cool-app', 'a00-base36-project'));
+    });
+
+    it('should handle base36 project IDs', () => {
+      const result = computeWorktreePath('myapp', 'a00-base36-project');
+      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'myapp', 'a00-base36-project'));
+    });
   });
 
   describe('computeWorktreeBaseDir', () => {
@@ -113,12 +133,22 @@ describe('worktree utilities', () => {
       const result = computeWorktreeBaseDir('myapp');
       expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'myapp'));
     });
+
+    it('should handle repo names with special characters', () => {
+      const result = computeWorktreeBaseDir('my.app_v2');
+      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'my.app_v2'));
+    });
   });
 
   describe('getWorktreeProjectPath', () => {
     it('should return the project path inside the worktree', () => {
       const result = getWorktreeProjectPath('/worktree/root', 'RAF/020-worktree-weaver');
       expect(result).toBe(path.join('/worktree/root', 'RAF/020-worktree-weaver'));
+    });
+
+    it('should handle nested relative paths', () => {
+      const result = getWorktreeProjectPath('/worktree/root', 'deep/nested/RAF/001-feature');
+      expect(result).toBe(path.join('/worktree/root', 'deep/nested/RAF/001-feature'));
     });
   });
 
