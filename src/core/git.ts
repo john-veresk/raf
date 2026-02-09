@@ -242,7 +242,7 @@ export async function commitPlanningArtifacts(projectPath: string, options?: { c
     return;
   }
 
-  // Build file paths relative to the project folder
+  // Build absolute file paths
   const inputFile = path.join(projectPath, 'input.md');
   const decisionsFile = path.join(projectPath, 'decisions.md');
 
@@ -250,19 +250,39 @@ export async function commitPlanningArtifacts(projectPath: string, options?: { c
   const prefix = options?.isAmend ? 'Amend' : 'Plan';
   const commitMessage = `RAF[${projectNumber}] ${prefix}: ${projectName}`;
 
-  // Build list of files to stage
-  const filesToStage = [inputFile, decisionsFile, ...(options?.additionalFiles ?? [])];
-  const quotedFiles = filesToStage.map(f => `"${f}"`).join(' ');
+  // Build list of files to stage (absolute paths)
+  const absoluteFiles = [inputFile, decisionsFile, ...(options?.additionalFiles ?? [])];
+
+  // Convert to relative paths when cwd is provided (worktree mode).
+  // Git resolves paths relative to the working directory. Using relative paths
+  // avoids issues with symlink resolution (e.g., /tmp → /private/tmp on macOS)
+  // that can cause absolute paths to not match git's internal worktree paths.
+  const filesToStage = execCwd
+    ? absoluteFiles.map(f => path.relative(execCwd, f))
+    : absoluteFiles;
+
+  // Stage each file individually so one missing file doesn't block the others
+  let stagedCount = 0;
+  for (const file of filesToStage) {
+    try {
+      execSync(`git add -- "${file}"`, {
+        encoding: 'utf-8',
+        stdio: 'pipe',
+        ...(execCwd ? { cwd: execCwd } : {}),
+      });
+      stagedCount++;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.warn(`Failed to stage ${file}: ${msg}`);
+    }
+  }
+
+  if (stagedCount === 0) {
+    logger.debug('No files were staged for planning artifacts commit');
+    return;
+  }
 
   try {
-    // Stage the specific files
-    // Use -- to handle paths with special chars
-    execSync(`git add -- ${quotedFiles}`, {
-      encoding: 'utf-8',
-      stdio: 'pipe',
-      ...(execCwd ? { cwd: execCwd } : {}),
-    });
-
     // Check if there's anything staged to commit
     const stagedStatus = execSync('git diff --cached --name-only', {
       encoding: 'utf-8',
