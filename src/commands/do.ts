@@ -480,7 +480,13 @@ async function executePostAction(
         logger.warn(`Branch "${worktreeBranch}" has been pushed. You can create a PR manually.`);
       }
 
-      // Do NOT clean up worktree for PR — user may want to make follow-up changes
+      // Clean up worktree directory (branch is preserved)
+      const prCleanupResult = removeWorktree(worktreeRoot);
+      if (prCleanupResult.success) {
+        logger.info(`Cleaned up worktree: ${worktreeRoot}`);
+      } else {
+        logger.warn(`Could not clean up worktree: ${prCleanupResult.error}`);
+      }
       break;
     }
 

@@ -207,7 +207,7 @@ RAF[abaaba:03] Refactor database connection pooling
   3. **Leave branch** — do nothing, keep the branch as-is
 - PR option runs preflight checks immediately; falls back to "leave" if `gh` CLI is missing or unauthenticated
 - On task failure, the chosen post-action is skipped with a message
-- Worktree cleanup: merge and leave actions clean up the worktree directory (branch preserved); PR preserves the worktree for follow-up changes
+- Worktree cleanup: all post-actions (merge, PR, leave) clean up the worktree directory (branch preserved in git)
 - On failure, worktree is kept for inspection
 - `raf plan --amend --worktree` auto-recreates the worktree when it was cleaned up:
   - If the branch exists (common after cleanup): recreates worktree from the existing branch
