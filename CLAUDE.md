@@ -220,6 +220,57 @@ RAF[00k5m2:03] Refactor database connection pooling
 - Preflight checks: `prPreflight()` validates gh CLI, authentication, GitHub remote
 - Key functions: `createPullRequest()`, `prPreflight()`, `generatePrBody()`, `generatePrTitle()`, `detectBaseBranch()`
 
+
+## PR Review
+
+When reviewing a PR or addressing PR comments, use `gh` CLI to read PR details:
+
+```bash
+# View PR description and metadata
+gh pr view <number>
+
+# View PR diff
+gh pr diff <number>
+
+# View review comments (inline code comments)
+gh api repos/{owner}/{repo}/pulls/<number>/comments
+
+# View PR review summaries
+gh api repos/{owner}/{repo}/pulls/<number>/reviews
+
+# View general PR conversation comments (non-inline)
+gh api repos/{owner}/{repo}/issues/<number>/comments
+
+# List PR files changed
+gh pr diff <number> --name-only
+
+# View PR checks/CI status
+gh pr checks <number>
+```
+
+### Checking Out PR Branches
+
+PR branches are often checked out in git worktrees. Before creating a new checkout, check for existing worktrees:
+
+```bash
+# List existing worktrees
+git worktree list
+
+# Find the branch name from the PR
+gh pr view <number> --json headRefName -q .headRefName
+
+# If gh is rate-limited, list remote branches to find it
+git ls-remote --heads origin
+
+# Check if branch is already in a worktree (look for the path in worktree list output)
+# If it is, work directly in that worktree path (e.g., /Users/eremeev/.raf/worktrees/Paperi/<branch>)
+# If not, checkout normally:
+git fetch origin <branch> && git checkout <branch>
+```
+
+When working in a worktree, use absolute paths to the worktree directory for all file operations and builds.
+
+
 ## Important Reminders
 
 1. After task completion update README.md (user facing) and CLAUDE.md (internal)
