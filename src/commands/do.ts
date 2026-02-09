@@ -44,7 +44,16 @@ import {
   mergeWorktreeBranch,
   removeWorktree,
 } from '../core/worktree.js';
+import { createPullRequest, prPreflight } from '../core/pull-request.js';
 import type { DoCommandOptions } from '../types/config.js';
+
+/**
+ * Post-execution action chosen by the user before task execution begins.
+ * - 'merge': merge the worktree branch into the original branch
+ * - 'pr': push the branch and create a GitHub PR
+ * - 'leave': do nothing, keep the branch as-is
+ */
+export type PostExecutionAction = 'merge' | 'pr' | 'leave';
 
 /**
  * Format failure history for console output.
@@ -113,7 +122,6 @@ export function createDoCommand(): Command {
     .option('-m, --model <name>', 'Claude model to use (sonnet, haiku, opus)')
     .option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')
     .option('-w, --worktree', 'Execute tasks in a git worktree')
-    .option('--merge', 'Merge worktree branch after successful completion (requires --worktree)')
     .action(async (project: string | undefined, options: DoCommandOptions) => {
       await runDoCommand(project, options);
     });
@@ -125,13 +133,6 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
   const rafDir = getRafDir();
   let projectIdentifier = projectIdentifierArg;
   const worktreeMode = options.worktree ?? false;
-  const mergeMode = options.merge ?? false;
-
-  // Validate --merge requires --worktree
-  if (mergeMode && !worktreeMode) {
-    logger.error('--merge requires --worktree');
-    process.exit(1);
-  }
 
   // Validate and resolve model option
   let model: string;
@@ -318,6 +319,20 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
   // Configure logger
   logger.configure({ verbose, debug });
 
+  // Show post-execution picker before task execution (worktree mode only)
+  let postAction: PostExecutionAction = 'leave';
+  if (worktreeMode && worktreeRoot) {
+    try {
+      postAction = await pickPostExecutionAction(worktreeRoot);
+    } catch (error) {
+      // Handle Ctrl+C (user cancellation)
+      if (error instanceof Error && error.message.includes('User force closed')) {
+        process.exit(0);
+      }
+      throw error;
+    }
+  }
+
   // Execute project
   let result: ProjectExecutionResult;
 
@@ -343,21 +358,84 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
     process.exit(1);
   }
 
-  // Clean up worktree directory on success (branch is preserved for future amend)
-  if (worktreeMode && worktreeRoot && result.success) {
-    const cleanupResult = removeWorktree(worktreeRoot);
-    if (cleanupResult.success) {
-      logger.info(`Cleaned up worktree: ${worktreeRoot}`);
-    } else {
-      logger.warn(`Could not clean up worktree: ${cleanupResult.error}`);
-    }
-  }
-
-  // Auto-merge worktree branch if --merge is set
-  if (mergeMode && worktreeRoot && originalBranch) {
+  // Execute post-execution action based on picker choice
+  if (worktreeMode && worktreeRoot) {
     const worktreeBranch = path.basename(worktreeRoot);
 
     if (result.success) {
+      await executePostAction(postAction, worktreeRoot, worktreeBranch, originalBranch, resolvedProject.path);
+    } else {
+      if (postAction !== 'leave') {
+        logger.newline();
+        logger.info(`Skipping post-execution action — project has failures. Branch "${worktreeBranch}" is available for inspection.`);
+      }
+    }
+  }
+
+  // Exit with appropriate code
+  if (!result.success) {
+    process.exit(1);
+  }
+}
+
+/**
+ * Show an interactive picker for the post-execution action in worktree mode.
+ * Presented before task execution so the user declares intent upfront.
+ *
+ * If "Create PR" is chosen, runs preflight checks immediately. If preflight fails,
+ * warns the user and falls back to re-prompting.
+ */
+export async function pickPostExecutionAction(worktreeRoot: string): Promise<PostExecutionAction> {
+  const worktreeBranch = path.basename(worktreeRoot);
+
+  const chosen = await select<PostExecutionAction>({
+    message: `After tasks complete, what should happen with branch "${worktreeBranch}"?`,
+    choices: [
+      { name: 'Merge into current branch', value: 'merge' as const },
+      { name: 'Create a GitHub PR', value: 'pr' as const },
+      { name: 'Leave branch as-is', value: 'leave' as const },
+    ],
+  });
+
+  // Early preflight check for PR option
+  if (chosen === 'pr') {
+    const preflight = prPreflight(worktreeBranch, worktreeRoot);
+    if (!preflight.ready) {
+      logger.warn(`PR preflight failed: ${preflight.error}`);
+      logger.warn('Falling back to "Leave branch" — you can create a PR manually later.');
+      return 'leave';
+    }
+  }
+
+  return chosen;
+}
+
+/**
+ * Execute the chosen post-execution action.
+ * Called after all tasks succeed.
+ */
+async function executePostAction(
+  action: PostExecutionAction,
+  worktreeRoot: string,
+  worktreeBranch: string,
+  originalBranch: string | undefined,
+  projectPath: string,
+): Promise<void> {
+  switch (action) {
+    case 'merge': {
+      // Clean up worktree before merge (merge uses branch, not directory)
+      const cleanupResult = removeWorktree(worktreeRoot);
+      if (cleanupResult.success) {
+        logger.info(`Cleaned up worktree: ${worktreeRoot}`);
+      } else {
+        logger.warn(`Could not clean up worktree: ${cleanupResult.error}`);
+      }
+
+      if (!originalBranch) {
+        logger.warn('Could not determine original branch for merge.');
+        return;
+      }
+
       logger.newline();
       logger.info(`Merging branch "${worktreeBranch}" into "${originalBranch}"...`);
 
@@ -370,15 +448,36 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
         logger.warn(`Could not auto-merge: ${mergeResult.error}`);
         logger.warn(`You can merge manually: git merge ${worktreeBranch}`);
       }
-    } else {
-      logger.newline();
-      logger.info(`Skipping merge — project has failures. Worktree branch "${worktreeBranch}" is available for inspection.`);
+      break;
     }
-  }
 
-  // Exit with appropriate code
-  if (!result.success) {
-    process.exit(1);
+    case 'pr': {
+      logger.newline();
+      logger.info(`Creating PR for branch "${worktreeBranch}"...`);
+
+      const prResult = await createPullRequest(worktreeBranch, projectPath, { cwd: worktreeRoot });
+
+      if (prResult.success) {
+        logger.success(`PR created: ${prResult.prUrl}`);
+      } else {
+        logger.warn(`Could not create PR: ${prResult.error}`);
+        logger.warn(`Branch "${worktreeBranch}" has been pushed. You can create a PR manually.`);
+      }
+
+      // Do NOT clean up worktree for PR — user may want to make follow-up changes
+      break;
+    }
+
+    case 'leave': {
+      // Clean up worktree directory (branch is preserved)
+      const cleanupResult = removeWorktree(worktreeRoot);
+      if (cleanupResult.success) {
+        logger.info(`Cleaned up worktree: ${worktreeRoot}`);
+      } else {
+        logger.warn(`Could not clean up worktree: ${cleanupResult.error}`);
+      }
+      break;
+    }
   }
 }
 

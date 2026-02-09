@@ -5,9 +5,9 @@ import { jest } from '@jest/globals';
  *
  * The cleanup flow in runDoCommand:
  * 1. After executeSingleProject() returns
- * 2. If worktreeMode && worktreeRoot && result.success => removeWorktree()
- * 3. If cleanup fails, warn but don't error
- * 4. Then proceed to --merge step (which uses branch, not worktree directory)
+ * 2. Post-execution action (merge/pr/leave) is executed via executePostAction()
+ * 3. Cleanup happens as part of the post-action: merge and leave clean up, PR does not
+ * 4. If cleanup fails, warn but don't error
  *
  * Since runDoCommand is not exported, we test the logic indirectly by
  * verifying removeWorktree behavior and the conditions under which

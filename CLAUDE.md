@@ -193,15 +193,21 @@ RAF[00k5m2:03] Refactor database connection pooling
   - List mode: worktree projects that differ from main repo shown under `Worktrees:` header
   - Single project mode: shows both main and worktree state when they differ
   - Identical worktree projects are hidden; worktree-only projects always shown
-- Lifecycle: create worktree -> plan in worktree -> execute in worktree -> optionally merge with `--merge`
-- Merge strategy: fast-forward preferred, merge-commit fallback, abort on conflicts
-- Worktrees are automatically cleaned up after successful completion (branch is preserved for future amend). On failure, worktree is kept for inspection
+- Lifecycle: create worktree -> plan in worktree -> pick post-action -> execute in worktree -> auto-run chosen action
+- **Post-execution picker**: Before task execution, an interactive picker asks what to do after tasks complete:
+  1. **Merge** — merge branch into original branch (fast-forward preferred, merge-commit fallback)
+  2. **Create PR** — push branch and create a GitHub PR (uses `createPullRequest()` from `pull-request.ts`)
+  3. **Leave branch** — do nothing, keep the branch as-is
+- PR option runs preflight checks immediately; falls back to "leave" if `gh` CLI is missing or unauthenticated
+- On task failure, the chosen post-action is skipped with a message
+- Worktree cleanup: merge and leave actions clean up the worktree directory (branch preserved); PR preserves the worktree for follow-up changes
+- On failure, worktree is kept for inspection
 - `raf plan --amend --worktree` auto-recreates the worktree when it was cleaned up:
   - If the branch exists (common after cleanup): recreates worktree from the existing branch
   - If no branch exists: creates a fresh worktree and copies project files from the main repo
-- `--merge` is only valid with `--worktree`; merges the worktree branch into the original branch after all tasks succeed
 - On plan failure with no plan files created, the worktree is cleaned up automatically
 - Core utilities in `src/core/worktree.ts`: `createWorktree()`, `createWorktreeFromBranch()`, `branchExists()`, `validateWorktree()`, `mergeWorktreeBranch()`, `removeWorktree()`, `listWorktreeProjects()`
+- Post-execution picker: `pickPostExecutionAction()` and `PostExecutionAction` type exported from `src/commands/do.ts`
 
 ### PR Creation from Worktree
 - `src/core/pull-request.ts` provides `createPullRequest()` to create GitHub PRs from worktree branches

@@ -294,30 +294,29 @@ describe('worktree CLI validation', () => {
   // These tests verify the validation logic that exists in the do command.
   // We test the conditions directly rather than spawning the CLI.
 
-  describe('--merge requires --worktree', () => {
-    it('should identify when --merge is set without --worktree', () => {
+  describe('post-execution picker is worktree-only', () => {
+    it('should show picker only when worktree mode is active', () => {
+      const worktreeMode = true;
+      const worktreeRoot = '/some/path';
+
+      const shouldShowPicker = worktreeMode && !!worktreeRoot;
+      expect(shouldShowPicker).toBe(true);
+    });
+
+    it('should not show picker when not in worktree mode', () => {
       const worktreeMode = false;
-      const mergeMode = true;
+      const worktreeRoot = '/some/path';
 
-      // This mirrors the validation in do.ts
-      const isInvalid = mergeMode && !worktreeMode;
-      expect(isInvalid).toBe(true);
+      const shouldShowPicker = worktreeMode && !!worktreeRoot;
+      expect(shouldShowPicker).toBe(false);
     });
 
-    it('should allow --merge with --worktree', () => {
+    it('should not show picker when worktreeRoot is undefined', () => {
       const worktreeMode = true;
-      const mergeMode = true;
+      const worktreeRoot: string | undefined = undefined;
 
-      const isInvalid = mergeMode && !worktreeMode;
-      expect(isInvalid).toBe(false);
-    });
-
-    it('should allow --worktree without --merge', () => {
-      const worktreeMode = true;
-      const mergeMode = false;
-
-      const isInvalid = mergeMode && !worktreeMode;
-      expect(isInvalid).toBe(false);
+      const shouldShowPicker = worktreeMode && !!worktreeRoot;
+      expect(shouldShowPicker).toBe(false);
     });
   });
 
