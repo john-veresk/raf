@@ -98,6 +98,8 @@ After successfully completing the task:
 2. Commit with message: "RAF[${projectNumber}:${paddedTaskNumber}] <description>"
    - Write a concise description of what was accomplished
    - Focus on the actual change, not the task name
+   - The commit message must be a SINGLE LINE — no body, no trailers
+   - Do NOT add Co-Authored-By or any other trailers to the commit message
 
 **IMPORTANT - On Failure**: If the task fails, do NOT commit. Just write the outcome file with the \`<promise>FAILED</promise>\` marker and stop. Uncommitted changes will be preserved for debugging.
 `

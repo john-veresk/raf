@@ -69,6 +69,17 @@ describe('Execution Prompt', () => {
       expect(prompt).not.toContain('On Failure');
       expect(prompt).not.toContain('do NOT commit');
     });
+
+    it('should instruct not to add Co-Authored-By or other trailers', () => {
+      const prompt = getExecutionPrompt(baseParams);
+      expect(prompt).toContain('Do NOT add Co-Authored-By or any other trailers');
+    });
+
+    it('should specify commit message must be a single line', () => {
+      const prompt = getExecutionPrompt(baseParams);
+      expect(prompt).toContain('SINGLE LINE');
+      expect(prompt).toContain('no body, no trailers');
+    });
   });
 
   describe('Complete Commit Message', () => {
