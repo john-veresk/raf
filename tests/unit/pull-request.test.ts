@@ -13,10 +13,20 @@ jest.unstable_mockModule('node:child_process', () => ({
 const mockExistsSync = jest.fn();
 const mockReadFileSync = jest.fn();
 const mockReaddirSync = jest.fn();
+const mockWriteFileSync = jest.fn();
+const mockUnlinkSync = jest.fn();
 jest.unstable_mockModule('node:fs', () => ({
   existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
   readdirSync: mockReaddirSync,
+  writeFileSync: mockWriteFileSync,
+  unlinkSync: mockUnlinkSync,
+}));
+
+// Mock os
+const mockTmpdir = jest.fn().mockReturnValue('/tmp');
+jest.unstable_mockModule('node:os', () => ({
+  tmpdir: mockTmpdir,
 }));
 
 // Mock logger to prevent console output
@@ -42,11 +52,13 @@ const {
   readProjectContext,
   generatePrBody,
   createPullRequest,
+  filterClaudeOutput,
 } = await import('../../src/core/pull-request.js');
 
 describe('pull-request utilities', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockTmpdir.mockReturnValue('/tmp');
   });
 
   describe('isGhInstalled', () => {
@@ -358,6 +370,57 @@ describe('pull-request utilities', () => {
     });
   });
 
+  describe('filterClaudeOutput', () => {
+    it('should pass through clean markdown', () => {
+      const input = '## Summary\n- Added a feature\n\n## Test Plan\n- Run tests';
+      expect(filterClaudeOutput(input)).toBe(input);
+    });
+
+    it('should remove warning emoji lines', () => {
+      const input = '⚠ Some warning\n## Summary\n- Feature added';
+      expect(filterClaudeOutput(input)).toBe('## Summary\n- Feature added');
+    });
+
+    it('should remove [warn] prefixed lines', () => {
+      const input = '[warn] something happened\n## Summary\nContent here';
+      expect(filterClaudeOutput(input)).toBe('## Summary\nContent here');
+    });
+
+    it('should remove console.warn lines', () => {
+      const input = 'console.warn: deprecation notice\n## Summary\n- Done';
+      expect(filterClaudeOutput(input)).toBe('## Summary\n- Done');
+    });
+
+    it('should remove Note: lines', () => {
+      const input = 'Note: using fallback\n## Summary\n- Changes';
+      expect(filterClaudeOutput(input)).toBe('## Summary\n- Changes');
+    });
+
+    it('should remove Loading/Connecting/Processing lines', () => {
+      const input = 'Loading model...\nConnecting to API\n## Summary\n- Done';
+      expect(filterClaudeOutput(input)).toBe('## Summary\n- Done');
+    });
+
+    it('should remove lines with progress indicators', () => {
+      const input = '› Initializing\n> Running\n## Summary\n- Feature';
+      expect(filterClaudeOutput(input)).toBe('## Summary\n- Feature');
+    });
+
+    it('should handle empty input', () => {
+      expect(filterClaudeOutput('')).toBe('');
+    });
+
+    it('should handle input that is all log lines', () => {
+      const input = '⚠ warning\n[info] starting\nLoading data';
+      expect(filterClaudeOutput(input)).toBe('');
+    });
+
+    it('should preserve blank lines between markdown sections', () => {
+      const input = '## Summary\nContent\n\n## Test Plan\nVerify';
+      expect(filterClaudeOutput(input)).toBe(input);
+    });
+  });
+
   describe('generatePrBody', () => {
     it('should return fallback body when no context is available', async () => {
       mockExistsSync.mockReturnValue(false);
@@ -365,10 +428,12 @@ describe('pull-request utilities', () => {
       const body = await generatePrBody('/path/to/RAF/acbfhg-project');
 
       expect(body).toContain('## Summary');
+      expect(body).toContain('## Key Decisions');
+      expect(body).toContain('## What Was Done');
       expect(body).toContain('## Test Plan');
     });
 
-    it('should return fallback body with task count when outcomes exist', async () => {
+    it('should return fallback body with all 4 sections when outcomes exist', async () => {
       mockExistsSync.mockImplementation((p: unknown) => {
         const pStr = p as string;
         if (pStr.endsWith('input.md')) return true;
@@ -397,7 +462,117 @@ describe('pull-request utilities', () => {
 
       expect(body).toContain('## Summary');
       expect(body).toContain('Add dark mode toggle');
+      expect(body).toContain('## Key Decisions');
+      expect(body).toContain('No decisions recorded');
+      expect(body).toContain('## What Was Done');
       expect(body).toContain('1 task(s) completed');
+      expect(body).toContain('## Test Plan');
+    });
+
+    it('should include prompt with 4-section structure', async () => {
+      mockExistsSync.mockImplementation((p: unknown) => {
+        const pStr = p as string;
+        if (pStr.endsWith('input.md')) return true;
+        if (pStr.endsWith('decisions.md')) return false;
+        if (pStr.endsWith('outcomes')) return false;
+        return false;
+      });
+
+      mockReadFileSync.mockImplementation((p: unknown) => {
+        const pStr = p as string;
+        if (pStr.endsWith('input.md')) return 'Some feature';
+        return '';
+      });
+
+      // Capture the prompt passed to Claude
+      let capturedPrompt = '';
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('which claude')) return '/usr/local/bin/claude';
+        return '';
+      });
+
+      // Mock spawn to capture prompt
+      const mockProc = {
+        stdout: { on: jest.fn() },
+        stderr: { on: jest.fn() },
+        on: jest.fn(),
+        kill: jest.fn(),
+      };
+      mockSpawn.mockReturnValue(mockProc);
+
+      // Start the promise but don't await yet
+      const bodyPromise = generatePrBody('/path/to/RAF/acbfhg-project');
+
+      // Get the prompt from spawn args
+      const spawnArgs = mockSpawn.mock.calls[0] as unknown[];
+      const args = spawnArgs[1] as string[];
+      capturedPrompt = args[args.length - 1]!;
+
+      // Simulate successful Claude response
+      const closeHandler = (mockProc.on as jest.Mock).mock.calls.find(
+        (call: unknown[]) => call[0] === 'close',
+      );
+      const stdoutHandler = (mockProc.stdout.on as jest.Mock).mock.calls.find(
+        (call: unknown[]) => call[0] === 'data',
+      );
+
+      // Emit data then close
+      (stdoutHandler![1] as (data: Buffer) => void)(Buffer.from('## Summary\nTest\n\n## Key Decisions\n- Decision\n\n## What Was Done\n- Work\n\n## Test Plan\n- Verify'));
+      (closeHandler![1] as (code: number) => void)(0);
+
+      await bodyPromise;
+
+      // Verify prompt structure
+      expect(capturedPrompt).toContain('## Summary');
+      expect(capturedPrompt).toContain('## Key Decisions');
+      expect(capturedPrompt).toContain('## What Was Done');
+      expect(capturedPrompt).toContain('## Test Plan');
+    });
+
+    it('should use sonnet model', async () => {
+      mockExistsSync.mockImplementation((p: unknown) => {
+        const pStr = p as string;
+        if (pStr.endsWith('input.md')) return true;
+        return false;
+      });
+
+      mockReadFileSync.mockImplementation(() => 'Feature input');
+
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('which claude')) return '/usr/local/bin/claude';
+        return '';
+      });
+
+      const mockProc = {
+        stdout: { on: jest.fn() },
+        stderr: { on: jest.fn() },
+        on: jest.fn(),
+        kill: jest.fn(),
+      };
+      mockSpawn.mockReturnValue(mockProc);
+
+      const bodyPromise = generatePrBody('/path/to/RAF/acbfhg-project');
+
+      // Verify spawn was called with sonnet model
+      const spawnArgs = mockSpawn.mock.calls[0] as unknown[];
+      const args = spawnArgs[1] as string[];
+      expect(args).toContain('--model');
+      expect(args).toContain('sonnet');
+
+      // Close the process to resolve the promise
+      const closeHandler = (mockProc.on as jest.Mock).mock.calls.find(
+        (call: unknown[]) => call[0] === 'close',
+      );
+      const stdoutHandler = (mockProc.stdout.on as jest.Mock).mock.calls.find(
+        (call: unknown[]) => call[0] === 'data',
+      );
+
+      (stdoutHandler![1] as (data: Buffer) => void)(Buffer.from('## Summary\nContent'));
+      (closeHandler![1] as (code: number) => void)(0);
+
+      await bodyPromise;
     });
   });
 
@@ -474,6 +649,80 @@ describe('pull-request utilities', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Failed to push');
+    });
+
+    it('should use --body-file with temp file instead of --body', async () => {
+      let ghPrCmd = '';
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('gh --version')) return 'gh version 2.40.0';
+        if (cmdStr.includes('gh auth status')) return 'Logged in';
+        if (cmdStr.includes('git remote get-url')) return 'git@github.com:user/repo.git';
+        if (cmdStr.includes('git ls-remote')) return 'abc123\trefs/heads/my-branch';
+        if (cmdStr.includes('symbolic-ref')) return 'refs/remotes/origin/main\n';
+        if (cmdStr.includes('which claude')) throw new Error('not found');
+        if (cmdStr.includes('gh pr create')) {
+          ghPrCmd = cmdStr;
+          return 'https://github.com/user/repo/pull/42\n';
+        }
+        return '';
+      });
+
+      mockExistsSync.mockReturnValue(false);
+
+      await createPullRequest('my-branch', '/path/to/RAF/acbfhg-project');
+
+      expect(ghPrCmd).toContain('--body-file');
+      expect(ghPrCmd).not.toContain('--body "');
+      expect(mockWriteFileSync).toHaveBeenCalledWith(
+        expect.stringContaining('/tmp/raf-pr-body-'),
+        expect.any(String),
+        'utf-8',
+      );
+    });
+
+    it('should clean up temp file after successful PR creation', async () => {
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('gh --version')) return 'gh version 2.40.0';
+        if (cmdStr.includes('gh auth status')) return 'Logged in';
+        if (cmdStr.includes('git remote get-url')) return 'git@github.com:user/repo.git';
+        if (cmdStr.includes('git ls-remote')) return 'abc123\trefs/heads/my-branch';
+        if (cmdStr.includes('symbolic-ref')) return 'refs/remotes/origin/main\n';
+        if (cmdStr.includes('which claude')) throw new Error('not found');
+        if (cmdStr.includes('gh pr create')) return 'https://github.com/user/repo/pull/1\n';
+        return '';
+      });
+
+      mockExistsSync.mockReturnValue(false);
+
+      await createPullRequest('my-branch', '/path/to/RAF/acbfhg-project');
+
+      expect(mockUnlinkSync).toHaveBeenCalledWith(
+        expect.stringContaining('/tmp/raf-pr-body-'),
+      );
+    });
+
+    it('should clean up temp file even on PR creation failure', async () => {
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('gh --version')) return 'gh version 2.40.0';
+        if (cmdStr.includes('gh auth status')) return 'Logged in';
+        if (cmdStr.includes('git remote get-url')) return 'git@github.com:user/repo.git';
+        if (cmdStr.includes('git ls-remote')) return 'abc123\trefs/heads/my-branch';
+        if (cmdStr.includes('symbolic-ref')) return 'refs/remotes/origin/main\n';
+        if (cmdStr.includes('which claude')) throw new Error('not found');
+        if (cmdStr.includes('gh pr create')) throw new Error('PR already exists');
+        return '';
+      });
+
+      mockExistsSync.mockReturnValue(false);
+
+      await createPullRequest('my-branch', '/path/to/RAF/acbfhg-project');
+
+      expect(mockUnlinkSync).toHaveBeenCalledWith(
+        expect.stringContaining('/tmp/raf-pr-body-'),
+      );
     });
 
     it('should create PR successfully with all checks passing', async () => {
