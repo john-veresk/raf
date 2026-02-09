@@ -1,0 +1,4 @@
+- [ ] make 'raf do' to automatically check existing worktrees in ~/.raf for the repo and if there task to do - offer to do the project in the project picker that we have
+- [ ] update status of tasks in 'raf do' to from "[01] base26-encoding" to "01-base26-encoding"
+- [ ] use sonnet to summarize PR and investigate why formatting is wrong on github (no newlines displayed) /Users/eremeev/Desktop/Screenshot\ 2026-02-09\ at\ 21.10.53.png (may /n escaped and everything goes under md header). also some log got into pr description /Users/eremeev/Desktop/Screenshot\ 2026-02-09\ at\ 21.31.26.png (don't put them). make nice and clear PR discription. input.md in proof read form nicely formatted, key decision made extracted from decisions.md (not all, mort important / big). then clear outline of that was done
+- [ ] don't add "Co-Authored-By: claude code" in commit messages
