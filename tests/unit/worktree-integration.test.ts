@@ -119,7 +119,7 @@ describe('worktree integration tests (real git repos)', () => {
       const projectDir = path.join(wtPath, projectRelPath);
       fs.mkdirSync(projectDir, { recursive: true });
       fs.mkdirSync(path.join(projectDir, 'plans'), { recursive: true });
-      fs.writeFileSync(path.join(projectDir, 'plans', '001-task.md'), '# Task 1\n');
+      fs.writeFileSync(path.join(projectDir, 'plans', '01-task.md'), '# Task 1\n');
 
       const result = validateWorktree(wtPath, projectRelPath);
 

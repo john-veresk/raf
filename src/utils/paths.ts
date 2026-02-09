@@ -9,6 +9,41 @@ export const RAF_EPOCH = 1767225600;
 /** ID width: 6 characters, zero-padded base36 */
 const ID_WIDTH = 6;
 
+/** Task ID width: 2 characters, zero-padded base36 */
+const TASK_ID_WIDTH = 2;
+
+/** Regex pattern for matching base36 task IDs (2-char: 00-zz) */
+export const TASK_ID_PATTERN = '[0-9a-z]{2}';
+
+/**
+ * Encode a task number (0-based or 1-based) to a 2-character zero-padded base36 string.
+ * E.g., 1 -> "01", 10 -> "0a", 36 -> "10", 1295 -> "zz"
+ */
+export function encodeTaskId(num: number): string {
+  if (num < 0) {
+    throw new Error(`encodeTaskId only accepts non-negative integers, got ${num}`);
+  }
+  if (num > 36 * 36 - 1) {
+    throw new Error(`encodeTaskId: value ${num} exceeds max 2-char base36 (1295)`);
+  }
+  return num.toString(36).padStart(TASK_ID_WIDTH, '0');
+}
+
+/**
+ * Decode a 2-character base36 task ID string back to a number.
+ * E.g., "01" -> 1, "0a" -> 10, "10" -> 36
+ * Returns null if invalid format.
+ */
+export function decodeTaskId(str: string): number | null {
+  if (str.length !== TASK_ID_WIDTH) {
+    return null;
+  }
+  if (!/^[0-9a-z]{2}$/.test(str.toLowerCase())) {
+    return null;
+  }
+  return parseInt(str.toLowerCase(), 36);
+}
+
 /**
  * Encode a non-negative integer to a 6-character zero-padded base36 string.
  */
@@ -152,12 +187,12 @@ export function extractProjectName(projectPath: string): string | null {
 
 /**
  * Extract task name from a plan filename (without number prefix and extension).
- * E.g., "002-fix-login-bug.md" -> "fix-login-bug"
+ * E.g., "02-fix-login-bug.md" -> "fix-login-bug"
  * Returns the task name or null if not found.
  */
 export function extractTaskNameFromPlanFile(planFilename: string): string | null {
   const basename = path.basename(planFilename, '.md');
-  const match = basename.match(/^\d{2,3}-(.+)$/);
+  const match = basename.match(/^[0-9a-z]{2}-(.+)$/);
   return match && match[1] ? match[1] : null;
 }
 

@@ -34,11 +34,11 @@ RAF/
     ├── input.md             # User requirements
     ├── decisions.md         # Q&A from planning interviews
     ├── plans/               # Task breakdowns
-    │   ├── 001-task-name.md
-    │   └── 002-another-task.md
+    │   ├── 01-task-name.md  # 2-char base36 task ID
+    │   └── 02-another-task.md
     └── outcomes/            # Completed task results
-        ├── 001-task-name.md
-        └── 002-another-task.md
+        ├── 01-task-name.md
+        └── 02-another-task.md
 ```
 
 ### Plan File Structure
@@ -54,7 +54,7 @@ Each plan file follows this structure:
 [Why this task is needed]
 
 ## Dependencies
-[Optional - comma-separated task IDs, e.g., "001, 002"]
+[Optional - comma-separated task IDs, e.g., "01, 02"]
 [If a dependency fails, this task is blocked]
 
 ## Requirements
@@ -75,7 +75,7 @@ Each plan file follows this structure:
 
 **Dependencies Section**:
 - Optional - omit if task has no dependencies
-- Uses task IDs only (e.g., `001, 002`)
+- Uses task IDs only (e.g., `01, 02`)
 - If a dependency fails, dependent tasks are automatically blocked
 
 ## Development Commands
@@ -140,6 +140,15 @@ npm run lint       # Type check without emit
 - Project name is kebab-case derived from core feature
 - IDs are unique by timestamp and sort chronologically
 
+### Task ID Format
+- Task IDs are 2-character base36 strings, zero-padded (e.g., `01`, `0a`, `1z`, `zz`)
+- Base36 charset: 0-9, a-z (lowercase)
+- Supports up to 1296 tasks per project (00-zz)
+- Task numbering starts at `01` (not `00`)
+- Sort order: 00, 01, ..., 09, 0a, 0b, ..., 0z, 10, 11, ..., zz
+- Utilities in `src/utils/paths.ts`: `encodeTaskId()`, `decodeTaskId()`, `TASK_ID_PATTERN`
+- File naming: `01-task-name.md`, `0a-task-name.md`, etc.
+
 ### Project Identifier Resolution
 Support multiple identifier formats in commands:
 1. Base36 ID: `00j3k1` (6-character epoch-based ID)
@@ -160,9 +169,9 @@ Claude writes a concise description of what was accomplished, focusing on the ac
 
 Examples:
 ```
-RAF[00j3k1:001] Add validation for user input fields
-RAF[00j3k1:002] Fix null pointer in auth handler
-RAF[00k5m2:003] Refactor database connection pooling
+RAF[00j3k1:01] Add validation for user input fields
+RAF[00j3k1:02] Fix null pointer in auth handler
+RAF[00k5m2:03] Refactor database connection pooling
 ```
 
 - Claude commits code changes and outcome file together in one commit per task

@@ -309,12 +309,12 @@ describe('Status Command - Worktree Discovery', () => {
       const wtDir = path.join(tempDir, 'worktree');
 
       createProjectWithTasks(mainDir, '000001-test', [
-        { id: '001', name: 'task-a', status: 'completed' },
-        { id: '002', name: 'task-b', status: 'completed' },
+        { id: '01', name: 'task-a', status: 'completed' },
+        { id: '02', name: 'task-b', status: 'completed' },
       ]);
       createProjectWithTasks(wtDir, '000001-test', [
-        { id: '001', name: 'task-a', status: 'completed' },
-        { id: '002', name: 'task-b', status: 'completed' },
+        { id: '01', name: 'task-a', status: 'completed' },
+        { id: '02', name: 'task-b', status: 'completed' },
       ]);
 
       const mainState = deriveProjectState(path.join(mainDir, '000001-test'));
@@ -334,15 +334,15 @@ describe('Status Command - Worktree Discovery', () => {
 
       // Main: 2 tasks completed
       createProjectWithTasks(mainDir, '000001-test', [
-        { id: '001', name: 'task-a', status: 'completed' },
-        { id: '002', name: 'task-b', status: 'completed' },
+        { id: '01', name: 'task-a', status: 'completed' },
+        { id: '02', name: 'task-b', status: 'completed' },
       ]);
       // Worktree: 4 tasks (2 completed + 2 pending from amend)
       createProjectWithTasks(wtDir, '000001-test', [
-        { id: '001', name: 'task-a', status: 'completed' },
-        { id: '002', name: 'task-b', status: 'completed' },
-        { id: '003', name: 'task-c' },
-        { id: '004', name: 'task-d' },
+        { id: '01', name: 'task-a', status: 'completed' },
+        { id: '02', name: 'task-b', status: 'completed' },
+        { id: '03', name: 'task-c' },
+        { id: '04', name: 'task-d' },
       ]);
 
       const mainState = deriveProjectState(path.join(mainDir, '000001-test'));
@@ -358,13 +358,13 @@ describe('Status Command - Worktree Discovery', () => {
 
       // Main: all pending
       createProjectWithTasks(mainDir, '000001-test', [
-        { id: '001', name: 'task-a' },
-        { id: '002', name: 'task-b' },
+        { id: '01', name: 'task-a' },
+        { id: '02', name: 'task-b' },
       ]);
       // Worktree: some completed
       createProjectWithTasks(wtDir, '000001-test', [
-        { id: '001', name: 'task-a', status: 'completed' },
-        { id: '002', name: 'task-b' },
+        { id: '01', name: 'task-a', status: 'completed' },
+        { id: '02', name: 'task-b' },
       ]);
 
       const mainState = deriveProjectState(path.join(mainDir, '000001-test'));
@@ -400,9 +400,9 @@ describe('Status Command - Worktree Discovery', () => {
       const wtProjectPath = path.join(wtPath, rafRelativePath, projectFolder);
 
       createProjectWithTasks(path.join(wtPath, rafRelativePath), projectFolder, [
-        { id: '001', name: 'setup', status: 'completed' },
-        { id: '002', name: 'implement' },
-        { id: '003', name: 'test' },
+        { id: '01', name: 'setup', status: 'completed' },
+        { id: '02', name: 'implement' },
+        { id: '03', name: 'test' },
       ]);
 
       const state = deriveProjectState(wtProjectPath);
@@ -417,7 +417,7 @@ describe('Status Command - Worktree Discovery', () => {
       // Create main repo projects
       const mainRafDir = path.join(tempDir, 'main-raf');
       createProjectWithTasks(mainRafDir, '000001-auth', [
-        { id: '001', name: 'login', status: 'completed' },
+        { id: '01', name: 'login', status: 'completed' },
       ]);
 
       // Main repo folders
@@ -443,16 +443,16 @@ describe('Status Command - Worktree Discovery', () => {
 
       // Main: 2 tasks all completed
       createProjectWithTasks(mainRafDir, '000001-auth', [
-        { id: '001', name: 'login', status: 'completed' },
-        { id: '002', name: 'signup', status: 'completed' },
+        { id: '01', name: 'login', status: 'completed' },
+        { id: '02', name: 'signup', status: 'completed' },
       ]);
 
       // Worktree: same 2 tasks completed + 2 new pending (amendment)
       createProjectWithTasks(wtRafDir, '000001-auth', [
-        { id: '001', name: 'login', status: 'completed' },
-        { id: '002', name: 'signup', status: 'completed' },
-        { id: '003', name: 'oauth' },
-        { id: '004', name: 'sso' },
+        { id: '01', name: 'login', status: 'completed' },
+        { id: '02', name: 'signup', status: 'completed' },
+        { id: '03', name: 'oauth' },
+        { id: '04', name: 'sso' },
       ]);
 
       const mainState = deriveProjectState(path.join(mainRafDir, '000001-auth'));
@@ -472,12 +472,12 @@ describe('Status Command - Worktree Discovery', () => {
 
       // Both have identical state
       createProjectWithTasks(mainRafDir, '000001-auth', [
-        { id: '001', name: 'login', status: 'completed' },
-        { id: '002', name: 'signup', status: 'completed' },
+        { id: '01', name: 'login', status: 'completed' },
+        { id: '02', name: 'signup', status: 'completed' },
       ]);
       createProjectWithTasks(wtRafDir, '000001-auth', [
-        { id: '001', name: 'login', status: 'completed' },
-        { id: '002', name: 'signup', status: 'completed' },
+        { id: '01', name: 'login', status: 'completed' },
+        { id: '02', name: 'signup', status: 'completed' },
       ]);
 
       const mainState = deriveProjectState(path.join(mainRafDir, '000001-auth'));
@@ -503,10 +503,10 @@ describe('Status Command - Worktree Discovery', () => {
       const wtRafDir = path.join(tempDir, 'worktree');
 
       createProjectWithTasks(wtRafDir, '000020-feature', [
-        { id: '001', name: 'setup', status: 'completed' },
-        { id: '002', name: 'implement', status: 'completed' },
-        { id: '003', name: 'test', status: 'failed' },
-        { id: '004', name: 'deploy' },
+        { id: '01', name: 'setup', status: 'completed' },
+        { id: '02', name: 'implement', status: 'completed' },
+        { id: '03', name: 'test', status: 'failed' },
+        { id: '04', name: 'deploy' },
       ]);
 
       const state = deriveProjectState(path.join(wtRafDir, '000020-feature'));
@@ -522,9 +522,9 @@ describe('Status Command - Worktree Discovery', () => {
       const wtRafDir = path.join(tempDir, 'worktree');
 
       createProjectWithTasks(wtRafDir, '000025-new-only', [
-        { id: '001', name: 'step-a' },
-        { id: '002', name: 'step-b' },
-        { id: '003', name: 'step-c' },
+        { id: '01', name: 'step-a' },
+        { id: '02', name: 'step-b' },
+        { id: '03', name: 'step-c' },
       ]);
 
       const state = deriveProjectState(path.join(wtRafDir, '000025-new-only'));

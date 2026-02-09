@@ -52,7 +52,7 @@ ${stashName ? `- Stash: ${stashName}` : ''}
 
   describe('successful outcomes', () => {
     it('should not contain ## Details section', () => {
-      const outcome = generateSuccessOutcome('001');
+      const outcome = generateSuccessOutcome('01');
 
       expect(outcome).not.toContain('## Details');
       expect(outcome).not.toContain('Attempts:');
@@ -61,28 +61,28 @@ ${stashName ? `- Stash: ${stashName}` : ''}
     });
 
     it('should not contain ## Failure History section', () => {
-      const outcome = generateSuccessOutcome('001');
+      const outcome = generateSuccessOutcome('01');
 
       expect(outcome).not.toContain('## Failure History');
     });
 
     it('should contain the completion marker', () => {
-      const outcome = generateSuccessOutcome('001');
+      const outcome = generateSuccessOutcome('01');
 
       expect(outcome).toContain('<promise>COMPLETE</promise>');
     });
 
     it('should contain basic structure', () => {
-      const outcome = generateSuccessOutcome('002');
+      const outcome = generateSuccessOutcome('02');
 
       expect(outcome).toContain('## Status: SUCCESS');
-      expect(outcome).toContain('# Task 002 - Completed');
+      expect(outcome).toContain('# Task 02 - Completed');
     });
   });
 
   describe('failed outcomes', () => {
     it('should contain ## Details section for debugging', () => {
-      const outcome = generateFailedOutcome('001', 3, '5m 10s');
+      const outcome = generateFailedOutcome('01', 3, '5m 10s');
 
       expect(outcome).toContain('## Details');
       expect(outcome).toContain('Attempts: 3');
@@ -91,21 +91,21 @@ ${stashName ? `- Stash: ${stashName}` : ''}
     });
 
     it('should not contain ## Failure History section', () => {
-      const outcome = generateFailedOutcome('001');
+      const outcome = generateFailedOutcome('01');
 
       expect(outcome).not.toContain('## Failure History');
     });
 
     it('should contain the failure marker', () => {
-      const outcome = generateFailedOutcome('001');
+      const outcome = generateFailedOutcome('01');
 
       expect(outcome).toContain('<promise>FAILED</promise>');
     });
 
     it('should include stash name when provided', () => {
-      const outcome = generateFailedOutcome('001', 2, '3m', 'raf-001-task-001-failed');
+      const outcome = generateFailedOutcome('01', 2, '3m', 'raf-01-task-01-failed');
 
-      expect(outcome).toContain('Stash: raf-001-task-001-failed');
+      expect(outcome).toContain('Stash: raf-01-task-01-failed');
     });
   });
 });
@@ -113,15 +113,15 @@ ${stashName ? `- Stash: ${stashName}` : ''}
 describe('Retry History Console Output', () => {
   describe('formatRetryHistoryForConsole', () => {
     it('should return empty string when no failures', () => {
-      const result = formatRetryHistoryForConsole('001', 'my-task', [], 1, true);
+      const result = formatRetryHistoryForConsole('01', 'my-task', [], 1, true);
       expect(result).toBe('');
     });
 
     it('should format single failure with eventual success', () => {
       const failureHistory = [{ attempt: 1, reason: 'Connection timeout' }];
-      const result = formatRetryHistoryForConsole('001', 'my-task', failureHistory, 2, true);
+      const result = formatRetryHistoryForConsole('01', 'my-task', failureHistory, 2, true);
 
-      expect(result).toContain('Task 001 (my-task):');
+      expect(result).toContain('Task 01 (my-task):');
       expect(result).toContain('Attempt 1: Failed - Connection timeout');
       expect(result).toContain('Attempt 2: Succeeded');
     });
@@ -131,9 +131,9 @@ describe('Retry History Console Output', () => {
         { attempt: 1, reason: 'Connection timeout' },
         { attempt: 2, reason: 'API error' },
       ];
-      const result = formatRetryHistoryForConsole('001', 'my-task', failureHistory, 3, true);
+      const result = formatRetryHistoryForConsole('01', 'my-task', failureHistory, 3, true);
 
-      expect(result).toContain('Task 001 (my-task):');
+      expect(result).toContain('Task 01 (my-task):');
       expect(result).toContain('Attempt 1: Failed - Connection timeout');
       expect(result).toContain('Attempt 2: Failed - API error');
       expect(result).toContain('Attempt 3: Succeeded');
@@ -145,9 +145,9 @@ describe('Retry History Console Output', () => {
         { attempt: 2, reason: 'API error' },
         { attempt: 3, reason: 'Max retries exceeded' },
       ];
-      const result = formatRetryHistoryForConsole('001', 'my-task', failureHistory, 3, false);
+      const result = formatRetryHistoryForConsole('01', 'my-task', failureHistory, 3, false);
 
-      expect(result).toContain('Task 001 (my-task):');
+      expect(result).toContain('Task 01 (my-task):');
       expect(result).toContain('Attempt 1: Failed - Connection timeout');
       expect(result).toContain('Attempt 2: Failed - API error');
       expect(result).toContain('Attempt 3: Failed - Max retries exceeded');
@@ -156,11 +156,11 @@ describe('Retry History Console Output', () => {
 
     it('should handle task name same as task id', () => {
       const failureHistory = [{ attempt: 1, reason: 'Error' }];
-      const result = formatRetryHistoryForConsole('001', '001', failureHistory, 2, true);
+      const result = formatRetryHistoryForConsole('01', '01', failureHistory, 2, true);
 
       // When taskName equals taskId, should just show taskId
-      expect(result).toContain('Task 001:');
-      expect(result).not.toContain('Task 001 (001):');
+      expect(result).toContain('Task 01:');
+      expect(result).not.toContain('Task 01 (01):');
     });
   });
 });

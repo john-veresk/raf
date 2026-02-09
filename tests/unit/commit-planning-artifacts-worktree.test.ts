@@ -85,7 +85,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
     fs.mkdirSync(path.join(projectPath, 'outcomes'), { recursive: true });
     fs.writeFileSync(path.join(projectPath, 'input.md'), 'original input');
     fs.writeFileSync(path.join(projectPath, 'decisions.md'), '# Decisions\n\n## Q1?\nA1');
-    fs.writeFileSync(path.join(projectPath, 'plans', '001-first-task.md'), '# Task: First');
+    fs.writeFileSync(path.join(projectPath, 'plans', '01-first-task.md'), '# Task: First');
     return projectPath;
   }
 
@@ -158,13 +158,13 @@ describe('commitPlanningArtifacts - worktree integration', () => {
       '# Decisions\n\n## Q1?\nA1\n\n## Q2?\nA2'
     );
     fs.writeFileSync(
-      path.join(wtProjectPath, 'plans', '002-new-task.md'),
+      path.join(wtProjectPath, 'plans', '02-new-task.md'),
       '# Task: New Task'
     );
 
     // Call commitPlanningArtifacts with additional files
     const additionalFiles = [
-      path.join(wtProjectPath, 'plans', '002-new-task.md'),
+      path.join(wtProjectPath, 'plans', '02-new-task.md'),
     ];
     await commitPlanningArtifacts(wtProjectPath, {
       cwd: worktreePath,
@@ -180,7 +180,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
     const committedFiles = getLastCommitFiles(worktreePath);
     expect(committedFiles).toContain(`RAF/${projectFolder}/input.md`);
     expect(committedFiles).toContain(`RAF/${projectFolder}/decisions.md`);
-    expect(committedFiles).toContain(`RAF/${projectFolder}/plans/002-new-task.md`);
+    expect(committedFiles).toContain(`RAF/${projectFolder}/plans/02-new-task.md`);
   });
 
   it('should commit after worktree recreation from branch', async () => {
@@ -230,13 +230,13 @@ describe('commitPlanningArtifacts - worktree integration', () => {
       '# Decisions\n\n## Q1?\nA1\n\n## Q2?\nA2\n\n## Q3?\nA3'
     );
     fs.writeFileSync(
-      path.join(recreatedProjectPath, 'plans', '002-new-task.md'),
+      path.join(recreatedProjectPath, 'plans', '02-new-task.md'),
       '# Task: New Task'
     );
 
     // Call commitPlanningArtifacts with worktree cwd
     const additionalFiles = [
-      path.join(recreatedProjectPath, 'plans', '002-new-task.md'),
+      path.join(recreatedProjectPath, 'plans', '02-new-task.md'),
     ];
     await commitPlanningArtifacts(recreatedProjectPath, {
       cwd: recreatedWtPath,
@@ -252,7 +252,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
     const committedFiles = getLastCommitFiles(recreatedWtPath);
     expect(committedFiles).toContain(`RAF/${projectFolder}/input.md`);
     expect(committedFiles).toContain(`RAF/${projectFolder}/decisions.md`);
-    expect(committedFiles).toContain(`RAF/${projectFolder}/plans/002-new-task.md`);
+    expect(committedFiles).toContain(`RAF/${projectFolder}/plans/02-new-task.md`);
   });
 
   it('should work when only some files have changed', async () => {

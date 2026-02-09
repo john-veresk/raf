@@ -854,7 +854,7 @@ describe('ClaudeRunner', () => {
       const mockProc = createMockProcess();
       mockSpawn.mockReturnValue(mockProc);
 
-      const outcomePath = '/test/project/outcomes/001-task.md';
+      const outcomePath = '/test/project/outcomes/01-task.md';
 
       // Outcome file doesn't exist initially
       mockExistsSync.mockReturnValue(false);
@@ -893,7 +893,7 @@ describe('ClaudeRunner', () => {
       mockProc.kill = jest.fn();
       mockSpawn.mockReturnValue(mockProc);
 
-      const outcomePath = '/test/project/outcomes/001-task.md';
+      const outcomePath = '/test/project/outcomes/01-task.md';
 
       // Outcome file already exists from previous failed run
       mockExistsSync.mockReturnValue(true);
@@ -981,8 +981,8 @@ describe('ClaudeRunner', () => {
 
     const commitContext = {
       preExecutionHead: 'aaa111',
-      expectedPrefix: 'RAF[005:001]',
-      outcomeFilePath: '/project/outcomes/001-task.md',
+      expectedPrefix: 'RAF[005:01]',
+      outcomeFilePath: '/project/outcomes/01-task.md',
     };
 
     beforeEach(() => {
@@ -998,7 +998,7 @@ describe('ClaudeRunner', () => {
 
       // Commit lands during grace period
       mockGetHeadCommitHash.mockReturnValue('bbb222');
-      mockGetHeadCommitMessage.mockReturnValue('RAF[005:001] Add feature');
+      mockGetHeadCommitMessage.mockReturnValue('RAF[005:01] Add feature');
       mockIsFileCommittedInHead.mockReturnValue(true);
 
       const runner = new ClaudeRunner();
@@ -1042,7 +1042,7 @@ describe('ClaudeRunner', () => {
 
       // Now simulate commit landing during extended polling
       mockGetHeadCommitHash.mockReturnValue('bbb222');
-      mockGetHeadCommitMessage.mockReturnValue('RAF[005:001] Add feature');
+      mockGetHeadCommitMessage.mockReturnValue('RAF[005:01] Add feature');
       mockIsFileCommittedInHead.mockReturnValue(true);
 
       // Advance to next commit poll interval
@@ -1131,7 +1131,7 @@ describe('ClaudeRunner', () => {
 
       // HEAD changed but message doesn't match expected prefix
       mockGetHeadCommitHash.mockReturnValue('bbb222');
-      mockGetHeadCommitMessage.mockReturnValue('RAF[005:002] Wrong task');
+      mockGetHeadCommitMessage.mockReturnValue('RAF[005:02] Wrong task');
       mockIsFileCommittedInHead.mockReturnValue(true);
 
       const runner = new ClaudeRunner();
@@ -1148,7 +1148,7 @@ describe('ClaudeRunner', () => {
       expect(mockProc.kill).not.toHaveBeenCalled();
 
       // Fix commit message
-      mockGetHeadCommitMessage.mockReturnValue('RAF[005:001] Correct task');
+      mockGetHeadCommitMessage.mockReturnValue('RAF[005:01] Correct task');
 
       // Next poll finds it
       jest.advanceTimersByTime(COMMIT_POLL_INTERVAL_MS);
@@ -1165,7 +1165,7 @@ describe('ClaudeRunner', () => {
 
       // HEAD changed and message matches, but file not committed
       mockGetHeadCommitHash.mockReturnValue('bbb222');
-      mockGetHeadCommitMessage.mockReturnValue('RAF[005:001] Add feature');
+      mockGetHeadCommitMessage.mockReturnValue('RAF[005:01] Add feature');
       mockIsFileCommittedInHead.mockReturnValue(false);
 
       const runner = new ClaudeRunner();

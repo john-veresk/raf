@@ -39,8 +39,8 @@ describe('git commit helper functions', () => {
 
   describe('getHeadCommitMessage', () => {
     it('should return the HEAD commit message', () => {
-      mockExecSync.mockReturnValue('RAF[005:001] Add validation\n');
-      expect(getHeadCommitMessage()).toBe('RAF[005:001] Add validation');
+      mockExecSync.mockReturnValue('RAF[005:01] Add validation\n');
+      expect(getHeadCommitMessage()).toBe('RAF[005:01] Add validation');
     });
 
     it('should return null if not in a git repo', () => {
@@ -63,11 +63,11 @@ describe('git commit helper functions', () => {
           return '/project\n';
         }
         if (typeof cmd === 'string' && cmd.includes('ls-tree')) {
-          return '100644 blob abc123\tRAF/outcomes/001-task.md\n';
+          return '100644 blob abc123\tRAF/outcomes/01-task.md\n';
         }
         return '';
       });
-      expect(isFileCommittedInHead('/project/RAF/outcomes/001-task.md')).toBe(true);
+      expect(isFileCommittedInHead('/project/RAF/outcomes/01-task.md')).toBe(true);
     });
 
     it('should return false when file does not exist in HEAD', () => {
@@ -80,7 +80,7 @@ describe('git commit helper functions', () => {
         }
         return '';
       });
-      expect(isFileCommittedInHead('/project/RAF/outcomes/001-task.md')).toBe(false);
+      expect(isFileCommittedInHead('/project/RAF/outcomes/01-task.md')).toBe(false);
     });
 
     it('should return false if not in a git repo', () => {

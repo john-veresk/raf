@@ -141,11 +141,11 @@ describe('Plan Amend - Worktree Recreation', () => {
       fs.writeFileSync(path.join(mainProjectDir, 'input.md'), 'My project input');
       fs.writeFileSync(path.join(mainProjectDir, 'decisions.md'), '# Decisions');
       fs.writeFileSync(
-        path.join(mainProjectDir, 'plans', '001-first-task.md'),
+        path.join(mainProjectDir, 'plans', '01-first-task.md'),
         '# Task: First task'
       );
       fs.writeFileSync(
-        path.join(mainProjectDir, 'outcomes', '001-first-task.md'),
+        path.join(mainProjectDir, 'outcomes', '01-first-task.md'),
         'Completed\n<promise>COMPLETE</promise>'
       );
 
@@ -164,8 +164,8 @@ describe('Plan Amend - Worktree Recreation', () => {
       // Verify all files were copied
       expect(fs.existsSync(path.join(wtProjectDir, 'input.md'))).toBe(true);
       expect(fs.existsSync(path.join(wtProjectDir, 'decisions.md'))).toBe(true);
-      expect(fs.existsSync(path.join(wtProjectDir, 'plans', '001-first-task.md'))).toBe(true);
-      expect(fs.existsSync(path.join(wtProjectDir, 'outcomes', '001-first-task.md'))).toBe(true);
+      expect(fs.existsSync(path.join(wtProjectDir, 'plans', '01-first-task.md'))).toBe(true);
+      expect(fs.existsSync(path.join(wtProjectDir, 'outcomes', '01-first-task.md'))).toBe(true);
 
       // Verify content
       expect(fs.readFileSync(path.join(wtProjectDir, 'input.md'), 'utf-8')).toBe(
@@ -181,10 +181,10 @@ describe('Plan Amend - Worktree Recreation', () => {
       expect(entries.sort()).toEqual(['decisions.md', 'input.md', 'outcomes', 'plans']);
 
       const planFiles = fs.readdirSync(path.join(wtProjectDir, 'plans'));
-      expect(planFiles).toEqual(['001-first-task.md']);
+      expect(planFiles).toEqual(['01-first-task.md']);
 
       const outcomeFiles = fs.readdirSync(path.join(wtProjectDir, 'outcomes'));
-      expect(outcomeFiles).toEqual(['001-first-task.md']);
+      expect(outcomeFiles).toEqual(['01-first-task.md']);
     });
   });
 

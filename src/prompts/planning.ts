@@ -76,8 +76,8 @@ This file serves as documentation of design choices made during planning. Append
 ### Step 3: Create Plan Files
 
 After interviewing the user about all tasks, create plan files in the plans folder:
-- ${projectPath}/plans/001-task-name.md
-- ${projectPath}/plans/002-task-name.md
+- ${projectPath}/plans/01-task-name.md
+- ${projectPath}/plans/02-task-name.md
 - etc.
 
 Each plan file should follow this structure:
@@ -93,7 +93,7 @@ Each plan file should follow this structure:
 
 ## Dependencies
 [Optional section - omit if task has no dependencies]
-[Comma-separated list of task IDs this task depends on, e.g., "001, 002"]
+[Comma-separated list of task IDs this task depends on, e.g., "01, 02"]
 [If a dependency fails, this task will be automatically blocked]
 
 ## Requirements
@@ -130,12 +130,12 @@ For each task, analyze which other tasks must complete successfully before it ca
 **Dependency format examples:**
 \`\`\`markdown
 ## Dependencies
-001
+01
 \`\`\`
 or for multiple dependencies:
 \`\`\`markdown
 ## Dependencies
-001, 002
+01, 02
 \`\`\`
 
 **Rules for dependencies:**
@@ -159,7 +159,7 @@ Planning complete! To exit this session and run your tasks:
 ## Important Rules
 
 1. ALWAYS interview the user before creating plans
-2. Create plans in numbered order (001, 002, 003, etc.) reflecting logical execution order
+2. Create plans in numbered order (01, 02, 03, etc.) reflecting logical execution order
 3. Use descriptive, kebab-case names for plan files
 4. Each plan should be self-contained with all context needed
 5. Infer dependencies automatically - analyze task relationships, don't ask the user about dependencies

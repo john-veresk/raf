@@ -5,15 +5,15 @@ describe('Amend Prompt', () => {
     projectPath: '/test/project',
     existingTasks: [
       {
-        id: '001',
+        id: '01',
         status: 'completed',
-        planFile: 'plans/001-setup.md',
+        planFile: 'plans/01-setup.md',
         taskName: 'setup',
       },
       {
-        id: '002',
+        id: '02',
         status: 'pending',
-        planFile: 'plans/002-feature.md',
+        planFile: 'plans/02-feature.md',
         taskName: 'feature',
       },
     ],
@@ -40,8 +40,8 @@ describe('Amend Prompt', () => {
     it('should include existing tasks in system prompt', () => {
       const { systemPrompt } = getAmendPrompt(baseParams);
 
-      expect(systemPrompt).toContain('Task 001');
-      expect(systemPrompt).toContain('Task 002');
+      expect(systemPrompt).toContain('Task 01');
+      expect(systemPrompt).toContain('Task 02');
       expect(systemPrompt).toContain('[COMPLETED]');
       expect(systemPrompt).toContain('[PENDING]');
     });

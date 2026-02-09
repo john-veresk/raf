@@ -141,7 +141,7 @@ export function getChangedFiles(): string[] {
 
 /**
  * Stash uncommitted changes with a descriptive name.
- * @param name - Name for the stash (e.g., "raf-001-task-3-failed")
+ * @param name - Name for the stash (e.g., "raf-001-task-03-failed")
  * @returns true if stash was created, false otherwise
  */
 export function stashChanges(name: string, cwd?: string): boolean {

@@ -28,6 +28,9 @@ import {
   getDecisionsPath,
   getOutcomesDir,
   extractTaskNameFromPlanFile,
+  decodeTaskId,
+  encodeTaskId,
+  TASK_ID_PATTERN,
 } from '../utils/paths.js';
 import { sanitizeProjectName } from '../utils/validation.js';
 import {
@@ -478,9 +481,9 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
     }
   );
 
-  // Calculate next task number
+  // Calculate next task number (decode base36 task IDs)
   const maxTaskNumber = Math.max(
-    ...projectState.tasks.map((t) => parseInt(t.id, 10))
+    ...projectState.tasks.map((t) => decodeTaskId(t.id) ?? 0)
   );
   const nextTaskNumber = maxTaskNumber + 1;
 
@@ -579,9 +582,9 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
       : [];
 
     const newPlanFiles = allPlanFiles.filter((f) => {
-      const match = f.match(/^(\d{2,3})-/);
+      const match = f.match(new RegExp(`^(${TASK_ID_PATTERN})-`));
       if (match && match[1]) {
-        return parseInt(match[1], 10) >= nextTaskNumber;
+        return (decodeTaskId(match[1]) ?? 0) >= nextTaskNumber;
       }
       return false;
     });
@@ -643,7 +646,7 @@ function getAmendTemplate(
 # Existing tasks (read-only reference):
 ${taskList}
 #
-# New tasks will be numbered starting from ${nextTaskNumber.toString().padStart(3, '0')}
+# New tasks will be numbered starting from ${encodeTaskId(nextTaskNumber)}
 #
 # Describe what you want to add below:
 `;

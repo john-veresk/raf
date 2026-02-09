@@ -3,20 +3,20 @@ import { getExecutionPrompt, ExecutionPromptParams, summarizeOutcome } from '../
 describe('Execution Prompt', () => {
   const baseParams: ExecutionPromptParams = {
     projectPath: '/Users/test/RAF/005-task-naming-improvements',
-    planPath: '/Users/test/RAF/005-task-naming-improvements/plans/001-enhance-identifier-resolution.md',
-    taskId: '001',
+    planPath: '/Users/test/RAF/005-task-naming-improvements/plans/01-enhance-identifier-resolution.md',
+    taskId: '01',
     taskNumber: 1,
     totalTasks: 5,
     previousOutcomes: [],
     autoCommit: true,
     projectNumber: '005',
-    outcomeFilePath: '/Users/test/RAF/005-task-naming-improvements/outcomes/001-enhance-identifier-resolution.md',
+    outcomeFilePath: '/Users/test/RAF/005-task-naming-improvements/outcomes/01-enhance-identifier-resolution.md',
   };
 
   describe('Commit Message Format', () => {
     it('should include RAF commit schema format with description placeholder in prompt', () => {
       const prompt = getExecutionPrompt(baseParams);
-      expect(prompt).toContain('RAF[005:001] <description>');
+      expect(prompt).toContain('RAF[005:01] <description>');
     });
 
     it('should instruct to write meaningful description', () => {
@@ -28,25 +28,25 @@ describe('Execution Prompt', () => {
     it('should zero-pad single digit task numbers', () => {
       const params = { ...baseParams, taskNumber: 1 };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('RAF[005:001]');
+      expect(prompt).toContain('RAF[005:01]');
     });
 
     it('should zero-pad double digit task numbers', () => {
       const params = { ...baseParams, taskNumber: 12 };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('RAF[005:012]');
+      expect(prompt).toContain('RAF[005:0c]');
     });
 
-    it('should not pad triple digit task numbers', () => {
+    it('should encode large task numbers in base36', () => {
       const params = { ...baseParams, taskNumber: 123 };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('RAF[005:123]');
+      expect(prompt).toContain('RAF[005:3f]');
     });
 
     it('should include project number from base36 prefix', () => {
       const params = { ...baseParams, projectNumber: 'a05' };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('RAF[a05:001]');
+      expect(prompt).toContain('RAF[a05:01]');
     });
 
     it('should not include commit instructions when autoCommit is false', () => {
@@ -75,49 +75,49 @@ describe('Execution Prompt', () => {
     it('should generate correct commit message format for task 006', () => {
       const params: ExecutionPromptParams = {
         projectPath: '/Users/test/RAF/005-task-naming-improvements',
-        planPath: '/Users/test/RAF/005-task-naming-improvements/plans/006-update-execution-prompt.md',
-        taskId: '006',
+        planPath: '/Users/test/RAF/005-task-naming-improvements/plans/06-update-execution-prompt.md',
+        taskId: '06',
         taskNumber: 6,
         totalTasks: 7,
         previousOutcomes: [],
         autoCommit: true,
         projectNumber: '005',
-        outcomeFilePath: '/Users/test/RAF/005-task-naming-improvements/outcomes/006-update-execution-prompt.md',
+        outcomeFilePath: '/Users/test/RAF/005-task-naming-improvements/outcomes/06-update-execution-prompt.md',
       };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('RAF[005:006] <description>');
+      expect(prompt).toContain('RAF[005:06] <description>');
     });
 
     it('should generate correct commit message format for first task', () => {
       const params: ExecutionPromptParams = {
         projectPath: '/Users/test/RAF/001-fix-bug',
-        planPath: '/Users/test/RAF/001-fix-bug/plans/001-identify-issue.md',
-        taskId: '001',
+        planPath: '/Users/test/RAF/001-fix-bug/plans/01-identify-issue.md',
+        taskId: '01',
         taskNumber: 1,
         totalTasks: 3,
         previousOutcomes: [],
         autoCommit: true,
         projectNumber: '001',
-        outcomeFilePath: '/Users/test/RAF/001-fix-bug/outcomes/001-identify-issue.md',
+        outcomeFilePath: '/Users/test/RAF/001-fix-bug/outcomes/01-identify-issue.md',
       };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('RAF[001:001] <description>');
+      expect(prompt).toContain('RAF[001:01] <description>');
     });
 
     it('should generate correct commit message format for base36 project', () => {
       const params: ExecutionPromptParams = {
         projectPath: '/Users/test/RAF/a0b-feature-branch',
-        planPath: '/Users/test/RAF/a0b-feature-branch/plans/002-implement-feature.md',
-        taskId: '002',
+        planPath: '/Users/test/RAF/a0b-feature-branch/plans/02-implement-feature.md',
+        taskId: '02',
         taskNumber: 2,
         totalTasks: 4,
         previousOutcomes: [],
         autoCommit: true,
         projectNumber: 'a0b',
-        outcomeFilePath: '/Users/test/RAF/a0b-feature-branch/outcomes/002-implement-feature.md',
+        outcomeFilePath: '/Users/test/RAF/a0b-feature-branch/outcomes/02-implement-feature.md',
       };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('RAF[a0b:002] <description>');
+      expect(prompt).toContain('RAF[a0b:02] <description>');
     });
   });
 
@@ -129,7 +129,7 @@ describe('Execution Prompt', () => {
 
     it('should include task ID', () => {
       const prompt = getExecutionPrompt(baseParams);
-      expect(prompt).toContain('Task ID: 001');
+      expect(prompt).toContain('Task ID: 01');
     });
 
     it('should include project path', () => {
@@ -139,7 +139,7 @@ describe('Execution Prompt', () => {
 
     it('should include plan path', () => {
       const prompt = getExecutionPrompt(baseParams);
-      expect(prompt).toContain('plans/001-enhance-identifier-resolution.md');
+      expect(prompt).toContain('plans/01-enhance-identifier-resolution.md');
     });
   });
 
@@ -197,12 +197,12 @@ describe('Execution Prompt', () => {
       const params = {
         ...baseParams,
         previousOutcomes: [
-          { taskId: '001', content: '## Status: SUCCESS\n\nTask completed successfully.' },
+          { taskId: '01', content: '## Status: SUCCESS\n\nTask completed successfully.' },
         ],
       };
       const prompt = getExecutionPrompt(params);
       expect(prompt).toContain('Previous Task Outcomes');
-      expect(prompt).toContain('### Task 001');
+      expect(prompt).toContain('### Task 01');
       expect(prompt).toContain('## Status: SUCCESS');
     });
 
@@ -232,12 +232,12 @@ describe('Execution Prompt', () => {
       const params = {
         ...baseParams,
         attemptNumber: 2,
-        previousOutcomeFile: '/Users/test/RAF/005-task-naming-improvements/outcomes/001-enhance-identifier-resolution.md',
+        previousOutcomeFile: '/Users/test/RAF/005-task-naming-improvements/outcomes/01-enhance-identifier-resolution.md',
       };
       const prompt = getExecutionPrompt(params);
       expect(prompt).toContain('## Retry Context');
       expect(prompt).toContain('This is attempt 2');
-      expect(prompt).toContain('**Previous outcome file**: /Users/test/RAF/005-task-naming-improvements/outcomes/001-enhance-identifier-resolution.md');
+      expect(prompt).toContain('**Previous outcome file**: /Users/test/RAF/005-task-naming-improvements/outcomes/01-enhance-identifier-resolution.md');
     });
 
     it('should include retry context on third attempt', () => {
@@ -293,7 +293,7 @@ describe('Execution Prompt', () => {
     it('should not include dependency context when dependencyOutcomes is empty', () => {
       const params = {
         ...baseParams,
-        dependencyIds: ['001'],
+        dependencyIds: ['01'],
         dependencyOutcomes: [],
       };
       const prompt = getExecutionPrompt(params);
@@ -303,47 +303,47 @@ describe('Execution Prompt', () => {
     it('should include dependency context when task has dependencies with outcomes', () => {
       const params = {
         ...baseParams,
-        taskId: '002',
+        taskId: '02',
         taskNumber: 2,
-        dependencyIds: ['001'],
+        dependencyIds: ['01'],
         dependencyOutcomes: [
-          { taskId: '001', content: '## Summary\n\nImplemented the base feature.\n\n<promise>COMPLETE</promise>' },
+          { taskId: '01', content: '## Summary\n\nImplemented the base feature.\n\n<promise>COMPLETE</promise>' },
         ],
       };
       const prompt = getExecutionPrompt(params);
       expect(prompt).toContain('## Dependency Context');
-      expect(prompt).toContain('**Dependencies**: 001');
-      expect(prompt).toContain('### Task 001');
+      expect(prompt).toContain('**Dependencies**: 01');
+      expect(prompt).toContain('### Task 01');
       expect(prompt).toContain('Implemented the base feature');
     });
 
     it('should include multiple dependency outcomes', () => {
       const params = {
         ...baseParams,
-        taskId: '003',
+        taskId: '03',
         taskNumber: 3,
-        dependencyIds: ['001', '002'],
+        dependencyIds: ['01', '02'],
         dependencyOutcomes: [
-          { taskId: '001', content: '## Summary\n\nFirst task done.\n\n<promise>COMPLETE</promise>' },
-          { taskId: '002', content: '## Summary\n\nSecond task done.\n\n<promise>COMPLETE</promise>' },
+          { taskId: '01', content: '## Summary\n\nFirst task done.\n\n<promise>COMPLETE</promise>' },
+          { taskId: '02', content: '## Summary\n\nSecond task done.\n\n<promise>COMPLETE</promise>' },
         ],
       };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('**Dependencies**: 001, 002');
-      expect(prompt).toContain('### Task 001');
+      expect(prompt).toContain('**Dependencies**: 01, 02');
+      expect(prompt).toContain('### Task 01');
       expect(prompt).toContain('First task done');
-      expect(prompt).toContain('### Task 002');
+      expect(prompt).toContain('### Task 02');
       expect(prompt).toContain('Second task done');
     });
 
     it('should explain purpose of dependency context', () => {
       const params = {
         ...baseParams,
-        taskId: '002',
+        taskId: '02',
         taskNumber: 2,
-        dependencyIds: ['001'],
+        dependencyIds: ['01'],
         dependencyOutcomes: [
-          { taskId: '001', content: '## Summary\n\nDone.\n\n<promise>COMPLETE</promise>' },
+          { taskId: '01', content: '## Summary\n\nDone.\n\n<promise>COMPLETE</promise>' },
         ],
       };
       const prompt = getExecutionPrompt(params);
@@ -355,15 +355,15 @@ describe('Execution Prompt', () => {
     it('should place dependency context before previous outcomes section', () => {
       const params = {
         ...baseParams,
-        taskId: '003',
+        taskId: '03',
         taskNumber: 3,
         previousOutcomes: [
-          { taskId: '001', content: 'Previous outcome 1' },
-          { taskId: '002', content: 'Previous outcome 2' },
+          { taskId: '01', content: 'Previous outcome 1' },
+          { taskId: '02', content: 'Previous outcome 2' },
         ],
-        dependencyIds: ['001'],
+        dependencyIds: ['01'],
         dependencyOutcomes: [
-          { taskId: '001', content: '## Summary\n\nDependency work.\n\n<promise>COMPLETE</promise>' },
+          { taskId: '01', content: '## Summary\n\nDependency work.\n\n<promise>COMPLETE</promise>' },
         ],
       };
       const prompt = getExecutionPrompt(params);

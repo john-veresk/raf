@@ -262,14 +262,14 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/000017-decision-vault/input.md\nRAF/000017-decision-vault/plans/004-new-task.md\n';
+        return 'RAF/000017-decision-vault/input.md\nRAF/000017-decision-vault/plans/04-new-task.md\n';
       }
       return '';
     });
 
     const additionalFiles = [
-      '/Users/test/RAF/000017-decision-vault/plans/004-new-task.md',
-      '/Users/test/RAF/000017-decision-vault/plans/005-another-task.md',
+      '/Users/test/RAF/000017-decision-vault/plans/04-new-task.md',
+      '/Users/test/RAF/000017-decision-vault/plans/05-another-task.md',
     ];
 
     await commitPlanningArtifacts('/Users/test/RAF/000017-decision-vault', {
@@ -286,8 +286,8 @@ describe('commitPlanningArtifacts', () => {
     const addCmds = addCalls.map((c) => c[0] as string);
     expect(addCmds.some((cmd) => cmd.includes('input.md'))).toBe(true);
     expect(addCmds.some((cmd) => cmd.includes('decisions.md'))).toBe(true);
-    expect(addCmds.some((cmd) => cmd.includes('004-new-task.md'))).toBe(true);
-    expect(addCmds.some((cmd) => cmd.includes('005-another-task.md'))).toBe(true);
+    expect(addCmds.some((cmd) => cmd.includes('04-new-task.md'))).toBe(true);
+    expect(addCmds.some((cmd) => cmd.includes('05-another-task.md'))).toBe(true);
   });
 
   it('should pass cwd to isGitRepo for worktree support', async () => {
@@ -462,7 +462,7 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/000017-decision-vault/plans/004-new-task.md\n';
+        return 'RAF/000017-decision-vault/plans/04-new-task.md\n';
       }
       return '';
     });
@@ -470,7 +470,7 @@ describe('commitPlanningArtifacts', () => {
     const worktreePath = '/Users/test/.raf/worktrees/myapp/000017-decision-vault';
     const projectPath = `${worktreePath}/RAF/000017-decision-vault`;
     const additionalFiles = [
-      `${projectPath}/plans/004-new-task.md`,
+      `${projectPath}/plans/04-new-task.md`,
     ];
 
     await commitPlanningArtifacts(projectPath, {
@@ -492,9 +492,9 @@ describe('commitPlanningArtifacts', () => {
 
     // Verify the plan file path is relative
     const planAddCall = addCalls.find(
-      (call) => (call[0] as string).includes('004-new-task.md')
+      (call) => (call[0] as string).includes('04-new-task.md')
     );
     expect(planAddCall).toBeDefined();
-    expect((planAddCall![0] as string)).toContain('RAF/000017-decision-vault/plans/004-new-task.md');
+    expect((planAddCall![0] as string)).toContain('RAF/000017-decision-vault/plans/04-new-task.md');
   });
 });

@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { getPlansDir, getOutcomesDir, getInputPath, decodeBase36 } from '../utils/paths.js';
+import { getPlansDir, getOutcomesDir, getInputPath, decodeBase36, TASK_ID_PATTERN } from '../utils/paths.js';
 
 export type DerivedTaskStatus = 'pending' | 'completed' | 'failed' | 'blocked';
 
@@ -70,7 +70,7 @@ export function discoverProjects(rafDir: string): DiscoveredProject[] {
 
 /**
  * Parse the Dependencies section from plan file content.
- * Format: `## Dependencies\n001, 002` → ["001", "002"]
+ * Format: `## Dependencies\n01, 02` → ["01", "02"]
  * Returns empty array if no Dependencies section exists.
  */
 export function parseDependencies(content: string): string[] {
@@ -84,11 +84,12 @@ export function parseDependencies(content: string): string[] {
     return [];
   }
 
-  // Parse comma-separated task IDs
+  // Parse comma-separated task IDs (2-char base36)
+  const taskIdRegex = new RegExp(`^${TASK_ID_PATTERN}$`);
   return dependenciesLine
     .split(',')
     .map((id) => id.trim())
-    .filter((id) => /^\d{2,3}$/.test(id));
+    .filter((id) => taskIdRegex.test(id));
 }
 
 /**
@@ -178,7 +179,7 @@ export function deriveProjectStatus(
 /**
  * Derive project state from the folder structure.
  * Scans plans/ for plan files and outcomes/ for outcome files.
- * Matches them by task ID (NNN prefix) and determines status.
+ * Matches them by task ID (2-char base36 prefix) and determines status.
  * Also parses dependencies and derives blocked status.
  */
 export function deriveProjectState(projectPath: string): DerivedProjectState {
@@ -205,7 +206,7 @@ export function deriveProjectState(projectPath: string): DerivedProjectState {
       .sort();
 
     for (const outcomeFile of outcomeFiles) {
-      const match = outcomeFile.match(/^(\d{2,3})-/);
+      const match = outcomeFile.match(new RegExp(`^(${TASK_ID_PATTERN})-`));
       if (match && match[1]) {
         const taskId = match[1];
         const content = fs.readFileSync(path.join(outcomesDir, outcomeFile), 'utf-8');
@@ -219,7 +220,7 @@ export function deriveProjectState(projectPath: string): DerivedProjectState {
 
   // First pass: Match plan files to outcomes and parse dependencies
   for (const planFile of planFiles) {
-    const match = planFile.match(/^(\d{2,3})-(.+)\.md$/);
+    const match = planFile.match(new RegExp(`^(${TASK_ID_PATTERN})-(.+)\\.md$`));
     if (match && match[1]) {
       const taskId = match[1];
       const status = outcomeStatuses.get(taskId) ?? 'pending';
