@@ -10,7 +10,8 @@ import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, isRetryableFailure } from '../parsers/output-parser.js';
 import { validatePlansExist, resolveModelOption } from '../utils/validation.js';
 import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFromPlanFile, resolveProjectIdentifierWithDetails, getOutcomeFilePath, parseProjectPrefix } from '../utils/paths.js';
-import { pickPendingProject, getPendingProjects } from '../ui/project-picker.js';
+import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
+import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
 import { getConfig } from '../utils/config.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
@@ -132,7 +133,7 @@ export function createDoCommand(): Command {
 async function runDoCommand(projectIdentifierArg: string | undefined, options: DoCommandOptions): Promise<void> {
   const rafDir = getRafDir();
   let projectIdentifier = projectIdentifierArg;
-  const worktreeMode = options.worktree ?? false;
+  let worktreeMode = options.worktree ?? false;
 
   // Validate and resolve model option
   let model: string;
@@ -173,26 +174,41 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
 
   // Handle no project identifier (non-worktree mode) - show interactive picker
   if (!projectIdentifier) {
-    // Check if there are any pending projects
+    // Discover worktree projects for the current repo (if in a git repo)
+    let worktreeProjects: PendingProjectInfo[] = [];
+    const repoRoot = getRepoRoot();
+    if (repoRoot) {
+      const repoBasename = getRepoBasename()!;
+      const rafRelativePath = path.relative(repoRoot, rafDir);
+      worktreeProjects = getPendingWorktreeProjects(repoBasename, rafRelativePath);
+    }
+
+    // Check if there are any pending projects (local or worktree)
     const pendingProjects = getPendingProjects(rafDir);
 
-    if (pendingProjects.length === 0) {
+    if (pendingProjects.length === 0 && worktreeProjects.length === 0) {
       logger.info('No pending projects found.');
       logger.info("Run 'raf plan' to create a new project.");
       process.exit(0);
     }
 
     try {
-      const selectedProject = await pickPendingProject(rafDir);
+      const selectedProject = await pickPendingProject(rafDir, worktreeProjects);
 
       if (!selectedProject) {
-        // This shouldn't happen since we already checked pendingProjects.length
         logger.info('No pending projects found.');
         process.exit(0);
       }
 
       // Use the selected project
-      projectIdentifier = selectedProject;
+      projectIdentifier = selectedProject.folder;
+
+      // If a worktree project was selected, auto-switch to worktree mode
+      if (selectedProject.source === 'worktree' && selectedProject.worktreeRoot) {
+        worktreeMode = true;
+        worktreeRoot = selectedProject.worktreeRoot;
+        originalBranch = getCurrentBranch() ?? undefined;
+      }
     } catch (error) {
       // Handle Ctrl+C (user cancellation)
       if (error instanceof Error && error.message.includes('User force closed')) {

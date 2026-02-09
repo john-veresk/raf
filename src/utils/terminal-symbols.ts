@@ -36,8 +36,8 @@ function truncate(str: string, maxLength: number): string {
  * @param status - Task status
  * @param name - Task name
  * @param elapsedMs - Optional elapsed time in milliseconds
- * @param taskId - Optional task ID for [NNN] prefix display
- * @returns Formatted string like "● [001] auth-login 1:23" or "✓ [001] auth-login 1/5"
+ * @param taskId - Optional task ID prefix display
+ * @returns Formatted string like "● 001-auth-login 1:23" or "✓ 001-auth-login 1/5"
  */
 export function formatTaskProgress(
   current: number,
@@ -49,7 +49,7 @@ export function formatTaskProgress(
 ): string {
   const symbol = SYMBOLS[status];
   const displayName = truncate(name || 'task', 40);
-  const idPrefix = taskId ? `[${taskId}] ` : '';
+  const idPrefix = taskId ? `${taskId}-` : '';
 
   // Show elapsed time for running tasks, completed tasks, and failed tasks
   if (elapsedMs !== undefined) {

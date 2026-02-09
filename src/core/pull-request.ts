@@ -1,5 +1,6 @@
 import { execSync, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { logger } from '../utils/logger.js';
 import { extractProjectName, getInputPath, getDecisionsPath, getOutcomesDir, TASK_ID_PATTERN } from '../utils/paths.js';
@@ -221,12 +222,12 @@ export function readProjectContext(projectPath: string): {
 }
 
 /**
- * Generate a PR body by calling Claude Haiku to summarize project context.
+ * Generate a PR body by calling Claude Sonnet to summarize project context.
  * Falls back to a simple body if Claude is unavailable.
  */
 export async function generatePrBody(
   projectPath: string,
-  timeoutMs: number = 60000,
+  timeoutMs: number = 120000,
 ): Promise<string> {
   const context = readProjectContext(projectPath);
 
@@ -258,20 +259,23 @@ export async function generatePrBody(
 
   const projectContext = parts.join('\n\n');
 
-  const prompt = `You are generating a Pull Request description for a GitHub PR. Summarize the following project context into a clean, concise PR body.
+  const prompt = `You are generating a Pull Request description for a GitHub PR. Use the project context below to produce a clean, well-structured PR body.
 
 ${projectContext}
 
-Respond with ONLY the PR body in this exact format (no extra text):
+Respond with ONLY the PR body in this exact format (no extra text, no code fences):
 
 ## Summary
-[2-5 bullet points summarizing what this PR does]
+[Proofread, clean version of the project requirements from the input — 2-5 sentences describing what this PR accomplishes and why]
 
-## Changes
-[List the key changes made, grouped by area if needed]
+## Key Decisions
+[The most important design decisions that were made — only include significant ones, not every detail. Use bullet points.]
+
+## What Was Done
+[Clear outline of the completed work, organized by task or area. Use bullet points.]
 
 ## Test Plan
-[1-3 bullet points on how to verify these changes]`;
+[1-3 bullet points describing how to verify these changes work correctly]`;
 
   try {
     const body = await callClaudeForPrBody(prompt, timeoutMs);
@@ -290,15 +294,29 @@ function generateFallbackBody(projectPath: string): string {
   const lines: string[] = ['## Summary'];
 
   if (context.input) {
-    // Extract first meaningful line from input
     const firstLine = context.input.split('\n').find(l => l.trim() && !l.startsWith('#'));
     if (firstLine) {
-      lines.push(`- ${firstLine.trim()}`);
+      lines.push(firstLine.trim());
     }
   }
 
+  lines.push('');
+  lines.push('## Key Decisions');
+  if (context.decisions) {
+    const firstDecision = context.decisions.split('\n').find(l => l.trim() && !l.startsWith('#'));
+    if (firstDecision) {
+      lines.push(`- ${firstDecision.trim()}`);
+    }
+  } else {
+    lines.push('- No decisions recorded');
+  }
+
+  lines.push('');
+  lines.push('## What Was Done');
   if (context.outcomes.length > 0) {
     lines.push(`- ${context.outcomes.length} task(s) completed`);
+  } else {
+    lines.push('- No tasks completed yet');
   }
 
   lines.push('');
@@ -309,7 +327,28 @@ function generateFallbackBody(projectPath: string): string {
 }
 
 /**
- * Call Claude Haiku to generate a PR body.
+ * Filter Claude CLI output to remove non-markdown log/warning lines.
+ * Claude CLI stdout may include warning or progress lines mixed with the response.
+ */
+export function filterClaudeOutput(output: string): string {
+  const lines = output.split('\n');
+  const filtered = lines.filter(line => {
+    const trimmed = line.trim();
+    // Skip empty lines at the boundary (we'll let markdown's own blank lines through)
+    if (!trimmed) return true;
+    // Skip common log/warning patterns
+    if (/^(⚠|⚡|🔄|⏳|✓|✗|›|>)\s/.test(trimmed)) return false;
+    if (/^\[?(warn|warning|info|debug|error|log)\]?[:\s]/i.test(trimmed)) return false;
+    if (/^console\.(warn|log|error|info)/i.test(trimmed)) return false;
+    if (/^Note:/i.test(trimmed)) return false;
+    if (/^(Loading|Connecting|Fetching|Processing)\b/i.test(trimmed)) return false;
+    return true;
+  });
+  return filtered.join('\n').trim();
+}
+
+/**
+ * Call Claude Sonnet to generate a PR body.
  */
 async function callClaudeForPrBody(prompt: string, timeoutMs: number): Promise<string> {
   let claudePath: string;
@@ -324,7 +363,7 @@ async function callClaudeForPrBody(prompt: string, timeoutMs: number): Promise<s
     let stderr = '';
 
     const proc = spawn(claudePath, [
-      '--model', 'haiku',
+      '--model', 'sonnet',
       '--dangerously-skip-permissions',
       '-p',
       prompt,
@@ -354,13 +393,13 @@ async function callClaudeForPrBody(prompt: string, timeoutMs: number): Promise<s
         return;
       }
 
-      const trimmed = output.trim();
-      if (!trimmed) {
+      const filtered = filterClaudeOutput(output);
+      if (!filtered) {
         reject(new Error('Claude returned empty output'));
         return;
       }
 
-      resolve(trimmed);
+      resolve(filtered);
     });
 
     proc.on('error', (error) => {
@@ -415,10 +454,13 @@ export async function createPullRequest(
   // Generate PR body
   const body = await generatePrBody(projectPath);
 
-  // Create PR via gh CLI
+  // Write body to temp file to avoid shell escaping issues
+  const bodyFile = path.join(os.tmpdir(), `raf-pr-body-${Date.now()}.md`);
   try {
+    fs.writeFileSync(bodyFile, body, 'utf-8');
+
     const result = execSync(
-      `gh pr create --title "${title.replace(/"/g, '\\"')}" --base "${baseBranch}" --head "${branch}" --body "${body.replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`,
+      `gh pr create --title "${title.replace(/"/g, '\\"')}" --base "${baseBranch}" --head "${branch}" --body-file "${bodyFile}"`,
       {
         encoding: 'utf-8',
         stdio: 'pipe',
@@ -431,5 +473,8 @@ export async function createPullRequest(
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     return { success: false, error: `Failed to create PR: ${msg}` };
+  } finally {
+    // Clean up temp file
+    try { fs.unlinkSync(bodyFile); } catch { /* ignore */ }
   }
 }
