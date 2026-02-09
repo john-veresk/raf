@@ -100,7 +100,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
   }
 
   it('should commit input.md and decisions.md changes in worktree', async () => {
-    const projectFolder = '00test-my-project';
+    const projectFolder = 'aatest-my-project';
 
     // Create initial project and commit
     createInitialProject(repoDir, projectFolder);
@@ -128,7 +128,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
 
     // Verify commit was made
     const lastMsg = getLastCommitMessage(worktreePath);
-    expect(lastMsg).toMatch(/RAF\[00test\] Plan: my-project/);
+    expect(lastMsg).toMatch(/RAF\[aatest\] Plan: my-project/);
 
     // Verify both files are in the commit
     const committedFiles = getLastCommitFiles(worktreePath);
@@ -137,7 +137,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
   });
 
   it('should commit amend artifacts with additional plan files in worktree', async () => {
-    const projectFolder = '00test-my-project';
+    const projectFolder = 'aatest-my-project';
 
     // Create initial project and commit
     createInitialProject(repoDir, projectFolder);
@@ -174,7 +174,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
 
     // Verify commit was made with Amend prefix
     const lastMsg = getLastCommitMessage(worktreePath);
-    expect(lastMsg).toMatch(/RAF\[00test\] Amend: my-project/);
+    expect(lastMsg).toMatch(/RAF\[aatest\] Amend: my-project/);
 
     // Verify all three files are in the commit
     const committedFiles = getLastCommitFiles(worktreePath);
@@ -184,7 +184,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
   });
 
   it('should commit after worktree recreation from branch', async () => {
-    const projectFolder = '00test-my-project';
+    const projectFolder = 'aatest-my-project';
 
     // Create initial project, commit, and create initial worktree
     createInitialProject(repoDir, projectFolder);
@@ -246,7 +246,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
 
     // Verify commit was made
     const lastMsg = getLastCommitMessage(recreatedWtPath);
-    expect(lastMsg).toMatch(/RAF\[00test\] Amend: my-project/);
+    expect(lastMsg).toMatch(/RAF\[aatest\] Amend: my-project/);
 
     // Verify all files are in the commit
     const committedFiles = getLastCommitFiles(recreatedWtPath);
@@ -256,7 +256,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
   });
 
   it('should work when only some files have changed', async () => {
-    const projectFolder = '00test-my-project';
+    const projectFolder = 'aatest-my-project';
 
     // Create initial project and commit
     createInitialProject(repoDir, projectFolder);
@@ -279,7 +279,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
 
     // Verify commit was made
     const lastMsg = getLastCommitMessage(worktreePath);
-    expect(lastMsg).toMatch(/RAF\[00test\] Plan: my-project/);
+    expect(lastMsg).toMatch(/RAF\[aatest\] Plan: my-project/);
 
     // Only input.md should be in the commit (decisions.md unchanged)
     const committedFiles = getLastCommitFiles(worktreePath);
@@ -288,7 +288,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
   });
 
   it('should handle non-worktree commit (standard mode) correctly', async () => {
-    const projectFolder = '00test-my-project';
+    const projectFolder = 'aatest-my-project';
 
     // Create initial project and commit
     createInitialProject(repoDir, projectFolder);
@@ -318,7 +318,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
 
     // Verify commit
     const lastMsg = getLastCommitMessage(repoDir);
-    expect(lastMsg).toMatch(/RAF\[00test\] Plan: my-project/);
+    expect(lastMsg).toMatch(/RAF\[aatest\] Plan: my-project/);
 
     const committedFiles = getLastCommitFiles(repoDir);
     expect(committedFiles).toContain(`RAF/${projectFolder}/input.md`);

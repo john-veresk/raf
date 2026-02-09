@@ -30,7 +30,7 @@ src/
 Each RAF project follows this structure:
 ```
 RAF/
-└── 00j3k1-project-name/    # 6-char epoch-based base36 ID
+└── abcdef-project-name/    # 6-char epoch-based base26 ID (a-z only)
     ├── input.md             # User requirements
     ├── decisions.md         # Q&A from planning interviews
     ├── plans/               # Task breakdowns
@@ -134,11 +134,13 @@ npm run lint       # Type check without emit
 - All failure outcomes end with `<promise>FAILED</promise>` marker
 
 ### Project Naming Convention
-- Format: `XXXXXX-project-name` where `XXXXXX` is a 6-character base36 epoch-based ID
-- ID is generated from `(current_unix_seconds - RAF_EPOCH)` encoded as base36, zero-padded to 6 characters
+- Format: `XXXXXX-project-name` where `XXXXXX` is a 6-character base26 ID (a-z only)
+- ID is generated from `(current_unix_seconds - RAF_EPOCH)` encoded as base26, left-padded with 'a' to 6 characters
+- Base26 encoding: a=0, b=1, ..., z=25 (lowercase letters only, no digits)
 - RAF_EPOCH is 2026-01-01T00:00:00Z (Unix timestamp 1767225600)
 - Project name is kebab-case derived from core feature
 - IDs are unique by timestamp and sort chronologically
+- Project IDs are visually distinct from task IDs (which use base36 with digits)
 
 ### Task ID Format
 - Task IDs are 2-character base36 strings, zero-padded (e.g., `01`, `0a`, `1z`, `zz`)
@@ -151,9 +153,9 @@ npm run lint       # Type check without emit
 
 ### Project Identifier Resolution
 Support multiple identifier formats in commands:
-1. Base36 ID: `00j3k1` (6-character epoch-based ID)
+1. Base26 ID: `abcdef` (6-character epoch-based ID, a-z only)
 2. Project name: `fix-stuff` (case-insensitive, partial match)
-3. Full folder name: `00j3k1-fix-stuff` (exact match)
+3. Full folder name: `abcdef-fix-stuff` (exact match)
 
 Use `resolveProjectIdentifierWithDetails()` from `src/utils/paths.ts`
 
@@ -169,9 +171,9 @@ Claude writes a concise description of what was accomplished, focusing on the ac
 
 Examples:
 ```
-RAF[00j3k1:01] Add validation for user input fields
-RAF[00j3k1:02] Fix null pointer in auth handler
-RAF[00k5m2:03] Refactor database connection pooling
+RAF[abcdef:01] Add validation for user input fields
+RAF[abcdef:02] Fix null pointer in auth handler
+RAF[abaaba:03] Refactor database connection pooling
 ```
 
 - Claude commits code changes and outcome file together in one commit per task
@@ -186,8 +188,8 @@ RAF[00k5m2:03] Refactor database connection pooling
 
 ### Worktree Mode
 - `raf plan --worktree` and `raf do --worktree` run in an isolated git worktree
-- Worktree path: `~/.raf/worktrees/<repo-basename>/<project-id>` (e.g., `~/.raf/worktrees/myapp/00j3k1-my-feature`)
-- Branch name matches the project folder name (e.g., `00j3k1-my-feature`)
+- Worktree path: `~/.raf/worktrees/<repo-basename>/<project-id>` (e.g., `~/.raf/worktrees/myapp/abcdef-my-feature`)
+- Branch name matches the project folder name (e.g., `abcdef-my-feature`)
 - `--worktree` flag is required on both `plan` and `do` — it is not auto-detected
 - `raf status` automatically discovers and displays worktree projects (no flag needed)
   - List mode: worktree projects that differ from main repo shown under `Worktrees:` header
@@ -269,7 +271,6 @@ git fetch origin <branch> && git checkout <branch>
 ```
 
 When working in a worktree, use absolute paths to the worktree directory for all file operations and builds.
-
 
 ## Important Reminders
 

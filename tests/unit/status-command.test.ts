@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { resolveProjectIdentifier, extractProjectName, encodeBase36 } from '../../src/utils/paths.js';
+import { resolveProjectIdentifier, extractProjectName, encodeBase26 } from '../../src/utils/paths.js';
 import {
   deriveProjectState,
   getDerivedStats,
@@ -21,52 +21,52 @@ describe('Status Command - Identifier Support', () => {
   });
 
   describe('Identifier Resolution for Status', () => {
-    it('should resolve project by 6-char base36 ID', () => {
-      fs.mkdirSync(path.join(tempDir, '000003-fix-bug'));
-      const result = resolveProjectIdentifier(tempDir, '000003');
-      expect(result).toBe(path.join(tempDir, '000003-fix-bug'));
+    it('should resolve project by 6-char base26 ID', () => {
+      fs.mkdirSync(path.join(tempDir, 'aaaaad-fix-bug'));
+      const result = resolveProjectIdentifier(tempDir, 'aaaaad');
+      expect(result).toBe(path.join(tempDir, 'aaaaad-fix-bug'));
     });
 
     it('should resolve project by name', () => {
-      fs.mkdirSync(path.join(tempDir, '000001-my-project'));
+      fs.mkdirSync(path.join(tempDir, 'aaaaab-my-project'));
       const result = resolveProjectIdentifier(tempDir, 'my-project');
-      expect(result).toBe(path.join(tempDir, '000001-my-project'));
+      expect(result).toBe(path.join(tempDir, 'aaaaab-my-project'));
     });
 
     it('should resolve project by full folder name', () => {
-      fs.mkdirSync(path.join(tempDir, '000001-fix-stuff'));
-      const result = resolveProjectIdentifier(tempDir, '000001-fix-stuff');
-      expect(result).toBe(path.join(tempDir, '000001-fix-stuff'));
+      fs.mkdirSync(path.join(tempDir, 'aaaaab-fix-stuff'));
+      const result = resolveProjectIdentifier(tempDir, 'aaaaab-fix-stuff');
+      expect(result).toBe(path.join(tempDir, 'aaaaab-fix-stuff'));
     });
 
-    it('should resolve project by full base36 folder name', () => {
-      fs.mkdirSync(path.join(tempDir, '00a001-important'));
-      const result = resolveProjectIdentifier(tempDir, '00a001-important');
-      expect(result).toBe(path.join(tempDir, '00a001-important'));
+    it('should resolve project by full base26 folder name', () => {
+      fs.mkdirSync(path.join(tempDir, 'abcdef-important'));
+      const result = resolveProjectIdentifier(tempDir, 'abcdef-important');
+      expect(result).toBe(path.join(tempDir, 'abcdef-important'));
     });
 
     it('should return null for invalid identifier', () => {
-      fs.mkdirSync(path.join(tempDir, '000001-my-project'));
+      fs.mkdirSync(path.join(tempDir, 'aaaaab-my-project'));
       const result = resolveProjectIdentifier(tempDir, 'non-existent');
       expect(result).toBeNull();
     });
 
     it('should handle case-insensitive folder matching for full folder names', () => {
-      fs.mkdirSync(path.join(tempDir, '00A001-My-Project'));
-      const result = resolveProjectIdentifier(tempDir, '00a001-my-project');
-      expect(result).toBe(path.join(tempDir, '00A001-My-Project'));
+      fs.mkdirSync(path.join(tempDir, 'ABCDEF-My-Project'));
+      const result = resolveProjectIdentifier(tempDir, 'abcdef-my-project');
+      expect(result).toBe(path.join(tempDir, 'ABCDEF-My-Project'));
     });
   });
 
   describe('Project Name Extraction', () => {
     it('should extract project name from 6-char prefix folder', () => {
-      const projectPath = path.join(tempDir, '000001-my-project');
+      const projectPath = path.join(tempDir, 'aaaaab-my-project');
       const name = extractProjectName(projectPath);
       expect(name).toBe('my-project');
     });
 
-    it('should extract project name from base36 folder', () => {
-      const projectPath = path.join(tempDir, '00a001-my-project');
+    it('should extract project name from base26 folder', () => {
+      const projectPath = path.join(tempDir, 'abcdef-my-project');
       const name = extractProjectName(projectPath);
       expect(name).toBe('my-project');
     });
@@ -80,58 +80,58 @@ describe('Status Command - Identifier Support', () => {
 
   describe('All Identifier Formats Work', () => {
     beforeEach(() => {
-      // Create projects with 6-char prefixes
-      fs.mkdirSync(path.join(tempDir, '000003-numeric-project'));
-      fs.mkdirSync(path.join(tempDir, '00a001-base36-project'));
+      // Create projects with 6-char base26 prefixes
+      fs.mkdirSync(path.join(tempDir, 'aaaaad-first-project'));
+      fs.mkdirSync(path.join(tempDir, 'abcdef-second-project'));
     });
 
-    it('should work with 6-char base36 prefix', () => {
-      expect(resolveProjectIdentifier(tempDir, '000003')).toBe(path.join(tempDir, '000003-numeric-project'));
+    it('should work with 6-char base26 prefix', () => {
+      expect(resolveProjectIdentifier(tempDir, 'aaaaad')).toBe(path.join(tempDir, 'aaaaad-first-project'));
     });
 
-    it('should work with 6-char base36 prefix for non-numeric project', () => {
-      expect(resolveProjectIdentifier(tempDir, '00a001')).toBe(path.join(tempDir, '00a001-base36-project'));
+    it('should work with 6-char base26 prefix for second project', () => {
+      expect(resolveProjectIdentifier(tempDir, 'abcdef')).toBe(path.join(tempDir, 'abcdef-second-project'));
     });
 
-    it('should work with project name for numeric-prefix project', () => {
-      expect(resolveProjectIdentifier(tempDir, 'numeric-project')).toBe(path.join(tempDir, '000003-numeric-project'));
+    it('should work with project name for first project', () => {
+      expect(resolveProjectIdentifier(tempDir, 'first-project')).toBe(path.join(tempDir, 'aaaaad-first-project'));
     });
 
-    it('should work with project name for base36-prefix project', () => {
-      expect(resolveProjectIdentifier(tempDir, 'base36-project')).toBe(path.join(tempDir, '00a001-base36-project'));
+    it('should work with project name for second project', () => {
+      expect(resolveProjectIdentifier(tempDir, 'second-project')).toBe(path.join(tempDir, 'abcdef-second-project'));
     });
 
-    it('should work with full folder name (numeric-prefix)', () => {
-      expect(resolveProjectIdentifier(tempDir, '000003-numeric-project')).toBe(path.join(tempDir, '000003-numeric-project'));
+    it('should work with full folder name (first project)', () => {
+      expect(resolveProjectIdentifier(tempDir, 'aaaaad-first-project')).toBe(path.join(tempDir, 'aaaaad-first-project'));
     });
 
-    it('should work with full folder name (base36-prefix)', () => {
-      expect(resolveProjectIdentifier(tempDir, '00a001-base36-project')).toBe(path.join(tempDir, '00a001-base36-project'));
+    it('should work with full folder name (second project)', () => {
+      expect(resolveProjectIdentifier(tempDir, 'abcdef-second-project')).toBe(path.join(tempDir, 'abcdef-second-project'));
     });
   });
 
   describe('Error Cases', () => {
-    it('should return null for non-existent 6-char base36 ID', () => {
-      fs.mkdirSync(path.join(tempDir, '000001-project'));
-      expect(resolveProjectIdentifier(tempDir, '0000rs')).toBeNull();
+    it('should return null for non-existent 6-char base26 ID', () => {
+      fs.mkdirSync(path.join(tempDir, 'aaaaab-project'));
+      expect(resolveProjectIdentifier(tempDir, 'aaabmm')).toBeNull();
     });
 
     it('should return null for non-existent project name', () => {
-      fs.mkdirSync(path.join(tempDir, '000001-my-project'));
+      fs.mkdirSync(path.join(tempDir, 'aaaaab-my-project'));
       expect(resolveProjectIdentifier(tempDir, 'other-project')).toBeNull();
     });
 
     it('should return null for non-existent full folder name', () => {
-      fs.mkdirSync(path.join(tempDir, '000001-my-project'));
-      expect(resolveProjectIdentifier(tempDir, '000002-my-project')).toBeNull();
+      fs.mkdirSync(path.join(tempDir, 'aaaaab-my-project'));
+      expect(resolveProjectIdentifier(tempDir, 'aaaaac-my-project')).toBeNull();
     });
 
     it('should return null for empty RAF directory', () => {
-      expect(resolveProjectIdentifier(tempDir, '000001')).toBeNull();
+      expect(resolveProjectIdentifier(tempDir, 'aaaaab')).toBeNull();
     });
 
     it('should return null for non-existent RAF directory', () => {
-      expect(resolveProjectIdentifier('/non/existent/path', '000001')).toBeNull();
+      expect(resolveProjectIdentifier('/non/existent/path', 'aaaaab')).toBeNull();
     });
   });
 });
@@ -149,7 +149,7 @@ describe('Status Command - Truncation Behavior', () => {
   });
 
   function createProject(number: number, name: string): void {
-    const projectPrefix = encodeBase36(number);
+    const projectPrefix = encodeBase26(number);
     fs.mkdirSync(path.join(tempDir, `${projectPrefix}-${name}`));
   }
 
@@ -308,17 +308,17 @@ describe('Status Command - Worktree Discovery', () => {
       const mainDir = path.join(tempDir, 'main');
       const wtDir = path.join(tempDir, 'worktree');
 
-      createProjectWithTasks(mainDir, '000001-test', [
+      createProjectWithTasks(mainDir, 'aaaaab-test', [
         { id: '01', name: 'task-a', status: 'completed' },
         { id: '02', name: 'task-b', status: 'completed' },
       ]);
-      createProjectWithTasks(wtDir, '000001-test', [
+      createProjectWithTasks(wtDir, 'aaaaab-test', [
         { id: '01', name: 'task-a', status: 'completed' },
         { id: '02', name: 'task-b', status: 'completed' },
       ]);
 
-      const mainState = deriveProjectState(path.join(mainDir, '000001-test'));
-      const wtState = deriveProjectState(path.join(wtDir, '000001-test'));
+      const mainState = deriveProjectState(path.join(mainDir, 'aaaaab-test'));
+      const wtState = deriveProjectState(path.join(wtDir, 'aaaaab-test'));
 
       // Same task count and same statuses
       expect(mainState.tasks.length).toBe(wtState.tasks.length);
@@ -333,20 +333,20 @@ describe('Status Command - Worktree Discovery', () => {
       const wtDir = path.join(tempDir, 'worktree');
 
       // Main: 2 tasks completed
-      createProjectWithTasks(mainDir, '000001-test', [
+      createProjectWithTasks(mainDir, 'aaaaab-test', [
         { id: '01', name: 'task-a', status: 'completed' },
         { id: '02', name: 'task-b', status: 'completed' },
       ]);
       // Worktree: 4 tasks (2 completed + 2 pending from amend)
-      createProjectWithTasks(wtDir, '000001-test', [
+      createProjectWithTasks(wtDir, 'aaaaab-test', [
         { id: '01', name: 'task-a', status: 'completed' },
         { id: '02', name: 'task-b', status: 'completed' },
         { id: '03', name: 'task-c' },
         { id: '04', name: 'task-d' },
       ]);
 
-      const mainState = deriveProjectState(path.join(mainDir, '000001-test'));
-      const wtState = deriveProjectState(path.join(wtDir, '000001-test'));
+      const mainState = deriveProjectState(path.join(mainDir, 'aaaaab-test'));
+      const wtState = deriveProjectState(path.join(wtDir, 'aaaaab-test'));
 
       expect(mainState.tasks.length).toBe(2);
       expect(wtState.tasks.length).toBe(4);
@@ -357,18 +357,18 @@ describe('Status Command - Worktree Discovery', () => {
       const wtDir = path.join(tempDir, 'worktree');
 
       // Main: all pending
-      createProjectWithTasks(mainDir, '000001-test', [
+      createProjectWithTasks(mainDir, 'aaaaab-test', [
         { id: '01', name: 'task-a' },
         { id: '02', name: 'task-b' },
       ]);
       // Worktree: some completed
-      createProjectWithTasks(wtDir, '000001-test', [
+      createProjectWithTasks(wtDir, 'aaaaab-test', [
         { id: '01', name: 'task-a', status: 'completed' },
         { id: '02', name: 'task-b' },
       ]);
 
-      const mainState = deriveProjectState(path.join(mainDir, '000001-test'));
-      const wtState = deriveProjectState(path.join(wtDir, '000001-test'));
+      const mainState = deriveProjectState(path.join(mainDir, 'aaaaab-test'));
+      const wtState = deriveProjectState(path.join(wtDir, 'aaaaab-test'));
 
       expect(mainState.tasks[0].status).toBe('pending');
       expect(wtState.tasks[0].status).toBe('completed');
@@ -379,8 +379,8 @@ describe('Status Command - Worktree Discovery', () => {
     it('should discover worktree projects via listWorktreeProjects pattern', () => {
       // Simulate the worktree base dir structure
       const worktreeBaseDir = path.join(tempDir, 'worktree-base');
-      fs.mkdirSync(path.join(worktreeBaseDir, '000020-feature-a'), { recursive: true });
-      fs.mkdirSync(path.join(worktreeBaseDir, '000021-feature-b'), { recursive: true });
+      fs.mkdirSync(path.join(worktreeBaseDir, 'aaaabk-feature-a'), { recursive: true });
+      fs.mkdirSync(path.join(worktreeBaseDir, 'aaaabm-feature-b'), { recursive: true });
 
       // Read directory to simulate what listWorktreeProjects does
       const entries = fs.readdirSync(worktreeBaseDir, { withFileTypes: true });
@@ -389,14 +389,14 @@ describe('Status Command - Worktree Discovery', () => {
         .map(entry => entry.name)
         .sort();
 
-      expect(projects).toEqual(['000020-feature-a', '000021-feature-b']);
+      expect(projects).toEqual(['aaaabk-feature-a', 'aaaabm-feature-b']);
     });
 
     it('should derive state from worktree project path', () => {
       // Simulate worktree project path: <wtPath>/<rafRelativePath>/<projectFolder>
       const wtPath = path.join(tempDir, 'wt-root');
       const rafRelativePath = 'RAF';
-      const projectFolder = '000020-feature';
+      const projectFolder = 'aaaabk-feature';
       const wtProjectPath = path.join(wtPath, rafRelativePath, projectFolder);
 
       createProjectWithTasks(path.join(wtPath, rafRelativePath), projectFolder, [
@@ -416,7 +416,7 @@ describe('Status Command - Worktree Discovery', () => {
     it('should filter out worktree-only projects correctly', () => {
       // Create main repo projects
       const mainRafDir = path.join(tempDir, 'main-raf');
-      createProjectWithTasks(mainRafDir, '000001-auth', [
+      createProjectWithTasks(mainRafDir, 'aaaaab-auth', [
         { id: '01', name: 'login', status: 'completed' },
       ]);
 
@@ -426,15 +426,15 @@ describe('Status Command - Worktree Discovery', () => {
       );
 
       // Worktree folders include one that doesn't exist in main
-      const worktreeFolders = ['000001-auth', '000020-new-feature'];
+      const worktreeFolders = ['aaaaab-auth', 'aaaabk-new-feature'];
 
       // Worktree-only projects
       const worktreeOnly = worktreeFolders.filter(f => !mainFolderNames.has(f));
-      expect(worktreeOnly).toEqual(['000020-new-feature']);
+      expect(worktreeOnly).toEqual(['aaaabk-new-feature']);
 
       // Projects with main counterpart
       const withCounterpart = worktreeFolders.filter(f => mainFolderNames.has(f));
-      expect(withCounterpart).toEqual(['000001-auth']);
+      expect(withCounterpart).toEqual(['aaaaab-auth']);
     });
 
     it('should identify differing worktree projects for display', () => {
@@ -442,21 +442,21 @@ describe('Status Command - Worktree Discovery', () => {
       const wtRafDir = path.join(tempDir, 'worktree');
 
       // Main: 2 tasks all completed
-      createProjectWithTasks(mainRafDir, '000001-auth', [
+      createProjectWithTasks(mainRafDir, 'aaaaab-auth', [
         { id: '01', name: 'login', status: 'completed' },
         { id: '02', name: 'signup', status: 'completed' },
       ]);
 
       // Worktree: same 2 tasks completed + 2 new pending (amendment)
-      createProjectWithTasks(wtRafDir, '000001-auth', [
+      createProjectWithTasks(wtRafDir, 'aaaaab-auth', [
         { id: '01', name: 'login', status: 'completed' },
         { id: '02', name: 'signup', status: 'completed' },
         { id: '03', name: 'oauth' },
         { id: '04', name: 'sso' },
       ]);
 
-      const mainState = deriveProjectState(path.join(mainRafDir, '000001-auth'));
-      const wtState = deriveProjectState(path.join(wtRafDir, '000001-auth'));
+      const mainState = deriveProjectState(path.join(mainRafDir, 'aaaaab-auth'));
+      const wtState = deriveProjectState(path.join(wtRafDir, 'aaaaab-auth'));
 
       // Different task counts = states differ
       expect(mainState.tasks.length).not.toBe(wtState.tasks.length);
@@ -471,17 +471,17 @@ describe('Status Command - Worktree Discovery', () => {
       const wtRafDir = path.join(tempDir, 'worktree');
 
       // Both have identical state
-      createProjectWithTasks(mainRafDir, '000001-auth', [
+      createProjectWithTasks(mainRafDir, 'aaaaab-auth', [
         { id: '01', name: 'login', status: 'completed' },
         { id: '02', name: 'signup', status: 'completed' },
       ]);
-      createProjectWithTasks(wtRafDir, '000001-auth', [
+      createProjectWithTasks(wtRafDir, 'aaaaab-auth', [
         { id: '01', name: 'login', status: 'completed' },
         { id: '02', name: 'signup', status: 'completed' },
       ]);
 
-      const mainState = deriveProjectState(path.join(mainRafDir, '000001-auth'));
-      const wtState = deriveProjectState(path.join(wtRafDir, '000001-auth'));
+      const mainState = deriveProjectState(path.join(mainRafDir, 'aaaaab-auth'));
+      const wtState = deriveProjectState(path.join(wtRafDir, 'aaaaab-auth'));
 
       // Same task count
       expect(mainState.tasks.length).toBe(wtState.tasks.length);
@@ -502,14 +502,14 @@ describe('Status Command - Worktree Discovery', () => {
     it('should compute correct stats for worktree project with mixed states', () => {
       const wtRafDir = path.join(tempDir, 'worktree');
 
-      createProjectWithTasks(wtRafDir, '000020-feature', [
+      createProjectWithTasks(wtRafDir, 'aaaabk-feature', [
         { id: '01', name: 'setup', status: 'completed' },
         { id: '02', name: 'implement', status: 'completed' },
         { id: '03', name: 'test', status: 'failed' },
         { id: '04', name: 'deploy' },
       ]);
 
-      const state = deriveProjectState(path.join(wtRafDir, '000020-feature'));
+      const state = deriveProjectState(path.join(wtRafDir, 'aaaabk-feature'));
       const stats = getDerivedStats(state);
 
       expect(stats.completed).toBe(2);
@@ -521,13 +521,13 @@ describe('Status Command - Worktree Discovery', () => {
     it('should show worktree-only project stats correctly', () => {
       const wtRafDir = path.join(tempDir, 'worktree');
 
-      createProjectWithTasks(wtRafDir, '000025-new-only', [
+      createProjectWithTasks(wtRafDir, 'aaaabp-new-only', [
         { id: '01', name: 'step-a' },
         { id: '02', name: 'step-b' },
         { id: '03', name: 'step-c' },
       ]);
 
-      const state = deriveProjectState(path.join(wtRafDir, '000025-new-only'));
+      const state = deriveProjectState(path.join(wtRafDir, 'aaaabp-new-only'));
       const stats = getDerivedStats(state);
 
       expect(stats.completed).toBe(0);

@@ -63,10 +63,10 @@ describe('stashChanges', () => {
       return '';
     });
 
-    const result = stashChanges('raf-001-task-3-failed');
+    const result = stashChanges('raf-aaaaab-task-3-failed');
     expect(result).toBe(true);
     expect(mockExecSync).toHaveBeenCalledWith(
-      'git stash push -m "raf-001-task-3-failed"',
+      'git stash push -m "raf-aaaaab-task-3-failed"',
       expect.any(Object)
     );
   });
@@ -128,10 +128,10 @@ describe('stashChanges', () => {
       return '';
     });
 
-    const result = stashChanges('raf-002-task-5-failed');
+    const result = stashChanges('raf-aaaaac-task-5-failed');
     expect(result).toBe(true);
     expect(mockExecSync).toHaveBeenCalledWith(
-      'git stash push -m "raf-002-task-5-failed"',
+      'git stash push -m "raf-aaaaac-task-5-failed"',
       expect.any(Object)
     );
   });

@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { ProjectManager } from '../../src/core/project-manager.js';
-import { encodeBase36, RAF_EPOCH } from '../../src/utils/paths.js';
+import { encodeBase26, RAF_EPOCH } from '../../src/utils/paths.js';
 
 describe('ProjectManager', () => {
   let tempDir: string;
@@ -39,14 +39,14 @@ describe('ProjectManager', () => {
       const folder1 = path.basename(path1);
       const folder2 = path.basename(path2);
 
-      // Both should have 6-char base36 prefix followed by hyphen and name
-      expect(folder1).toMatch(/^[0-9a-z]{6}-first$/);
-      expect(folder2).toMatch(/^[0-9a-z]{6}-second$/);
+      // Both should have 6-char base26 prefix followed by hyphen and name
+      expect(folder1).toMatch(/^[a-z]{6}-first$/);
+      expect(folder2).toMatch(/^[a-z]{6}-second$/);
 
       // Second should have equal or greater prefix than first (timestamp-based)
       const prefix1 = folder1.split('-')[0]!;
       const prefix2 = folder2.split('-')[0]!;
-      expect(parseInt(prefix2, 36)).toBeGreaterThanOrEqual(parseInt(prefix1, 36));
+      expect(prefix2 >= prefix1).toBe(true);
     });
 
     it('should sanitize project names', () => {
@@ -54,7 +54,7 @@ describe('ProjectManager', () => {
       const projectPath = manager.createProject('My Project Name!');
 
       const folder = path.basename(projectPath);
-      expect(folder).toMatch(/^[0-9a-z]{6}-my-project-name$/);
+      expect(folder).toMatch(/^[a-z]{6}-my-project-name$/);
     });
   });
 
@@ -66,7 +66,7 @@ describe('ProjectManager', () => {
       const found = manager.findProject('findme');
       expect(found).not.toBeNull();
       expect(found).toContain('-findme');
-      expect(path.basename(found!)).toMatch(/^[0-9a-z]{6}-findme$/);
+      expect(path.basename(found!)).toMatch(/^[a-z]{6}-findme$/);
     });
 
     it('should return null for non-existent project', () => {

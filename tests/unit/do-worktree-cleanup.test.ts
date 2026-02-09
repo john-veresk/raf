@@ -123,8 +123,8 @@ describe('worktree cleanup after successful execution', () => {
      * work independently of the worktree directory existing.
      */
     it('should use branch name for merge, not worktree directory', () => {
-      // Simulate: worktreeRoot = '/home/user/.raf/worktrees/myapp/022-prune-cycle'
-      // mergeWorktreeBranch uses: path.basename(worktreeRoot) = '022-prune-cycle'
+      // Simulate: worktreeRoot = '/home/user/.raf/worktrees/myapp/abcabc-prune-cycle'
+      // mergeWorktreeBranch uses: path.basename(worktreeRoot) = 'abcabc-prune-cycle'
 
       // Mock successful checkout and ff merge
       mockExecSync.mockImplementation((cmd: unknown) => {
@@ -134,7 +134,7 @@ describe('worktree cleanup after successful execution', () => {
         return '';
       });
 
-      const result = mergeWorktreeBranch('022-prune-cycle', 'main');
+      const result = mergeWorktreeBranch('abcabc-prune-cycle', 'main');
 
       expect(result.success).toBe(true);
       // Verify git checkout was called with the branch name, not a path
@@ -143,7 +143,7 @@ describe('worktree cleanup after successful execution', () => {
         expect.any(Object)
       );
       expect(mockExecSync).toHaveBeenCalledWith(
-        'git merge --ff-only "022-prune-cycle"',
+        'git merge --ff-only "abcabc-prune-cycle"',
         expect.any(Object)
       );
     });

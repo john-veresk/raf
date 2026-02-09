@@ -28,7 +28,7 @@ describe('Plan Command - Amend Functionality', () => {
   describe('Project Resolution for Amend', () => {
     beforeEach(() => {
       // Create a project with tasks
-      const projectDir = path.join(tempDir, '000003-my-project');
+      const projectDir = path.join(tempDir, 'aaaaad-my-project');
       fs.mkdirSync(projectDir);
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.writeFileSync(
@@ -41,19 +41,19 @@ describe('Plan Command - Amend Functionality', () => {
       );
     });
 
-    it('should resolve project by 6-char base36 ID for amend', () => {
-      const result = resolveProjectIdentifier(tempDir, '000003');
-      expect(result).toBe(path.join(tempDir, '000003-my-project'));
+    it('should resolve project by 6-char base26 ID for amend', () => {
+      const result = resolveProjectIdentifier(tempDir, 'aaaaad');
+      expect(result).toBe(path.join(tempDir, 'aaaaad-my-project'));
     });
 
     it('should resolve project by name for amend', () => {
       const result = resolveProjectIdentifier(tempDir, 'my-project');
-      expect(result).toBe(path.join(tempDir, '000003-my-project'));
+      expect(result).toBe(path.join(tempDir, 'aaaaad-my-project'));
     });
 
     it('should resolve project by full folder name for amend', () => {
-      const result = resolveProjectIdentifier(tempDir, '000003-my-project');
-      expect(result).toBe(path.join(tempDir, '000003-my-project'));
+      const result = resolveProjectIdentifier(tempDir, 'aaaaad-my-project');
+      expect(result).toBe(path.join(tempDir, 'aaaaad-my-project'));
     });
 
     it('should return null for non-existent project', () => {
@@ -62,9 +62,9 @@ describe('Plan Command - Amend Functionality', () => {
     });
   });
 
-  describe('Base36 Project Resolution for Amend', () => {
+  describe('Base26 Project Resolution for Amend', () => {
     beforeEach(() => {
-      const projectDir = path.join(tempDir, '00a001-important-project');
+      const projectDir = path.join(tempDir, 'abcdef-important-project');
       fs.mkdirSync(projectDir);
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.writeFileSync(
@@ -73,20 +73,20 @@ describe('Plan Command - Amend Functionality', () => {
       );
     });
 
-    it('should resolve project by 6-char base36 prefix for amend', () => {
-      const result = resolveProjectIdentifier(tempDir, '00a001');
-      expect(result).toBe(path.join(tempDir, '00a001-important-project'));
+    it('should resolve project by 6-char base26 prefix for amend', () => {
+      const result = resolveProjectIdentifier(tempDir, 'abcdef');
+      expect(result).toBe(path.join(tempDir, 'abcdef-important-project'));
     });
 
-    it('should resolve project by full base36 folder name for amend', () => {
-      const result = resolveProjectIdentifier(tempDir, '00a001-important-project');
-      expect(result).toBe(path.join(tempDir, '00a001-important-project'));
+    it('should resolve project by full base26 folder name for amend', () => {
+      const result = resolveProjectIdentifier(tempDir, 'abcdef-important-project');
+      expect(result).toBe(path.join(tempDir, 'abcdef-important-project'));
     });
   });
 
   describe('Existing Project State Loading', () => {
     it('should load pending tasks', () => {
-      const projectDir = path.join(tempDir, '000001-test-project');
+      const projectDir = path.join(tempDir, 'aaaaab-test-project');
       fs.mkdirSync(projectDir);
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.writeFileSync(
@@ -105,7 +105,7 @@ describe('Plan Command - Amend Functionality', () => {
     });
 
     it('should load completed tasks', () => {
-      const projectDir = path.join(tempDir, '000001-test-project');
+      const projectDir = path.join(tempDir, 'aaaaab-test-project');
       fs.mkdirSync(projectDir);
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.mkdirSync(path.join(projectDir, 'outcomes'));
@@ -124,7 +124,7 @@ describe('Plan Command - Amend Functionality', () => {
     });
 
     it('should load failed tasks', () => {
-      const projectDir = path.join(tempDir, '000001-test-project');
+      const projectDir = path.join(tempDir, 'aaaaab-test-project');
       fs.mkdirSync(projectDir);
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.mkdirSync(path.join(projectDir, 'outcomes'));
@@ -143,7 +143,7 @@ describe('Plan Command - Amend Functionality', () => {
     });
 
     it('should load mixed task statuses', () => {
-      const projectDir = path.join(tempDir, '000001-test-project');
+      const projectDir = path.join(tempDir, 'aaaaab-test-project');
       fs.mkdirSync(projectDir);
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.mkdirSync(path.join(projectDir, 'outcomes'));
@@ -179,7 +179,7 @@ describe('Plan Command - Amend Functionality', () => {
 
   describe('Fully Completed Project Detection', () => {
     it('should detect fully completed project', () => {
-      const projectDir = path.join(tempDir, '000001-test-project');
+      const projectDir = path.join(tempDir, 'aaaaab-test-project');
       fs.mkdirSync(projectDir);
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.mkdirSync(path.join(projectDir, 'outcomes'));
@@ -205,7 +205,7 @@ describe('Plan Command - Amend Functionality', () => {
     });
 
     it('should not mark project as complete with pending tasks', () => {
-      const projectDir = path.join(tempDir, '000001-test-project');
+      const projectDir = path.join(tempDir, 'aaaaab-test-project');
       fs.mkdirSync(projectDir);
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.mkdirSync(path.join(projectDir, 'outcomes'));
@@ -227,7 +227,7 @@ describe('Plan Command - Amend Functionality', () => {
     });
 
     it('should not mark project as complete with failed tasks', () => {
-      const projectDir = path.join(tempDir, '000001-test-project');
+      const projectDir = path.join(tempDir, 'aaaaab-test-project');
       fs.mkdirSync(projectDir);
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.mkdirSync(path.join(projectDir, 'outcomes'));
@@ -269,7 +269,7 @@ describe('Plan Command - Amend Functionality', () => {
 
   describe('Next Task Number Calculation', () => {
     it('should calculate next task number correctly', () => {
-      const projectDir = path.join(tempDir, '000001-test-project');
+      const projectDir = path.join(tempDir, 'aaaaab-test-project');
       fs.mkdirSync(projectDir);
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.writeFileSync(
@@ -294,7 +294,7 @@ describe('Plan Command - Amend Functionality', () => {
     });
 
     it('should handle single task project', () => {
-      const projectDir = path.join(tempDir, '000001-test-project');
+      const projectDir = path.join(tempDir, 'aaaaab-test-project');
       fs.mkdirSync(projectDir);
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.writeFileSync(
@@ -605,25 +605,25 @@ describe('Plan Command - Amend Functionality', () => {
 
   describe('Existing Project Detection Without Amend Flag', () => {
     it('should find existing project by name', () => {
-      fs.mkdirSync(path.join(tempDir, '000001-existing-project'));
+      fs.mkdirSync(path.join(tempDir, 'aaaaab-existing-project'));
       const result = resolveProjectIdentifier(tempDir, 'existing-project');
       expect(result).not.toBeNull();
     });
 
-    it('should find existing project by 6-char base36 ID', () => {
-      fs.mkdirSync(path.join(tempDir, '000001-existing-project'));
-      const result = resolveProjectIdentifier(tempDir, '000001');
+    it('should find existing project by 6-char base26 ID', () => {
+      fs.mkdirSync(path.join(tempDir, 'aaaaab-existing-project'));
+      const result = resolveProjectIdentifier(tempDir, 'aaaaab');
       expect(result).not.toBeNull();
     });
 
     it('should find existing project by full folder name', () => {
-      fs.mkdirSync(path.join(tempDir, '000001-existing-project'));
-      const result = resolveProjectIdentifier(tempDir, '000001-existing-project');
+      fs.mkdirSync(path.join(tempDir, 'aaaaab-existing-project'));
+      const result = resolveProjectIdentifier(tempDir, 'aaaaab-existing-project');
       expect(result).not.toBeNull();
     });
 
     it('should return null for non-existing project', () => {
-      fs.mkdirSync(path.join(tempDir, '000001-existing-project'));
+      fs.mkdirSync(path.join(tempDir, 'aaaaab-existing-project'));
       const result = resolveProjectIdentifier(tempDir, 'new-project');
       expect(result).toBeNull();
     });

@@ -34,3 +34,8 @@ export interface DoCommandOptions {
 export interface StatusCommandOptions {
   json?: boolean;
 }
+
+export interface MigrateCommandOptions {
+  dryRun?: boolean;
+  worktree?: boolean;
+}
