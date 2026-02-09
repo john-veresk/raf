@@ -1,0 +1,4 @@
+- [ ] if i do amend - input.md and decision.md updates don't get commited. investigate and fix (prev attempt to fix in commit c94558940d232fabcf8023c92867891de3a0dbcc)
+- [ ] make task id two decimal places (01, 02, 03..., a0, a1) same encoding
+- [ ] use gh to create a PR from worktree if possible
+- [ ] add picker for raf do --worktree to chose between --merge or --pr or leave branch options

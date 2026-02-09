@@ -99,12 +99,12 @@ describe('ProjectManager', () => {
       const projectPath = manager.createProject('test');
 
       // Create plan files
-      fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
-      fs.writeFileSync(path.join(projectPath, 'plans', '002-task.md'), '# Task 2');
+      fs.writeFileSync(path.join(projectPath, 'plans', '01-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '02-task.md'), '# Task 2');
 
       // Create outcome with COMPLETE promise marker
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-task.md'),
+        path.join(projectPath, 'outcomes', '01-task.md'),
         '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
       );
 

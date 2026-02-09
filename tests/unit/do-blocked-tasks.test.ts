@@ -36,18 +36,18 @@ describe('do command blocked tasks', () => {
     it('should mark task as blocked when dependency fails', () => {
       // Task 001 - no dependencies
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '001-setup.md'),
+        path.join(projectPath, 'plans', '01-setup.md'),
         '# Task: Setup\n\n## Objective\nSetup the project'
       );
       // Task 002 - depends on 001
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '002-build.md'),
-        '# Task: Build\n\n## Objective\nBuild the project\n\n## Dependencies\n001'
+        path.join(projectPath, 'plans', '02-build.md'),
+        '# Task: Build\n\n## Objective\nBuild the project\n\n## Dependencies\n01'
       );
 
       // Mark task 001 as failed
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-setup.md'),
+        path.join(projectPath, 'outcomes', '01-setup.md'),
         '# Task 001 - Failed\n\n<promise>FAILED</promise>'
       );
 
@@ -60,23 +60,23 @@ describe('do command blocked tasks', () => {
     it('should cascade blocking through multiple tasks', () => {
       // Task 001 - no dependencies
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '001-first.md'),
+        path.join(projectPath, 'plans', '01-first.md'),
         '# Task: First'
       );
       // Task 002 - depends on 001
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '002-second.md'),
-        '# Task: Second\n\n## Dependencies\n001'
+        path.join(projectPath, 'plans', '02-second.md'),
+        '# Task: Second\n\n## Dependencies\n01'
       );
       // Task 003 - depends on 002
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '003-third.md'),
-        '# Task: Third\n\n## Dependencies\n002'
+        path.join(projectPath, 'plans', '03-third.md'),
+        '# Task: Third\n\n## Dependencies\n02'
       );
 
       // Mark task 001 as failed
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-first.md'),
+        path.join(projectPath, 'outcomes', '01-first.md'),
         '# Task 001 - Failed\n\n<promise>FAILED</promise>'
       );
 
@@ -89,17 +89,17 @@ describe('do command blocked tasks', () => {
 
     it('should not block task if dependency succeeds', () => {
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '001-setup.md'),
+        path.join(projectPath, 'plans', '01-setup.md'),
         '# Task: Setup'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '002-build.md'),
-        '# Task: Build\n\n## Dependencies\n001'
+        path.join(projectPath, 'plans', '02-build.md'),
+        '# Task: Build\n\n## Dependencies\n01'
       );
 
       // Mark task 001 as complete
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-setup.md'),
+        path.join(projectPath, 'outcomes', '01-setup.md'),
         '# Task 001 - Complete\n\n<promise>COMPLETE</promise>'
       );
 
@@ -111,25 +111,25 @@ describe('do command blocked tasks', () => {
 
     it('should block task when one of multiple dependencies fails', () => {
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '001-first.md'),
+        path.join(projectPath, 'plans', '01-first.md'),
         '# Task: First'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '002-second.md'),
+        path.join(projectPath, 'plans', '02-second.md'),
         '# Task: Second'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '003-third.md'),
-        '# Task: Third\n\n## Dependencies\n001, 002'
+        path.join(projectPath, 'plans', '03-third.md'),
+        '# Task: Third\n\n## Dependencies\n01, 02'
       );
 
       // Mark 001 as complete, 002 as failed
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-first.md'),
+        path.join(projectPath, 'outcomes', '01-first.md'),
         '# Task 001 - Complete\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '002-second.md'),
+        path.join(projectPath, 'outcomes', '02-second.md'),
         '# Task 002 - Failed\n\n<promise>FAILED</promise>'
       );
 
@@ -144,17 +144,17 @@ describe('do command blocked tasks', () => {
   describe('getNextExecutableTask with blocked tasks', () => {
     it('should skip blocked tasks and return null if only blocked remain', () => {
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '001-setup.md'),
+        path.join(projectPath, 'plans', '01-setup.md'),
         '# Task: Setup'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '002-build.md'),
-        '# Task: Build\n\n## Dependencies\n001'
+        path.join(projectPath, 'plans', '02-build.md'),
+        '# Task: Build\n\n## Dependencies\n01'
       );
 
       // Mark task 001 as failed
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-setup.md'),
+        path.join(projectPath, 'outcomes', '01-setup.md'),
         '# Task 001 - Failed\n\n<promise>FAILED</promise>'
       );
 
@@ -162,27 +162,27 @@ describe('do command blocked tasks', () => {
       const nextTask = getNextExecutableTask(state);
 
       // Should return the failed task for retry, not the blocked one
-      expect(nextTask?.id).toBe('001');
+      expect(nextTask?.id).toBe('01');
       expect(nextTask?.status).toBe('failed');
     });
 
     it('should return pending tasks before failed tasks', () => {
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '001-first.md'),
+        path.join(projectPath, 'plans', '01-first.md'),
         '# Task: First'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '002-second.md'),
+        path.join(projectPath, 'plans', '02-second.md'),
         '# Task: Second'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '003-third.md'),
-        '# Task: Third\n\n## Dependencies\n001'
+        path.join(projectPath, 'plans', '03-third.md'),
+        '# Task: Third\n\n## Dependencies\n01'
       );
 
       // Mark 001 as failed, 002 remains pending
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-first.md'),
+        path.join(projectPath, 'outcomes', '01-first.md'),
         '# Task 001 - Failed\n\n<promise>FAILED</promise>'
       );
 
@@ -190,7 +190,7 @@ describe('do command blocked tasks', () => {
       const nextTask = getNextExecutableTask(state);
 
       // Should return pending task 002, not failed 001
-      expect(nextTask?.id).toBe('002');
+      expect(nextTask?.id).toBe('02');
       expect(nextTask?.status).toBe('pending');
     });
   });
@@ -198,25 +198,25 @@ describe('do command blocked tasks', () => {
   describe('getDerivedStats with blocked tasks', () => {
     it('should count blocked tasks separately', () => {
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '001-first.md'),
+        path.join(projectPath, 'plans', '01-first.md'),
         '# Task: First'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '002-second.md'),
-        '# Task: Second\n\n## Dependencies\n001'
+        path.join(projectPath, 'plans', '02-second.md'),
+        '# Task: Second\n\n## Dependencies\n01'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '003-third.md'),
-        '# Task: Third\n\n## Dependencies\n002'
+        path.join(projectPath, 'plans', '03-third.md'),
+        '# Task: Third\n\n## Dependencies\n02'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '004-fourth.md'),
+        path.join(projectPath, 'plans', '04-fourth.md'),
         '# Task: Fourth'
       );
 
       // Mark task 001 as failed
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-first.md'),
+        path.join(projectPath, 'outcomes', '01-first.md'),
         '# Task 001 - Failed\n\n<promise>FAILED</promise>'
       );
 
@@ -234,17 +234,17 @@ describe('do command blocked tasks', () => {
   describe('isProjectComplete with blocked tasks', () => {
     it('should not consider project complete if blocked tasks exist', () => {
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '001-first.md'),
+        path.join(projectPath, 'plans', '01-first.md'),
         '# Task: First'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '002-second.md'),
-        '# Task: Second\n\n## Dependencies\n001'
+        path.join(projectPath, 'plans', '02-second.md'),
+        '# Task: Second\n\n## Dependencies\n01'
       );
 
       // Mark 001 as failed (002 becomes blocked)
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-first.md'),
+        path.join(projectPath, 'outcomes', '01-first.md'),
         '# Task 001 - Failed\n\n<promise>FAILED</promise>'
       );
 
@@ -257,16 +257,16 @@ describe('do command blocked tasks', () => {
   describe('hasProjectFailed with blocked tasks', () => {
     it('should report project as failed when there are failed tasks', () => {
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '001-first.md'),
+        path.join(projectPath, 'plans', '01-first.md'),
         '# Task: First'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '002-second.md'),
-        '# Task: Second\n\n## Dependencies\n001'
+        path.join(projectPath, 'plans', '02-second.md'),
+        '# Task: Second\n\n## Dependencies\n01'
       );
 
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-first.md'),
+        path.join(projectPath, 'outcomes', '01-first.md'),
         '# Task 001 - Failed\n\n<promise>FAILED</promise>'
       );
 
@@ -279,13 +279,13 @@ describe('do command blocked tasks', () => {
       // This is a theoretical edge case - blocked tasks always have a failed root cause
       // But if only blocked outcome files exist (without failed), hasProjectFailed should be false
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '001-first.md'),
+        path.join(projectPath, 'plans', '01-first.md'),
         '# Task: First'
       );
 
       // Mark as blocked (artificial - in practice there would be a failed dep)
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-first.md'),
+        path.join(projectPath, 'outcomes', '01-first.md'),
         '# Task 001 - Blocked\n\n<promise>BLOCKED</promise>'
       );
 
@@ -299,11 +299,11 @@ describe('do command blocked tasks', () => {
   describe('blocked outcome file format', () => {
     it('should recognize BLOCKED marker in outcome files', () => {
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '001-task.md'),
+        path.join(projectPath, 'plans', '01-task.md'),
         '# Task: Task'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-task.md'),
+        path.join(projectPath, 'outcomes', '01-task.md'),
         '# Outcome: Task 001 Blocked\n\n## Summary\n\nBlocked by dependency.\n\n<promise>BLOCKED</promise>'
       );
 
@@ -315,9 +315,9 @@ describe('do command blocked tasks', () => {
 
   describe('getOutcomeFilePath', () => {
     it('should generate correct outcome file path', () => {
-      const outcomePath = getOutcomeFilePath(projectPath, '002', 'build-project');
+      const outcomePath = getOutcomeFilePath(projectPath, '02', 'build-project');
 
-      expect(outcomePath).toBe(path.join(projectPath, 'outcomes', '002-build-project.md'));
+      expect(outcomePath).toBe(path.join(projectPath, 'outcomes', '02-build-project.md'));
     });
   });
 });

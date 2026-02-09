@@ -45,7 +45,7 @@ export interface ClaudeRunnerOptions {
   commitContext?: {
     /** HEAD commit hash recorded before task execution began. */
     preExecutionHead: string;
-    /** Expected commit message prefix (e.g., "RAF[005:001]"). */
+    /** Expected commit message prefix (e.g., "RAF[005:01]"). */
     expectedPrefix: string;
     /** Path to the outcome file that should be committed. */
     outcomeFilePath: string;
@@ -104,7 +104,7 @@ export const OUTCOME_POLL_INTERVAL_MS = 5_000;
 export interface CommitContext {
   /** HEAD commit hash recorded before task execution began. */
   preExecutionHead: string;
-  /** Expected commit message prefix (e.g., "RAF[005:001]"). */
+  /** Expected commit message prefix (e.g., "RAF[005:01]"). */
   expectedPrefix: string;
   /** Path to the outcome file that should be committed. */
   outcomeFilePath: string;

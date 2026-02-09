@@ -83,8 +83,8 @@ ${previousOutcomes.map((o) => `### Task ${o.taskId}\n${o.content}`).join('\n\n')
 `;
   }
 
-  // Zero-pad task number to 3 digits
-  const paddedTaskNumber = taskNumber.toString().padStart(3, '0');
+  // Encode task number to 2-char base36
+  const paddedTaskNumber = taskNumber.toString(36).padStart(2, '0');
 
   const commitInstructions = autoCommit
     ? `

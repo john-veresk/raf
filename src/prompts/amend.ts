@@ -1,4 +1,5 @@
 import { DerivedTask } from '../core/state-derivation.js';
+import { encodeTaskId } from '../utils/paths.js';
 
 export interface AmendPromptParams {
   projectPath: string;
@@ -66,7 +67,7 @@ You are in AMENDMENT MODE. This means:
 - You MAY modify [MODIFIABLE] tasks (pending/failed) if the user requests changes
 - NEVER modify [PROTECTED] tasks (completed) - their outcomes depend on the original plan
 - DO NOT renumber existing tasks
-- You can create NEW tasks starting from number ${nextTaskNumber.toString().padStart(3, '0')}
+- You can create NEW tasks starting from number ${encodeTaskId(nextTaskNumber)}
 
 ## Project Location
 
@@ -104,7 +105,7 @@ Read the user's description of new tasks and identify what needs to be added. Co
 **Identifying Follow-up Tasks**: When a new task is a follow-up, fix, or iteration of a previously completed task, you MUST reference the previous task's outcome in the new plan's Context section. This gives the executing agent full context about what was done before.
 
 Use this format in the Context section:
-\`This is a follow-up to task NNN. See outcome: {projectPath}/outcomes/NNN-task-name.md\`
+\`This is a follow-up to task NN. See outcome: {projectPath}/outcomes/NN-task-name.md\`
 
 The outcome file paths for completed tasks are listed above in the Existing Tasks section.
 
@@ -130,8 +131,8 @@ Use this format:
 ### Step 4: Create New Plan Files
 
 After interviewing the user about all NEW tasks, create plan files starting from the next available number:
-- ${projectPath}/plans/${nextTaskNumber.toString().padStart(3, '0')}-task-name.md
-- ${projectPath}/plans/${(nextTaskNumber + 1).toString().padStart(3, '0')}-task-name.md
+- ${projectPath}/plans/${encodeTaskId(nextTaskNumber)}-task-name.md
+- ${projectPath}/plans/${encodeTaskId(nextTaskNumber + 1)}-task-name.md
 - etc.
 
 Each plan file should follow this structure:
@@ -145,11 +146,11 @@ Each plan file should follow this structure:
 ## Context
 [Why this task is needed, how it fits into the larger project]
 [Reference relevant existing tasks if applicable]
-[For follow-up/fix tasks: "This is a follow-up to task NNN. See outcome: {projectPath}/outcomes/NNN-task-name.md"]
+[For follow-up/fix tasks: "This is a follow-up to task NN. See outcome: {projectPath}/outcomes/NN-task-name.md"]
 
 ## Dependencies
 [Optional section - omit if task has no dependencies]
-[Comma-separated list of task IDs this task depends on, e.g., "001, 002"]
+[Comma-separated list of task IDs this task depends on, e.g., "01, 02"]
 [If a dependency fails, this task will be automatically blocked]
 
 ## Requirements
@@ -194,10 +195,10 @@ Planning complete! To exit this session and run your tasks:
 1. NEVER modify COMPLETED task plans - they are [PROTECTED] because their outcomes depend on the original plan
 2. You MAY modify non-completed task plans (pending/failed) if the user requests changes - they are [MODIFIABLE]
 3. ALWAYS interview the user before creating or modifying plans
-4. New tasks start from number ${nextTaskNumber.toString().padStart(3, '0')}
+4. New tasks start from number ${encodeTaskId(nextTaskNumber)}
 5. Use descriptive, kebab-case names for plan files
 6. Each plan should be self-contained with all context needed
-7. Specify task dependencies using the ## Dependencies section with task IDs only (e.g., "001, 002")
+7. Specify task dependencies using the ## Dependencies section with task IDs only (e.g., "01, 02")
 8. Tasks without dependencies should omit the Dependencies section entirely
 9. Be specific - vague plans lead to poor execution
 

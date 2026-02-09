@@ -32,102 +32,102 @@ describe('do command rerun functionality', () => {
   describe('skip completed tasks', () => {
     it('should skip tasks with SUCCESS outcome', () => {
       // Set up plans
-      fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
-      fs.writeFileSync(path.join(projectPath, 'plans', '002-task.md'), '# Task 2');
-      fs.writeFileSync(path.join(projectPath, 'plans', '003-task.md'), '# Task 3');
+      fs.writeFileSync(path.join(projectPath, 'plans', '01-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '02-task.md'), '# Task 2');
+      fs.writeFileSync(path.join(projectPath, 'plans', '03-task.md'), '# Task 3');
 
       // Mark first task as complete
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-task.md'),
-        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
+        path.join(projectPath, 'outcomes', '01-task.md'),
+        '# Task 01 - Completed\n\n<promise>COMPLETE</promise>'
       );
 
       const state = deriveProjectState(projectPath);
       const nextTask = getNextExecutableTask(state);
 
-      expect(nextTask?.id).toBe('002');
+      expect(nextTask?.id).toBe('02');
       expect(nextTask?.status).toBe('pending');
     });
 
     it('should skip multiple completed tasks', () => {
-      fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
-      fs.writeFileSync(path.join(projectPath, 'plans', '002-task.md'), '# Task 2');
-      fs.writeFileSync(path.join(projectPath, 'plans', '003-task.md'), '# Task 3');
+      fs.writeFileSync(path.join(projectPath, 'plans', '01-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '02-task.md'), '# Task 2');
+      fs.writeFileSync(path.join(projectPath, 'plans', '03-task.md'), '# Task 3');
 
       // Mark first two tasks as complete
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-task.md'),
-        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
+        path.join(projectPath, 'outcomes', '01-task.md'),
+        '# Task 01 - Completed\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '002-task.md'),
-        '# Task 002 - Completed\n\n<promise>COMPLETE</promise>'
+        path.join(projectPath, 'outcomes', '02-task.md'),
+        '# Task 02 - Completed\n\n<promise>COMPLETE</promise>'
       );
 
       const state = deriveProjectState(projectPath);
       const nextTask = getNextExecutableTask(state);
 
-      expect(nextTask?.id).toBe('003');
+      expect(nextTask?.id).toBe('03');
     });
   });
 
   describe('retry failed tasks', () => {
     it('should retry tasks with FAILED outcome', () => {
-      fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
-      fs.writeFileSync(path.join(projectPath, 'plans', '002-task.md'), '# Task 2');
+      fs.writeFileSync(path.join(projectPath, 'plans', '01-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '02-task.md'), '# Task 2');
 
       // Mark first task as failed
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-task.md'),
-        '# Task 001 - Failed\n\n<promise>FAILED</promise>'
+        path.join(projectPath, 'outcomes', '01-task.md'),
+        '# Task 01 - Failed\n\n<promise>FAILED</promise>'
       );
 
       const state = deriveProjectState(projectPath);
       const nextTask = getNextExecutableTask(state);
 
       // Should return the pending task first, then failed
-      expect(nextTask?.id).toBe('002');
+      expect(nextTask?.id).toBe('02');
       expect(nextTask?.status).toBe('pending');
     });
 
     it('should retry failed task when no pending tasks remain', () => {
-      fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
-      fs.writeFileSync(path.join(projectPath, 'plans', '002-task.md'), '# Task 2');
+      fs.writeFileSync(path.join(projectPath, 'plans', '01-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '02-task.md'), '# Task 2');
 
       // Mark first as complete, second as failed
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-task.md'),
-        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
+        path.join(projectPath, 'outcomes', '01-task.md'),
+        '# Task 01 - Completed\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '002-task.md'),
-        '# Task 002 - Failed\n\n<promise>FAILED</promise>'
+        path.join(projectPath, 'outcomes', '02-task.md'),
+        '# Task 02 - Failed\n\n<promise>FAILED</promise>'
       );
 
       const state = deriveProjectState(projectPath);
       const nextTask = getNextExecutableTask(state);
 
-      expect(nextTask?.id).toBe('002');
+      expect(nextTask?.id).toBe('02');
       expect(nextTask?.status).toBe('failed');
     });
   });
 
   describe('run pending tasks', () => {
     it('should run tasks without outcome files', () => {
-      fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
-      fs.writeFileSync(path.join(projectPath, 'plans', '002-task.md'), '# Task 2');
+      fs.writeFileSync(path.join(projectPath, 'plans', '01-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '02-task.md'), '# Task 2');
 
       const state = deriveProjectState(projectPath);
       const nextTask = getNextExecutableTask(state);
 
-      expect(nextTask?.id).toBe('001');
+      expect(nextTask?.id).toBe('01');
       expect(nextTask?.status).toBe('pending');
     });
 
     it('should handle outcome file without status marker as pending', () => {
-      fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '01-task.md'), '# Task 1');
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-task.md'),
+        path.join(projectPath, 'outcomes', '01-task.md'),
         '# Old format without status marker'
       );
 
@@ -137,8 +137,8 @@ describe('do command rerun functionality', () => {
     });
 
     it('should handle empty outcome file as pending', () => {
-      fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
-      fs.writeFileSync(path.join(projectPath, 'outcomes', '001-task.md'), '');
+      fs.writeFileSync(path.join(projectPath, 'plans', '01-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'outcomes', '01-task.md'), '');
 
       const state = deriveProjectState(projectPath);
 
@@ -148,16 +148,16 @@ describe('do command rerun functionality', () => {
 
   describe('all complete detection', () => {
     it('should detect all tasks completed', () => {
-      fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
-      fs.writeFileSync(path.join(projectPath, 'plans', '002-task.md'), '# Task 2');
+      fs.writeFileSync(path.join(projectPath, 'plans', '01-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '02-task.md'), '# Task 2');
 
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-task.md'),
-        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
+        path.join(projectPath, 'outcomes', '01-task.md'),
+        '# Task 01 - Completed\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '002-task.md'),
-        '# Task 002 - Completed\n\n<promise>COMPLETE</promise>'
+        path.join(projectPath, 'outcomes', '02-task.md'),
+        '# Task 02 - Completed\n\n<promise>COMPLETE</promise>'
       );
 
       const state = deriveProjectState(projectPath);
@@ -167,10 +167,10 @@ describe('do command rerun functionality', () => {
     });
 
     it('should not report complete when failed tasks exist', () => {
-      fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '01-task.md'), '# Task 1');
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-task.md'),
-        '# Task 001 - Failed\n\n<promise>FAILED</promise>'
+        path.join(projectPath, 'outcomes', '01-task.md'),
+        '# Task 01 - Failed\n\n<promise>FAILED</promise>'
       );
 
       const state = deriveProjectState(projectPath);
@@ -186,22 +186,22 @@ describe('do command rerun functionality', () => {
      * and returns tasks that haven't been completed in this session.
      */
     it('should identify all tasks for force mode execution', () => {
-      fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
-      fs.writeFileSync(path.join(projectPath, 'plans', '002-task.md'), '# Task 2');
-      fs.writeFileSync(path.join(projectPath, 'plans', '003-task.md'), '# Task 3');
+      fs.writeFileSync(path.join(projectPath, 'plans', '01-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '02-task.md'), '# Task 2');
+      fs.writeFileSync(path.join(projectPath, 'plans', '03-task.md'), '# Task 3');
 
       // All tasks completed
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-task.md'),
-        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
+        path.join(projectPath, 'outcomes', '01-task.md'),
+        '# Task 01 - Completed\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '002-task.md'),
-        '# Task 002 - Completed\n\n<promise>COMPLETE</promise>'
+        path.join(projectPath, 'outcomes', '02-task.md'),
+        '# Task 02 - Completed\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '003-task.md'),
-        '# Task 003 - Completed\n\n<promise>COMPLETE</promise>'
+        path.join(projectPath, 'outcomes', '03-task.md'),
+        '# Task 03 - Completed\n\n<promise>COMPLETE</promise>'
       );
 
       const state = deriveProjectState(projectPath);
@@ -224,19 +224,19 @@ describe('do command rerun functionality', () => {
         return null;
       }
 
-      // First iteration - should get task 001
+      // First iteration - should get task 01
       let task = getNextForceTask(state, completedInSession);
-      expect(task?.id).toBe('001');
+      expect(task?.id).toBe('01');
       completedInSession.add(task!.id);
 
-      // Second iteration - should get task 002
+      // Second iteration - should get task 02
       task = getNextForceTask(state, completedInSession);
-      expect(task?.id).toBe('002');
+      expect(task?.id).toBe('02');
       completedInSession.add(task!.id);
 
-      // Third iteration - should get task 003
+      // Third iteration - should get task 03
       task = getNextForceTask(state, completedInSession);
-      expect(task?.id).toBe('003');
+      expect(task?.id).toBe('03');
       completedInSession.add(task!.id);
 
       // Fourth iteration - no more tasks
@@ -247,23 +247,23 @@ describe('do command rerun functionality', () => {
 
   describe('task status logging', () => {
     it('should identify failed tasks for retry logging', () => {
-      fs.writeFileSync(path.join(projectPath, 'plans', '001-task.md'), '# Task 1');
-      fs.writeFileSync(path.join(projectPath, 'plans', '002-task.md'), '# Task 2');
+      fs.writeFileSync(path.join(projectPath, 'plans', '01-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '02-task.md'), '# Task 2');
 
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '001-task.md'),
-        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
+        path.join(projectPath, 'outcomes', '01-task.md'),
+        '# Task 01 - Completed\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '002-task.md'),
-        '# Task 002 - Failed\n\n<promise>FAILED</promise>'
+        path.join(projectPath, 'outcomes', '02-task.md'),
+        '# Task 02 - Failed\n\n<promise>FAILED</promise>'
       );
 
       const state = deriveProjectState(projectPath);
       const nextTask = getNextExecutableTask(state);
 
       // The task being retried should have failed status
-      expect(nextTask?.id).toBe('002');
+      expect(nextTask?.id).toBe('02');
       expect(nextTask?.status).toBe('failed');
     });
   });

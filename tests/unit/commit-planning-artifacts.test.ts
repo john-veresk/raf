@@ -44,16 +44,14 @@ describe('commitPlanningArtifacts', () => {
 
     await commitPlanningArtifacts('/Users/test/RAF/000017-decision-vault');
 
-    // Verify git add was called with both files
-    expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringContaining('git add'),
-      expect.any(Object)
-    );
-    const addCall = mockExecSync.mock.calls.find(
+    // Verify git add was called for both files (individual calls)
+    const addCalls = mockExecSync.mock.calls.filter(
       (call) => (call[0] as string).includes('git add')
     );
-    expect(addCall?.[0]).toContain('input.md');
-    expect(addCall?.[0]).toContain('decisions.md');
+    expect(addCalls.length).toBe(2);
+    const addCmds = addCalls.map((c) => c[0] as string);
+    expect(addCmds.some((cmd) => cmd.includes('input.md'))).toBe(true);
+    expect(addCmds.some((cmd) => cmd.includes('decisions.md'))).toBe(true);
 
     // Verify commit message format
     expect(mockExecSync).toHaveBeenCalledWith(
@@ -193,7 +191,7 @@ describe('commitPlanningArtifacts', () => {
     );
   });
 
-  it('should only stage input.md and decisions.md', async () => {
+  it('should stage input.md and decisions.md individually', async () => {
     mockExecSync.mockImplementation((cmd: unknown) => {
       const cmdStr = cmd as string;
       if (cmdStr.includes('rev-parse')) {
@@ -213,21 +211,22 @@ describe('commitPlanningArtifacts', () => {
 
     await commitPlanningArtifacts('/Users/test/RAF/000017-decision-vault');
 
-    // Verify git add was called with explicit file paths
-    const addCall = mockExecSync.mock.calls.find(
+    // Verify git add was called individually for each file
+    const addCalls = mockExecSync.mock.calls.filter(
       (call) => (call[0] as string).includes('git add')
     );
-    expect(addCall).toBeDefined();
-    const addCmd = addCall?.[0] as string;
+    expect(addCalls.length).toBe(2);
 
-    // Should contain explicit file paths
-    expect(addCmd).toContain('/Users/test/RAF/000017-decision-vault/input.md');
-    expect(addCmd).toContain('/Users/test/RAF/000017-decision-vault/decisions.md');
+    const addCmds = addCalls.map((c) => c[0] as string);
+    expect(addCmds[0]).toContain('/Users/test/RAF/000017-decision-vault/input.md');
+    expect(addCmds[1]).toContain('/Users/test/RAF/000017-decision-vault/decisions.md');
 
-    // Should NOT use wildcards or add all
-    expect(addCmd).not.toContain('-A');
-    expect(addCmd).not.toContain('--all');
-    expect(addCmd).not.toContain('*');
+    // Individual calls should NOT use wildcards or add all
+    for (const cmd of addCmds) {
+      expect(cmd).not.toContain('-A');
+      expect(cmd).not.toContain('--all');
+      expect(cmd).not.toContain('*');
+    }
   });
 
   it('should use "Amend:" prefix when isAmend is true', async () => {
@@ -263,14 +262,14 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/000017-decision-vault/input.md\nRAF/000017-decision-vault/plans/004-new-task.md\n';
+        return 'RAF/000017-decision-vault/input.md\nRAF/000017-decision-vault/plans/04-new-task.md\n';
       }
       return '';
     });
 
     const additionalFiles = [
-      '/Users/test/RAF/000017-decision-vault/plans/004-new-task.md',
-      '/Users/test/RAF/000017-decision-vault/plans/005-another-task.md',
+      '/Users/test/RAF/000017-decision-vault/plans/04-new-task.md',
+      '/Users/test/RAF/000017-decision-vault/plans/05-another-task.md',
     ];
 
     await commitPlanningArtifacts('/Users/test/RAF/000017-decision-vault', {
@@ -278,17 +277,17 @@ describe('commitPlanningArtifacts', () => {
       isAmend: true,
     });
 
-    // Verify git add includes plan files
-    const addCall = mockExecSync.mock.calls.find(
+    // Verify git add called for all 4 files (input, decisions, 2 plans)
+    const addCalls = mockExecSync.mock.calls.filter(
       (call) => (call[0] as string).includes('git add')
     );
-    expect(addCall).toBeDefined();
-    const addCmd = addCall?.[0] as string;
+    expect(addCalls.length).toBe(4);
 
-    expect(addCmd).toContain('input.md');
-    expect(addCmd).toContain('decisions.md');
-    expect(addCmd).toContain('004-new-task.md');
-    expect(addCmd).toContain('005-another-task.md');
+    const addCmds = addCalls.map((c) => c[0] as string);
+    expect(addCmds.some((cmd) => cmd.includes('input.md'))).toBe(true);
+    expect(addCmds.some((cmd) => cmd.includes('decisions.md'))).toBe(true);
+    expect(addCmds.some((cmd) => cmd.includes('04-new-task.md'))).toBe(true);
+    expect(addCmds.some((cmd) => cmd.includes('05-another-task.md'))).toBe(true);
   });
 
   it('should pass cwd to isGitRepo for worktree support', async () => {
@@ -316,5 +315,186 @@ describe('commitPlanningArtifacts', () => {
     );
     expect(revParseCall).toBeDefined();
     expect(revParseCall?.[1]).toEqual(expect.objectContaining({ cwd: '/tmp/worktree' }));
+  });
+
+  it('should convert paths to relative when cwd is provided (worktree mode)', async () => {
+    mockExecSync.mockImplementation((cmd: unknown) => {
+      const cmdStr = cmd as string;
+      if (cmdStr.includes('rev-parse')) {
+        return 'true\n';
+      }
+      if (cmdStr.includes('git add') || cmdStr.includes('git commit')) {
+        return '';
+      }
+      if (cmdStr.includes('git diff --cached')) {
+        return 'RAF/000017-decision-vault/input.md\n';
+      }
+      return '';
+    });
+
+    const worktreePath = '/Users/test/.raf/worktrees/myapp/000017-decision-vault';
+    const projectPath = `${worktreePath}/RAF/000017-decision-vault`;
+
+    await commitPlanningArtifacts(projectPath, {
+      cwd: worktreePath,
+    });
+
+    // Verify git add uses relative paths (not absolute)
+    const addCalls = mockExecSync.mock.calls.filter(
+      (call) => (call[0] as string).includes('git add')
+    );
+    expect(addCalls.length).toBe(2);
+
+    const addCmds = addCalls.map((c) => c[0] as string);
+    // Paths should be relative to worktree root
+    expect(addCmds[0]).toContain('RAF/000017-decision-vault/input.md');
+    expect(addCmds[1]).toContain('RAF/000017-decision-vault/decisions.md');
+    // Should NOT contain absolute worktree prefix
+    expect(addCmds[0]).not.toContain(worktreePath);
+    expect(addCmds[1]).not.toContain(worktreePath);
+  });
+
+  it('should use absolute paths when no cwd is provided (standard mode)', async () => {
+    mockExecSync.mockImplementation((cmd: unknown) => {
+      const cmdStr = cmd as string;
+      if (cmdStr.includes('rev-parse')) {
+        return 'true\n';
+      }
+      if (cmdStr.includes('git add') || cmdStr.includes('git commit')) {
+        return '';
+      }
+      if (cmdStr.includes('git diff --cached')) {
+        return 'RAF/000017-decision-vault/input.md\n';
+      }
+      return '';
+    });
+
+    await commitPlanningArtifacts('/Users/test/RAF/000017-decision-vault');
+
+    // Verify git add uses absolute paths
+    const addCalls = mockExecSync.mock.calls.filter(
+      (call) => (call[0] as string).includes('git add')
+    );
+    expect(addCalls.length).toBe(2);
+
+    const addCmds = addCalls.map((c) => c[0] as string);
+    expect(addCmds[0]).toContain('/Users/test/RAF/000017-decision-vault/input.md');
+    expect(addCmds[1]).toContain('/Users/test/RAF/000017-decision-vault/decisions.md');
+  });
+
+  it('should continue staging other files when one file fails to stage', async () => {
+    let addCallCount = 0;
+    mockExecSync.mockImplementation((cmd: unknown) => {
+      const cmdStr = cmd as string;
+      if (cmdStr.includes('rev-parse')) {
+        return 'true\n';
+      }
+      if (cmdStr.includes('git add')) {
+        addCallCount++;
+        // First call (input.md) fails
+        if (addCallCount === 1) {
+          throw new Error("fatal: pathspec 'input.md' did not match any files");
+        }
+        return '';
+      }
+      if (cmdStr.includes('git diff --cached')) {
+        return 'RAF/000017-decision-vault/decisions.md\n';
+      }
+      if (cmdStr.includes('git commit')) {
+        return '';
+      }
+      return '';
+    });
+
+    await commitPlanningArtifacts('/Users/test/RAF/000017-decision-vault');
+
+    // Should have tried both files
+    const addCalls = mockExecSync.mock.calls.filter(
+      (call) => (call[0] as string).includes('git add')
+    );
+    expect(addCalls.length).toBe(2);
+
+    // Should warn about the failed file
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to stage')
+    );
+
+    // Should still commit the successfully staged file
+    expect(mockExecSync).toHaveBeenCalledWith(
+      expect.stringContaining('git commit'),
+      expect.any(Object)
+    );
+  });
+
+  it('should not attempt commit when all files fail to stage', async () => {
+    mockExecSync.mockImplementation((cmd: unknown) => {
+      const cmdStr = cmd as string;
+      if (cmdStr.includes('rev-parse')) {
+        return 'true\n';
+      }
+      if (cmdStr.includes('git add')) {
+        throw new Error('fatal: pathspec did not match any files');
+      }
+      return '';
+    });
+
+    await commitPlanningArtifacts('/Users/test/RAF/000017-decision-vault');
+
+    // Should log debug about no files staged
+    expect(mockLogger.debug).toHaveBeenCalledWith(
+      'No files were staged for planning artifacts commit'
+    );
+
+    // Should NOT try to commit
+    expect(mockExecSync).not.toHaveBeenCalledWith(
+      expect.stringContaining('git commit'),
+      expect.any(Object)
+    );
+  });
+
+  it('should convert additional file paths to relative in worktree mode', async () => {
+    mockExecSync.mockImplementation((cmd: unknown) => {
+      const cmdStr = cmd as string;
+      if (cmdStr.includes('rev-parse')) {
+        return 'true\n';
+      }
+      if (cmdStr.includes('git add') || cmdStr.includes('git commit')) {
+        return '';
+      }
+      if (cmdStr.includes('git diff --cached')) {
+        return 'RAF/000017-decision-vault/plans/04-new-task.md\n';
+      }
+      return '';
+    });
+
+    const worktreePath = '/Users/test/.raf/worktrees/myapp/000017-decision-vault';
+    const projectPath = `${worktreePath}/RAF/000017-decision-vault`;
+    const additionalFiles = [
+      `${projectPath}/plans/04-new-task.md`,
+    ];
+
+    await commitPlanningArtifacts(projectPath, {
+      cwd: worktreePath,
+      additionalFiles,
+      isAmend: true,
+    });
+
+    // All git add calls should use relative paths
+    const addCalls = mockExecSync.mock.calls.filter(
+      (call) => (call[0] as string).includes('git add')
+    );
+    expect(addCalls.length).toBe(3); // input, decisions, plan
+
+    for (const call of addCalls) {
+      const cmd = call[0] as string;
+      expect(cmd).not.toContain(worktreePath);
+    }
+
+    // Verify the plan file path is relative
+    const planAddCall = addCalls.find(
+      (call) => (call[0] as string).includes('04-new-task.md')
+    );
+    expect(planAddCall).toBeDefined();
+    expect((planAddCall![0] as string)).toContain('RAF/000017-decision-vault/plans/04-new-task.md');
   });
 });

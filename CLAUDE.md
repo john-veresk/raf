@@ -34,11 +34,11 @@ RAF/
     ├── input.md             # User requirements
     ├── decisions.md         # Q&A from planning interviews
     ├── plans/               # Task breakdowns
-    │   ├── 001-task-name.md
-    │   └── 002-another-task.md
+    │   ├── 01-task-name.md  # 2-char base36 task ID
+    │   └── 02-another-task.md
     └── outcomes/            # Completed task results
-        ├── 001-task-name.md
-        └── 002-another-task.md
+        ├── 01-task-name.md
+        └── 02-another-task.md
 ```
 
 ### Plan File Structure
@@ -54,7 +54,7 @@ Each plan file follows this structure:
 [Why this task is needed]
 
 ## Dependencies
-[Optional - comma-separated task IDs, e.g., "001, 002"]
+[Optional - comma-separated task IDs, e.g., "01, 02"]
 [If a dependency fails, this task is blocked]
 
 ## Requirements
@@ -75,7 +75,7 @@ Each plan file follows this structure:
 
 **Dependencies Section**:
 - Optional - omit if task has no dependencies
-- Uses task IDs only (e.g., `001, 002`)
+- Uses task IDs only (e.g., `01, 02`)
 - If a dependency fails, dependent tasks are automatically blocked
 
 ## Development Commands
@@ -140,6 +140,15 @@ npm run lint       # Type check without emit
 - Project name is kebab-case derived from core feature
 - IDs are unique by timestamp and sort chronologically
 
+### Task ID Format
+- Task IDs are 2-character base36 strings, zero-padded (e.g., `01`, `0a`, `1z`, `zz`)
+- Base36 charset: 0-9, a-z (lowercase)
+- Supports up to 1296 tasks per project (00-zz)
+- Task numbering starts at `01` (not `00`)
+- Sort order: 00, 01, ..., 09, 0a, 0b, ..., 0z, 10, 11, ..., zz
+- Utilities in `src/utils/paths.ts`: `encodeTaskId()`, `decodeTaskId()`, `TASK_ID_PATTERN`
+- File naming: `01-task-name.md`, `0a-task-name.md`, etc.
+
 ### Project Identifier Resolution
 Support multiple identifier formats in commands:
 1. Base36 ID: `00j3k1` (6-character epoch-based ID)
@@ -160,9 +169,9 @@ Claude writes a concise description of what was accomplished, focusing on the ac
 
 Examples:
 ```
-RAF[00j3k1:001] Add validation for user input fields
-RAF[00j3k1:002] Fix null pointer in auth handler
-RAF[00k5m2:003] Refactor database connection pooling
+RAF[00j3k1:01] Add validation for user input fields
+RAF[00j3k1:02] Fix null pointer in auth handler
+RAF[00k5m2:03] Refactor database connection pooling
 ```
 
 - Claude commits code changes and outcome file together in one commit per task
@@ -184,15 +193,32 @@ RAF[00k5m2:003] Refactor database connection pooling
   - List mode: worktree projects that differ from main repo shown under `Worktrees:` header
   - Single project mode: shows both main and worktree state when they differ
   - Identical worktree projects are hidden; worktree-only projects always shown
-- Lifecycle: create worktree -> plan in worktree -> execute in worktree -> optionally merge with `--merge`
-- Merge strategy: fast-forward preferred, merge-commit fallback, abort on conflicts
-- Worktrees are automatically cleaned up after successful completion (branch is preserved for future amend). On failure, worktree is kept for inspection
+- Lifecycle: create worktree -> plan in worktree -> pick post-action -> execute in worktree -> auto-run chosen action
+- **Post-execution picker**: Before task execution, an interactive picker asks what to do after tasks complete:
+  1. **Merge** — merge branch into original branch (fast-forward preferred, merge-commit fallback)
+  2. **Create PR** — push branch and create a GitHub PR (uses `createPullRequest()` from `pull-request.ts`)
+  3. **Leave branch** — do nothing, keep the branch as-is
+- PR option runs preflight checks immediately; falls back to "leave" if `gh` CLI is missing or unauthenticated
+- On task failure, the chosen post-action is skipped with a message
+- Worktree cleanup: merge and leave actions clean up the worktree directory (branch preserved); PR preserves the worktree for follow-up changes
+- On failure, worktree is kept for inspection
 - `raf plan --amend --worktree` auto-recreates the worktree when it was cleaned up:
   - If the branch exists (common after cleanup): recreates worktree from the existing branch
   - If no branch exists: creates a fresh worktree and copies project files from the main repo
-- `--merge` is only valid with `--worktree`; merges the worktree branch into the original branch after all tasks succeed
 - On plan failure with no plan files created, the worktree is cleaned up automatically
 - Core utilities in `src/core/worktree.ts`: `createWorktree()`, `createWorktreeFromBranch()`, `branchExists()`, `validateWorktree()`, `mergeWorktreeBranch()`, `removeWorktree()`, `listWorktreeProjects()`
+- Post-execution picker: `pickPostExecutionAction()` and `PostExecutionAction` type exported from `src/commands/do.ts`
+
+### PR Creation from Worktree
+- `src/core/pull-request.ts` provides `createPullRequest()` to create GitHub PRs from worktree branches
+- Requires `gh` CLI installed and authenticated (`gh auth login`)
+- Auto-detects base branch (from `refs/remotes/origin/HEAD`, falling back to `main`/`master`)
+- PR title derived from project name (kebab-case to human-readable)
+- PR body generated by Claude Haiku summarizing input.md, decisions.md, and outcomes
+- Falls back to simple body if Claude is unavailable
+- Auto-pushes branch to origin if not already pushed
+- Preflight checks: `prPreflight()` validates gh CLI, authentication, GitHub remote
+- Key functions: `createPullRequest()`, `prPreflight()`, `generatePrBody()`, `generatePrTitle()`, `detectBaseBranch()`
 
 ## Important Reminders
 

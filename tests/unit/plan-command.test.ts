@@ -32,11 +32,11 @@ describe('Plan Command - Amend Functionality', () => {
       fs.mkdirSync(projectDir);
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '001-first-task.md'),
+        path.join(projectDir, 'plans', '01-first-task.md'),
         '# Task: First Task\n'
       );
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '002-second-task.md'),
+        path.join(projectDir, 'plans', '02-second-task.md'),
         '# Task: Second Task\n'
       );
     });
@@ -68,7 +68,7 @@ describe('Plan Command - Amend Functionality', () => {
       fs.mkdirSync(projectDir);
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '001-initial-task.md'),
+        path.join(projectDir, 'plans', '01-initial-task.md'),
         '# Task: Initial Task\n'
       );
     });
@@ -90,11 +90,11 @@ describe('Plan Command - Amend Functionality', () => {
       fs.mkdirSync(projectDir);
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '001-task-one.md'),
+        path.join(projectDir, 'plans', '01-task-one.md'),
         '# Task: Task One\n'
       );
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '002-task-two.md'),
+        path.join(projectDir, 'plans', '02-task-two.md'),
         '# Task: Task Two\n'
       );
 
@@ -110,11 +110,11 @@ describe('Plan Command - Amend Functionality', () => {
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.mkdirSync(path.join(projectDir, 'outcomes'));
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '001-task-one.md'),
+        path.join(projectDir, 'plans', '01-task-one.md'),
         '# Task: Task One\n'
       );
       fs.writeFileSync(
-        path.join(projectDir, 'outcomes', '001-task-one.md'),
+        path.join(projectDir, 'outcomes', '01-task-one.md'),
         'Task completed.\n\n<promise>COMPLETE</promise>'
       );
 
@@ -129,11 +129,11 @@ describe('Plan Command - Amend Functionality', () => {
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.mkdirSync(path.join(projectDir, 'outcomes'));
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '001-task-one.md'),
+        path.join(projectDir, 'plans', '01-task-one.md'),
         '# Task: Task One\n'
       );
       fs.writeFileSync(
-        path.join(projectDir, 'outcomes', '001-task-one.md'),
+        path.join(projectDir, 'outcomes', '01-task-one.md'),
         'Task failed.\n\n<promise>FAILED</promise>'
       );
 
@@ -148,23 +148,23 @@ describe('Plan Command - Amend Functionality', () => {
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.mkdirSync(path.join(projectDir, 'outcomes'));
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '001-task-one.md'),
+        path.join(projectDir, 'plans', '01-task-one.md'),
         '# Task: Task One\n'
       );
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '002-task-two.md'),
+        path.join(projectDir, 'plans', '02-task-two.md'),
         '# Task: Task Two\n'
       );
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '003-task-three.md'),
+        path.join(projectDir, 'plans', '03-task-three.md'),
         '# Task: Task Three\n'
       );
       fs.writeFileSync(
-        path.join(projectDir, 'outcomes', '001-task-one.md'),
+        path.join(projectDir, 'outcomes', '01-task-one.md'),
         'Task completed.\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
-        path.join(projectDir, 'outcomes', '002-task-two.md'),
+        path.join(projectDir, 'outcomes', '02-task-two.md'),
         'Task failed.\n\n<promise>FAILED</promise>'
       );
       // Task three has no outcome - pending
@@ -184,19 +184,19 @@ describe('Plan Command - Amend Functionality', () => {
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.mkdirSync(path.join(projectDir, 'outcomes'));
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '001-task-one.md'),
+        path.join(projectDir, 'plans', '01-task-one.md'),
         '# Task: Task One\n'
       );
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '002-task-two.md'),
+        path.join(projectDir, 'plans', '02-task-two.md'),
         '# Task: Task Two\n'
       );
       fs.writeFileSync(
-        path.join(projectDir, 'outcomes', '001-task-one.md'),
+        path.join(projectDir, 'outcomes', '01-task-one.md'),
         'Task completed.\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
-        path.join(projectDir, 'outcomes', '002-task-two.md'),
+        path.join(projectDir, 'outcomes', '02-task-two.md'),
         'Task completed.\n\n<promise>COMPLETE</promise>'
       );
 
@@ -210,15 +210,15 @@ describe('Plan Command - Amend Functionality', () => {
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.mkdirSync(path.join(projectDir, 'outcomes'));
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '001-task-one.md'),
+        path.join(projectDir, 'plans', '01-task-one.md'),
         '# Task: Task One\n'
       );
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '002-task-two.md'),
+        path.join(projectDir, 'plans', '02-task-two.md'),
         '# Task: Task Two\n'
       );
       fs.writeFileSync(
-        path.join(projectDir, 'outcomes', '001-task-one.md'),
+        path.join(projectDir, 'outcomes', '01-task-one.md'),
         'Task completed.\n\n<promise>COMPLETE</promise>'
       );
 
@@ -232,11 +232,11 @@ describe('Plan Command - Amend Functionality', () => {
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.mkdirSync(path.join(projectDir, 'outcomes'));
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '001-task-one.md'),
+        path.join(projectDir, 'plans', '01-task-one.md'),
         '# Task: Task One\n'
       );
       fs.writeFileSync(
-        path.join(projectDir, 'outcomes', '001-task-one.md'),
+        path.join(projectDir, 'outcomes', '01-task-one.md'),
         'Task failed.\n\n<promise>FAILED</promise>'
       );
 
@@ -247,12 +247,12 @@ describe('Plan Command - Amend Functionality', () => {
 
   describe('Task Name Extraction', () => {
     it('should extract task name from plan file', () => {
-      const name = extractTaskNameFromPlanFile('001-fix-login-bug.md');
+      const name = extractTaskNameFromPlanFile('01-fix-login-bug.md');
       expect(name).toBe('fix-login-bug');
     });
 
     it('should extract task name from plan file with multiple hyphens', () => {
-      const name = extractTaskNameFromPlanFile('002-add-user-registration-flow.md');
+      const name = extractTaskNameFromPlanFile('02-add-user-registration-flow.md');
       expect(name).toBe('add-user-registration-flow');
     });
 
@@ -273,15 +273,15 @@ describe('Plan Command - Amend Functionality', () => {
       fs.mkdirSync(projectDir);
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '001-task-one.md'),
+        path.join(projectDir, 'plans', '01-task-one.md'),
         '# Task: Task One\n'
       );
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '002-task-two.md'),
+        path.join(projectDir, 'plans', '02-task-two.md'),
         '# Task: Task Two\n'
       );
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '003-task-three.md'),
+        path.join(projectDir, 'plans', '03-task-three.md'),
         '# Task: Task Three\n'
       );
 
@@ -298,7 +298,7 @@ describe('Plan Command - Amend Functionality', () => {
       fs.mkdirSync(projectDir);
       fs.mkdirSync(path.join(projectDir, 'plans'));
       fs.writeFileSync(
-        path.join(projectDir, 'plans', '001-task-one.md'),
+        path.join(projectDir, 'plans', '01-task-one.md'),
         '# Task: Task One\n'
       );
 
@@ -316,8 +316,8 @@ describe('Plan Command - Amend Functionality', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
         existingTasks: [
-          { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
-          { id: '002', planFile: 'plans/002-second.md', status: 'pending', taskName: 'second' },
+          { id: '01', planFile: 'plans/01-first.md', status: 'completed', taskName: 'first' },
+          { id: '02', planFile: 'plans/02-second.md', status: 'pending', taskName: 'second' },
         ],
         nextTaskNumber: 3,
         newTaskDescription: 'Add new feature X',
@@ -335,8 +335,8 @@ describe('Plan Command - Amend Functionality', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
         existingTasks: [
-          { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
-          { id: '002', planFile: 'plans/002-second.md', status: 'pending', taskName: 'second' },
+          { id: '01', planFile: 'plans/01-first.md', status: 'completed', taskName: 'first' },
+          { id: '02', planFile: 'plans/02-second.md', status: 'pending', taskName: 'second' },
         ],
         nextTaskNumber: 3,
         newTaskDescription: 'Add new feature X',
@@ -345,9 +345,9 @@ describe('Plan Command - Amend Functionality', () => {
       const { systemPrompt } = getAmendPrompt(params);
 
       expect(systemPrompt).toContain('AMENDMENT MODE');
-      expect(systemPrompt).toContain('Task 001: first [COMPLETED] [PROTECTED]');
-      expect(systemPrompt).toContain('Task 002: second [PENDING] [MODIFIABLE]');
-      expect(systemPrompt).toContain('starting from number 003');
+      expect(systemPrompt).toContain('Task 01: first [COMPLETED] [PROTECTED]');
+      expect(systemPrompt).toContain('Task 02: second [PENDING] [MODIFIABLE]');
+      expect(systemPrompt).toContain('starting from number 03');
       expect(systemPrompt).toContain('/test/project');
     });
 
@@ -369,7 +369,7 @@ describe('Plan Command - Amend Functionality', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
         existingTasks: [
-          { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
+          { id: '01', planFile: 'plans/01-first.md', status: 'completed', taskName: 'first' },
         ],
         nextTaskNumber: 2,
         newTaskDescription: 'New tasks',
@@ -388,7 +388,7 @@ describe('Plan Command - Amend Functionality', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
         existingTasks: [
-          { id: '001', planFile: 'plans/001-first.md', status: 'failed', taskName: 'first' },
+          { id: '01', planFile: 'plans/01-first.md', status: 'failed', taskName: 'first' },
         ],
         nextTaskNumber: 2,
         newTaskDescription: 'New tasks',
@@ -396,16 +396,16 @@ describe('Plan Command - Amend Functionality', () => {
 
       const { systemPrompt } = getAmendPrompt(params);
 
-      expect(systemPrompt).toContain('Task 001: first [FAILED] [MODIFIABLE]');
+      expect(systemPrompt).toContain('Task 01: first [FAILED] [MODIFIABLE]');
     });
 
     it('should list protected tasks separately', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
         existingTasks: [
-          { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
-          { id: '002', planFile: 'plans/002-second.md', status: 'completed', taskName: 'second' },
-          { id: '003', planFile: 'plans/003-third.md', status: 'pending', taskName: 'third' },
+          { id: '01', planFile: 'plans/01-first.md', status: 'completed', taskName: 'first' },
+          { id: '02', planFile: 'plans/02-second.md', status: 'completed', taskName: 'second' },
+          { id: '03', planFile: 'plans/03-third.md', status: 'pending', taskName: 'third' },
         ],
         nextTaskNumber: 4,
         newTaskDescription: 'New tasks',
@@ -414,17 +414,17 @@ describe('Plan Command - Amend Functionality', () => {
       const { systemPrompt } = getAmendPrompt(params);
 
       expect(systemPrompt).toContain('### Protected Tasks (COMPLETED - cannot be modified)');
-      expect(systemPrompt).toContain('- Task 001: first');
-      expect(systemPrompt).toContain('- Task 002: second');
+      expect(systemPrompt).toContain('- Task 01: first');
+      expect(systemPrompt).toContain('- Task 02: second');
     });
 
     it('should list modifiable tasks separately', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
         existingTasks: [
-          { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
-          { id: '002', planFile: 'plans/002-second.md', status: 'pending', taskName: 'second' },
-          { id: '003', planFile: 'plans/003-third.md', status: 'failed', taskName: 'third' },
+          { id: '01', planFile: 'plans/01-first.md', status: 'completed', taskName: 'first' },
+          { id: '02', planFile: 'plans/02-second.md', status: 'pending', taskName: 'second' },
+          { id: '03', planFile: 'plans/03-third.md', status: 'failed', taskName: 'third' },
         ],
         nextTaskNumber: 4,
         newTaskDescription: 'New tasks',
@@ -433,15 +433,15 @@ describe('Plan Command - Amend Functionality', () => {
       const { systemPrompt } = getAmendPrompt(params);
 
       expect(systemPrompt).toContain('### Modifiable Tasks (PENDING/FAILED - can be modified if requested)');
-      expect(systemPrompt).toContain('- Task 002: second');
-      expect(systemPrompt).toContain('- Task 003: third');
+      expect(systemPrompt).toContain('- Task 02: second');
+      expect(systemPrompt).toContain('- Task 03: third');
     });
 
     it('should show (none) when there are no protected tasks', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
         existingTasks: [
-          { id: '001', planFile: 'plans/001-first.md', status: 'pending', taskName: 'first' },
+          { id: '01', planFile: 'plans/01-first.md', status: 'pending', taskName: 'first' },
         ],
         nextTaskNumber: 2,
         newTaskDescription: 'New tasks',
@@ -456,7 +456,7 @@ describe('Plan Command - Amend Functionality', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
         existingTasks: [
-          { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
+          { id: '01', planFile: 'plans/01-first.md', status: 'completed', taskName: 'first' },
         ],
         nextTaskNumber: 2,
         newTaskDescription: 'New tasks',
@@ -471,10 +471,10 @@ describe('Plan Command - Amend Functionality', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
         existingTasks: [
-          { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'setup' },
-          { id: '002', planFile: 'plans/002-second.md', status: 'completed', taskName: 'database' },
-          { id: '003', planFile: 'plans/003-third.md', status: 'failed', taskName: 'api' },
-          { id: '004', planFile: 'plans/004-fourth.md', status: 'pending', taskName: 'tests' },
+          { id: '01', planFile: 'plans/01-first.md', status: 'completed', taskName: 'setup' },
+          { id: '02', planFile: 'plans/02-second.md', status: 'completed', taskName: 'database' },
+          { id: '03', planFile: 'plans/03-third.md', status: 'failed', taskName: 'api' },
+          { id: '04', planFile: 'plans/04-fourth.md', status: 'pending', taskName: 'tests' },
         ],
         nextTaskNumber: 5,
         newTaskDescription: 'New tasks',
@@ -483,10 +483,10 @@ describe('Plan Command - Amend Functionality', () => {
       const { systemPrompt } = getAmendPrompt(params);
 
       // Check summary list
-      expect(systemPrompt).toContain('Task 001: setup [COMPLETED] [PROTECTED]');
-      expect(systemPrompt).toContain('Task 002: database [COMPLETED] [PROTECTED]');
-      expect(systemPrompt).toContain('Task 003: api [FAILED] [MODIFIABLE]');
-      expect(systemPrompt).toContain('Task 004: tests [PENDING] [MODIFIABLE]');
+      expect(systemPrompt).toContain('Task 01: setup [COMPLETED] [PROTECTED]');
+      expect(systemPrompt).toContain('Task 02: database [COMPLETED] [PROTECTED]');
+      expect(systemPrompt).toContain('Task 03: api [FAILED] [MODIFIABLE]');
+      expect(systemPrompt).toContain('Task 04: tests [PENDING] [MODIFIABLE]');
 
       // Check separate lists
       expect(systemPrompt).toContain('### Protected Tasks (COMPLETED - cannot be modified)');
@@ -497,7 +497,7 @@ describe('Plan Command - Amend Functionality', () => {
       const params: AmendPromptParams = {
         projectPath: '/my/project/path',
         existingTasks: [
-          { id: '001', planFile: 'plans/001-task.md', status: 'pending', taskName: 'task' },
+          { id: '01', planFile: 'plans/01-task.md', status: 'pending', taskName: 'task' },
         ],
         nextTaskNumber: 2,
         newTaskDescription: 'New tasks',
@@ -505,8 +505,8 @@ describe('Plan Command - Amend Functionality', () => {
 
       const { systemPrompt } = getAmendPrompt(params);
 
-      expect(systemPrompt).toContain('/my/project/path/plans/002-task-name.md');
-      expect(systemPrompt).toContain('/my/project/path/plans/003-task-name.md');
+      expect(systemPrompt).toContain('/my/project/path/plans/02-task-name.md');
+      expect(systemPrompt).toContain('/my/project/path/plans/03-task-name.md');
     });
 
     it('should include new task description in user message', () => {
@@ -555,8 +555,8 @@ describe('Plan Command - Amend Functionality', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
         existingTasks: [
-          { id: '001', planFile: 'plans/001-setup.md', status: 'completed', taskName: 'setup' },
-          { id: '002', planFile: 'plans/002-database.md', status: 'completed', taskName: 'database' },
+          { id: '01', planFile: 'plans/01-setup.md', status: 'completed', taskName: 'setup' },
+          { id: '02', planFile: 'plans/02-database.md', status: 'completed', taskName: 'database' },
         ],
         nextTaskNumber: 3,
         newTaskDescription: 'Fix setup issues',
@@ -564,16 +564,16 @@ describe('Plan Command - Amend Functionality', () => {
 
       const { systemPrompt } = getAmendPrompt(params);
 
-      expect(systemPrompt).toContain('Outcome: /test/project/outcomes/001-setup.md');
-      expect(systemPrompt).toContain('Outcome: /test/project/outcomes/002-database.md');
+      expect(systemPrompt).toContain('Outcome: /test/project/outcomes/01-setup.md');
+      expect(systemPrompt).toContain('Outcome: /test/project/outcomes/02-database.md');
     });
 
     it('should not include outcome file paths for non-completed tasks', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
         existingTasks: [
-          { id: '001', planFile: 'plans/001-pending-task.md', status: 'pending', taskName: 'pending-task' },
-          { id: '002', planFile: 'plans/002-failed-task.md', status: 'failed', taskName: 'failed-task' },
+          { id: '01', planFile: 'plans/01-pending-task.md', status: 'pending', taskName: 'pending-task' },
+          { id: '02', planFile: 'plans/02-failed-task.md', status: 'failed', taskName: 'failed-task' },
         ],
         nextTaskNumber: 3,
         newTaskDescription: 'New tasks',
@@ -581,15 +581,15 @@ describe('Plan Command - Amend Functionality', () => {
 
       const { systemPrompt } = getAmendPrompt(params);
 
-      expect(systemPrompt).not.toContain('Outcome: /test/project/outcomes/001-pending-task.md');
-      expect(systemPrompt).not.toContain('Outcome: /test/project/outcomes/002-failed-task.md');
+      expect(systemPrompt).not.toContain('Outcome: /test/project/outcomes/01-pending-task.md');
+      expect(systemPrompt).not.toContain('Outcome: /test/project/outcomes/02-failed-task.md');
     });
 
     it('should include follow-up task instructions in system prompt', () => {
       const params: AmendPromptParams = {
         projectPath: '/test/project',
         existingTasks: [
-          { id: '001', planFile: 'plans/001-first.md', status: 'completed', taskName: 'first' },
+          { id: '01', planFile: 'plans/01-first.md', status: 'completed', taskName: 'first' },
         ],
         nextTaskNumber: 2,
         newTaskDescription: 'Fix issues from first task',
@@ -598,7 +598,7 @@ describe('Plan Command - Amend Functionality', () => {
       const { systemPrompt } = getAmendPrompt(params);
 
       expect(systemPrompt).toContain('Identifying Follow-up Tasks');
-      expect(systemPrompt).toContain('follow-up to task NNN');
+      expect(systemPrompt).toContain('follow-up to task NN');
       expect(systemPrompt).toContain('outcome file paths for completed tasks are listed above');
     });
   });

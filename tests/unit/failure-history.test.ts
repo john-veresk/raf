@@ -9,15 +9,15 @@ import { formatRetryHistoryForConsole } from '../../src/commands/do.js';
 describe('Retry History Formatting', () => {
   describe('formatRetryHistoryForConsole', () => {
     it('should return empty string when no failures occurred', () => {
-      const result = formatRetryHistoryForConsole('001', 'my-task', [], 1, true);
+      const result = formatRetryHistoryForConsole('01', 'my-task', [], 1, true);
       expect(result).toBe('');
     });
 
     it('should format single failure followed by success', () => {
       const failureHistory = [{ attempt: 1, reason: 'Task timed out' }];
-      const result = formatRetryHistoryForConsole('001', 'my-task', failureHistory, 2, true);
+      const result = formatRetryHistoryForConsole('01', 'my-task', failureHistory, 2, true);
 
-      expect(result).toContain('Task 001 (my-task):');
+      expect(result).toContain('Task 01 (my-task):');
       expect(result).toContain('Attempt 1: Failed - Task timed out');
       expect(result).toContain('Attempt 2: Succeeded');
     });
@@ -27,9 +27,9 @@ describe('Retry History Formatting', () => {
         { attempt: 1, reason: 'Context overflow - task too large' },
         { attempt: 2, reason: 'API rate limit exceeded' },
       ];
-      const result = formatRetryHistoryForConsole('001', 'my-task', failureHistory, 3, true);
+      const result = formatRetryHistoryForConsole('01', 'my-task', failureHistory, 3, true);
 
-      expect(result).toContain('Task 001 (my-task):');
+      expect(result).toContain('Task 01 (my-task):');
       expect(result).toContain('Attempt 1: Failed - Context overflow - task too large');
       expect(result).toContain('Attempt 2: Failed - API rate limit exceeded');
       expect(result).toContain('Attempt 3: Succeeded');
@@ -41,9 +41,9 @@ describe('Retry History Formatting', () => {
         { attempt: 2, reason: 'Task timed out' },
         { attempt: 3, reason: 'Context overflow' },
       ];
-      const result = formatRetryHistoryForConsole('001', 'my-task', failureHistory, 3, false);
+      const result = formatRetryHistoryForConsole('01', 'my-task', failureHistory, 3, false);
 
-      expect(result).toContain('Task 001 (my-task):');
+      expect(result).toContain('Task 01 (my-task):');
       expect(result).toContain('Attempt 1: Failed - Task timed out');
       expect(result).toContain('Attempt 2: Failed - Task timed out');
       expect(result).toContain('Attempt 3: Failed - Context overflow');
@@ -54,18 +54,18 @@ describe('Retry History Formatting', () => {
       const failureHistory = [
         { attempt: 1, reason: 'No completion marker found in output or outcome file' },
       ];
-      const result = formatRetryHistoryForConsole('001', 'my-task', failureHistory, 2, true);
+      const result = formatRetryHistoryForConsole('01', 'my-task', failureHistory, 2, true);
 
       expect(result).toContain('Attempt 1: Failed - No completion marker found in output or outcome file');
     });
 
     it('should handle task name same as task id', () => {
       const failureHistory = [{ attempt: 1, reason: 'Test failure' }];
-      const result = formatRetryHistoryForConsole('001', '001', failureHistory, 2, true);
+      const result = formatRetryHistoryForConsole('01', '01', failureHistory, 2, true);
 
       // When taskName equals taskId, should just show taskId without parentheses
-      expect(result).toContain('Task 001:');
-      expect(result).not.toContain('Task 001 (001):');
+      expect(result).toContain('Task 01:');
+      expect(result).not.toContain('Task 01 (01):');
     });
 
     it('should have proper indentation structure', () => {
@@ -73,7 +73,7 @@ describe('Retry History Formatting', () => {
         { attempt: 1, reason: 'First failure' },
         { attempt: 2, reason: 'Second failure' },
       ];
-      const result = formatRetryHistoryForConsole('001', 'my-task', failureHistory, 3, true);
+      const result = formatRetryHistoryForConsole('01', 'my-task', failureHistory, 3, true);
       const lines = result.split('\n');
 
       // First line should be task header with minimal indentation
@@ -86,11 +86,11 @@ describe('Retry History Formatting', () => {
 
     it('should handle single failure with immediate success on retry', () => {
       const failureHistory = [{ attempt: 1, reason: 'Rate limit exceeded' }];
-      const result = formatRetryHistoryForConsole('001', 'my-task', failureHistory, 2, true);
+      const result = formatRetryHistoryForConsole('01', 'my-task', failureHistory, 2, true);
 
       const lines = result.split('\n');
       expect(lines).toHaveLength(3);
-      expect(lines[0]).toContain('Task 001 (my-task):');
+      expect(lines[0]).toContain('Task 01 (my-task):');
       expect(lines[1]).toContain('Attempt 1: Failed - Rate limit exceeded');
       expect(lines[2]).toContain('Attempt 2: Succeeded');
     });
@@ -101,11 +101,11 @@ describe('Retry History Formatting', () => {
         { attempt: 2, reason: 'API error' },
         { attempt: 3, reason: 'API error' },
       ];
-      const result = formatRetryHistoryForConsole('001', 'my-task', failureHistory, 3, false);
+      const result = formatRetryHistoryForConsole('01', 'my-task', failureHistory, 3, false);
 
       const lines = result.split('\n');
       expect(lines).toHaveLength(4);
-      expect(lines[0]).toContain('Task 001 (my-task):');
+      expect(lines[0]).toContain('Task 01 (my-task):');
       expect(lines[1]).toContain('Attempt 1: Failed - API error');
       expect(lines[2]).toContain('Attempt 2: Failed - API error');
       expect(lines[3]).toContain('Attempt 3: Failed - API error');
@@ -115,13 +115,13 @@ describe('Retry History Formatting', () => {
   describe('integration scenarios', () => {
     it('should work for clean success (no failures)', () => {
       // On first attempt success, no retry history
-      const result = formatRetryHistoryForConsole('001', 'my-task', [], 1, true);
+      const result = formatRetryHistoryForConsole('01', 'my-task', [], 1, true);
       expect(result).toBe('');
     });
 
     it('should work for retry after timeout then success', () => {
       const failureHistory = [{ attempt: 1, reason: 'Task timed out' }];
-      const result = formatRetryHistoryForConsole('001', 'my-task', failureHistory, 2, true);
+      const result = formatRetryHistoryForConsole('01', 'my-task', failureHistory, 2, true);
 
       expect(result).toContain('Attempt 1');
       expect(result).toContain('Task timed out');
@@ -133,7 +133,7 @@ describe('Retry History Formatting', () => {
       const failureHistory = [
         { attempt: 1, reason: 'Context overflow - task too large' },
       ];
-      const result = formatRetryHistoryForConsole('001', 'my-task', failureHistory, 1, false);
+      const result = formatRetryHistoryForConsole('01', 'my-task', failureHistory, 1, false);
 
       expect(result).toContain('Attempt 1');
       expect(result).toContain('Context overflow');
