@@ -17,3 +17,9 @@ New function - Add a separate `createWorktreeFromBranch()` function. Keeps creat
 
 ## Should the worktree cleanup happen immediately after all tasks finish or after the merge step?
 After tasks only - Always cleanup right after tasks finish, before merge. Merge operates on the branch, not the worktree directory.
+
+## Should the 'branch not found' fallback be a new task or part of task 003?
+Modify task 003 - Add the 'branch not found → create fresh worktree' fallback directly into the existing task 003 plan.
+
+## When neither worktree nor branch exists during amend, what should happen?
+Create fresh worktree + copy project folder from main repo into it, then continue the amend flow.
