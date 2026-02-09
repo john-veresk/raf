@@ -190,7 +190,12 @@ RAF[abaaba:03] Refactor database connection pooling
 - `raf plan --worktree` and `raf do --worktree` run in an isolated git worktree
 - Worktree path: `~/.raf/worktrees/<repo-basename>/<project-id>` (e.g., `~/.raf/worktrees/myapp/abcdef-my-feature`)
 - Branch name matches the project folder name (e.g., `abcdef-my-feature`)
-- `--worktree` flag is required on both `plan` and `do` — it is not auto-detected
+- `--worktree` flag is required on `plan`; on `do` it is auto-detected when a worktree project is selected from the picker
+- `raf do` without arguments auto-discovers pending worktree projects and merges them into the project picker
+  - Worktree projects are labeled with `[worktree]` suffix in the picker
+  - Selecting a worktree project automatically enables worktree mode (post-action picker, worktree cwd)
+  - Projects are deduplicated: when a folder exists in both local and worktree, the worktree version is shown
+  - Mixed local and worktree projects are sorted chronologically
 - `raf status` automatically discovers and displays worktree projects (no flag needed)
   - List mode: worktree projects that differ from main repo shown under `Worktrees:` header
   - Single project mode: shows both main and worktree state when they differ
