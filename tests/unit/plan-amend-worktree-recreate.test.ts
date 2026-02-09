@@ -52,21 +52,21 @@ describe('Plan Amend - Worktree Recreation', () => {
       // branchExists returns true when git branch --list returns output
       mockExecSync.mockImplementation((cmd: unknown) => {
         const cmdStr = cmd as string;
-        if (cmdStr.includes('branch --list "022-my-project"')) return '  022-my-project\n';
+        if (cmdStr.includes('branch --list "abcabc-my-project"')) return '  abcabc-my-project\n';
         return '';
       });
 
-      expect(branchExists('022-my-project')).toBe(true);
+      expect(branchExists('abcabc-my-project')).toBe(true);
     });
 
     it('should choose createWorktree when branch does not exist', () => {
       mockExecSync.mockImplementation((cmd: unknown) => {
         const cmdStr = cmd as string;
-        if (cmdStr.includes('branch --list "022-my-project"')) return '';
+        if (cmdStr.includes('branch --list "abcabc-my-project"')) return '';
         return '';
       });
 
-      expect(branchExists('022-my-project')).toBe(false);
+      expect(branchExists('abcabc-my-project')).toBe(false);
     });
   });
 
@@ -74,16 +74,16 @@ describe('Plan Amend - Worktree Recreation', () => {
     it('should recreate worktree from existing branch successfully', () => {
       mockExecSync.mockImplementation((cmd: unknown) => {
         const cmdStr = cmd as string;
-        if (cmdStr.includes('branch --list')) return '  022-my-project\n';
+        if (cmdStr.includes('branch --list')) return '  abcabc-my-project\n';
         if (cmdStr.includes('worktree add')) return '';
         return '';
       });
 
-      const result = createWorktreeFromBranch('myapp', '022-my-project');
+      const result = createWorktreeFromBranch('myapp', 'abcabc-my-project');
 
       expect(result.success).toBe(true);
-      expect(result.branch).toBe('022-my-project');
-      expect(result.worktreePath).toContain('022-my-project');
+      expect(result.branch).toBe('abcabc-my-project');
+      expect(result.worktreePath).toContain('abcabc-my-project');
       // Should use `git worktree add <path> <branch>` (no -b flag)
       const worktreeAddCall = mockExecSync.mock.calls.find(
         (c: unknown[]) => (c[0] as string).includes('worktree add')
@@ -91,7 +91,7 @@ describe('Plan Amend - Worktree Recreation', () => {
       expect(worktreeAddCall).toBeDefined();
       const cmd = worktreeAddCall![0] as string;
       expect(cmd).not.toContain('-b');
-      expect(cmd).toContain('"022-my-project"');
+      expect(cmd).toContain('"abcabc-my-project"');
     });
 
     it('should fail if branch does not exist', () => {
@@ -101,7 +101,7 @@ describe('Plan Amend - Worktree Recreation', () => {
         return '';
       });
 
-      const result = createWorktreeFromBranch('myapp', '022-my-project');
+      const result = createWorktreeFromBranch('myapp', 'abcabc-my-project');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('does not exist locally');
@@ -112,10 +112,10 @@ describe('Plan Amend - Worktree Recreation', () => {
     it('should create fresh worktree with new branch', () => {
       mockExecSync.mockReturnValue('');
 
-      const result = createWorktree('myapp', '022-my-project');
+      const result = createWorktree('myapp', 'abcabc-my-project');
 
       expect(result.success).toBe(true);
-      expect(result.branch).toBe('022-my-project');
+      expect(result.branch).toBe('abcabc-my-project');
       // Should use `git worktree add <path> -b <branch>`
       const cmd = mockExecSync.mock.calls.find(
         (c: unknown[]) => (c[0] as string).includes('worktree add')
@@ -132,8 +132,8 @@ describe('Plan Amend - Worktree Recreation', () => {
 
     beforeEach(() => {
       tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-amend-recreate-'));
-      mainProjectDir = path.join(tempDir, 'main-repo', 'RAF', '022-my-project');
-      wtProjectDir = path.join(tempDir, 'worktree', 'RAF', '022-my-project');
+      mainProjectDir = path.join(tempDir, 'main-repo', 'RAF', 'abcabc-my-project');
+      wtProjectDir = path.join(tempDir, 'worktree', 'RAF', 'abcabc-my-project');
 
       // Create main repo project structure
       fs.mkdirSync(path.join(mainProjectDir, 'plans'), { recursive: true });
@@ -203,12 +203,12 @@ describe('Plan Amend - Worktree Recreation', () => {
     it('should fail when createWorktreeFromBranch fails', () => {
       mockExecSync.mockImplementation((cmd: unknown) => {
         const cmdStr = cmd as string;
-        if (cmdStr.includes('branch --list')) return '  022-my-project\n';
+        if (cmdStr.includes('branch --list')) return '  abcabc-my-project\n';
         if (cmdStr.includes('worktree add')) throw new Error('worktree already exists');
         return '';
       });
 
-      const result = createWorktreeFromBranch('myapp', '022-my-project');
+      const result = createWorktreeFromBranch('myapp', 'abcabc-my-project');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('worktree already exists');
@@ -221,7 +221,7 @@ describe('Plan Amend - Worktree Recreation', () => {
         return '';
       });
 
-      const result = createWorktree('myapp', '022-my-project');
+      const result = createWorktree('myapp', 'abcabc-my-project');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('branch already exists');
@@ -235,8 +235,8 @@ describe('Plan Amend - Worktree Recreation', () => {
      */
     it('should skip recreation when worktree search finds a match', () => {
       // Simulate: worktree search finds a match
-      const matchedWorktreeDir = '/home/user/.raf/worktrees/myapp/022-my-project';
-      const matchedProjectPath = '/home/user/.raf/worktrees/myapp/022-my-project/RAF/022-my-project';
+      const matchedWorktreeDir = '/home/user/.raf/worktrees/myapp/abcabc-my-project';
+      const matchedProjectPath = '/home/user/.raf/worktrees/myapp/abcabc-my-project/RAF/abcabc-my-project';
 
       // Both are non-null, so the fallback is NOT entered
       expect(matchedWorktreeDir).not.toBeNull();

@@ -105,28 +105,28 @@ describe('worktree utilities', () => {
 
   describe('computeWorktreePath', () => {
     it('should compute the correct worktree path', () => {
-      const result = computeWorktreePath('myapp', '020-worktree-weaver');
-      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'myapp', '020-worktree-weaver'));
+      const result = computeWorktreePath('myapp', 'abaaba-worktree-weaver');
+      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'myapp', 'abaaba-worktree-weaver'));
     });
 
     it('should handle repo names with dots', () => {
-      const result = computeWorktreePath('my.app.v2', '001-feature');
-      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'my.app.v2', '001-feature'));
+      const result = computeWorktreePath('my.app.v2', 'aaaaab-feature');
+      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'my.app.v2', 'aaaaab-feature'));
     });
 
     it('should handle repo names with underscores', () => {
-      const result = computeWorktreePath('my_app', '001-feature');
-      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'my_app', '001-feature'));
+      const result = computeWorktreePath('my_app', 'aaaaab-feature');
+      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'my_app', 'aaaaab-feature'));
     });
 
     it('should handle repo names with hyphens', () => {
-      const result = computeWorktreePath('my-cool-app', 'a00-base36-project');
-      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'my-cool-app', 'a00-base36-project'));
+      const result = computeWorktreePath('my-cool-app', 'abcdef-my-project');
+      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'my-cool-app', 'abcdef-my-project'));
     });
 
-    it('should handle base36 project IDs', () => {
-      const result = computeWorktreePath('myapp', 'a00-base36-project');
-      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'myapp', 'a00-base36-project'));
+    it('should handle base26 project IDs', () => {
+      const result = computeWorktreePath('myapp', 'abcdef-my-project');
+      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'myapp', 'abcdef-my-project'));
     });
   });
 
@@ -144,13 +144,13 @@ describe('worktree utilities', () => {
 
   describe('getWorktreeProjectPath', () => {
     it('should return the project path inside the worktree', () => {
-      const result = getWorktreeProjectPath('/worktree/root', 'RAF/020-worktree-weaver');
-      expect(result).toBe(path.join('/worktree/root', 'RAF/020-worktree-weaver'));
+      const result = getWorktreeProjectPath('/worktree/root', 'RAF/abaaba-worktree-weaver');
+      expect(result).toBe(path.join('/worktree/root', 'RAF/abaaba-worktree-weaver'));
     });
 
     it('should handle nested relative paths', () => {
-      const result = getWorktreeProjectPath('/worktree/root', 'deep/nested/RAF/001-feature');
-      expect(result).toBe(path.join('/worktree/root', 'deep/nested/RAF/001-feature'));
+      const result = getWorktreeProjectPath('/worktree/root', 'deep/nested/RAF/aaaaab-feature');
+      expect(result).toBe(path.join('/worktree/root', 'deep/nested/RAF/aaaaab-feature'));
     });
   });
 
@@ -159,12 +159,12 @@ describe('worktree utilities', () => {
       mockMkdirSync.mockReturnValue(undefined);
       mockExecSync.mockReturnValue('');
 
-      const result = createWorktree('myapp', '020-worktree-weaver');
+      const result = createWorktree('myapp', 'abaaba-worktree-weaver');
 
       expect(result.success).toBe(true);
-      expect(result.branch).toBe('020-worktree-weaver');
+      expect(result.branch).toBe('abaaba-worktree-weaver');
       expect(result.worktreePath).toBe(
-        path.join(HOME, '.raf', 'worktrees', 'myapp', '020-worktree-weaver')
+        path.join(HOME, '.raf', 'worktrees', 'myapp', 'abaaba-worktree-weaver')
       );
       expect(mockMkdirSync).toHaveBeenCalledWith(
         path.join(HOME, '.raf', 'worktrees', 'myapp'),
@@ -181,7 +181,7 @@ describe('worktree utilities', () => {
         throw new Error('permission denied');
       });
 
-      const result = createWorktree('myapp', '020-worktree-weaver');
+      const result = createWorktree('myapp', 'abaaba-worktree-weaver');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Failed to create parent directory');
@@ -193,7 +193,7 @@ describe('worktree utilities', () => {
         throw new Error('branch already exists');
       });
 
-      const result = createWorktree('myapp', '020-worktree-weaver');
+      const result = createWorktree('myapp', 'abaaba-worktree-weaver');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Failed to create worktree');
@@ -202,7 +202,7 @@ describe('worktree utilities', () => {
 
   describe('validateWorktree', () => {
     const worktreePath = '/worktree/path';
-    const projectRelPath = 'RAF/020-worktree-weaver';
+    const projectRelPath = 'RAF/abaaba-worktree-weaver';
 
     it('should return exists=false when directory does not exist', () => {
       mockExistsSync.mockReturnValue(false);
@@ -223,7 +223,7 @@ describe('worktree utilities', () => {
         return false;
       });
 
-      mockExecSync.mockReturnValue(`worktree ${resolvedPath}\nHEAD abc123\nbranch refs/heads/020-worktree-weaver\n\n`);
+      mockExecSync.mockReturnValue(`worktree ${resolvedPath}\nHEAD abc123\nbranch refs/heads/abaaba-worktree-weaver\n\n`);
 
       const result = validateWorktree(worktreePath, projectRelPath);
 
@@ -284,7 +284,7 @@ describe('worktree utilities', () => {
         return '';
       });
 
-      const result = mergeWorktreeBranch('020-worktree-weaver', 'main');
+      const result = mergeWorktreeBranch('abaaba-worktree-weaver', 'main');
 
       expect(result.success).toBe(true);
       expect(result.merged).toBe(true);
@@ -304,7 +304,7 @@ describe('worktree utilities', () => {
         return '';
       });
 
-      const result = mergeWorktreeBranch('020-worktree-weaver', 'main');
+      const result = mergeWorktreeBranch('abaaba-worktree-weaver', 'main');
 
       expect(result.success).toBe(true);
       expect(result.merged).toBe(true);
@@ -321,7 +321,7 @@ describe('worktree utilities', () => {
         return '';
       });
 
-      const result = mergeWorktreeBranch('020-worktree-weaver', 'main');
+      const result = mergeWorktreeBranch('abaaba-worktree-weaver', 'main');
 
       expect(result.success).toBe(false);
       expect(result.merged).toBe(false);
@@ -337,7 +337,7 @@ describe('worktree utilities', () => {
         throw new Error('pathspec "main" did not match');
       });
 
-      const result = mergeWorktreeBranch('020-worktree-weaver', 'main');
+      const result = mergeWorktreeBranch('abaaba-worktree-weaver', 'main');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Failed to checkout');
@@ -371,10 +371,10 @@ describe('worktree utilities', () => {
 
   describe('branchExists', () => {
     it('should return true when branch exists', () => {
-      mockExecSync.mockReturnValue('  022-prune-cycle\n');
-      expect(branchExists('022-prune-cycle')).toBe(true);
+      mockExecSync.mockReturnValue('  abcabc-prune-cycle\n');
+      expect(branchExists('abcabc-prune-cycle')).toBe(true);
       expect(mockExecSync).toHaveBeenCalledWith(
-        'git branch --list "022-prune-cycle"',
+        'git branch --list "abcabc-prune-cycle"',
         expect.any(Object)
       );
     });
@@ -396,17 +396,17 @@ describe('worktree utilities', () => {
     it('should create worktree from existing branch successfully', () => {
       mockExecSync.mockImplementation((cmd: unknown) => {
         const cmdStr = cmd as string;
-        if (cmdStr.includes('git branch --list')) return '  022-prune-cycle\n';
+        if (cmdStr.includes('git branch --list')) return '  abcabc-prune-cycle\n';
         return '';
       });
       mockMkdirSync.mockReturnValue(undefined);
 
-      const result = createWorktreeFromBranch('myapp', '022-prune-cycle');
+      const result = createWorktreeFromBranch('myapp', 'abcabc-prune-cycle');
 
       expect(result.success).toBe(true);
-      expect(result.branch).toBe('022-prune-cycle');
+      expect(result.branch).toBe('abcabc-prune-cycle');
       expect(result.worktreePath).toBe(
-        path.join(HOME, '.raf', 'worktrees', 'myapp', '022-prune-cycle')
+        path.join(HOME, '.raf', 'worktrees', 'myapp', 'abcabc-prune-cycle')
       );
       expect(mockExecSync).toHaveBeenCalledWith(
         expect.stringContaining('git worktree add'),
@@ -432,14 +432,14 @@ describe('worktree utilities', () => {
     it('should return error when parent directory creation fails', () => {
       mockExecSync.mockImplementation((cmd: unknown) => {
         const cmdStr = cmd as string;
-        if (cmdStr.includes('git branch --list')) return '  022-prune-cycle\n';
+        if (cmdStr.includes('git branch --list')) return '  abcabc-prune-cycle\n';
         return '';
       });
       mockMkdirSync.mockImplementation(() => {
         throw new Error('permission denied');
       });
 
-      const result = createWorktreeFromBranch('myapp', '022-prune-cycle');
+      const result = createWorktreeFromBranch('myapp', 'abcabc-prune-cycle');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Failed to create parent directory');
@@ -451,7 +451,7 @@ describe('worktree utilities', () => {
         const cmdStr = cmd as string;
         if (cmdStr.includes('git branch --list')) {
           branchChecked = true;
-          return '  022-prune-cycle\n';
+          return '  abcabc-prune-cycle\n';
         }
         if (cmdStr.includes('git worktree add') && branchChecked) {
           throw new Error('worktree path already exists');
@@ -460,7 +460,7 @@ describe('worktree utilities', () => {
       });
       mockMkdirSync.mockReturnValue(undefined);
 
-      const result = createWorktreeFromBranch('myapp', '022-prune-cycle');
+      const result = createWorktreeFromBranch('myapp', 'abcabc-prune-cycle');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Failed to create worktree');
@@ -479,25 +479,25 @@ describe('worktree utilities', () => {
     it('should return sorted list of project directories', () => {
       mockExistsSync.mockReturnValue(true);
       mockReaddirSync.mockReturnValue([
-        { name: '021-another-feature', isDirectory: () => true },
-        { name: '020-worktree-weaver', isDirectory: () => true },
+        { name: 'ababab-another-feature', isDirectory: () => true },
+        { name: 'abaaba-worktree-weaver', isDirectory: () => true },
       ]);
 
       const result = listWorktreeProjects('myapp');
 
-      expect(result).toEqual(['020-worktree-weaver', '021-another-feature']);
+      expect(result).toEqual(['abaaba-worktree-weaver', 'ababab-another-feature']);
     });
 
     it('should filter out non-directory entries', () => {
       mockExistsSync.mockReturnValue(true);
       mockReaddirSync.mockReturnValue([
-        { name: '020-worktree-weaver', isDirectory: () => true },
+        { name: 'abaaba-worktree-weaver', isDirectory: () => true },
         { name: '.DS_Store', isDirectory: () => false },
       ]);
 
       const result = listWorktreeProjects('myapp');
 
-      expect(result).toEqual(['020-worktree-weaver']);
+      expect(result).toEqual(['abaaba-worktree-weaver']);
     });
 
     it('should return empty array when directory is empty', () => {

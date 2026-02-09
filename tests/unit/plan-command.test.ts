@@ -62,7 +62,7 @@ describe('Plan Command - Amend Functionality', () => {
     });
   });
 
-  describe('Base36 Project Resolution for Amend', () => {
+  describe('Base26 Project Resolution for Amend', () => {
     beforeEach(() => {
       const projectDir = path.join(tempDir, 'abcdef-important-project');
       fs.mkdirSync(projectDir);

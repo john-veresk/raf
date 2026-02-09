@@ -115,7 +115,7 @@ describe('worktree integration tests (real git repos)', () => {
       worktreePaths.push(wtPath);
 
       // Create project structure inside worktree
-      const projectRelPath = 'RAF/020-test-project';
+      const projectRelPath = 'RAF/abaaba-test-project';
       const projectDir = path.join(wtPath, projectRelPath);
       fs.mkdirSync(projectDir, { recursive: true });
       fs.mkdirSync(path.join(projectDir, 'plans'), { recursive: true });

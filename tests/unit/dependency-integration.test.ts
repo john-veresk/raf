@@ -26,7 +26,7 @@ describe('Dependency Integration Flow', () => {
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-dep-integration-'));
-    projectPath = path.join(tempDir, '001-test-project');
+    projectPath = path.join(tempDir, 'aaaaab-test-project');
     fs.mkdirSync(projectPath, { recursive: true });
     fs.mkdirSync(path.join(projectPath, 'plans'), { recursive: true });
     fs.mkdirSync(path.join(projectPath, 'outcomes'), { recursive: true });

@@ -45,6 +45,14 @@ describe('Paths', () => {
       expect(encodeBase26(3456000)).toBe('ahoqlc');
     });
 
+    it('should encode max 6-char value (26^6 - 1) as zzzzzz', () => {
+      expect(encodeBase26(26 ** 6 - 1)).toBe('zzzzzz');
+    });
+
+    it('should encode boundary value (26^5) correctly', () => {
+      expect(encodeBase26(26 ** 5)).toBe('baaaaa');
+    });
+
     it('should throw for negative numbers', () => {
       expect(() => encodeBase26(-1)).toThrow();
       expect(() => encodeBase26(-100)).toThrow();
@@ -81,8 +89,12 @@ describe('Paths', () => {
       expect(decodeBase26('AAAAAZ')).toBe(25);
     });
 
+    it('should decode max value zzzzzz', () => {
+      expect(decodeBase26('zzzzzz')).toBe(26 ** 6 - 1);
+    });
+
     it('should be inverse of encodeBase26', () => {
-      for (const num of [0, 1, 25, 26, 1000, 100000, 3456000]) {
+      for (const num of [0, 1, 25, 26, 1000, 100000, 3456000, 26 ** 6 - 1]) {
         expect(decodeBase26(encodeBase26(num))).toBe(num);
       }
     });
