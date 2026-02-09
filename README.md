@@ -62,7 +62,7 @@ Opens your `$EDITOR` to write a project description, then Claude will interview 
 ```bash
 raf plan              # Create a new project
 raf plan my-feature   # Create with a specific name
-raf plan --amend 3    # Add tasks to existing project #3
+raf plan --amend 00j3k1  # Add tasks to existing project
 raf plan --worktree   # Plan in an isolated git worktree
 ```
 
@@ -72,7 +72,7 @@ Execute project tasks. Without arguments, shows a picker to select a pending pro
 
 ```bash
 raf do                # Interactive picker
-raf do 3              # Execute project #3
+raf do 00j3k1         # Execute by project ID
 raf do my-project     # Execute by name
 raf do --worktree     # Pick and execute a worktree project
 raf do my-feature -w --merge  # Execute in worktree, merge on success
@@ -86,7 +86,7 @@ Check project status. Worktree projects are discovered automatically when inside
 
 ```bash
 raf status            # List all projects (includes worktree projects that differ)
-raf status 3          # Show details for project #3 (shows both main and worktree if they differ)
+raf status 00j3k1     # Show details for a project (shows both main and worktree if they differ)
 ```
 
 ## Status Symbols
@@ -101,17 +101,17 @@ raf status 3          # Show details for project #3 (shows both main and worktre
 
 ## Project Structure
 
-RAF creates a `./RAF/` folder with numbered project directories:
+RAF creates a `./RAF/` folder with project directories identified by epoch-based base36 IDs:
 
 ```
 ./RAF/
-├── 001-auth-system/
+├── 00j3k1-auth-system/
 │   ├── input.md           # Your original intent (raw prompt)
 │   ├── decisions.md       # Design decisions from planning
 │   ├── plans/             # Generated task plans
 │   ├── outcomes/          # Execution results
 │   └── logs/              # Debug logs (on failure)
-└── 002-dashboard/
+└── 00k5m2-dashboard/
     └── ...
 ```
 
@@ -131,7 +131,7 @@ raf do my-feature --worktree --merge
 
 ### How it works
 
-- `--worktree` creates a git worktree at `~/.raf/worktrees/<repo>/<project>/` with a new branch named after the project folder (e.g., `020-my-feature`)
+- `--worktree` creates a git worktree at `~/.raf/worktrees/<repo>/<project>/` with a new branch named after the project folder (e.g., `00j3k1-my-feature`)
 - All planning artifacts, code changes, and commits happen in the worktree branch
 - `--merge` on `raf do` merges the branch back after all tasks succeed (fast-forward preferred, merge commit as fallback)
 - On merge conflicts, the merge is aborted and you get instructions for manual resolution
