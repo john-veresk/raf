@@ -1,0 +1,1 @@
+- [ ] switch project id number generation to base36 encoding (starting with 0) of unix time (but make "unix" start from 01-01-2026 or unix time - 56 years)
