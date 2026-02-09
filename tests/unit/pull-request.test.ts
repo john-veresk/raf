@@ -287,15 +287,15 @@ describe('pull-request utilities', () => {
 
   describe('generatePrTitle', () => {
     it('should convert project name to human-readable title', () => {
-      expect(generatePrTitle('/path/to/RAF/021b5g-merge-guardian')).toBe('Merge guardian');
+      expect(generatePrTitle('/path/to/RAF/acbfhg-merge-guardian')).toBe('Merge guardian');
     });
 
     it('should capitalize first word only', () => {
-      expect(generatePrTitle('/path/to/RAF/00abc0-fix-login-bug')).toBe('Fix login bug');
+      expect(generatePrTitle('/path/to/RAF/aabcde-fix-login-bug')).toBe('Fix login bug');
     });
 
     it('should handle single-word names', () => {
-      expect(generatePrTitle('/path/to/RAF/00abc0-refactoring')).toBe('Refactoring');
+      expect(generatePrTitle('/path/to/RAF/aabcde-refactoring')).toBe('Refactoring');
     });
 
     it('should return fallback for invalid path', () => {
@@ -304,7 +304,7 @@ describe('pull-request utilities', () => {
   });
 
   describe('readProjectContext', () => {
-    const projectPath = '/path/to/RAF/021b5g-merge-guardian';
+    const projectPath = '/path/to/RAF/acbfhg-merge-guardian';
 
     it('should read input.md, decisions.md, and outcomes', () => {
       mockExistsSync.mockImplementation((p: unknown) => {
@@ -362,7 +362,7 @@ describe('pull-request utilities', () => {
     it('should return fallback body when no context is available', async () => {
       mockExistsSync.mockReturnValue(false);
 
-      const body = await generatePrBody('/path/to/RAF/021b5g-project');
+      const body = await generatePrBody('/path/to/RAF/acbfhg-project');
 
       expect(body).toContain('## Summary');
       expect(body).toContain('## Test Plan');
@@ -393,7 +393,7 @@ describe('pull-request utilities', () => {
         return '';
       });
 
-      const body = await generatePrBody('/path/to/RAF/021b5g-project');
+      const body = await generatePrBody('/path/to/RAF/acbfhg-project');
 
       expect(body).toContain('## Summary');
       expect(body).toContain('Add dark mode toggle');
@@ -409,7 +409,7 @@ describe('pull-request utilities', () => {
         return '';
       });
 
-      const result = await createPullRequest('my-branch', '/path/to/RAF/021b5g-project');
+      const result = await createPullRequest('my-branch', '/path/to/RAF/acbfhg-project');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('not installed');
@@ -427,7 +427,7 @@ describe('pull-request utilities', () => {
         throw new Error('not found');
       });
 
-      const result = await createPullRequest('my-branch', '/path/to/RAF/021b5g-project');
+      const result = await createPullRequest('my-branch', '/path/to/RAF/acbfhg-project');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('base branch');
@@ -451,7 +451,7 @@ describe('pull-request utilities', () => {
       // Mock fs for generatePrBody fallback
       mockExistsSync.mockReturnValue(false);
 
-      const result = await createPullRequest('my-branch', '/path/to/RAF/021b5g-project');
+      const result = await createPullRequest('my-branch', '/path/to/RAF/acbfhg-project');
 
       expect(pushCalled).toBe(true);
       expect(result.success).toBe(true);
@@ -470,7 +470,7 @@ describe('pull-request utilities', () => {
         return '';
       });
 
-      const result = await createPullRequest('my-branch', '/path/to/RAF/021b5g-project');
+      const result = await createPullRequest('my-branch', '/path/to/RAF/acbfhg-project');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Failed to push');
@@ -492,7 +492,7 @@ describe('pull-request utilities', () => {
       // Mock fs for generatePrBody fallback
       mockExistsSync.mockReturnValue(false);
 
-      const result = await createPullRequest('my-branch', '/path/to/RAF/021b5g-project');
+      const result = await createPullRequest('my-branch', '/path/to/RAF/acbfhg-project');
 
       expect(result.success).toBe(true);
       expect(result.prUrl).toBe('https://github.com/user/repo/pull/42');
@@ -516,7 +516,7 @@ describe('pull-request utilities', () => {
 
       mockExistsSync.mockReturnValue(false);
 
-      await createPullRequest('my-branch', '/path/to/RAF/021b5g-project', {
+      await createPullRequest('my-branch', '/path/to/RAF/acbfhg-project', {
         baseBranch: 'develop',
       });
 
@@ -542,7 +542,7 @@ describe('pull-request utilities', () => {
 
       mockExistsSync.mockReturnValue(false);
 
-      await createPullRequest('my-branch', '/path/to/RAF/021b5g-project', {
+      await createPullRequest('my-branch', '/path/to/RAF/acbfhg-project', {
         title: 'My custom PR title',
       });
 
@@ -564,7 +564,7 @@ describe('pull-request utilities', () => {
 
       mockExistsSync.mockReturnValue(false);
 
-      const result = await createPullRequest('my-branch', '/path/to/RAF/021b5g-project');
+      const result = await createPullRequest('my-branch', '/path/to/RAF/acbfhg-project');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Failed to create PR');
@@ -590,7 +590,7 @@ describe('pull-request utilities', () => {
 
       mockExistsSync.mockReturnValue(false);
 
-      await createPullRequest('my-branch', '/path/to/RAF/021b5g-project', {
+      await createPullRequest('my-branch', '/path/to/RAF/acbfhg-project', {
         cwd: '/worktree/path',
       });
 

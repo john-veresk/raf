@@ -73,10 +73,10 @@ describe('pickPostExecutionAction', () => {
   it('should present three choices: merge, PR, leave', async () => {
     mockSelect.mockResolvedValue('leave');
 
-    await pickPostExecutionAction('/path/to/worktree/021b5g-my-project');
+    await pickPostExecutionAction('/path/to/worktree/acbfhg-my-project');
 
     expect(mockSelect).toHaveBeenCalledWith({
-      message: expect.stringContaining('021b5g-my-project'),
+      message: expect.stringContaining('acbfhg-my-project'),
       choices: [
         { name: 'Merge into current branch', value: 'merge' },
         { name: 'Create a GitHub PR', value: 'pr' },
@@ -88,7 +88,7 @@ describe('pickPostExecutionAction', () => {
   it('should return "merge" when user selects merge', async () => {
     mockSelect.mockResolvedValue('merge');
 
-    const result = await pickPostExecutionAction('/path/to/worktree/021b5g-my-project');
+    const result = await pickPostExecutionAction('/path/to/worktree/acbfhg-my-project');
 
     expect(result).toBe('merge');
   });
@@ -96,7 +96,7 @@ describe('pickPostExecutionAction', () => {
   it('should return "leave" when user selects leave', async () => {
     mockSelect.mockResolvedValue('leave');
 
-    const result = await pickPostExecutionAction('/path/to/worktree/021b5g-my-project');
+    const result = await pickPostExecutionAction('/path/to/worktree/acbfhg-my-project');
 
     expect(result).toBe('leave');
   });
@@ -105,7 +105,7 @@ describe('pickPostExecutionAction', () => {
     mockSelect.mockResolvedValue('pr');
     mockPrPreflight.mockReturnValue({ ready: true, ghInstalled: true, ghAuthenticated: true, isGitHubRemote: true, branchPushed: false });
 
-    const result = await pickPostExecutionAction('/path/to/worktree/021b5g-my-project');
+    const result = await pickPostExecutionAction('/path/to/worktree/acbfhg-my-project');
 
     expect(result).toBe('pr');
   });
@@ -114,9 +114,9 @@ describe('pickPostExecutionAction', () => {
     mockSelect.mockResolvedValue('pr');
     mockPrPreflight.mockReturnValue({ ready: true, ghInstalled: true, ghAuthenticated: true, isGitHubRemote: true, branchPushed: false });
 
-    await pickPostExecutionAction('/path/to/worktree/021b5g-my-project');
+    await pickPostExecutionAction('/path/to/worktree/acbfhg-my-project');
 
-    expect(mockPrPreflight).toHaveBeenCalledWith('021b5g-my-project', '/path/to/worktree/021b5g-my-project');
+    expect(mockPrPreflight).toHaveBeenCalledWith('acbfhg-my-project', '/path/to/worktree/acbfhg-my-project');
   });
 
   it('should fall back to "leave" when PR preflight fails', async () => {
@@ -130,7 +130,7 @@ describe('pickPostExecutionAction', () => {
       error: 'GitHub CLI (gh) is not installed.',
     });
 
-    const result = await pickPostExecutionAction('/path/to/worktree/021b5g-my-project');
+    const result = await pickPostExecutionAction('/path/to/worktree/acbfhg-my-project');
 
     expect(result).toBe('leave');
     expect(mockLoggerWarn).toHaveBeenCalledWith(expect.stringContaining('PR preflight failed'));
@@ -140,7 +140,7 @@ describe('pickPostExecutionAction', () => {
   it('should not run preflight for merge choice', async () => {
     mockSelect.mockResolvedValue('merge');
 
-    await pickPostExecutionAction('/path/to/worktree/021b5g-my-project');
+    await pickPostExecutionAction('/path/to/worktree/acbfhg-my-project');
 
     expect(mockPrPreflight).not.toHaveBeenCalled();
   });
@@ -148,7 +148,7 @@ describe('pickPostExecutionAction', () => {
   it('should not run preflight for leave choice', async () => {
     mockSelect.mockResolvedValue('leave');
 
-    await pickPostExecutionAction('/path/to/worktree/021b5g-my-project');
+    await pickPostExecutionAction('/path/to/worktree/acbfhg-my-project');
 
     expect(mockPrPreflight).not.toHaveBeenCalled();
   });
@@ -156,11 +156,11 @@ describe('pickPostExecutionAction', () => {
   it('should use branch name from worktree path in picker message', async () => {
     mockSelect.mockResolvedValue('leave');
 
-    await pickPostExecutionAction('/home/user/.raf/worktrees/myapp/00abc1-feature-x');
+    await pickPostExecutionAction('/home/user/.raf/worktrees/myapp/aaabcd-feature-x');
 
     expect(mockSelect).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: expect.stringContaining('00abc1-feature-x'),
+        message: expect.stringContaining('aaabcd-feature-x'),
       })
     );
   });

@@ -6,8 +6,11 @@ export const RAF_DIR = 'RAF';
 /** RAF epoch: 2026-01-01T00:00:00Z */
 export const RAF_EPOCH = 1767225600;
 
-/** ID width: 6 characters, zero-padded base36 */
+/** ID width: 6 characters, 'a'-padded base26 */
 const ID_WIDTH = 6;
+
+/** Base26 alphabet: a=0, b=1, ..., z=25 */
+const BASE26_ALPHABET = 'abcdefghijklmnopqrstuvwxyz';
 
 /** Task ID width: 2 characters, zero-padded base36 */
 const TASK_ID_WIDTH = 2;
@@ -45,37 +48,49 @@ export function decodeTaskId(str: string): number | null {
 }
 
 /**
- * Encode a non-negative integer to a 6-character zero-padded base36 string.
+ * Encode a non-negative integer to a 6-character 'a'-padded base26 string (a-z alphabet).
+ * E.g., 0 → "aaaaaa", 1 → "aaaaab", 25 → "aaaaaz", 26 → "aaaaba"
  */
-export function encodeBase36(num: number): string {
+export function encodeBase26(num: number): string {
   if (num < 0) {
-    throw new Error(`encodeBase36 only accepts non-negative integers, got ${num}`);
+    throw new Error(`encodeBase26 only accepts non-negative integers, got ${num}`);
   }
-  return num.toString(36).padStart(ID_WIDTH, '0');
+  let result = '';
+  let remaining = num;
+  for (let i = 0; i < ID_WIDTH; i++) {
+    result = BASE26_ALPHABET[remaining % 26]! + result;
+    remaining = Math.floor(remaining / 26);
+  }
+  return result;
 }
 
 /**
- * Decode a 6-character base36 string back to a non-negative integer.
+ * Decode a 6-character base26 string (a-z alphabet) back to a non-negative integer.
  * Returns the decoded number, or null if invalid format.
  */
-export function decodeBase36(str: string): number | null {
+export function decodeBase26(str: string): number | null {
   if (str.length !== ID_WIDTH) {
     return null;
   }
-  if (!/^[0-9a-z]{6}$/.test(str.toLowerCase())) {
+  if (!/^[a-z]{6}$/.test(str.toLowerCase())) {
     return null;
   }
-  return parseInt(str.toLowerCase(), 36);
+  const lower = str.toLowerCase();
+  let result = 0;
+  for (let i = 0; i < ID_WIDTH; i++) {
+    result = result * 26 + (lower.charCodeAt(i) - 97); // 'a' = 97
+  }
+  return result;
 }
 
 /**
- * Check if a string is a valid 6-character base36 project prefix.
+ * Check if a string is a valid 6-character base26 project prefix (a-z only).
  */
-export function isBase36Prefix(str: string): boolean {
+export function isBase26Prefix(str: string): boolean {
   if (str.length !== ID_WIDTH) {
     return false;
   }
-  return /^[0-9a-z]{6}$/.test(str.toLowerCase());
+  return /^[a-z]{6}$/.test(str.toLowerCase());
 }
 
 export function getRafDir(): string {
@@ -103,9 +118,9 @@ export function getNextProjectNumber(rafDir: string): number {
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      const match = entry.name.match(/^([0-9a-z]{6})-/i);
+      const match = entry.name.match(/^([a-z]{6})-/i);
       if (match && match[1]) {
-        const decoded = decodeBase36(match[1].toLowerCase());
+        const decoded = decodeBase26(match[1].toLowerCase());
         if (decoded !== null) {
           existingIds.add(decoded);
         }
@@ -123,7 +138,7 @@ export function getNextProjectNumber(rafDir: string): number {
 }
 
 export function formatProjectNumber(num: number): string {
-  return encodeBase36(num);
+  return encodeBase26(num);
 }
 
 export function getProjectDir(rafDir: string, projectName: string): string | null {
@@ -135,7 +150,7 @@ export function getProjectDir(rafDir: string, projectName: string): string | nul
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      const match = entry.name.match(/^[0-9a-z]{6}-(.+)$/i);
+      const match = entry.name.match(/^[a-z]{6}-(.+)$/i);
       if (match && match[1] === projectName) {
         return path.join(rafDir, entry.name);
       }
@@ -147,12 +162,12 @@ export function getProjectDir(rafDir: string, projectName: string): string | nul
 
 /**
  * Extract project number prefix from a project path.
- * E.g., "/Users/foo/RAF/00abc0-my-project" -> "00abc0"
- * Returns the 6-char base36 prefix string or null if not found.
+ * E.g., "/Users/foo/RAF/abcdef-my-project" -> "abcdef"
+ * Returns the 6-char base26 prefix string or null if not found.
  */
 export function extractProjectNumber(projectPath: string): string | null {
   const folderName = path.basename(projectPath);
-  const match = folderName.match(/^([0-9a-z]{6})-/i);
+  const match = folderName.match(/^([a-z]{6})-/i);
   if (match && match[1]) {
     return match[1].toLowerCase();
   }
@@ -161,24 +176,24 @@ export function extractProjectNumber(projectPath: string): string | null {
 
 /**
  * Parse a project prefix string to its numeric value.
- * Accepts a 6-character base36 string.
+ * Accepts a 6-character base26 string (a-z only).
  * Returns the numeric project number or null if invalid.
  */
 export function parseProjectPrefix(prefix: string): number | null {
-  if (isBase36Prefix(prefix)) {
-    return decodeBase36(prefix);
+  if (isBase26Prefix(prefix)) {
+    return decodeBase26(prefix);
   }
   return null;
 }
 
 /**
  * Extract project name from a project path (without number prefix).
- * E.g., "/Users/foo/RAF/00abc0-my-project" -> "my-project"
+ * E.g., "/Users/foo/RAF/abcdef-my-project" -> "my-project"
  * Returns the project name or null if not found.
  */
 export function extractProjectName(projectPath: string): string | null {
   const folderName = path.basename(projectPath);
-  const match = folderName.match(/^[0-9a-z]{6}-(.+)$/i);
+  const match = folderName.match(/^[a-z]{6}-(.+)$/i);
   if (match && match[1]) {
     return match[1];
   }
@@ -206,9 +221,9 @@ export function listProjects(rafDir: string): Array<{ number: number; name: stri
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      const match = entry.name.match(/^([0-9a-z]{6})-(.+)$/i);
+      const match = entry.name.match(/^([a-z]{6})-(.+)$/i);
       if (match && match[1] && match[2]) {
-        const decoded = decodeBase36(match[1].toLowerCase());
+        const decoded = decodeBase26(match[1].toLowerCase());
         if (decoded !== null) {
           projects.push({
             number: decoded,
@@ -267,9 +282,9 @@ function parseProjectFolder(
   rafDir: string,
   folderName: string
 ): { number: number; name: string; path: string; folder: string } | null {
-  const match = folderName.match(/^([0-9a-z]{6})-(.+)$/i);
+  const match = folderName.match(/^([a-z]{6})-(.+)$/i);
   if (match && match[1] && match[2]) {
-    const decoded = decodeBase36(match[1].toLowerCase());
+    const decoded = decodeBase26(match[1].toLowerCase());
     if (decoded !== null) {
       return {
         number: decoded,
@@ -287,10 +302,10 @@ function parseProjectFolder(
  * Resolve a project identifier with detailed result including ambiguity detection.
  *
  * Supported identifier formats (checked in this order):
- * 1. Full folder name (e.g., "00abc0-fix-stuff")
+ * 1. Full folder name (e.g., "abcdef-fix-stuff")
  *    - Must be an exact match to an existing folder
- *    - Pattern: 6-char base36 prefix, followed by hyphen and name
- * 2. Base36 prefix (e.g., "00abc0")
+ *    - Pattern: 6-char base26 prefix, followed by hyphen and name
+ * 2. Base26 prefix (e.g., "abcdef")
  *    - Looks up by decoded project number
  * 3. Project name (e.g., "my-project", "fix-stuff")
  *    - Looks up by the name portion of the folder (after the prefix)
@@ -309,8 +324,8 @@ export function resolveProjectIdentifierWithDetails(
     return { path: null, error: 'not_found' };
   }
 
-  // Pattern to match full folder names: XXXXXX-name (6-char base36 prefix)
-  const fullFolderPattern = /^[0-9a-z]{6}-(.+)$/i;
+  // Pattern to match full folder names: XXXXXX-name (6-char base26 prefix)
+  const fullFolderPattern = /^[a-z]{6}-(.+)$/i;
   const fullFolderMatch = identifier.match(fullFolderPattern);
 
   // Check if identifier is a full folder name (exact match required)
@@ -325,12 +340,12 @@ export function resolveProjectIdentifierWithDetails(
     // Fall through to name-based matching.
   }
 
-  // Check if it's a base36 identifier (e.g., "00abc0")
-  const isBase36 = isBase36Prefix(identifier);
+  // Check if it's a base26 identifier (e.g., "abcdef")
+  const isBase26 = isBase26Prefix(identifier);
 
   let targetNumber: number | null = null;
-  if (isBase36) {
-    targetNumber = decodeBase36(identifier);
+  if (isBase26) {
+    targetNumber = decodeBase26(identifier);
   }
 
   const entries = fs.readdirSync(rafDir, { withFileTypes: true });
@@ -342,7 +357,7 @@ export function resolveProjectIdentifierWithDetails(
 
       if (project) {
         if (targetNumber !== null && project.number === targetNumber) {
-          // Match by number (base36 identifier)
+          // Match by number (base26 identifier)
           return { path: project.path };
         }
         // Also collect name matches (for fallback if number match fails)
@@ -372,10 +387,10 @@ export function resolveProjectIdentifierWithDetails(
  * Resolve a project identifier to a full project path.
  *
  * Supported identifier formats (checked in this order):
- * 1. Full folder name (e.g., "00abc0-fix-stuff")
+ * 1. Full folder name (e.g., "abcdef-fix-stuff")
  *    - Must be an exact match to an existing folder
- *    - Pattern: 6-char base36 prefix, followed by hyphen and name
- * 2. Base36 prefix (e.g., "00abc0")
+ *    - Pattern: 6-char base26 prefix, followed by hyphen and name
+ * 2. Base26 prefix (e.g., "abcdef")
  *    - Looks up by decoded project number
  * 3. Project name (e.g., "my-project", "fix-stuff")
  *    - Looks up by the name portion of the folder (after the prefix)

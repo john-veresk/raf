@@ -193,11 +193,11 @@ Later it was blocked...
       expect(projects).toEqual([]);
     });
 
-    it('should discover projects matching 6-char base36 prefix pattern', () => {
+    it('should discover projects matching 6-char base26 prefix pattern', () => {
       const rafDir = path.join(tempDir, 'RAF');
       fs.mkdirSync(rafDir);
-      fs.mkdirSync(path.join(rafDir, '000001-first-project'));
-      fs.mkdirSync(path.join(rafDir, '000002-second-project'));
+      fs.mkdirSync(path.join(rafDir, 'aaaaab-first-project'));
+      fs.mkdirSync(path.join(rafDir, 'aaaaac-second-project'));
       fs.mkdirSync(path.join(rafDir, 'not-a-project'));
       fs.mkdirSync(path.join(rafDir, '001-too-short'));
       fs.writeFileSync(path.join(rafDir, 'some-file.txt'), 'content');
@@ -206,7 +206,7 @@ Later it was blocked...
       expect(projects).toHaveLength(2);
       expect(projects[0]?.number).toBe(1);
       expect(projects[0]?.name).toBe('first-project');
-      expect(projects[0]?.path).toBe(path.join(rafDir, '000001-first-project'));
+      expect(projects[0]?.path).toBe(path.join(rafDir, 'aaaaab-first-project'));
       expect(projects[1]?.number).toBe(2);
       expect(projects[1]?.name).toBe('second-project');
     });
@@ -214,9 +214,9 @@ Later it was blocked...
     it('should sort projects by number', () => {
       const rafDir = path.join(tempDir, 'RAF');
       fs.mkdirSync(rafDir);
-      fs.mkdirSync(path.join(rafDir, '000003-third'));
-      fs.mkdirSync(path.join(rafDir, '000001-first'));
-      fs.mkdirSync(path.join(rafDir, '000002-second'));
+      fs.mkdirSync(path.join(rafDir, 'aaaaad-third'));
+      fs.mkdirSync(path.join(rafDir, 'aaaaab-first'));
+      fs.mkdirSync(path.join(rafDir, 'aaaaac-second'));
 
       const projects = discoverProjects(rafDir);
       expect(projects.map((p) => p.number)).toEqual([1, 2, 3]);

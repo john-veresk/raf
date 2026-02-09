@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { getPlansDir, getOutcomesDir, getInputPath, decodeBase36, TASK_ID_PATTERN } from '../utils/paths.js';
+import { getPlansDir, getOutcomesDir, getInputPath, decodeBase26, TASK_ID_PATTERN } from '../utils/paths.js';
 
 export type DerivedTaskStatus = 'pending' | 'completed' | 'failed' | 'blocked';
 
@@ -39,7 +39,7 @@ export interface DerivedStats {
 
 /**
  * Discover all projects in the RAF directory.
- * Projects are directories matching the pattern XXXXXX-project-name (6-char base36 prefix).
+ * Projects are directories matching the pattern XXXXXX-project-name (6-char base26 prefix).
  */
 export function discoverProjects(rafDir: string): DiscoveredProject[] {
   if (!fs.existsSync(rafDir)) {
@@ -51,9 +51,9 @@ export function discoverProjects(rafDir: string): DiscoveredProject[] {
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      const match = entry.name.match(/^([0-9a-z]{6})-(.+)$/i);
+      const match = entry.name.match(/^([a-z]{6})-(.+)$/i);
       if (match && match[1] && match[2]) {
-        const decoded = decodeBase36(match[1].toLowerCase());
+        const decoded = decodeBase26(match[1].toLowerCase());
         if (decoded !== null) {
           projects.push({
             number: decoded,
@@ -179,7 +179,7 @@ export function deriveProjectStatus(
 /**
  * Derive project state from the folder structure.
  * Scans plans/ for plan files and outcomes/ for outcome files.
- * Matches them by task ID (2-char base36 prefix) and determines status.
+ * Matches them by task ID (2-char base36 prefix for tasks) and determines status.
  * Also parses dependencies and derives blocked status.
  */
 export function deriveProjectState(projectPath: string): DerivedProjectState {
