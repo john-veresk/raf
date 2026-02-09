@@ -34,7 +34,7 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/017-decision-vault/input.md\nRAF/017-decision-vault/decisions.md\n';
+        return 'RAF/000017-decision-vault/input.md\nRAF/000017-decision-vault/decisions.md\n';
       }
       if (cmdStr.includes('git commit')) {
         return '';
@@ -42,7 +42,7 @@ describe('commitPlanningArtifacts', () => {
       return '';
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/017-decision-vault');
+    await commitPlanningArtifacts('/Users/test/RAF/000017-decision-vault');
 
     // Verify git add was called with both files
     expect(mockExecSync).toHaveBeenCalledWith(
@@ -57,7 +57,7 @@ describe('commitPlanningArtifacts', () => {
 
     // Verify commit message format
     expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringMatching(/git commit -m "RAF\[017\] Plan: decision-vault"/),
+      expect.stringMatching(/git commit -m "RAF\[000017\] Plan: decision-vault"/),
       expect.any(Object)
     );
   });
@@ -72,15 +72,15 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/a01-feature/input.md\n';
+        return 'RAF/00a001-feature/input.md\n';
       }
       return '';
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/a01-my-feature');
+    await commitPlanningArtifacts('/Users/test/RAF/00a001-my-feature');
 
     expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringMatching(/git commit -m "RAF\[a01\] Plan: my-feature"/),
+      expect.stringMatching(/git commit -m "RAF\[00a001\] Plan: my-feature"/),
       expect.any(Object)
     );
   });
@@ -90,7 +90,7 @@ describe('commitPlanningArtifacts', () => {
       throw new Error('not a git repository');
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/017-decision-vault');
+    await commitPlanningArtifacts('/Users/test/RAF/000017-decision-vault');
 
     expect(mockLogger.warn).toHaveBeenCalledWith(
       'Not in a git repository, skipping planning artifacts commit'
@@ -128,7 +128,7 @@ describe('commitPlanningArtifacts', () => {
       return '';
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/017-decision-vault');
+    await commitPlanningArtifacts('/Users/test/RAF/000017-decision-vault');
 
     // Should log debug message and not throw
     expect(mockLogger.debug).toHaveBeenCalledWith(
@@ -147,7 +147,7 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/017-decision-vault/input.md\n';
+        return 'RAF/000017-decision-vault/input.md\n';
       }
       if (cmdStr.includes('git commit')) {
         throw new Error('nothing to commit, working tree clean');
@@ -155,7 +155,7 @@ describe('commitPlanningArtifacts', () => {
       return '';
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/017-decision-vault');
+    await commitPlanningArtifacts('/Users/test/RAF/000017-decision-vault');
 
     // Should log debug message for "nothing to commit"
     expect(mockLogger.debug).toHaveBeenCalledWith(
@@ -174,7 +174,7 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/017-decision-vault/input.md\n';
+        return 'RAF/000017-decision-vault/input.md\n';
       }
       if (cmdStr.includes('git commit')) {
         throw new Error('commit failed for unknown reason');
@@ -184,7 +184,7 @@ describe('commitPlanningArtifacts', () => {
 
     // Should not throw
     await expect(
-      commitPlanningArtifacts('/Users/test/RAF/017-decision-vault')
+      commitPlanningArtifacts('/Users/test/RAF/000017-decision-vault')
     ).resolves.toBeUndefined();
 
     // Should log warning
@@ -203,7 +203,7 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/017-decision-vault/input.md\n';
+        return 'RAF/000017-decision-vault/input.md\n';
       }
       if (cmdStr.includes('git commit')) {
         return '';
@@ -211,7 +211,7 @@ describe('commitPlanningArtifacts', () => {
       return '';
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/017-decision-vault');
+    await commitPlanningArtifacts('/Users/test/RAF/000017-decision-vault');
 
     // Verify git add was called with explicit file paths
     const addCall = mockExecSync.mock.calls.find(
@@ -221,8 +221,8 @@ describe('commitPlanningArtifacts', () => {
     const addCmd = addCall?.[0] as string;
 
     // Should contain explicit file paths
-    expect(addCmd).toContain('/Users/test/RAF/017-decision-vault/input.md');
-    expect(addCmd).toContain('/Users/test/RAF/017-decision-vault/decisions.md');
+    expect(addCmd).toContain('/Users/test/RAF/000017-decision-vault/input.md');
+    expect(addCmd).toContain('/Users/test/RAF/000017-decision-vault/decisions.md');
 
     // Should NOT use wildcards or add all
     expect(addCmd).not.toContain('-A');
@@ -240,15 +240,15 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/017-decision-vault/input.md\n';
+        return 'RAF/000017-decision-vault/input.md\n';
       }
       return '';
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/017-decision-vault', { isAmend: true });
+    await commitPlanningArtifacts('/Users/test/RAF/000017-decision-vault', { isAmend: true });
 
     expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringMatching(/git commit -m "RAF\[017\] Amend: decision-vault"/),
+      expect.stringMatching(/git commit -m "RAF\[000017\] Amend: decision-vault"/),
       expect.any(Object)
     );
   });
@@ -263,17 +263,17 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/017-decision-vault/input.md\nRAF/017-decision-vault/plans/004-new-task.md\n';
+        return 'RAF/000017-decision-vault/input.md\nRAF/000017-decision-vault/plans/004-new-task.md\n';
       }
       return '';
     });
 
     const additionalFiles = [
-      '/Users/test/RAF/017-decision-vault/plans/004-new-task.md',
-      '/Users/test/RAF/017-decision-vault/plans/005-another-task.md',
+      '/Users/test/RAF/000017-decision-vault/plans/004-new-task.md',
+      '/Users/test/RAF/000017-decision-vault/plans/005-another-task.md',
     ];
 
-    await commitPlanningArtifacts('/Users/test/RAF/017-decision-vault', {
+    await commitPlanningArtifacts('/Users/test/RAF/000017-decision-vault', {
       additionalFiles,
       isAmend: true,
     });
@@ -301,12 +301,12 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/017-decision-vault/input.md\n';
+        return 'RAF/000017-decision-vault/input.md\n';
       }
       return '';
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/017-decision-vault', {
+    await commitPlanningArtifacts('/Users/test/RAF/000017-decision-vault', {
       cwd: '/tmp/worktree',
     });
 

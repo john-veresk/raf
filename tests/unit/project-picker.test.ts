@@ -41,13 +41,13 @@ describe('Project Picker', () => {
 
     it('should filter out completed projects', () => {
       mockDiscoverProjects.mockReturnValue([
-        { number: 1, name: 'completed-project', path: path.join(testRafDir, '001-completed-project') },
-        { number: 2, name: 'pending-project', path: path.join(testRafDir, '002-pending-project') },
+        { number: 1, name: 'completed-project', path: path.join(testRafDir, '000001-completed-project') },
+        { number: 2, name: 'pending-project', path: path.join(testRafDir, '000002-pending-project') },
       ]);
 
       // First project is completed
       mockDeriveProjectState.mockImplementation((projectPath: string) => {
-        if (projectPath.includes('001-completed')) {
+        if (projectPath.includes('000001-completed')) {
           return { tasks: [{ status: 'completed' }], status: 'completed' };
         }
         return { tasks: [{ status: 'pending' }, { status: 'completed' }], status: 'executing' };
@@ -68,7 +68,7 @@ describe('Project Picker', () => {
 
     it('should include projects with failed tasks', () => {
       mockDiscoverProjects.mockReturnValue([
-        { number: 1, name: 'failed-project', path: path.join(testRafDir, '001-failed-project') },
+        { number: 1, name: 'failed-project', path: path.join(testRafDir, '000001-failed-project') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -93,7 +93,7 @@ describe('Project Picker', () => {
 
     it('should include projects with pending tasks', () => {
       mockDiscoverProjects.mockReturnValue([
-        { number: 1, name: 'ready-project', path: path.join(testRafDir, '001-ready-project') },
+        { number: 1, name: 'ready-project', path: path.join(testRafDir, '000001-ready-project') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -117,9 +117,9 @@ describe('Project Picker', () => {
 
     it('should sort projects by number (oldest first)', () => {
       mockDiscoverProjects.mockReturnValue([
-        { number: 5, name: 'newer-project', path: path.join(testRafDir, '005-newer-project') },
-        { number: 2, name: 'older-project', path: path.join(testRafDir, '002-older-project') },
-        { number: 10, name: 'newest-project', path: path.join(testRafDir, '010-newest-project') },
+        { number: 5, name: 'newer-project', path: path.join(testRafDir, '000005-newer-project') },
+        { number: 2, name: 'older-project', path: path.join(testRafDir, '000002-older-project') },
+        { number: 10, name: 'newest-project', path: path.join(testRafDir, '00000a-newest-project') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -144,7 +144,7 @@ describe('Project Picker', () => {
 
     it('should include folder name in project info', () => {
       mockDiscoverProjects.mockReturnValue([
-        { number: 3, name: 'my-project', path: path.join(testRafDir, '003-my-project') },
+        { number: 3, name: 'my-project', path: path.join(testRafDir, '000003-my-project') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -161,54 +161,54 @@ describe('Project Picker', () => {
 
       const result = getPendingProjects(testRafDir);
 
-      expect(result[0]!.folder).toBe('003-my-project');
+      expect(result[0]!.folder).toBe('000003-my-project');
     });
   });
 
   describe('formatProjectChoice', () => {
     it('should format project with number, name, and task progress', () => {
       const project = {
-        folder: '001-fix-auth-bug',
+        folder: '000001-fix-auth-bug',
         number: 1,
         name: 'fix-auth-bug',
-        path: path.join(testRafDir, '001-fix-auth-bug'),
+        path: path.join(testRafDir, '000001-fix-auth-bug'),
         completedTasks: 2,
         totalTasks: 5,
       };
 
       const result = formatProjectChoice(project);
 
-      expect(result).toBe('001 fix-auth-bug (2/5 tasks)');
+      expect(result).toBe('000001 fix-auth-bug (2/5 tasks)');
     });
 
     it('should format project with zero completed tasks', () => {
       const project = {
-        folder: '003-new-feature',
+        folder: '000003-new-feature',
         number: 3,
         name: 'new-feature',
-        path: path.join(testRafDir, '003-new-feature'),
+        path: path.join(testRafDir, '000003-new-feature'),
         completedTasks: 0,
         totalTasks: 3,
       };
 
       const result = formatProjectChoice(project);
 
-      expect(result).toBe('003 new-feature (0/3 tasks)');
+      expect(result).toBe('000003 new-feature (0/3 tasks)');
     });
 
     it('should format project with single task', () => {
       const project = {
-        folder: '010-quick-fix',
+        folder: '00000a-quick-fix',
         number: 10,
         name: 'quick-fix',
-        path: path.join(testRafDir, '010-quick-fix'),
+        path: path.join(testRafDir, '00000a-quick-fix'),
         completedTasks: 0,
         totalTasks: 1,
       };
 
       const result = formatProjectChoice(project);
 
-      expect(result).toBe('010 quick-fix (0/1 tasks)');
+      expect(result).toBe('00000a quick-fix (0/1 tasks)');
     });
   });
 
@@ -224,8 +224,8 @@ describe('Project Picker', () => {
 
     it('should display pending projects as choices', async () => {
       mockDiscoverProjects.mockReturnValue([
-        { number: 1, name: 'first-project', path: path.join(testRafDir, '001-first-project') },
-        { number: 2, name: 'second-project', path: path.join(testRafDir, '002-second-project') },
+        { number: 1, name: 'first-project', path: path.join(testRafDir, '000001-first-project') },
+        { number: 2, name: 'second-project', path: path.join(testRafDir, '000002-second-project') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -240,23 +240,23 @@ describe('Project Picker', () => {
         total: 2,
       });
 
-      mockSelect.mockResolvedValue('001-first-project');
+      mockSelect.mockResolvedValue('000001-first-project');
 
       const result = await pickPendingProject(testRafDir);
 
-      expect(result).toBe('001-first-project');
+      expect(result).toBe('000001-first-project');
       expect(mockSelect).toHaveBeenCalledWith({
         message: 'Select a project to execute:',
         choices: expect.arrayContaining([
-          expect.objectContaining({ value: '001-first-project' }),
-          expect.objectContaining({ value: '002-second-project' }),
+          expect.objectContaining({ value: '000001-first-project' }),
+          expect.objectContaining({ value: '000002-second-project' }),
         ]),
       });
     });
 
     it('should return selected project folder name', async () => {
       mockDiscoverProjects.mockReturnValue([
-        { number: 5, name: 'my-project', path: path.join(testRafDir, '005-my-project') },
+        { number: 5, name: 'my-project', path: path.join(testRafDir, '000005-my-project') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -271,16 +271,16 @@ describe('Project Picker', () => {
         total: 1,
       });
 
-      mockSelect.mockResolvedValue('005-my-project');
+      mockSelect.mockResolvedValue('000005-my-project');
 
       const result = await pickPendingProject(testRafDir);
 
-      expect(result).toBe('005-my-project');
+      expect(result).toBe('000005-my-project');
     });
 
     it('should format choices with task progress', async () => {
       mockDiscoverProjects.mockReturnValue([
-        { number: 1, name: 'test-project', path: path.join(testRafDir, '001-test-project') },
+        { number: 1, name: 'test-project', path: path.join(testRafDir, '000001-test-project') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -295,7 +295,7 @@ describe('Project Picker', () => {
         total: 3,
       });
 
-      mockSelect.mockResolvedValue('001-test-project');
+      mockSelect.mockResolvedValue('000001-test-project');
 
       await pickPendingProject(testRafDir);
 
@@ -303,8 +303,8 @@ describe('Project Picker', () => {
         message: 'Select a project to execute:',
         choices: [
           {
-            name: '001 test-project (1/3 tasks)',
-            value: '001-test-project',
+            name: '000001 test-project (1/3 tasks)',
+            value: '000001-test-project',
           },
         ],
       });
@@ -312,7 +312,7 @@ describe('Project Picker', () => {
 
     it('should handle single pending project', async () => {
       mockDiscoverProjects.mockReturnValue([
-        { number: 7, name: 'only-project', path: path.join(testRafDir, '007-only-project') },
+        { number: 7, name: 'only-project', path: path.join(testRafDir, '000007-only-project') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -327,11 +327,11 @@ describe('Project Picker', () => {
         total: 1,
       });
 
-      mockSelect.mockResolvedValue('007-only-project');
+      mockSelect.mockResolvedValue('000007-only-project');
 
       const result = await pickPendingProject(testRafDir);
 
-      expect(result).toBe('007-only-project');
+      expect(result).toBe('000007-only-project');
       expect(mockSelect).toHaveBeenCalledTimes(1);
     });
   });

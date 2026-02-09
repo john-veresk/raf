@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { getPlansDir, getOutcomesDir, getInputPath } from '../utils/paths.js';
+import { getPlansDir, getOutcomesDir, getInputPath, decodeBase36 } from '../utils/paths.js';
 
 export type DerivedTaskStatus = 'pending' | 'completed' | 'failed' | 'blocked';
 
@@ -39,7 +39,7 @@ export interface DerivedStats {
 
 /**
  * Discover all projects in the RAF directory.
- * Projects are directories matching the pattern NNN-project-name.
+ * Projects are directories matching the pattern XXXXXX-project-name (6-char base36 prefix).
  */
 export function discoverProjects(rafDir: string): DiscoveredProject[] {
   if (!fs.existsSync(rafDir)) {
@@ -51,13 +51,16 @@ export function discoverProjects(rafDir: string): DiscoveredProject[] {
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      const match = entry.name.match(/^(\d{2,3})-(.+)$/);
+      const match = entry.name.match(/^([0-9a-z]{6})-(.+)$/i);
       if (match && match[1] && match[2]) {
-        projects.push({
-          number: parseInt(match[1], 10),
-          name: match[2],
-          path: path.join(rafDir, entry.name),
-        });
+        const decoded = decodeBase36(match[1].toLowerCase());
+        if (decoded !== null) {
+          projects.push({
+            number: decoded,
+            name: match[2],
+            path: path.join(rafDir, entry.name),
+          });
+        }
       }
     }
   }

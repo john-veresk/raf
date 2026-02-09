@@ -30,7 +30,7 @@ src/
 Each RAF project follows this structure:
 ```
 RAF/
-└── NNN-project-name/        # e.g., 001-fix-bug or a00-feature
+└── 00j3k1-project-name/    # 6-char epoch-based base36 ID
     ├── input.md             # User requirements
     ├── decisions.md         # Q&A from planning interviews
     ├── plans/               # Task breakdowns
@@ -134,16 +134,17 @@ npm run lint       # Type check without emit
 - All failure outcomes end with `<promise>FAILED</promise>` marker
 
 ### Project Naming Convention
-- Format: `NNN-project-name` (001-999) then base36 `XXX-project-name` (a00-zzz)
+- Format: `XXXXXX-project-name` where `XXXXXX` is a 6-character base36 epoch-based ID
+- ID is generated from `(current_unix_seconds - RAF_EPOCH)` encoded as base36, zero-padded to 6 characters
+- RAF_EPOCH is 2026-01-01T00:00:00Z (Unix timestamp 1767225600)
 - Project name is kebab-case derived from core feature
-- Supports 46,000+ projects
+- IDs are unique by timestamp and sort chronologically
 
 ### Project Identifier Resolution
 Support multiple identifier formats in commands:
-1. Numeric ID: `3` or `003`
-2. Base36 ID: `a00`, `a01`
-3. Project name: `fix-stuff` (case-insensitive, partial match)
-4. Full folder name: `001-fix-stuff` (exact match)
+1. Base36 ID: `00j3k1` (6-character epoch-based ID)
+2. Project name: `fix-stuff` (case-insensitive, partial match)
+3. Full folder name: `00j3k1-fix-stuff` (exact match)
 
 Use `resolveProjectIdentifierWithDetails()` from `src/utils/paths.ts`
 
@@ -159,9 +160,9 @@ Claude writes a concise description of what was accomplished, focusing on the ac
 
 Examples:
 ```
-RAF[005:001] Add validation for user input fields
-RAF[005:002] Fix null pointer in auth handler
-RAF[a01:003] Refactor database connection pooling
+RAF[00j3k1:001] Add validation for user input fields
+RAF[00j3k1:002] Fix null pointer in auth handler
+RAF[00k5m2:003] Refactor database connection pooling
 ```
 
 - Claude commits code changes and outcome file together in one commit per task
@@ -176,8 +177,8 @@ RAF[a01:003] Refactor database connection pooling
 
 ### Worktree Mode
 - `raf plan --worktree` and `raf do --worktree` run in an isolated git worktree
-- Worktree path: `~/.raf/worktrees/<repo-basename>/<project-id>` (e.g., `~/.raf/worktrees/myapp/020-my-feature`)
-- Branch name matches the project folder name (e.g., `020-my-feature`)
+- Worktree path: `~/.raf/worktrees/<repo-basename>/<project-id>` (e.g., `~/.raf/worktrees/myapp/00j3k1-my-feature`)
+- Branch name matches the project folder name (e.g., `00j3k1-my-feature`)
 - `--worktree` flag is required on both `plan` and `do` — it is not auto-detected
 - `raf status` automatically discovers and displays worktree projects (no flag needed)
   - List mode: worktree projects that differ from main repo shown under `Worktrees:` header

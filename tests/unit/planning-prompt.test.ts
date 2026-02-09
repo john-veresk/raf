@@ -88,7 +88,7 @@ describe('Planning Prompt', () => {
 
       const { systemPrompt } = getPlanningPrompt(params);
 
-      expect(systemPrompt).toContain('3-8 distinct');
+      expect(systemPrompt).toContain('identify distinct');
       expect(systemPrompt).toContain('independently completable');
       expect(systemPrompt).toContain('10-30 minutes');
     });

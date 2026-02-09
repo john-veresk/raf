@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { ProjectManager } from '../../src/core/project-manager.js';
+import { encodeBase36, RAF_EPOCH } from '../../src/utils/paths.js';
 
 describe('ProjectManager', () => {
   let tempDir: string;
@@ -29,21 +30,31 @@ describe('ProjectManager', () => {
       expect(fs.existsSync(path.join(projectPath, 'decisions.md'))).toBe(true);
     });
 
-    it('should auto-increment project numbers', () => {
+    it('should create projects with epoch-based IDs', () => {
       const manager = new ProjectManager();
 
       const path1 = manager.createProject('first');
       const path2 = manager.createProject('second');
 
-      expect(path.basename(path1)).toBe('001-first');
-      expect(path.basename(path2)).toBe('002-second');
+      const folder1 = path.basename(path1);
+      const folder2 = path.basename(path2);
+
+      // Both should have 6-char base36 prefix followed by hyphen and name
+      expect(folder1).toMatch(/^[0-9a-z]{6}-first$/);
+      expect(folder2).toMatch(/^[0-9a-z]{6}-second$/);
+
+      // Second should have equal or greater prefix than first (timestamp-based)
+      const prefix1 = folder1.split('-')[0]!;
+      const prefix2 = folder2.split('-')[0]!;
+      expect(parseInt(prefix2, 36)).toBeGreaterThanOrEqual(parseInt(prefix1, 36));
     });
 
     it('should sanitize project names', () => {
       const manager = new ProjectManager();
       const projectPath = manager.createProject('My Project Name!');
 
-      expect(path.basename(projectPath)).toBe('001-my-project-name');
+      const folder = path.basename(projectPath);
+      expect(folder).toMatch(/^[0-9a-z]{6}-my-project-name$/);
     });
   });
 
@@ -54,7 +65,8 @@ describe('ProjectManager', () => {
 
       const found = manager.findProject('findme');
       expect(found).not.toBeNull();
-      expect(found).toContain('001-findme');
+      expect(found).toContain('-findme');
+      expect(path.basename(found!)).toMatch(/^[0-9a-z]{6}-findme$/);
     });
 
     it('should return null for non-existent project', () => {
