@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Command } from 'commander';
-import { getRafDir, resolveProjectIdentifier, extractProjectName, extractProjectNumber, resolveProjectIdentifierWithDetails } from '../utils/paths.js';
+import { getRafDir, resolveProjectIdentifier, extractProjectName, extractProjectNumber, resolveProjectIdentifierWithDetails, formatProjectNumber } from '../utils/paths.js';
 import { logger } from '../utils/logger.js';
 import type { StatusCommandOptions } from '../types/config.js';
 import {
@@ -26,7 +26,7 @@ const MAX_DISPLAYED_PROJECTS = 10;
 export function createStatusCommand(): Command {
   const command = new Command('status')
     .description('Show status of a project or list all projects')
-    .argument('[identifier]', 'Project identifier: number (3), name (my-project), or folder (001-my-project)')
+    .argument('[identifier]', 'Project identifier: ID (00j3k1), name (my-project), or folder (00j3k1-my-project)')
     .option('--json', 'Output as JSON')
     .action(async (identifier?: string, options?: StatusCommandOptions) => {
       await runStatusCommand(identifier, options);
@@ -306,13 +306,13 @@ async function listAllProjects(
         const taskStatuses: TaskStatus[] = state.tasks.map((t) => derivedStatusToTaskStatus(t.status));
         const progressBar = formatProgressBar(taskStatuses);
 
-        // Format: "001 my-project ✓✓●○○ (2/5)"
-        const projectNumber = String(project.number).padStart(3, '0');
+        // Format: "00j3k1 my-project ✓✓●○○ (2/5)"
+        const projectNumber = formatProjectNumber(project.number);
         const counts = `(${stats.completed}/${stats.total})`;
         logger.info(`${projectNumber} ${project.name} ${progressBar} ${counts}`);
       } catch {
         // Failed to derive state - show minimal info
-        const projectNumber = String(project.number).padStart(3, '0');
+        const projectNumber = formatProjectNumber(project.number);
         logger.info(`${projectNumber} ${project.name}`);
       }
     }

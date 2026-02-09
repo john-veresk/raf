@@ -105,7 +105,7 @@ export function createDoCommand(): Command {
   const command = new Command('do')
     .description('Execute planned tasks for a project')
     .alias('act')
-    .argument('[project]', 'Project identifier: number (3), name (my-project), or folder (001-my-project)')
+    .argument('[project]', 'Project identifier: ID (00j3k1), name (my-project), or folder (00j3k1-my-project)')
     .option('-t, --timeout <minutes>', 'Timeout per task in minutes', '60')
     .option('-v, --verbose', 'Show full Claude output')
     .option('-d, --debug', 'Save all logs and show debug output')

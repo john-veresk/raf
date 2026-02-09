@@ -58,15 +58,8 @@ export function validateProjectExists(rafDir: string, projectName: string): stri
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      // Match numeric pattern like "001-project-name" (or legacy 01-project-name)
-      const numericMatch = entry.name.match(/^\d{2,3}-(.+)$/);
-      if (numericMatch && numericMatch[1] === projectName) {
-        return path.join(rafDir, entry.name);
-      }
-
-      // Match base36 pattern like "a00-project-name"
-      const base36Match = entry.name.match(/^[a-z][0-9a-z]{2}-(.+)$/i);
-      if (base36Match && base36Match[1] === projectName) {
+      const match = entry.name.match(/^[0-9a-z]{6}-(.+)$/i);
+      if (match && match[1] === projectName) {
         return path.join(rafDir, entry.name);
       }
     }
