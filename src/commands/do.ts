@@ -905,7 +905,8 @@ async function executeSingleProject(
     let attempts = 0;
     let lastOutput = '';
     let failureReason = '';
-    let lastUsageData: import('../types/config.js').UsageData | undefined;
+    // Collect usage data from all attempts (for accurate token tracking across retries)
+    const attemptUsageData: import('../types/config.js').UsageData[] = [];
     // Track failure history for each attempt (attempt number -> reason)
     const failureHistory: Array<{ attempt: number; reason: string }> = [];
 
@@ -970,7 +971,7 @@ async function executeSingleProject(
 
       lastOutput = result.output;
       if (result.usageData) {
-        lastUsageData = result.usageData;
+        attemptUsageData.push(result.usageData);
       }
 
       // Parse result
@@ -1088,9 +1089,8 @@ Task completed. No detailed report provided.
       }
 
       // Track and display token usage for this task
-      // TODO: Pass all attempt UsageData once retry loop accumulates them
-      if (lastUsageData) {
-        const entry = tokenTracker.addTask(task.id, [lastUsageData]);
+      if (attemptUsageData.length > 0) {
+        const entry = tokenTracker.addTask(task.id, attemptUsageData);
         logger.dim(formatTaskTokenSummary(entry.usage, entry.cost));
       }
 
@@ -1116,9 +1116,8 @@ Task completed. No detailed report provided.
       }
 
       // Track token usage even for failed tasks (partial data still useful for totals)
-      // TODO: Pass all attempt UsageData once retry loop accumulates them
-      if (lastUsageData) {
-        const entry = tokenTracker.addTask(task.id, [lastUsageData]);
+      if (attemptUsageData.length > 0) {
+        const entry = tokenTracker.addTask(task.id, attemptUsageData);
         logger.dim(formatTaskTokenSummary(entry.usage, entry.cost));
       }
 
