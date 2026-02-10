@@ -17,9 +17,10 @@ RAF (Ralph's Automation Framework) is a Node.js CLI tool that orchestrates task 
 ```
 src/
 ├── index.ts                 # CLI entry point
-├── commands/                # CLI commands (plan, do, status)
+├── commands/                # CLI commands (plan, do, status, config)
 ├── core/                    # Core business logic
 ├── prompts/                 # System prompts for Claude
+│   └── config-docs.md       # Full config reference (used by raf config)
 ├── parsers/                 # Output parsing utilities
 ├── utils/                   # Utility functions
 └── types/                   # TypeScript type definitions
@@ -133,6 +134,38 @@ npm run lint       # Type check without emit
 - Failure reports include: Failure Reason, Analysis, Suggested Fix, Relevant Output
 - All failure outcomes end with `<promise>FAILED</promise>` marker
 
+### Configurable by Default
+- If a feature or setting can be configurable, it should be configurable through the config system
+- Built-in defaults in `DEFAULT_CONFIG` (`src/types/config.ts`) provide sensible out-of-the-box behavior
+- Global config at `~/.raf/raf.config.json` overrides defaults
+- CLI flags override config values
+- Three-tier precedence: **CLI flag > global config > built-in defaults**
+- When adding new features, add corresponding config keys to the schema
+
+### Configuration System
+- **Config file**: `~/.raf/raf.config.json` (optional — missing file uses all defaults)
+- **Schema** (defined in `src/types/config.ts`):
+  - `models.*` — Claude model per scenario (`execute`, `plan`, `nameGeneration`, `failureAnalysis`, `prGeneration`, `config`)
+  - `effort.*` — effort level per scenario (same scenarios as models)
+  - `timeout` — task timeout in seconds
+  - `maxRetries` — max retry attempts per task
+  - `autoCommit` — whether Claude auto-commits on task completion
+  - `worktree` — default worktree mode for plan/do commands
+  - `commitFormat.*` — commit message templates (`task`, `plan`, `amend`, `prefix`)
+  - `claudeCommand` — path/name of the Claude CLI binary
+- **Validation**: strict — unknown keys rejected at every nesting level (`src/utils/config.ts`)
+- **Deep-merge**: partial overrides merge with defaults (only specify keys you want to change)
+- **Helper accessors**: `getModel()`, `getEffort()`, `getCommitFormat()`, `getCommitPrefix()`, `getTimeout()`, `getMaxRetries()`, `getAutoCommit()`, `getWorktreeDefault()`, `getClaudeCommand()` (all in `src/utils/config.ts`)
+- **Full reference**: `src/prompts/config-docs.md` (also serves as system prompt for `raf config`)
+
+### `raf config` Command
+- `raf config` — launches interactive Claude session for viewing/editing config
+- `raf config "use haiku for name generation"` — session with initial prompt
+- `raf config --reset` — deletes config file after confirmation prompt
+- Session uses config documentation as system prompt and shows current config state
+- Post-session validation checks the config file for errors and warns on issues
+- Implementation: `src/commands/config.ts`
+
 ### Project Naming Convention
 - Format: `XXXXXX-project-name` where `XXXXXX` is a 6-character base26 ID (a-z only)
 - ID is generated from `(current_unix_seconds - RAF_EPOCH)` encoded as base26, left-padded with 'a' to 6 characters
@@ -163,22 +196,22 @@ Use `resolveProjectIdentifierWithDetails()` from `src/utils/paths.ts`
 
 All git commits are made by Claude during task execution. RAF does not create any automated commits.
 
-**Commit format** (Claude-generated during task execution):
-```
-RAF[<project-number>:<task>] <description>
-```
-Claude writes a concise description of what was accomplished, focusing on the actual change rather than the task name.
+**Commit format** is configurable via `commitFormat.*` config keys. The default templates use `{placeholder}` syntax:
+- `commitFormat.task`: `"{prefix}[{projectId}:{taskId}] {description}"` — task completion commits
+- `commitFormat.plan`: `"{prefix}[{projectId}] Plan: {projectName}"` — plan commits
+- `commitFormat.amend`: `"{prefix}[{projectId}] Amend: {projectName}"` — amendment commits
+- `commitFormat.prefix`: `"RAF"` — prefix token used in all templates
 
-Examples:
+Default output example:
 ```
 RAF[abcdef:01] Add validation for user input fields
 RAF[abcdef:02] Fix null pointer in auth handler
-RAF[abaaba:03] Refactor database connection pooling
 ```
 
 - Claude commits code changes and outcome file together in one commit per task
 - No commits on failure (changes are stashed instead)
 - Handle "not in git repo" gracefully (warning, no crash)
+- Template rendering: `renderCommitMessage()` in `src/utils/config.ts`
 
 ### Amendment Mode
 - `raf plan --amend <identifier>` adds tasks to existing projects
