@@ -1,0 +1,2 @@
+- [ ] fix: i can't do "raf do <project name without id>" it the project in the worktree. make sure it works just for project ids as well. rely on naming convention of worktree folder (same a project)
+- [ ] reduce opus reasoning to low for plan do. search for docs on how to do that
