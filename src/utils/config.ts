@@ -1,9 +1,26 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { RafConfig, DEFAULT_RAF_CONFIG } from '../types/config.js';
+import {
+  RafConfig,
+  DEFAULT_CONFIG,
+  DEFAULT_RAF_CONFIG,
+  UserConfig,
+  VALID_MODELS,
+  VALID_EFFORTS,
+  ClaudeModelName,
+  EffortLevel,
+  ModelScenario,
+  EffortScenario,
+  CommitFormatType,
+} from '../types/config.js';
 
+const CONFIG_DIR = path.join(os.homedir(), '.raf');
 const CONFIG_FILENAME = 'raf.config.json';
+
+export function getConfigPath(): string {
+  return path.join(CONFIG_DIR, CONFIG_FILENAME);
+}
 
 /**
  * Get the path to Claude CLI settings file.
@@ -12,25 +29,236 @@ export function getClaudeSettingsPath(): string {
   return path.join(os.homedir(), '.claude', 'settings.json');
 }
 
-export function loadConfig(rafDir: string): RafConfig {
-  const configPath = path.join(rafDir, CONFIG_FILENAME);
+// ---- Validation ----
 
-  if (!fs.existsSync(configPath)) {
-    return { ...DEFAULT_RAF_CONFIG };
-  }
+const VALID_TOP_LEVEL_KEYS = new Set<string>([
+  'models', 'effort', 'timeout', 'maxRetries', 'autoCommit',
+  'worktree', 'commitFormat', 'claudeCommand',
+]);
 
-  try {
-    const content = fs.readFileSync(configPath, 'utf-8');
-    const userConfig = JSON.parse(content) as Partial<RafConfig>;
-    return { ...DEFAULT_RAF_CONFIG, ...userConfig };
-  } catch {
-    return { ...DEFAULT_RAF_CONFIG };
+const VALID_MODEL_KEYS = new Set<string>([
+  'plan', 'execute', 'nameGeneration', 'failureAnalysis', 'prGeneration', 'config',
+]);
+
+const VALID_EFFORT_KEYS = new Set<string>([
+  'plan', 'execute', 'nameGeneration', 'failureAnalysis', 'prGeneration', 'config',
+]);
+
+const VALID_COMMIT_FORMAT_KEYS = new Set<string>(['task', 'plan', 'amend', 'prefix']);
+
+export class ConfigValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ConfigValidationError';
   }
 }
 
-export function saveConfig(rafDir: string, config: RafConfig): void {
-  const configPath = path.join(rafDir, CONFIG_FILENAME);
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+function checkUnknownKeys(obj: Record<string, unknown>, validKeys: Set<string>, prefix: string): void {
+  for (const key of Object.keys(obj)) {
+    if (!validKeys.has(key)) {
+      throw new ConfigValidationError(`Unknown config key: ${prefix ? `${prefix}.` : ''}${key}`);
+    }
+  }
+}
+
+export function validateConfig(config: unknown): UserConfig {
+  if (config === null || typeof config !== 'object' || Array.isArray(config)) {
+    throw new ConfigValidationError('Config must be a JSON object');
+  }
+
+  const obj = config as Record<string, unknown>;
+  checkUnknownKeys(obj, VALID_TOP_LEVEL_KEYS, '');
+
+  // models
+  if (obj.models !== undefined) {
+    if (typeof obj.models !== 'object' || obj.models === null || Array.isArray(obj.models)) {
+      throw new ConfigValidationError('models must be an object');
+    }
+    const models = obj.models as Record<string, unknown>;
+    checkUnknownKeys(models, VALID_MODEL_KEYS, 'models');
+    for (const [key, val] of Object.entries(models)) {
+      if (typeof val !== 'string' || !(VALID_MODELS as readonly string[]).includes(val)) {
+        throw new ConfigValidationError(`models.${key} must be one of: ${VALID_MODELS.join(', ')}`);
+      }
+    }
+  }
+
+  // effort
+  if (obj.effort !== undefined) {
+    if (typeof obj.effort !== 'object' || obj.effort === null || Array.isArray(obj.effort)) {
+      throw new ConfigValidationError('effort must be an object');
+    }
+    const effort = obj.effort as Record<string, unknown>;
+    checkUnknownKeys(effort, VALID_EFFORT_KEYS, 'effort');
+    for (const [key, val] of Object.entries(effort)) {
+      if (typeof val !== 'string' || !(VALID_EFFORTS as readonly string[]).includes(val)) {
+        throw new ConfigValidationError(`effort.${key} must be one of: ${VALID_EFFORTS.join(', ')}`);
+      }
+    }
+  }
+
+  // timeout
+  if (obj.timeout !== undefined) {
+    if (typeof obj.timeout !== 'number' || obj.timeout <= 0 || !Number.isFinite(obj.timeout)) {
+      throw new ConfigValidationError('timeout must be a positive number');
+    }
+  }
+
+  // maxRetries
+  if (obj.maxRetries !== undefined) {
+    if (typeof obj.maxRetries !== 'number' || obj.maxRetries < 0 || !Number.isInteger(obj.maxRetries)) {
+      throw new ConfigValidationError('maxRetries must be a non-negative integer');
+    }
+  }
+
+  // autoCommit
+  if (obj.autoCommit !== undefined) {
+    if (typeof obj.autoCommit !== 'boolean') {
+      throw new ConfigValidationError('autoCommit must be a boolean');
+    }
+  }
+
+  // worktree
+  if (obj.worktree !== undefined) {
+    if (typeof obj.worktree !== 'boolean') {
+      throw new ConfigValidationError('worktree must be a boolean');
+    }
+  }
+
+  // commitFormat
+  if (obj.commitFormat !== undefined) {
+    if (typeof obj.commitFormat !== 'object' || obj.commitFormat === null || Array.isArray(obj.commitFormat)) {
+      throw new ConfigValidationError('commitFormat must be an object');
+    }
+    const cf = obj.commitFormat as Record<string, unknown>;
+    checkUnknownKeys(cf, VALID_COMMIT_FORMAT_KEYS, 'commitFormat');
+    for (const [key, val] of Object.entries(cf)) {
+      if (typeof val !== 'string') {
+        throw new ConfigValidationError(`commitFormat.${key} must be a string`);
+      }
+    }
+  }
+
+  // claudeCommand
+  if (obj.claudeCommand !== undefined) {
+    if (typeof obj.claudeCommand !== 'string' || obj.claudeCommand.trim() === '') {
+      throw new ConfigValidationError('claudeCommand must be a non-empty string');
+    }
+  }
+
+  return config as UserConfig;
+}
+
+// ---- Deep merge ----
+
+function deepMerge(defaults: RafConfig, overrides: UserConfig): RafConfig {
+  const result = { ...defaults };
+
+  if (overrides.models) {
+    result.models = { ...defaults.models, ...overrides.models };
+  }
+  if (overrides.effort) {
+    result.effort = { ...defaults.effort, ...overrides.effort };
+  }
+  if (overrides.commitFormat) {
+    result.commitFormat = { ...defaults.commitFormat, ...overrides.commitFormat };
+  }
+  if (overrides.timeout !== undefined) result.timeout = overrides.timeout;
+  if (overrides.maxRetries !== undefined) result.maxRetries = overrides.maxRetries;
+  if (overrides.autoCommit !== undefined) result.autoCommit = overrides.autoCommit;
+  if (overrides.worktree !== undefined) result.worktree = overrides.worktree;
+  if (overrides.claudeCommand !== undefined) result.claudeCommand = overrides.claudeCommand;
+
+  return result;
+}
+
+// ---- Config loading ----
+
+/**
+ * Resolve the final config by loading from ~/.raf/raf.config.json and merging with defaults.
+ * Throws ConfigValidationError if the file contains invalid values.
+ */
+export function resolveConfig(configPath?: string): RafConfig {
+  const filePath = configPath ?? getConfigPath();
+
+  if (!fs.existsSync(filePath)) {
+    return { ...DEFAULT_CONFIG, models: { ...DEFAULT_CONFIG.models }, effort: { ...DEFAULT_CONFIG.effort }, commitFormat: { ...DEFAULT_CONFIG.commitFormat } };
+  }
+
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const parsed: unknown = JSON.parse(content);
+  const validated = validateConfig(parsed);
+  return deepMerge(DEFAULT_CONFIG, validated);
+}
+
+/**
+ * @deprecated Use resolveConfig() instead. Kept for backward compatibility.
+ */
+export function loadConfig(_rafDir: string): { defaultTimeout: number; defaultMaxRetries: number; autoCommit: boolean; claudeCommand: string } {
+  return { ...DEFAULT_RAF_CONFIG };
+}
+
+export function saveConfig(configPath: string, config: UserConfig): void {
+  const dir = path.dirname(configPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+}
+
+// ---- Helper accessors ----
+
+let _cachedConfig: RafConfig | null = null;
+
+/**
+ * Get the resolved config, caching the result for the process lifetime.
+ * Call resetConfigCache() in tests to clear.
+ */
+export function getResolvedConfig(): RafConfig {
+  if (!_cachedConfig) {
+    _cachedConfig = resolveConfig();
+  }
+  return _cachedConfig;
+}
+
+export function resetConfigCache(): void {
+  _cachedConfig = null;
+}
+
+export function getModel(scenario: ModelScenario): ClaudeModelName {
+  return getResolvedConfig().models[scenario];
+}
+
+export function getEffort(scenario: EffortScenario): EffortLevel {
+  return getResolvedConfig().effort[scenario];
+}
+
+export function getCommitFormat(type: CommitFormatType): string {
+  return getResolvedConfig().commitFormat[type];
+}
+
+export function getCommitPrefix(): string {
+  return getResolvedConfig().commitFormat.prefix;
+}
+
+export function getTimeout(): number {
+  return getResolvedConfig().timeout;
+}
+
+export function getMaxRetries(): number {
+  return getResolvedConfig().maxRetries;
+}
+
+export function getAutoCommit(): boolean {
+  return getResolvedConfig().autoCommit;
+}
+
+export function getWorktreeDefault(): boolean {
+  return getResolvedConfig().worktree;
+}
+
+export function getClaudeCommand(): string {
+  return getResolvedConfig().claudeCommand;
 }
 
 export function getEditor(): string {
@@ -39,8 +267,6 @@ export function getEditor(): string {
 
 /**
  * Get the Claude model name from Claude CLI settings.
- * Returns the model name or null if not found.
- * @param settingsPath Optional path to settings file (for testing)
  */
 export function getClaudeModel(settingsPath?: string): string | null {
   const filePath = settingsPath ?? getClaudeSettingsPath();
@@ -57,13 +283,13 @@ export function getClaudeModel(settingsPath?: string): string | null {
 }
 
 /**
- * Get runtime configuration for task execution.
- * Returns default values which can be overridden by command line options.
+ * @deprecated Use getTimeout(), getMaxRetries(), getAutoCommit() instead.
  */
 export function getConfig(): { timeout: number; maxRetries: number; autoCommit: boolean } {
+  const config = getResolvedConfig();
   return {
-    timeout: DEFAULT_RAF_CONFIG.defaultTimeout,
-    maxRetries: DEFAULT_RAF_CONFIG.defaultMaxRetries,
-    autoCommit: DEFAULT_RAF_CONFIG.autoCommit,
+    timeout: config.timeout,
+    maxRetries: config.maxRetries,
+    autoCommit: config.autoCommit,
   };
 }

@@ -1,10 +1,39 @@
-import { jest } from '@jest/globals';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { getClaudeModel, getClaudeSettingsPath } from '../../src/utils/config.js';
+import {
+  getClaudeModel,
+  getClaudeSettingsPath,
+  validateConfig,
+  ConfigValidationError,
+  resolveConfig,
+  getModel,
+  getEffort,
+  getCommitFormat,
+  getCommitPrefix,
+  getTimeout,
+  getMaxRetries,
+  getAutoCommit,
+  getWorktreeDefault,
+  getClaudeCommand,
+  resetConfigCache,
+  saveConfig,
+} from '../../src/utils/config.js';
+import { DEFAULT_CONFIG } from '../../src/types/config.js';
 
 describe('Config', () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-config-test-'));
+    resetConfigCache();
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    resetConfigCache();
+  });
+
   describe('getClaudeSettingsPath', () => {
     it('should return path in home directory', () => {
       const settingsPath = getClaudeSettingsPath();
@@ -13,60 +42,307 @@ describe('Config', () => {
   });
 
   describe('getClaudeModel', () => {
-    let tempDir: string;
-
-    beforeEach(() => {
-      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-config-test-'));
-    });
-
-    afterEach(() => {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    });
-
     it('should return model name from Claude settings', () => {
       const settingsPath = path.join(tempDir, 'settings.json');
       fs.writeFileSync(settingsPath, JSON.stringify({ model: 'opus' }));
-
-      const result = getClaudeModel(settingsPath);
-      expect(result).toBe('opus');
+      expect(getClaudeModel(settingsPath)).toBe('opus');
     });
 
     it('should return full model name if specified', () => {
       const settingsPath = path.join(tempDir, 'settings.json');
       fs.writeFileSync(settingsPath, JSON.stringify({ model: 'claude-sonnet-4-20250514' }));
-
-      const result = getClaudeModel(settingsPath);
-      expect(result).toBe('claude-sonnet-4-20250514');
+      expect(getClaudeModel(settingsPath)).toBe('claude-sonnet-4-20250514');
     });
 
     it('should return null if settings file does not exist', () => {
-      const settingsPath = path.join(tempDir, 'nonexistent.json');
-
-      const result = getClaudeModel(settingsPath);
-      expect(result).toBeNull();
+      expect(getClaudeModel(path.join(tempDir, 'nonexistent.json'))).toBeNull();
     });
 
     it('should return null if model is not specified in settings', () => {
       const settingsPath = path.join(tempDir, 'settings.json');
       fs.writeFileSync(settingsPath, JSON.stringify({ permissions: {} }));
-
-      const result = getClaudeModel(settingsPath);
-      expect(result).toBeNull();
+      expect(getClaudeModel(settingsPath)).toBeNull();
     });
 
     it('should return null if settings file is invalid JSON', () => {
       const settingsPath = path.join(tempDir, 'settings.json');
       fs.writeFileSync(settingsPath, 'invalid json');
-
-      const result = getClaudeModel(settingsPath);
-      expect(result).toBeNull();
+      expect(getClaudeModel(settingsPath)).toBeNull();
     });
 
     it('should use default settings path when not provided', () => {
-      // This tests the default path behavior - the actual file may or may not exist
       const result = getClaudeModel();
-      // Just verify it doesn't throw and returns string or null
       expect(result === null || typeof result === 'string').toBe(true);
+    });
+  });
+
+  describe('validateConfig', () => {
+    it('should accept an empty object', () => {
+      expect(() => validateConfig({})).not.toThrow();
+    });
+
+    it('should accept a full valid config', () => {
+      const config = {
+        models: { plan: 'opus', execute: 'haiku' },
+        effort: { plan: 'high', execute: 'low' },
+        timeout: 30,
+        maxRetries: 5,
+        autoCommit: false,
+        worktree: true,
+        commitFormat: { prefix: 'MY', task: '{prefix}[{projectId}] {description}' },
+        claudeCommand: '/usr/local/bin/claude',
+      };
+      expect(() => validateConfig(config)).not.toThrow();
+    });
+
+    it('should reject non-object config', () => {
+      expect(() => validateConfig(null)).toThrow(ConfigValidationError);
+      expect(() => validateConfig('string')).toThrow(ConfigValidationError);
+      expect(() => validateConfig(42)).toThrow(ConfigValidationError);
+      expect(() => validateConfig([])).toThrow(ConfigValidationError);
+    });
+
+    // Unknown keys
+    it('should reject unknown top-level keys', () => {
+      expect(() => validateConfig({ unknownKey: 'value' })).toThrow('Unknown config key: unknownKey');
+    });
+
+    it('should reject unknown model keys', () => {
+      expect(() => validateConfig({ models: { unknownScenario: 'opus' } })).toThrow('Unknown config key: models.unknownScenario');
+    });
+
+    it('should reject unknown effort keys', () => {
+      expect(() => validateConfig({ effort: { unknownScenario: 'high' } })).toThrow('Unknown config key: effort.unknownScenario');
+    });
+
+    it('should reject unknown commitFormat keys', () => {
+      expect(() => validateConfig({ commitFormat: { unknownKey: 'val' } })).toThrow('Unknown config key: commitFormat.unknownKey');
+    });
+
+    // Invalid model values
+    it('should reject invalid model names', () => {
+      expect(() => validateConfig({ models: { plan: 'gpt-4' } })).toThrow('models.plan must be one of');
+    });
+
+    it('should reject non-string model values', () => {
+      expect(() => validateConfig({ models: { plan: 123 } })).toThrow('models.plan must be one of');
+    });
+
+    // Invalid effort values
+    it('should reject invalid effort levels', () => {
+      expect(() => validateConfig({ effort: { plan: 'ultra' } })).toThrow('effort.plan must be one of');
+    });
+
+    // Invalid types for nested objects
+    it('should reject non-object models', () => {
+      expect(() => validateConfig({ models: 'opus' })).toThrow('models must be an object');
+    });
+
+    it('should reject array models', () => {
+      expect(() => validateConfig({ models: ['opus'] })).toThrow('models must be an object');
+    });
+
+    it('should reject non-object effort', () => {
+      expect(() => validateConfig({ effort: 'high' })).toThrow('effort must be an object');
+    });
+
+    it('should reject non-object commitFormat', () => {
+      expect(() => validateConfig({ commitFormat: 'test' })).toThrow('commitFormat must be an object');
+    });
+
+    // Invalid timeout
+    it('should reject non-number timeout', () => {
+      expect(() => validateConfig({ timeout: '60' })).toThrow('timeout must be a positive number');
+    });
+
+    it('should reject zero timeout', () => {
+      expect(() => validateConfig({ timeout: 0 })).toThrow('timeout must be a positive number');
+    });
+
+    it('should reject negative timeout', () => {
+      expect(() => validateConfig({ timeout: -1 })).toThrow('timeout must be a positive number');
+    });
+
+    // Invalid maxRetries
+    it('should reject non-integer maxRetries', () => {
+      expect(() => validateConfig({ maxRetries: 1.5 })).toThrow('maxRetries must be a non-negative integer');
+    });
+
+    it('should reject negative maxRetries', () => {
+      expect(() => validateConfig({ maxRetries: -1 })).toThrow('maxRetries must be a non-negative integer');
+    });
+
+    it('should accept zero maxRetries', () => {
+      expect(() => validateConfig({ maxRetries: 0 })).not.toThrow();
+    });
+
+    // Invalid booleans
+    it('should reject non-boolean autoCommit', () => {
+      expect(() => validateConfig({ autoCommit: 'yes' })).toThrow('autoCommit must be a boolean');
+    });
+
+    it('should reject non-boolean worktree', () => {
+      expect(() => validateConfig({ worktree: 1 })).toThrow('worktree must be a boolean');
+    });
+
+    // Invalid claudeCommand
+    it('should reject empty claudeCommand', () => {
+      expect(() => validateConfig({ claudeCommand: '' })).toThrow('claudeCommand must be a non-empty string');
+    });
+
+    it('should reject whitespace-only claudeCommand', () => {
+      expect(() => validateConfig({ claudeCommand: '   ' })).toThrow('claudeCommand must be a non-empty string');
+    });
+
+    it('should reject non-string claudeCommand', () => {
+      expect(() => validateConfig({ claudeCommand: 123 })).toThrow('claudeCommand must be a non-empty string');
+    });
+
+    // Non-string commitFormat values
+    it('should reject non-string commitFormat values', () => {
+      expect(() => validateConfig({ commitFormat: { prefix: 123 } })).toThrow('commitFormat.prefix must be a string');
+    });
+  });
+
+  describe('resolveConfig', () => {
+    it('should return defaults when no config file exists', () => {
+      const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
+      expect(config).toEqual(DEFAULT_CONFIG);
+    });
+
+    it('should deep-merge partial models override', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ models: { plan: 'haiku' } }));
+
+      const config = resolveConfig(configPath);
+      expect(config.models.plan).toBe('haiku');
+      expect(config.models.execute).toBe('opus'); // default preserved
+      expect(config.models.failureAnalysis).toBe('haiku'); // default preserved
+    });
+
+    it('should deep-merge partial effort override', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ effort: { execute: 'high' } }));
+
+      const config = resolveConfig(configPath);
+      expect(config.effort.execute).toBe('high');
+      expect(config.effort.plan).toBe('high'); // default preserved
+    });
+
+    it('should deep-merge partial commitFormat override', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ commitFormat: { prefix: 'MY' } }));
+
+      const config = resolveConfig(configPath);
+      expect(config.commitFormat.prefix).toBe('MY');
+      expect(config.commitFormat.task).toBe(DEFAULT_CONFIG.commitFormat.task); // default preserved
+    });
+
+    it('should override scalar values', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ timeout: 120, autoCommit: false, worktree: true }));
+
+      const config = resolveConfig(configPath);
+      expect(config.timeout).toBe(120);
+      expect(config.autoCommit).toBe(false);
+      expect(config.worktree).toBe(true);
+      expect(config.maxRetries).toBe(3); // default preserved
+    });
+
+    it('should throw on invalid config file', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ unknownKey: true }));
+
+      expect(() => resolveConfig(configPath)).toThrow(ConfigValidationError);
+    });
+
+    it('should not mutate DEFAULT_CONFIG', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ models: { plan: 'haiku' } }));
+
+      resolveConfig(configPath);
+      expect(DEFAULT_CONFIG.models.plan).toBe('opus');
+    });
+  });
+
+  describe('saveConfig', () => {
+    it('should write config to file', () => {
+      const configPath = path.join(tempDir, 'sub', 'raf.config.json');
+      saveConfig(configPath, { timeout: 90 });
+
+      const content = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      expect(content).toEqual({ timeout: 90 });
+    });
+
+    it('should create parent directories', () => {
+      const configPath = path.join(tempDir, 'deep', 'nested', 'raf.config.json');
+      saveConfig(configPath, { autoCommit: false });
+
+      expect(fs.existsSync(configPath)).toBe(true);
+    });
+  });
+
+  describe('helper accessors', () => {
+    it('getModel returns correct model for scenario', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ models: { plan: 'haiku' } }));
+      // Use resolveConfig directly to avoid cached global config
+      const config = resolveConfig(configPath);
+      expect(config.models.plan).toBe('haiku');
+      expect(config.models.execute).toBe('opus');
+    });
+
+    it('getEffort returns correct effort for scenario', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ effort: { plan: 'low' } }));
+      const config = resolveConfig(configPath);
+      expect(config.effort.plan).toBe('low');
+    });
+
+    it('getCommitFormat returns correct format', () => {
+      const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
+      expect(config.commitFormat.task).toBe('{prefix}[{projectId}:{taskId}] {description}');
+    });
+
+    it('getCommitPrefix returns prefix', () => {
+      const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
+      expect(config.commitFormat.prefix).toBe('RAF');
+    });
+
+    it('scalar helpers return defaults', () => {
+      const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
+      expect(config.timeout).toBe(60);
+      expect(config.maxRetries).toBe(3);
+      expect(config.autoCommit).toBe(true);
+      expect(config.worktree).toBe(false);
+      expect(config.claudeCommand).toBe('claude');
+    });
+  });
+
+  describe('DEFAULT_CONFIG', () => {
+    it('should have all model scenarios defined', () => {
+      expect(DEFAULT_CONFIG.models.plan).toBe('opus');
+      expect(DEFAULT_CONFIG.models.execute).toBe('opus');
+      expect(DEFAULT_CONFIG.models.nameGeneration).toBe('sonnet');
+      expect(DEFAULT_CONFIG.models.failureAnalysis).toBe('haiku');
+      expect(DEFAULT_CONFIG.models.prGeneration).toBe('sonnet');
+      expect(DEFAULT_CONFIG.models.config).toBe('sonnet');
+    });
+
+    it('should have all effort scenarios defined', () => {
+      expect(DEFAULT_CONFIG.effort.plan).toBe('high');
+      expect(DEFAULT_CONFIG.effort.execute).toBe('medium');
+      expect(DEFAULT_CONFIG.effort.nameGeneration).toBe('low');
+      expect(DEFAULT_CONFIG.effort.failureAnalysis).toBe('low');
+      expect(DEFAULT_CONFIG.effort.prGeneration).toBe('medium');
+      expect(DEFAULT_CONFIG.effort.config).toBe('medium');
+    });
+
+    it('should have all commit format fields defined', () => {
+      expect(DEFAULT_CONFIG.commitFormat.task).toContain('{prefix}');
+      expect(DEFAULT_CONFIG.commitFormat.plan).toContain('{prefix}');
+      expect(DEFAULT_CONFIG.commitFormat.amend).toContain('{prefix}');
+      expect(DEFAULT_CONFIG.commitFormat.prefix).toBe('RAF');
     });
   });
 });
