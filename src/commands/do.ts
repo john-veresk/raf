@@ -13,7 +13,7 @@ import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFro
 import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
-import { getConfig, getEffort, getWorktreeDefault } from '../utils/config.js';
+import { getConfig, getEffort, getWorktreeDefault, getModel, getModelShortName } from '../utils/config.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
 import { createStatusLine } from '../utils/status-line.js';
 import {
@@ -1109,7 +1109,8 @@ Task completed. No detailed report provided.
 
       if (verbose) {
         logger.error(`  Task ${taskLabel} failed: ${failureReason} (${elapsedFormatted})`);
-        logger.info('  Analyzing failure...');
+        const analysisModel = getModelShortName(getModel('failureAnalysis'));
+        logger.info(`  Analyzing failure with ${analysisModel}...`);
       } else {
         // Minimal mode: show failed task line
         logger.info(formatTaskProgress(taskNumber, totalTasks, 'failed', displayName, elapsedMs, task.id));

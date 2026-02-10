@@ -15,7 +15,7 @@ import {
   resolveModelOption,
 } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
-import { getWorktreeDefault } from '../utils/config.js';
+import { getWorktreeDefault, getModel, getModelShortName } from '../utils/config.js';
 import { generateProjectNames } from '../utils/name-generator.js';
 import { pickProjectName } from '../ui/name-picker.js';
 import {
@@ -155,7 +155,8 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
   // Get or generate project name
   let finalProjectName = projectName;
   if (!finalProjectName) {
-    logger.info('Generating project name suggestions...');
+    const nameModel = getModelShortName(getModel('nameGeneration'));
+    logger.info(`Generating project name suggestions with ${nameModel}...`);
     const suggestedNames = await generateProjectNames(cleanInput);
     logger.newline();
 

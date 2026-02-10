@@ -10,6 +10,7 @@ import {
   getConfigPath,
   getModel,
   getEffort,
+  getModelShortName,
   validateConfig,
   ConfigValidationError,
 } from '../utils/config.js';
@@ -181,8 +182,8 @@ async function runConfigSession(initialPrompt?: string): Promise<void> {
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
-  logger.info('Starting config session with Claude...');
-  logger.info(`Using model: ${model}`);
+  const configModel = getModelShortName(model);
+  logger.info(`Starting config session with ${configModel}...`);
   logger.newline();
 
   try {

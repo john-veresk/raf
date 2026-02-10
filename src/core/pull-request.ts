@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { logger } from '../utils/logger.js';
-import { getModel, getClaudeCommand } from '../utils/config.js';
+import { getModel, getClaudeCommand, getModelShortName } from '../utils/config.js';
 import { extractProjectName, getInputPath, getDecisionsPath, getOutcomesDir, TASK_ID_PATTERN } from '../utils/paths.js';
 
 export interface PrCreateResult {
@@ -279,6 +279,8 @@ Respond with ONLY the PR body in this exact format (no extra text, no code fence
 [1-3 bullet points describing how to verify these changes work correctly]`;
 
   try {
+    const prModel = getModelShortName(getModel('prGeneration'));
+    logger.info(`Generating PR with ${prModel}...`);
     const body = await callClaudeForPrBody(prompt, timeoutMs);
     return body;
   } catch (error) {
