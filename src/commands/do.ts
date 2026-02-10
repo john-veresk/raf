@@ -13,7 +13,7 @@ import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFro
 import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
-import { getConfig, getEffort, getWorktreeDefault } from '../utils/config.js';
+import { getConfig, getEffort, getWorktreeDefault, getModel, getModelShortName } from '../utils/config.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
 import { createStatusLine } from '../utils/status-line.js';
 import {
@@ -905,13 +905,19 @@ async function executeSingleProject(
     let attempts = 0;
     let lastOutput = '';
     let failureReason = '';
-    let lastUsageData: import('../types/config.js').UsageData | undefined;
+    // Collect usage data from all attempts (for accurate token tracking across retries)
+    const attemptUsageData: import('../types/config.js').UsageData[] = [];
     // Track failure history for each attempt (attempt number -> reason)
     const failureHistory: Array<{ attempt: number; reason: string }> = [];
 
     // Set up timer for elapsed time tracking
     const statusLine = createStatusLine();
     const timer = createTaskTimer(verbose ? undefined : (elapsed) => {
+      // When verbose is toggled ON at runtime, clear the status line and skip updates
+      if (verboseToggle.isVerbose) {
+        statusLine.clear();
+        return;
+      }
       // Show running status with task name and timer (updates in place)
       statusLine.update(formatTaskProgress(taskNumber, totalTasks, 'running', displayName, elapsed, taskId));
     });
@@ -970,7 +976,7 @@ async function executeSingleProject(
 
       lastOutput = result.output;
       if (result.usageData) {
-        lastUsageData = result.usageData;
+        attemptUsageData.push(result.usageData);
       }
 
       // Parse result
@@ -1088,9 +1094,9 @@ Task completed. No detailed report provided.
       }
 
       // Track and display token usage for this task
-      if (lastUsageData) {
-        const entry = tokenTracker.addTask(task.id, lastUsageData);
-        logger.dim(formatTaskTokenSummary(entry.usage, entry.cost));
+      if (attemptUsageData.length > 0) {
+        const entry = tokenTracker.addTask(task.id, attemptUsageData);
+        logger.dim(formatTaskTokenSummary(entry, (u) => tokenTracker.calculateCost(u)));
       }
 
       completedInSession.add(task.id);
@@ -1108,16 +1114,17 @@ Task completed. No detailed report provided.
 
       if (verbose) {
         logger.error(`  Task ${taskLabel} failed: ${failureReason} (${elapsedFormatted})`);
-        logger.info('  Analyzing failure...');
+        const analysisModel = getModelShortName(getModel('failureAnalysis'));
+        logger.info(`  Analyzing failure with ${analysisModel}...`);
       } else {
         // Minimal mode: show failed task line
         logger.info(formatTaskProgress(taskNumber, totalTasks, 'failed', displayName, elapsedMs, task.id));
       }
 
       // Track token usage even for failed tasks (partial data still useful for totals)
-      if (lastUsageData) {
-        const entry = tokenTracker.addTask(task.id, lastUsageData);
-        logger.dim(formatTaskTokenSummary(entry.usage, entry.cost));
+      if (attemptUsageData.length > 0) {
+        const entry = tokenTracker.addTask(task.id, attemptUsageData);
+        logger.dim(formatTaskTokenSummary(entry, (u) => tokenTracker.calculateCost(u)));
       }
 
       // Analyze failure and generate structured report

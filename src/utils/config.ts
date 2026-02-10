@@ -306,6 +306,28 @@ export function getClaudeCommand(): string {
 }
 
 /**
+ * Extract the short model alias (opus, sonnet, haiku) from a model ID.
+ * Works with both full model IDs (e.g., "claude-sonnet-4-5-20250929") and already-short names ("sonnet").
+ * Returns the original string if no known alias can be extracted.
+ */
+export function getModelShortName(modelId: string): string {
+  // Already a short alias
+  if (modelId === 'opus' || modelId === 'sonnet' || modelId === 'haiku') {
+    return modelId;
+  }
+  // Extract family from full model ID: claude-{family}-{version}
+  const match = modelId.match(/^claude-([a-z]+)-/);
+  if (match) {
+    const family = match[1];
+    if (family === 'opus' || family === 'sonnet' || family === 'haiku') {
+      return family;
+    }
+  }
+  // Unknown format, return as-is
+  return modelId;
+}
+
+/**
  * Map a full model ID (e.g., `claude-opus-4-6`) or short alias to a pricing category.
  * Returns null if the model cannot be mapped.
  */

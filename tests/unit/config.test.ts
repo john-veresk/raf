@@ -16,6 +16,7 @@ import {
   getAutoCommit,
   getWorktreeDefault,
   getClaudeCommand,
+  getModelShortName,
   resetConfigCache,
   saveConfig,
   renderCommitMessage,
@@ -613,6 +614,29 @@ describe('Config', () => {
       expect(config.pricing.opus.inputPerMTok).toBe(10);
       expect(config.pricing.opus.outputPerMTok).toBe(75); // default preserved
       expect(config.pricing.sonnet.inputPerMTok).toBe(3); // default preserved
+    });
+  });
+
+  describe('getModelShortName', () => {
+    it('should return short aliases as-is', () => {
+      expect(getModelShortName('opus')).toBe('opus');
+      expect(getModelShortName('sonnet')).toBe('sonnet');
+      expect(getModelShortName('haiku')).toBe('haiku');
+    });
+
+    it('should extract family from full model IDs', () => {
+      expect(getModelShortName('claude-opus-4-6')).toBe('opus');
+      expect(getModelShortName('claude-opus-4-5-20251101')).toBe('opus');
+      expect(getModelShortName('claude-sonnet-4-5-20250929')).toBe('sonnet');
+      expect(getModelShortName('claude-sonnet-4-5')).toBe('sonnet');
+      expect(getModelShortName('claude-haiku-4-5-20251001')).toBe('haiku');
+    });
+
+    it('should return unknown model IDs as-is', () => {
+      expect(getModelShortName('gpt-4')).toBe('gpt-4');
+      expect(getModelShortName('claude-unknown-3-0')).toBe('claude-unknown-3-0');
+      expect(getModelShortName('')).toBe('');
+      expect(getModelShortName('some-random-model')).toBe('some-random-model');
     });
   });
 
