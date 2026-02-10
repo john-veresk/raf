@@ -5,8 +5,10 @@
  * - system (init): Session initialization info
  * - assistant: Claude's response with text or tool_use content blocks
  * - user: Tool results (tool_result content blocks)
- * - result: Final result with success/failure status
+ * - result: Final result with success/failure status and token usage
  */
+
+import type { UsageData, ModelTokenUsage } from '../types/config.js';
 
 export interface StreamEvent {
   type: string;
@@ -15,6 +17,18 @@ export interface StreamEvent {
     content?: ContentBlock[];
   };
   result?: string;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
+  };
+  modelUsage?: Record<string, {
+    inputTokens?: number;
+    outputTokens?: number;
+    cacheReadInputTokens?: number;
+    cacheCreationInputTokens?: number;
+  }>;
   tool_use_result?: {
     type?: string;
     file?: {
@@ -72,6 +86,8 @@ export interface RenderResult {
   display: string;
   /** Text content to accumulate for output parsing (completion markers, etc.) */
   textContent: string;
+  /** Usage data extracted from result events (only present on result events) */
+  usageData?: UsageData;
 }
 
 /**
@@ -132,8 +148,42 @@ function renderAssistant(event: StreamEvent): RenderResult {
   return { display, textContent };
 }
 
-function renderResult(_event: StreamEvent): RenderResult {
+function renderResult(event: StreamEvent): RenderResult {
   // The result event's text duplicates the last assistant message,
-  // which is already captured. Skip to avoid double-counting.
-  return { display: '', textContent: '' };
+  // which is already captured. Skip text to avoid double-counting.
+  // But extract usage data if present.
+  const usageData = extractUsageData(event);
+  return { display: '', textContent: '', usageData };
+}
+
+/**
+ * Extract usage data from a stream-json result event.
+ * Returns undefined if no usage data is present.
+ */
+function extractUsageData(event: StreamEvent): UsageData | undefined {
+  if (!event.usage && !event.modelUsage) {
+    return undefined;
+  }
+
+  const usage = event.usage;
+  const modelUsage: Record<string, ModelTokenUsage> = {};
+
+  if (event.modelUsage) {
+    for (const [model, data] of Object.entries(event.modelUsage)) {
+      modelUsage[model] = {
+        inputTokens: data.inputTokens ?? 0,
+        outputTokens: data.outputTokens ?? 0,
+        cacheReadInputTokens: data.cacheReadInputTokens ?? 0,
+        cacheCreationInputTokens: data.cacheCreationInputTokens ?? 0,
+      };
+    }
+  }
+
+  return {
+    inputTokens: usage?.input_tokens ?? 0,
+    outputTokens: usage?.output_tokens ?? 0,
+    cacheReadInputTokens: usage?.cache_read_input_tokens ?? 0,
+    cacheCreationInputTokens: usage?.cache_creation_input_tokens ?? 0,
+    modelUsage,
+  };
 }

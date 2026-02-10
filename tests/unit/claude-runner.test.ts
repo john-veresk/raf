@@ -305,8 +305,8 @@ describe('ClaudeRunner', () => {
       const runner = new ClaudeRunner();
       const runPromise = runner.run('test prompt', { timeout: 60 });
 
-      // Emit context overflow message
-      mockProc.stdout.emit('data', Buffer.from('Error: context length exceeded'));
+      // Emit context overflow message (with newline so NDJSON line buffer processes it)
+      mockProc.stdout.emit('data', Buffer.from('Error: context length exceeded\n'));
 
       const result = await runPromise;
       expect(result.contextOverflow).toBe(true);
@@ -333,7 +333,8 @@ describe('ClaudeRunner', () => {
         const runner = new ClaudeRunner();
         const runPromise = runner.run('test prompt', { timeout: 60 });
 
-        mockProc.stdout.emit('data', Buffer.from(`Error: ${pattern}`));
+        // Trailing newline needed for NDJSON line buffer processing
+        mockProc.stdout.emit('data', Buffer.from(`Error: ${pattern}\n`));
 
         const result = await runPromise;
         expect(result.contextOverflow).toBe(true);
@@ -696,7 +697,7 @@ describe('ClaudeRunner', () => {
       expect(spawnArgs).toContain('--verbose');
     });
 
-    it('should NOT include --output-format or --verbose flags in run()', async () => {
+    it('should include --output-format stream-json and --verbose flags in run() (unified stream-json)', async () => {
       const mockProc = createMockProcess();
       mockSpawn.mockReturnValue(mockProc);
 
@@ -707,9 +708,9 @@ describe('ClaudeRunner', () => {
       await runPromise;
 
       const spawnArgs = mockSpawn.mock.calls[0][1] as string[];
-      expect(spawnArgs).not.toContain('--output-format');
-      expect(spawnArgs).not.toContain('stream-json');
-      expect(spawnArgs).not.toContain('--verbose');
+      expect(spawnArgs).toContain('--output-format');
+      expect(spawnArgs).toContain('stream-json');
+      expect(spawnArgs).toContain('--verbose');
     });
 
     it('should extract text from NDJSON assistant events', async () => {
@@ -753,6 +754,131 @@ describe('ClaudeRunner', () => {
       const result = await runPromise;
       // Tool use events don't add text to output
       expect(result.output).toBe('');
+    });
+  });
+
+  describe('usage data extraction', () => {
+    function createMockProcess() {
+      const stdout = new EventEmitter();
+      const stderr = new EventEmitter();
+      const proc = new EventEmitter() as any;
+      proc.stdout = stdout;
+      proc.stderr = stderr;
+      proc.kill = jest.fn();
+      return proc;
+    }
+
+    it('should return usageData from run() when result event has usage', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', { timeout: 60 });
+
+      const assistantEvent = JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'text', text: 'Done' }] },
+      });
+      const resultEvent = JSON.stringify({
+        type: 'result',
+        usage: { input_tokens: 1000, output_tokens: 500, cache_read_input_tokens: 200, cache_creation_input_tokens: 100 },
+        modelUsage: { 'claude-opus-4-6': { inputTokens: 1000, outputTokens: 500, cacheReadInputTokens: 200, cacheCreationInputTokens: 100 } },
+      });
+
+      mockProc.stdout.emit('data', Buffer.from(assistantEvent + '\n' + resultEvent + '\n'));
+      mockProc.emit('close', 0);
+
+      const result = await runPromise;
+      expect(result.usageData).toBeDefined();
+      expect(result.usageData!.inputTokens).toBe(1000);
+      expect(result.usageData!.outputTokens).toBe(500);
+      expect(result.usageData!.modelUsage['claude-opus-4-6']).toEqual({
+        inputTokens: 1000,
+        outputTokens: 500,
+        cacheReadInputTokens: 200,
+        cacheCreationInputTokens: 100,
+      });
+    });
+
+    it('should return usageData from runVerbose() when result event has usage', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.runVerbose('test prompt', { timeout: 60 });
+
+      const resultEvent = JSON.stringify({
+        type: 'result',
+        usage: { input_tokens: 2000, output_tokens: 800 },
+        modelUsage: { 'claude-sonnet-4-5-20250929': { inputTokens: 2000, outputTokens: 800 } },
+      });
+
+      mockProc.stdout.emit('data', Buffer.from(resultEvent + '\n'));
+      mockProc.emit('close', 0);
+
+      const result = await runPromise;
+      expect(result.usageData).toBeDefined();
+      expect(result.usageData!.inputTokens).toBe(2000);
+      expect(result.usageData!.outputTokens).toBe(800);
+    });
+
+    it('should return undefined usageData when no result event', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', { timeout: 60 });
+
+      const assistantEvent = JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'text', text: 'Output' }] },
+      });
+
+      mockProc.stdout.emit('data', Buffer.from(assistantEvent + '\n'));
+      mockProc.emit('close', 0);
+
+      const result = await runPromise;
+      expect(result.usageData).toBeUndefined();
+    });
+
+    it('should suppress display in run() but still capture usage data', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      // Spy on stdout.write to verify no display output in non-verbose mode
+      const writeSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', { timeout: 60 });
+
+      const toolEvent = JSON.stringify({
+        type: 'assistant',
+        message: { content: [
+          { type: 'text', text: 'Working...' },
+          { type: 'tool_use', name: 'Read', input: { file_path: '/test.ts' } },
+        ] },
+      });
+      const resultEvent = JSON.stringify({
+        type: 'result',
+        usage: { input_tokens: 100, output_tokens: 50 },
+      });
+
+      mockProc.stdout.emit('data', Buffer.from(toolEvent + '\n' + resultEvent + '\n'));
+      mockProc.emit('close', 0);
+
+      const result = await runPromise;
+
+      // No display output (run() is non-verbose)
+      expect(writeSpy).not.toHaveBeenCalled();
+
+      // But usage data is still captured
+      expect(result.usageData).toBeDefined();
+      expect(result.usageData!.inputTokens).toBe(100);
+
+      // And text content is captured
+      expect(result.output).toContain('Working...');
+
+      writeSpy.mockRestore();
     });
   });
 

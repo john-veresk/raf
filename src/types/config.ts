@@ -130,3 +130,22 @@ export interface MigrateCommandOptions {
   dryRun?: boolean;
   worktree?: boolean;
 }
+
+/** Per-model token usage breakdown from stream-json result event. */
+export interface ModelTokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
+}
+
+/** Token usage data extracted from Claude CLI stream-json result event. */
+export interface UsageData {
+  /** Aggregate token counts across all models. */
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
+  /** Per-model breakdown (e.g., { "claude-opus-4-6": { ... } }). */
+  modelUsage: Record<string, ModelTokenUsage>;
+}
