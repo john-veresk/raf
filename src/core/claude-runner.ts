@@ -4,6 +4,7 @@ import type { IDisposable } from 'node-pty';
 import { execSync, spawn } from 'node:child_process';
 import { logger } from '../utils/logger.js';
 import { renderStreamEvent } from '../parsers/stream-renderer.js';
+import type { UsageData } from '../types/config.js';
 import { getHeadCommitHash, getHeadCommitMessage, isFileCommittedInHead } from './git.js';
 import { getClaudeCommand, getModel } from '../utils/config.js';
 
@@ -58,6 +59,12 @@ export interface ClaudeRunnerOptions {
    * Only applied in non-interactive modes (run, runVerbose).
    */
   effortLevel?: 'low' | 'medium' | 'high';
+  /**
+   * Dynamic verbose display callback. When provided, called for each stream event
+   * to determine whether to write display output to stdout. Overrides the static
+   * verbose parameter in _runStreamJson. Used by the runtime verbose toggle.
+   */
+  verboseCheck?: () => boolean;
 }
 
 export interface ClaudeRunnerConfig {
@@ -73,6 +80,8 @@ export interface RunResult {
   exitCode: number;
   timedOut: boolean;
   contextOverflow: boolean;
+  /** Token usage data from the stream-json result event. */
+  usageData?: UsageData;
 }
 
 const CONTEXT_OVERFLOW_PATTERNS = [
@@ -364,8 +373,8 @@ export class ClaudeRunner {
 
   /**
    * Run Claude non-interactively and collect output.
-   * Used for execution phase where we parse the results.
-   * Uses child_process.spawn with -p flag for prompt (like ralphy).
+   * Uses stream-json format internally to capture token usage data.
+   * Tool display is suppressed (non-verbose mode).
    *
    * TIMEOUT BEHAVIOR:
    * - The timeout is applied per individual call to this method
@@ -375,103 +384,7 @@ export class ClaudeRunner {
    * - Default timeout is 60 minutes if not specified
    */
   async run(prompt: string, options: ClaudeRunnerOptions = {}): Promise<RunResult> {
-    const { timeout = 60, cwd = process.cwd(), outcomeFilePath, commitContext, effortLevel } = options;
-    // Ensure timeout is a positive number, fallback to 60 minutes
-    const validatedTimeout = Number(timeout) > 0 ? Number(timeout) : 60;
-    const timeoutMs = validatedTimeout * 60 * 1000;
-
-    return new Promise((resolve) => {
-      let output = '';
-      let stderr = '';
-      let timedOut = false;
-      let contextOverflow = false;
-
-      const claudePath = getClaudePath();
-
-      logger.debug(`Starting Claude execution session with model: ${this.model}`);
-      logger.debug(`Claude path: ${claudePath}`);
-
-      // Build env, optionally injecting effort level
-      const env = effortLevel
-        ? { ...process.env, CLAUDE_CODE_EFFORT_LEVEL: effortLevel }
-        : process.env;
-
-      // Use --append-system-prompt to add RAF instructions to system prompt
-      // This gives RAF instructions stronger precedence than passing as user message
-      // --dangerously-skip-permissions bypasses interactive prompts
-      // -p enables print mode (non-interactive)
-      const proc = spawn(claudePath, [
-        '--dangerously-skip-permissions',
-        '--model',
-        this.model,
-        '--append-system-prompt',
-        prompt,
-        '-p',
-        'Execute the task as described in the system prompt.',
-      ], {
-        cwd,
-        env,
-        stdio: ['ignore', 'pipe', 'pipe'], // no stdin needed
-      });
-
-      // Track this process
-      this.activeProcess = proc as any;
-
-      // Set up timeout
-      const timeoutHandle = setTimeout(() => {
-        timedOut = true;
-        logger.warn('Claude session timed out');
-        proc.kill('SIGTERM');
-      }, timeoutMs);
-
-      // Set up completion detection (stdout marker + outcome file polling)
-      const completionDetector = createCompletionDetector(
-        () => proc.kill('SIGTERM'),
-        outcomeFilePath,
-        commitContext,
-      );
-
-      // Collect stdout
-      proc.stdout.on('data', (data) => {
-        const text = data.toString();
-        output += text;
-
-        // Check for completion marker to start grace period
-        completionDetector.checkOutput(output);
-
-        // Check for context overflow
-        for (const pattern of CONTEXT_OVERFLOW_PATTERNS) {
-          if (pattern.test(text)) {
-            contextOverflow = true;
-            logger.warn('Context overflow detected');
-            proc.kill('SIGTERM');
-            break;
-          }
-        }
-      });
-
-      // Collect stderr
-      proc.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      proc.on('close', (exitCode) => {
-        clearTimeout(timeoutHandle);
-        completionDetector.cleanup();
-        this.activeProcess = null;
-
-        if (stderr) {
-          logger.debug(`Claude stderr: ${stderr}`);
-        }
-
-        resolve({
-          output,
-          exitCode: exitCode ?? (this.killed ? 130 : 1),
-          timedOut,
-          contextOverflow,
-        });
-      });
-    });
+    return this._runStreamJson(prompt, options, false);
   }
 
   /**
@@ -487,20 +400,40 @@ export class ClaudeRunner {
    * - Default timeout is 60 minutes if not specified
    */
   async runVerbose(prompt: string, options: ClaudeRunnerOptions = {}): Promise<RunResult> {
-    const { timeout = 60, cwd = process.cwd(), outcomeFilePath, commitContext, effortLevel } = options;
+    return this._runStreamJson(prompt, options, true);
+  }
+
+  /**
+   * Internal unified execution method using stream-json format.
+   * Both run() and runVerbose() delegate to this method.
+   *
+   * @param verbose - When true, tool descriptions and text are printed to stdout.
+   *                  When false, display output is suppressed but usage data is still captured.
+   */
+  private async _runStreamJson(
+    prompt: string,
+    options: ClaudeRunnerOptions,
+    verbose: boolean,
+  ): Promise<RunResult> {
+    const { timeout = 60, cwd = process.cwd(), outcomeFilePath, commitContext, effortLevel, verboseCheck } = options;
     // Ensure timeout is a positive number, fallback to 60 minutes
     const validatedTimeout = Number(timeout) > 0 ? Number(timeout) : 60;
     const timeoutMs = validatedTimeout * 60 * 1000;
+
+    // When verboseCheck callback is provided, use it to dynamically determine display.
+    // Otherwise, fall back to the static verbose parameter.
+    const shouldDisplay = verboseCheck ?? (() => verbose);
 
     return new Promise((resolve) => {
       let output = '';
       let stderr = '';
       let timedOut = false;
       let contextOverflow = false;
+      let usageData: import('../types/config.js').UsageData | undefined;
 
       const claudePath = getClaudePath();
 
-      logger.debug(`Starting Claude execution session (verbose/stream-json) with model: ${this.model}`);
+      logger.debug(`Starting Claude execution session (stream-json, verbose=${verbose}) with model: ${this.model}`);
       logger.debug(`Prompt length: ${prompt.length}, timeout: ${timeoutMs}ms, cwd: ${cwd}`);
       logger.debug(`Claude path: ${claudePath}`);
 
@@ -511,7 +444,7 @@ export class ClaudeRunner {
 
       logger.debug('Spawning process...');
       // Use --output-format stream-json --verbose to get real-time streaming events
-      // including tool calls, file operations, and intermediate output.
+      // including tool calls, file operations, and token usage in the result event.
       // --dangerously-skip-permissions bypasses interactive prompts
       // -p enables print mode (non-interactive)
       const proc = spawn(claudePath, [
@@ -567,17 +500,17 @@ export class ClaudeRunner {
           const line = lineBuffer.substring(0, newlineIndex);
           lineBuffer = lineBuffer.substring(newlineIndex + 1);
 
-          const { display, textContent } = renderStreamEvent(line);
+          const rendered = renderStreamEvent(line);
 
-          if (textContent) {
-            output += textContent;
+          if (rendered.textContent) {
+            output += rendered.textContent;
 
             // Check for completion marker to start grace period
             completionDetector.checkOutput(output);
 
             // Check for context overflow
             for (const pattern of CONTEXT_OVERFLOW_PATTERNS) {
-              if (pattern.test(textContent)) {
+              if (pattern.test(rendered.textContent)) {
                 contextOverflow = true;
                 logger.warn('Context overflow detected');
                 proc.kill('SIGTERM');
@@ -586,8 +519,13 @@ export class ClaudeRunner {
             }
           }
 
-          if (display) {
-            process.stdout.write(display);
+          // Capture usage data from result events
+          if (rendered.usageData) {
+            usageData = rendered.usageData;
+          }
+
+          if (shouldDisplay() && rendered.display) {
+            process.stdout.write(rendered.display);
           }
         }
       });
@@ -600,12 +538,15 @@ export class ClaudeRunner {
       proc.on('close', (exitCode) => {
         // Process any remaining data in the line buffer
         if (lineBuffer.trim()) {
-          const { display, textContent } = renderStreamEvent(lineBuffer);
-          if (textContent) {
-            output += textContent;
+          const rendered = renderStreamEvent(lineBuffer);
+          if (rendered.textContent) {
+            output += rendered.textContent;
           }
-          if (display) {
-            process.stdout.write(display);
+          if (rendered.usageData) {
+            usageData = rendered.usageData;
+          }
+          if (shouldDisplay() && rendered.display) {
+            process.stdout.write(rendered.display);
           }
         }
 
@@ -623,6 +564,7 @@ export class ClaudeRunner {
           exitCode: exitCode ?? (this.killed ? 130 : 1),
           timedOut,
           contextOverflow,
+          usageData,
         });
       });
     });

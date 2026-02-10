@@ -192,6 +192,16 @@ Support multiple identifier formats in commands:
 
 Use `resolveProjectIdentifierWithDetails()` from `src/utils/paths.ts`
 
+### Token Usage Tracking
+- After each task, RAF displays a per-task token summary (input/output tokens, cache tokens, estimated cost)
+- After all tasks complete, RAF displays a grand total summary block
+- Token data comes from Claude's `--output-format stream-json --verbose` result events
+- Cost calculation uses configurable per-model pricing (`pricing.*` config keys)
+- `TokenTracker` class (`src/utils/token-tracker.ts`) accumulates usage across tasks
+- Formatting utilities in `src/utils/terminal-symbols.ts`: `formatTaskTokenSummary()`, `formatTokenTotalSummary()`, `formatNumber()`, `formatCost()`
+- Failed tasks with partial usage data are still tracked in totals
+- Tasks with no usage data (timeout, crash) are silently skipped
+
 ### Git Commit Schema
 
 All git commits are made by Claude during task execution. RAF does not create any automated commits.
@@ -312,6 +322,11 @@ When working in a worktree, use absolute paths to the worktree directory for all
 
 ## Important Reminders
 
-1. After task completion update README.md (user facing) and CLAUDE.md (internal)
-2. Cover changes with tests - use TDD approach
-3. Use Clean Architecture principles (SOLID)
+1. **Keep README.md updated** — Update the user-facing README when:
+   - A new CLI command is added (add usage section + Command Reference entry)
+   - Existing command flags or behavior change
+   - Important features are added (e.g., worktrees, config, token tracking)
+   - The Features list needs a new bullet point
+2. **Keep CLAUDE.md updated** — Update internal docs when architectural decisions, config keys, or conventions change
+3. Cover changes with tests - use TDD approach
+4. Use Clean Architecture principles (SOLID)

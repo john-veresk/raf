@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { logger } from './logger.js';
 import { sanitizeProjectName } from './validation.js';
 import { getModel, getClaudeCommand } from './config.js';
@@ -37,6 +37,59 @@ Rules:
 Output format: ONLY output 5 names, one per line, no numbers, no explanations, no quotes.
 
 Project description:`;
+
+/**
+ * Run Claude CLI with the given prompt and return stdout.
+ * Uses spawn with --no-session-persistence to avoid cluttering session history.
+ */
+function runClaudePrint(prompt: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const model = getModel('nameGeneration');
+    const cmd = getClaudeCommand();
+
+    const proc = spawn(cmd, [
+      '--model', model,
+      '--no-session-persistence',
+      '-p',
+      prompt,
+    ], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    const timeoutHandle = setTimeout(() => {
+      proc.kill('SIGTERM');
+    }, 30000);
+
+    proc.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    proc.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    proc.on('close', (exitCode) => {
+      clearTimeout(timeoutHandle);
+      if (exitCode !== 0) {
+        if (stderr) {
+          logger.debug(`Claude CLI stderr: ${stderr}`);
+        }
+        resolve(null);
+      } else {
+        resolve(stdout.trim());
+      }
+    });
+
+    proc.on('error', (error) => {
+      clearTimeout(timeoutHandle);
+      logger.debug(`Claude CLI spawn error: ${error}`);
+      resolve(null);
+    });
+  });
+}
 
 /**
  * Generate a single project name using Claude.
@@ -85,81 +138,38 @@ export async function generateProjectNames(description: string): Promise<string[
  * Call Claude to generate a single project name.
  */
 async function callSonnetForName(description: string): Promise<string | null> {
-  try {
-    const fullPrompt = `${NAME_GENERATION_PROMPT}\n${description}`;
-
-    const model = getModel('nameGeneration');
-    const cmd = getClaudeCommand();
-    // Use claude CLI with configured model and --print for non-interactive output
-    const result = execSync(
-      `${cmd} --model ${model} --print "${escapeShellArg(fullPrompt)}"`,
-      {
-        encoding: 'utf-8',
-        timeout: 30000, // 30 second timeout
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }
-    );
-
-    return result.trim();
-  } catch (error) {
-    logger.debug(`Claude API call failed: ${error}`);
-    return null;
-  }
+  const fullPrompt = `${NAME_GENERATION_PROMPT}\n${description}`;
+  return runClaudePrint(fullPrompt);
 }
 
 /**
  * Call Claude to generate multiple project names.
  */
 async function callSonnetForMultipleNames(description: string): Promise<string[]> {
-  try {
-    const fullPrompt = `${MULTI_NAME_GENERATION_PROMPT}\n${description}`;
+  const fullPrompt = `${MULTI_NAME_GENERATION_PROMPT}\n${description}`;
+  const result = await runClaudePrint(fullPrompt);
 
-    const model = getModel('nameGeneration');
-    const cmd = getClaudeCommand();
-    const result = execSync(
-      `${cmd} --model ${model} --print "${escapeShellArg(fullPrompt)}"`,
-      {
-        encoding: 'utf-8',
-        timeout: 30000,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }
-    );
-
-    // Parse the multiline response
-    const lines = result
-      .trim()
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
-
-    // Sanitize and validate each name
-    const validNames: string[] = [];
-    for (const line of lines) {
-      const sanitized = sanitizeGeneratedName(line);
-      if (sanitized && !validNames.includes(sanitized)) {
-        validNames.push(sanitized);
-      }
-    }
-
-    // Return 3-5 names
-    return validNames.slice(0, 5);
-  } catch (error) {
-    logger.debug(`Claude API call for multiple names failed: ${error}`);
+  if (!result) {
     return [];
   }
-}
 
-/**
- * Escape a string for use as a shell argument.
- */
-function escapeShellArg(arg: string): string {
-  // Replace double quotes with escaped double quotes
-  // Replace backslashes with escaped backslashes
-  return arg
-    .replace(/\\/g, '\\\\')
-    .replace(/"/g, '\\"')
-    .replace(/\$/g, '\\$')
-    .replace(/`/g, '\\`');
+  // Parse the multiline response
+  const lines = result
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  // Sanitize and validate each name
+  const validNames: string[] = [];
+  for (const line of lines) {
+    const sanitized = sanitizeGeneratedName(line);
+    if (sanitized && !validNames.includes(sanitized)) {
+      validNames.push(sanitized);
+    }
+  }
+
+  // Return 3-5 names
+  return validNames.slice(0, 5);
 }
 
 /**
@@ -211,4 +221,4 @@ function generateFallbackName(description: string): string {
 }
 
 // Export for testing
-export { sanitizeGeneratedName, escapeShellArg };
+export { sanitizeGeneratedName };

@@ -1,0 +1,3 @@
+- [ ] add token count and report it in the end of each task and total after all tasks finished. bot input and output and add price estimation in $ according to price for opus 4.6 https://claude.com/pricing
+- [ ] run project name generation claude instance not like this " execSync("claude --print ...")" but in a way it will not register session
+- [ ] **Add** **support** **for** **full** **model** **IDs** like claude-opus-4-5-20251101 (in config)

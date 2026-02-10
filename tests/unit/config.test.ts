@@ -19,6 +19,10 @@ import {
   resetConfigCache,
   saveConfig,
   renderCommitMessage,
+  isValidModelName,
+  resolveModelPricingCategory,
+  getPricing,
+  getPricingConfig,
 } from '../../src/utils/config.js';
 import { DEFAULT_CONFIG } from '../../src/types/config.js';
 
@@ -120,13 +124,30 @@ describe('Config', () => {
       expect(() => validateConfig({ commitFormat: { unknownKey: 'val' } })).toThrow('Unknown config key: commitFormat.unknownKey');
     });
 
+    // Valid full model IDs
+    it('should accept full model IDs', () => {
+      expect(() => validateConfig({ models: { plan: 'claude-opus-4-5-20251101' } })).not.toThrow();
+      expect(() => validateConfig({ models: { execute: 'claude-sonnet-4-5-20250929' } })).not.toThrow();
+      expect(() => validateConfig({ models: { failureAnalysis: 'claude-haiku-4-5-20251001' } })).not.toThrow();
+    });
+
+    it('should accept model IDs without date suffix', () => {
+      expect(() => validateConfig({ models: { plan: 'claude-sonnet-4-5' } })).not.toThrow();
+      expect(() => validateConfig({ models: { plan: 'claude-opus-4' } })).not.toThrow();
+    });
+
     // Invalid model values
     it('should reject invalid model names', () => {
-      expect(() => validateConfig({ models: { plan: 'gpt-4' } })).toThrow('models.plan must be one of');
+      expect(() => validateConfig({ models: { plan: 'gpt-4' } })).toThrow('models.plan must be');
+    });
+
+    it('should reject random strings as model names', () => {
+      expect(() => validateConfig({ models: { plan: 'random-string' } })).toThrow('models.plan must be');
+      expect(() => validateConfig({ models: { plan: 'not-a-model' } })).toThrow('models.plan must be');
     });
 
     it('should reject non-string model values', () => {
-      expect(() => validateConfig({ models: { plan: 123 } })).toThrow('models.plan must be one of');
+      expect(() => validateConfig({ models: { plan: 123 } })).toThrow('models.plan must be');
     });
 
     // Invalid effort values
@@ -205,6 +226,31 @@ describe('Config', () => {
     });
   });
 
+  describe('isValidModelName', () => {
+    it('should accept short aliases', () => {
+      expect(isValidModelName('sonnet')).toBe(true);
+      expect(isValidModelName('haiku')).toBe(true);
+      expect(isValidModelName('opus')).toBe(true);
+    });
+
+    it('should accept full model IDs', () => {
+      expect(isValidModelName('claude-sonnet-4-5-20250929')).toBe(true);
+      expect(isValidModelName('claude-opus-4-5-20251101')).toBe(true);
+      expect(isValidModelName('claude-haiku-4-5-20251001')).toBe(true);
+      expect(isValidModelName('claude-sonnet-4-5')).toBe(true);
+      expect(isValidModelName('claude-opus-4')).toBe(true);
+    });
+
+    it('should reject invalid strings', () => {
+      expect(isValidModelName('gpt-4')).toBe(false);
+      expect(isValidModelName('random-string')).toBe(false);
+      expect(isValidModelName('')).toBe(false);
+      expect(isValidModelName('claude-')).toBe(false);
+      expect(isValidModelName('claude-sonnet')).toBe(false);
+      expect(isValidModelName('CLAUDE-SONNET-4')).toBe(false);
+    });
+  });
+
   describe('resolveConfig', () => {
     it('should return defaults when no config file exists', () => {
       const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
@@ -255,6 +301,15 @@ describe('Config', () => {
       fs.writeFileSync(configPath, JSON.stringify({ unknownKey: true }));
 
       expect(() => resolveConfig(configPath)).toThrow(ConfigValidationError);
+    });
+
+    it('should deep-merge full model ID override', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ models: { plan: 'claude-opus-4-5-20251101' } }));
+
+      const config = resolveConfig(configPath);
+      expect(config.models.plan).toBe('claude-opus-4-5-20251101');
+      expect(config.models.execute).toBe('opus'); // default preserved
     });
 
     it('should not mutate DEFAULT_CONFIG', () => {
@@ -467,6 +522,97 @@ describe('Config', () => {
         projectName: 'my-project',
       });
       expect(result).toBe('RAF[abcdef] Amend: my-project');
+    });
+  });
+
+  describe('validateConfig - pricing', () => {
+    it('should accept valid pricing config', () => {
+      expect(() => validateConfig({
+        pricing: {
+          opus: { inputPerMTok: 15, outputPerMTok: 75 },
+        },
+      })).not.toThrow();
+    });
+
+    it('should accept partial pricing override', () => {
+      expect(() => validateConfig({
+        pricing: {
+          haiku: { outputPerMTok: 4 },
+        },
+      })).not.toThrow();
+    });
+
+    it('should reject non-object pricing', () => {
+      expect(() => validateConfig({ pricing: 'expensive' })).toThrow('pricing must be an object');
+    });
+
+    it('should reject unknown pricing categories', () => {
+      expect(() => validateConfig({ pricing: { gpt4: { inputPerMTok: 10 } } })).toThrow('Unknown config key: pricing.gpt4');
+    });
+
+    it('should reject non-object category value', () => {
+      expect(() => validateConfig({ pricing: { opus: 'expensive' } })).toThrow('pricing.opus must be an object');
+    });
+
+    it('should reject unknown pricing fields', () => {
+      expect(() => validateConfig({ pricing: { opus: { unknownField: 5 } } })).toThrow('Unknown config key: pricing.opus.unknownField');
+    });
+
+    it('should reject negative pricing values', () => {
+      expect(() => validateConfig({ pricing: { opus: { inputPerMTok: -1 } } })).toThrow('pricing.opus.inputPerMTok must be a non-negative number');
+    });
+
+    it('should reject non-number pricing values', () => {
+      expect(() => validateConfig({ pricing: { opus: { inputPerMTok: 'fifteen' } } })).toThrow('pricing.opus.inputPerMTok must be a non-negative number');
+    });
+
+    it('should accept zero pricing values', () => {
+      expect(() => validateConfig({ pricing: { haiku: { inputPerMTok: 0 } } })).not.toThrow();
+    });
+
+    it('should reject Infinity pricing values', () => {
+      expect(() => validateConfig({ pricing: { opus: { inputPerMTok: Infinity } } })).toThrow('must be a non-negative number');
+    });
+  });
+
+  describe('resolveModelPricingCategory', () => {
+    it('should map short aliases directly', () => {
+      expect(resolveModelPricingCategory('opus')).toBe('opus');
+      expect(resolveModelPricingCategory('sonnet')).toBe('sonnet');
+      expect(resolveModelPricingCategory('haiku')).toBe('haiku');
+    });
+
+    it('should extract family from full model IDs', () => {
+      expect(resolveModelPricingCategory('claude-opus-4-6')).toBe('opus');
+      expect(resolveModelPricingCategory('claude-sonnet-4-5-20250929')).toBe('sonnet');
+      expect(resolveModelPricingCategory('claude-haiku-4-5-20251001')).toBe('haiku');
+    });
+
+    it('should return null for unknown model families', () => {
+      expect(resolveModelPricingCategory('claude-unknown-3-0')).toBeNull();
+      expect(resolveModelPricingCategory('gpt-4')).toBeNull();
+      expect(resolveModelPricingCategory('')).toBeNull();
+    });
+  });
+
+  describe('resolveConfig - pricing', () => {
+    it('should include default pricing when no config file', () => {
+      const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
+      expect(config.pricing.opus.inputPerMTok).toBe(15);
+      expect(config.pricing.sonnet.inputPerMTok).toBe(3);
+      expect(config.pricing.haiku.inputPerMTok).toBe(1);
+    });
+
+    it('should deep-merge partial pricing override', () => {
+      const configPath = path.join(tempDir, 'pricing.json');
+      fs.writeFileSync(configPath, JSON.stringify({
+        pricing: { opus: { inputPerMTok: 10 } },
+      }));
+
+      const config = resolveConfig(configPath);
+      expect(config.pricing.opus.inputPerMTok).toBe(10);
+      expect(config.pricing.opus.outputPerMTok).toBe(75); // default preserved
+      expect(config.pricing.sonnet.inputPerMTok).toBe(3); // default preserved
     });
   });
 

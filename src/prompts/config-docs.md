@@ -24,7 +24,7 @@ The above only changes `models.plan` — all other model settings keep their def
 
 ### `models` — Claude Model Selection
 
-Controls which Claude model is used for each scenario. All values must be one of: `"sonnet"`, `"haiku"`, `"opus"`.
+Controls which Claude model is used for each scenario. Values can be a short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID (e.g., `"claude-sonnet-4-5-20250929"`, `"claude-opus-4-5-20251101"`).
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -103,6 +103,42 @@ Controls the format of git commit messages. Templates use `{placeholder}` syntax
 
 Unknown placeholders are left as-is in the output.
 
+### `pricing` — Token Cost Pricing
+
+Controls per-model token pricing used for cost estimation. Prices are in dollars per million tokens. Each model category (`opus`, `sonnet`, `haiku`) has four pricing fields:
+
+| Field | Description |
+|-------|-------------|
+| `inputPerMTok` | Cost per million input tokens |
+| `outputPerMTok` | Cost per million output tokens |
+| `cacheReadPerMTok` | Cost per million cache read tokens (discounted) |
+| `cacheCreatePerMTok` | Cost per million cache creation tokens |
+
+**Default values:**
+
+| Category | Input | Output | Cache Read | Cache Create |
+|----------|-------|--------|------------|--------------|
+| `opus` | $15 | $75 | $1.50 | $18.75 |
+| `sonnet` | $3 | $15 | $0.30 | $3.75 |
+| `haiku` | $1 | $5 | $0.10 | $1.25 |
+
+Full model IDs from CLI output (e.g., `claude-opus-4-6`) are automatically mapped to the corresponding pricing category based on the model family name.
+
+Example override:
+
+```json
+{
+  "pricing": {
+    "opus": {
+      "inputPerMTok": 10,
+      "outputPerMTok": 50
+    }
+  }
+}
+```
+
+Only specify the fields you want to change — unset fields keep their defaults.
+
 ### `claudeCommand` — Claude CLI Path
 
 - **Type**: string (non-empty)
@@ -114,13 +150,14 @@ Unknown placeholders are left as-is in the output.
 The config is validated when loaded. Invalid configs cause an error with a descriptive message. The following rules are enforced:
 
 - **Unknown keys are rejected** at every nesting level. Typos like `"model"` instead of `"models"` will be caught.
-- **Model values** must be exactly `"sonnet"`, `"haiku"`, or `"opus"` (case-sensitive).
+- **Model values** must be a short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID matching the pattern `claude-{family}-{version}` (e.g., `"claude-sonnet-4-5-20250929"`).
 - **Effort values** must be exactly `"low"`, `"medium"`, or `"high"` (case-sensitive).
 - **`timeout`** must be a positive finite number.
 - **`maxRetries`** must be a non-negative integer.
 - **`autoCommit`** and **`worktree`** must be booleans.
 - **`commitFormat` values** must be strings.
 - **`claudeCommand`** must be a non-empty string.
+- **`pricing`** categories must be `"opus"`, `"sonnet"`, or `"haiku"`. Each field must be a non-negative number.
 - The config file must be valid JSON containing an object (not an array or primitive).
 
 ## CLI Precedence
@@ -193,11 +230,29 @@ Uses Sonnet for both planning and execution, reduces planning effort, and defaul
     "amend": "{prefix}[{projectId}] Amend: {projectName}",
     "prefix": "RAF"
   },
-  "claudeCommand": "claude"
+  "claudeCommand": "claude",
+  "pricing": {
+    "opus": { "inputPerMTok": 15, "outputPerMTok": 75, "cacheReadPerMTok": 1.5, "cacheCreatePerMTok": 18.75 },
+    "sonnet": { "inputPerMTok": 3, "outputPerMTok": 15, "cacheReadPerMTok": 0.3, "cacheCreatePerMTok": 3.75 },
+    "haiku": { "inputPerMTok": 1, "outputPerMTok": 5, "cacheReadPerMTok": 0.1, "cacheCreatePerMTok": 1.25 }
+  }
 }
 ```
 
 This is equivalent to having no config file at all — all values match the defaults.
+
+### Pinned Model Versions
+
+```json
+{
+  "models": {
+    "plan": "claude-opus-4-5-20251101",
+    "execute": "claude-sonnet-4-5-20250929"
+  }
+}
+```
+
+Uses specific model versions for planning and execution. Useful for pinning to a known-good model version.
 
 ### Team Branding — Custom Commit Prefix
 

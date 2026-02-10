@@ -235,6 +235,89 @@ describe('renderStreamEvent', () => {
       expect(result.display).toBe('');
       expect(result.textContent).toBe('');
     });
+
+    it('should extract usage data from result event', () => {
+      const line = JSON.stringify({
+        type: 'result',
+        subtype: 'success',
+        result: 'Done',
+        usage: {
+          input_tokens: 1000,
+          output_tokens: 500,
+          cache_read_input_tokens: 200,
+          cache_creation_input_tokens: 100,
+        },
+        modelUsage: {
+          'claude-opus-4-6': {
+            inputTokens: 1000,
+            outputTokens: 500,
+            cacheReadInputTokens: 200,
+            cacheCreationInputTokens: 100,
+          },
+        },
+      });
+      const result = renderStreamEvent(line);
+      expect(result.usageData).toBeDefined();
+      expect(result.usageData!.inputTokens).toBe(1000);
+      expect(result.usageData!.outputTokens).toBe(500);
+      expect(result.usageData!.cacheReadInputTokens).toBe(200);
+      expect(result.usageData!.cacheCreationInputTokens).toBe(100);
+      expect(result.usageData!.modelUsage['claude-opus-4-6']).toEqual({
+        inputTokens: 1000,
+        outputTokens: 500,
+        cacheReadInputTokens: 200,
+        cacheCreationInputTokens: 100,
+      });
+    });
+
+    it('should return undefined usageData when no usage in result', () => {
+      const line = JSON.stringify({
+        type: 'result',
+        subtype: 'success',
+        result: 'Done',
+      });
+      const result = renderStreamEvent(line);
+      expect(result.usageData).toBeUndefined();
+    });
+
+    it('should handle partial usage data gracefully', () => {
+      const line = JSON.stringify({
+        type: 'result',
+        usage: { input_tokens: 500 },
+      });
+      const result = renderStreamEvent(line);
+      expect(result.usageData).toBeDefined();
+      expect(result.usageData!.inputTokens).toBe(500);
+      expect(result.usageData!.outputTokens).toBe(0);
+      expect(result.usageData!.cacheReadInputTokens).toBe(0);
+      expect(result.usageData!.cacheCreationInputTokens).toBe(0);
+      expect(result.usageData!.modelUsage).toEqual({});
+    });
+
+    it('should handle multi-model usage data', () => {
+      const line = JSON.stringify({
+        type: 'result',
+        usage: {
+          input_tokens: 2000,
+          output_tokens: 800,
+        },
+        modelUsage: {
+          'claude-opus-4-6': {
+            inputTokens: 1500,
+            outputTokens: 600,
+          },
+          'claude-haiku-4-5-20251001': {
+            inputTokens: 500,
+            outputTokens: 200,
+          },
+        },
+      });
+      const result = renderStreamEvent(line);
+      expect(result.usageData).toBeDefined();
+      expect(Object.keys(result.usageData!.modelUsage)).toHaveLength(2);
+      expect(result.usageData!.modelUsage['claude-opus-4-6'].inputTokens).toBe(1500);
+      expect(result.usageData!.modelUsage['claude-haiku-4-5-20251001'].inputTokens).toBe(500);
+    });
   });
 
   describe('edge cases', () => {
