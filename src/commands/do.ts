@@ -20,7 +20,10 @@ import {
   formatProjectHeader,
   formatSummary,
   formatTaskProgress,
+  formatTaskTokenSummary,
+  formatTokenTotalSummary,
 } from '../utils/terminal-symbols.js';
+import { TokenTracker } from '../utils/token-tracker.js';
 import {
   deriveProjectState,
   discoverProjects,
@@ -711,6 +714,9 @@ async function executeSingleProject(
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
+  // Initialize token tracker for usage reporting
+  const tokenTracker = new TokenTracker();
+
   // Start project timer
   const projectStartTime = Date.now();
 
@@ -891,6 +897,7 @@ async function executeSingleProject(
     let attempts = 0;
     let lastOutput = '';
     let failureReason = '';
+    let lastUsageData: import('../types/config.js').UsageData | undefined;
     // Track failure history for each attempt (attempt number -> reason)
     const failureHistory: Array<{ attempt: number; reason: string }> = [];
 
@@ -946,6 +953,9 @@ async function executeSingleProject(
         : await claudeRunner.run(prompt, { timeout, outcomeFilePath, commitContext, cwd: worktreeCwd, effortLevel: executeEffort });
 
       lastOutput = result.output;
+      if (result.usageData) {
+        lastUsageData = result.usageData;
+      }
 
       // Parse result
       const parsed = parseOutput(result.output);
@@ -1060,6 +1070,13 @@ Task completed. No detailed report provided.
         // Minimal mode: show completed task line
         logger.info(formatTaskProgress(taskNumber, totalTasks, 'completed', displayName, elapsedMs, task.id));
       }
+
+      // Track and display token usage for this task
+      if (lastUsageData) {
+        const entry = tokenTracker.addTask(task.id, lastUsageData);
+        logger.dim(formatTaskTokenSummary(entry.usage, entry.cost));
+      }
+
       completedInSession.add(task.id);
     } else {
       // Stash any uncommitted changes on complete failure
@@ -1079,6 +1096,12 @@ Task completed. No detailed report provided.
       } else {
         // Minimal mode: show failed task line
         logger.info(formatTaskProgress(taskNumber, totalTasks, 'failed', displayName, elapsedMs, task.id));
+      }
+
+      // Track token usage even for failed tasks (partial data still useful for totals)
+      if (lastUsageData) {
+        const entry = tokenTracker.addTask(task.id, lastUsageData);
+        logger.dim(formatTaskTokenSummary(entry.usage, entry.cost));
       }
 
       // Analyze failure and generate structured report
@@ -1181,6 +1204,14 @@ ${stashName ? `- Stash: ${stashName}` : ''}
         sessionStats.blocked
       ));
     }
+  }
+
+  // Show token usage summary if any tasks reported usage data
+  const trackerEntries = tokenTracker.getEntries();
+  if (trackerEntries.length > 0) {
+    logger.newline();
+    const totals = tokenTracker.getTotals();
+    logger.dim(formatTokenTotalSummary(totals.usage, totals.cost));
   }
 
   // Show retry history for tasks that had failures (even if eventually successful)
