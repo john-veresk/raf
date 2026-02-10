@@ -24,7 +24,7 @@ The above only changes `models.plan` — all other model settings keep their def
 
 ### `models` — Claude Model Selection
 
-Controls which Claude model is used for each scenario. All values must be one of: `"sonnet"`, `"haiku"`, `"opus"`.
+Controls which Claude model is used for each scenario. Values can be a short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID (e.g., `"claude-sonnet-4-5-20250929"`, `"claude-opus-4-5-20251101"`).
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -114,7 +114,7 @@ Unknown placeholders are left as-is in the output.
 The config is validated when loaded. Invalid configs cause an error with a descriptive message. The following rules are enforced:
 
 - **Unknown keys are rejected** at every nesting level. Typos like `"model"` instead of `"models"` will be caught.
-- **Model values** must be exactly `"sonnet"`, `"haiku"`, or `"opus"` (case-sensitive).
+- **Model values** must be a short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID matching the pattern `claude-{family}-{version}` (e.g., `"claude-sonnet-4-5-20250929"`).
 - **Effort values** must be exactly `"low"`, `"medium"`, or `"high"` (case-sensitive).
 - **`timeout`** must be a positive finite number.
 - **`maxRetries`** must be a non-negative integer.
@@ -198,6 +198,19 @@ Uses Sonnet for both planning and execution, reduces planning effort, and defaul
 ```
 
 This is equivalent to having no config file at all — all values match the defaults.
+
+### Pinned Model Versions
+
+```json
+{
+  "models": {
+    "plan": "claude-opus-4-5-20251101",
+    "execute": "claude-sonnet-4-5-20250929"
+  }
+}
+```
+
+Uses specific model versions for planning and execution. Useful for pinning to a known-good model version.
 
 ### Team Branding — Custom Commit Prefix
 

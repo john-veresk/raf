@@ -19,6 +19,7 @@ import {
   resetConfigCache,
   saveConfig,
   renderCommitMessage,
+  isValidModelName,
 } from '../../src/utils/config.js';
 import { DEFAULT_CONFIG } from '../../src/types/config.js';
 
@@ -120,13 +121,30 @@ describe('Config', () => {
       expect(() => validateConfig({ commitFormat: { unknownKey: 'val' } })).toThrow('Unknown config key: commitFormat.unknownKey');
     });
 
+    // Valid full model IDs
+    it('should accept full model IDs', () => {
+      expect(() => validateConfig({ models: { plan: 'claude-opus-4-5-20251101' } })).not.toThrow();
+      expect(() => validateConfig({ models: { execute: 'claude-sonnet-4-5-20250929' } })).not.toThrow();
+      expect(() => validateConfig({ models: { failureAnalysis: 'claude-haiku-4-5-20251001' } })).not.toThrow();
+    });
+
+    it('should accept model IDs without date suffix', () => {
+      expect(() => validateConfig({ models: { plan: 'claude-sonnet-4-5' } })).not.toThrow();
+      expect(() => validateConfig({ models: { plan: 'claude-opus-4' } })).not.toThrow();
+    });
+
     // Invalid model values
     it('should reject invalid model names', () => {
-      expect(() => validateConfig({ models: { plan: 'gpt-4' } })).toThrow('models.plan must be one of');
+      expect(() => validateConfig({ models: { plan: 'gpt-4' } })).toThrow('models.plan must be');
+    });
+
+    it('should reject random strings as model names', () => {
+      expect(() => validateConfig({ models: { plan: 'random-string' } })).toThrow('models.plan must be');
+      expect(() => validateConfig({ models: { plan: 'not-a-model' } })).toThrow('models.plan must be');
     });
 
     it('should reject non-string model values', () => {
-      expect(() => validateConfig({ models: { plan: 123 } })).toThrow('models.plan must be one of');
+      expect(() => validateConfig({ models: { plan: 123 } })).toThrow('models.plan must be');
     });
 
     // Invalid effort values
@@ -205,6 +223,31 @@ describe('Config', () => {
     });
   });
 
+  describe('isValidModelName', () => {
+    it('should accept short aliases', () => {
+      expect(isValidModelName('sonnet')).toBe(true);
+      expect(isValidModelName('haiku')).toBe(true);
+      expect(isValidModelName('opus')).toBe(true);
+    });
+
+    it('should accept full model IDs', () => {
+      expect(isValidModelName('claude-sonnet-4-5-20250929')).toBe(true);
+      expect(isValidModelName('claude-opus-4-5-20251101')).toBe(true);
+      expect(isValidModelName('claude-haiku-4-5-20251001')).toBe(true);
+      expect(isValidModelName('claude-sonnet-4-5')).toBe(true);
+      expect(isValidModelName('claude-opus-4')).toBe(true);
+    });
+
+    it('should reject invalid strings', () => {
+      expect(isValidModelName('gpt-4')).toBe(false);
+      expect(isValidModelName('random-string')).toBe(false);
+      expect(isValidModelName('')).toBe(false);
+      expect(isValidModelName('claude-')).toBe(false);
+      expect(isValidModelName('claude-sonnet')).toBe(false);
+      expect(isValidModelName('CLAUDE-SONNET-4')).toBe(false);
+    });
+  });
+
   describe('resolveConfig', () => {
     it('should return defaults when no config file exists', () => {
       const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
@@ -255,6 +298,15 @@ describe('Config', () => {
       fs.writeFileSync(configPath, JSON.stringify({ unknownKey: true }));
 
       expect(() => resolveConfig(configPath)).toThrow(ConfigValidationError);
+    });
+
+    it('should deep-merge full model ID override', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ models: { plan: 'claude-opus-4-5-20251101' } }));
+
+      const config = resolveConfig(configPath);
+      expect(config.models.plan).toBe('claude-opus-4-5-20251101');
+      expect(config.models.execute).toBe('opus'); // default preserved
     });
 
     it('should not mutate DEFAULT_CONFIG', () => {

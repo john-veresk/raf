@@ -6,7 +6,8 @@ import {
   DEFAULT_CONFIG,
   DEFAULT_RAF_CONFIG,
   UserConfig,
-  VALID_MODELS,
+  VALID_MODEL_ALIASES,
+  FULL_MODEL_ID_PATTERN,
   VALID_EFFORTS,
   ClaudeModelName,
   EffortLevel,
@@ -61,6 +62,13 @@ function checkUnknownKeys(obj: Record<string, unknown>, validKeys: Set<string>, 
   }
 }
 
+/**
+ * Check whether a string is a valid model name — either a short alias or a full model ID.
+ */
+export function isValidModelName(value: string): boolean {
+  return (VALID_MODEL_ALIASES as readonly string[]).includes(value) || FULL_MODEL_ID_PATTERN.test(value);
+}
+
 export function validateConfig(config: unknown): UserConfig {
   if (config === null || typeof config !== 'object' || Array.isArray(config)) {
     throw new ConfigValidationError('Config must be a JSON object');
@@ -77,8 +85,10 @@ export function validateConfig(config: unknown): UserConfig {
     const models = obj.models as Record<string, unknown>;
     checkUnknownKeys(models, VALID_MODEL_KEYS, 'models');
     for (const [key, val] of Object.entries(models)) {
-      if (typeof val !== 'string' || !(VALID_MODELS as readonly string[]).includes(val)) {
-        throw new ConfigValidationError(`models.${key} must be one of: ${VALID_MODELS.join(', ')}`);
+      if (typeof val !== 'string' || !isValidModelName(val)) {
+        throw new ConfigValidationError(
+          `models.${key} must be a short alias (${VALID_MODEL_ALIASES.join(', ')}) or a full model ID (e.g., claude-sonnet-4-5-20250929)`
+        );
       }
     }
   }

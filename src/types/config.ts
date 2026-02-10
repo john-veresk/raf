@@ -1,4 +1,11 @@
-export type ClaudeModelName = 'sonnet' | 'haiku' | 'opus';
+/** Short alias for a Claude model family */
+export type ClaudeModelAlias = 'sonnet' | 'haiku' | 'opus';
+
+/**
+ * Accepts short aliases (`sonnet`, `haiku`, `opus`) or full model IDs
+ * matching the pattern `claude-{family}-{version}` (e.g., `claude-opus-4-5-20251101`).
+ */
+export type ClaudeModelName = ClaudeModelAlias | (string & { __brand?: 'FullModelId' });
 export type EffortLevel = 'low' | 'medium' | 'high';
 
 export type ModelScenario = 'plan' | 'execute' | 'nameGeneration' | 'failureAnalysis' | 'prGeneration' | 'config';
@@ -78,7 +85,16 @@ export type DeepPartial<T> = {
 
 export type UserConfig = DeepPartial<RafConfig>;
 
-export const VALID_MODELS: readonly ClaudeModelName[] = ['sonnet', 'haiku', 'opus'];
+export const VALID_MODEL_ALIASES: readonly ClaudeModelAlias[] = ['sonnet', 'haiku', 'opus'];
+
+/**
+ * Regex for full Claude model IDs (e.g., `claude-sonnet-4-5-20250929`, `claude-opus-4-5-20251101`).
+ * Pattern: claude-{family}-{major}(-{minor})?(-{date})?
+ */
+export const FULL_MODEL_ID_PATTERN = /^claude-[a-z]+-\d+(-\d+)*$/;
+
+/** @deprecated Use VALID_MODEL_ALIASES instead */
+export const VALID_MODELS = VALID_MODEL_ALIASES;
 export const VALID_EFFORTS: readonly EffortLevel[] = ['low', 'medium', 'high'];
 
 // Keep backward-compat exports used by other modules
