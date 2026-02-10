@@ -13,8 +13,48 @@ export interface CostBreakdown {
 /** Per-task usage snapshot stored by the tracker. */
 export interface TaskUsageEntry {
   taskId: string;
+  /** Accumulated usage across all attempts. */
   usage: UsageData;
+  /** Cost breakdown for accumulated usage. */
   cost: CostBreakdown;
+  /** Raw per-attempt usage data (for display breakdowns). */
+  attempts: UsageData[];
+}
+
+/**
+ * Merge multiple UsageData objects into a single accumulated UsageData.
+ * Sums all token fields and merges modelUsage maps.
+ */
+export function accumulateUsage(attempts: UsageData[]): UsageData {
+  const result: UsageData = {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadInputTokens: 0,
+    cacheCreationInputTokens: 0,
+    modelUsage: {},
+  };
+
+  for (const attempt of attempts) {
+    result.inputTokens += attempt.inputTokens;
+    result.outputTokens += attempt.outputTokens;
+    result.cacheReadInputTokens += attempt.cacheReadInputTokens;
+    result.cacheCreationInputTokens += attempt.cacheCreationInputTokens;
+
+    // Merge per-model usage
+    for (const [modelId, modelUsage] of Object.entries(attempt.modelUsage)) {
+      const existing = result.modelUsage[modelId];
+      if (existing) {
+        existing.inputTokens += modelUsage.inputTokens;
+        existing.outputTokens += modelUsage.outputTokens;
+        existing.cacheReadInputTokens += modelUsage.cacheReadInputTokens;
+        existing.cacheCreationInputTokens += modelUsage.cacheCreationInputTokens;
+      } else {
+        result.modelUsage[modelId] = { ...modelUsage };
+      }
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -31,10 +71,12 @@ export class TokenTracker {
 
   /**
    * Record usage data from a completed task.
+   * Accepts an array of UsageData (one per attempt) and accumulates them.
    */
-  addTask(taskId: string, usage: UsageData): TaskUsageEntry {
+  addTask(taskId: string, attempts: UsageData[]): TaskUsageEntry {
+    const usage = accumulateUsage(attempts);
     const cost = this.calculateCost(usage);
-    const entry: TaskUsageEntry = { taskId, usage, cost };
+    const entry: TaskUsageEntry = { taskId, usage, cost, attempts };
     this.entries.push(entry);
     return entry;
   }

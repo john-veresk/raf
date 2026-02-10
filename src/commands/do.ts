@@ -1088,8 +1088,9 @@ Task completed. No detailed report provided.
       }
 
       // Track and display token usage for this task
+      // TODO: Pass all attempt UsageData once retry loop accumulates them
       if (lastUsageData) {
-        const entry = tokenTracker.addTask(task.id, lastUsageData);
+        const entry = tokenTracker.addTask(task.id, [lastUsageData]);
         logger.dim(formatTaskTokenSummary(entry.usage, entry.cost));
       }
 
@@ -1115,8 +1116,9 @@ Task completed. No detailed report provided.
       }
 
       // Track token usage even for failed tasks (partial data still useful for totals)
+      // TODO: Pass all attempt UsageData once retry loop accumulates them
       if (lastUsageData) {
-        const entry = tokenTracker.addTask(task.id, lastUsageData);
+        const entry = tokenTracker.addTask(task.id, [lastUsageData]);
         logger.dim(formatTaskTokenSummary(entry.usage, entry.cost));
       }
 
