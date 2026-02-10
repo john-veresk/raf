@@ -24,7 +24,15 @@ The above only changes `models.plan` — all other model settings keep their def
 
 ### `models` — Claude Model Selection
 
-Controls which Claude model is used for each scenario. Values can be a short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID (e.g., `"claude-sonnet-4-5-20250929"`, `"claude-opus-4-5-20251101"`).
+Controls which Claude model is used for each scenario. Values can be a short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID.
+
+**Model ID format**: Full model IDs follow the pattern `claude-{family}-{version}`, for example:
+- `"claude-opus-4-5-20251101"` — Opus 4.5 from November 2025
+- `"claude-opus-4-6"` — Opus 4.6 (latest)
+- `"claude-sonnet-4-5-20250929"` — Sonnet 4.5 from September 2025
+- `"claude-haiku-4-5-20251001"` — Haiku 4.5 from October 2025
+
+**Short aliases**: Using aliases (`"opus"`, `"sonnet"`, `"haiku"`) automatically selects the latest version of that model family.
 
 | Key | Default | Description |
 |-----|---------|-------------|
