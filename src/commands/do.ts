@@ -913,6 +913,11 @@ async function executeSingleProject(
     // Set up timer for elapsed time tracking
     const statusLine = createStatusLine();
     const timer = createTaskTimer(verbose ? undefined : (elapsed) => {
+      // When verbose is toggled ON at runtime, clear the status line and skip updates
+      if (verboseToggle.isVerbose) {
+        statusLine.clear();
+        return;
+      }
       // Show running status with task name and timer (updates in place)
       statusLine.update(formatTaskProgress(taskNumber, totalTasks, 'running', displayName, elapsed, taskId));
     });
