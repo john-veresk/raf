@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { logger } from '../utils/logger.js';
+import { getModel, getClaudeCommand } from '../utils/config.js';
 import { extractProjectName, getInputPath, getDecisionsPath, getOutcomesDir, TASK_ID_PATTERN } from '../utils/paths.js';
 
 export interface PrCreateResult {
@@ -222,7 +223,7 @@ export function readProjectContext(projectPath: string): {
 }
 
 /**
- * Generate a PR body by calling Claude Sonnet to summarize project context.
+ * Generate a PR body by calling Claude to summarize project context.
  * Falls back to a simple body if Claude is unavailable.
  */
 export async function generatePrBody(
@@ -348,12 +349,13 @@ export function filterClaudeOutput(output: string): string {
 }
 
 /**
- * Call Claude Sonnet to generate a PR body.
+ * Call Claude to generate a PR body.
  */
 async function callClaudeForPrBody(prompt: string, timeoutMs: number): Promise<string> {
+  const cmd = getClaudeCommand();
   let claudePath: string;
   try {
-    claudePath = execSync('which claude', { encoding: 'utf-8', stdio: 'pipe' }).trim();
+    claudePath = execSync(`which ${cmd}`, { encoding: 'utf-8', stdio: 'pipe' }).trim();
   } catch {
     throw new Error('Claude CLI not found');
   }
@@ -362,8 +364,9 @@ async function callClaudeForPrBody(prompt: string, timeoutMs: number): Promise<s
     let output = '';
     let stderr = '';
 
+    const prModel = getModel('prGeneration');
     const proc = spawn(claudePath, [
-      '--model', 'sonnet',
+      '--model', prModel,
       '--dangerously-skip-permissions',
       '-p',
       prompt,

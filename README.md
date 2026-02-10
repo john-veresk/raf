@@ -52,6 +52,7 @@ That's it! RAF will guide you through breaking down your task and then execute i
 - **Git Integration**: Automatic commits after each completed task
 - **Task Dependencies**: Tasks can depend on other tasks, with automatic blocking on failure
 - **Worktree Mode**: Isolate planning and execution in a git worktree branch with `--worktree`
+- **Configurable**: Customize models, effort levels, timeouts, and more via `raf config`
 
 ## Commands
 
@@ -88,6 +89,33 @@ Check project status. Worktree projects are discovered automatically when inside
 raf status            # List all projects (includes worktree projects that differ)
 raf status abcdef     # Show details for a project (shows both main and worktree if they differ)
 ```
+
+### `raf config`
+
+View and edit RAF configuration through an interactive Claude session. Configuration is stored at `~/.raf/raf.config.json`. All settings are optional — only set what you want to change.
+
+```bash
+raf config               # Interactive config editor
+raf config "use haiku for name generation"  # Start with a specific request
+raf config --reset       # Reset config to defaults
+```
+
+**Precedence**: CLI flags > config file > built-in defaults
+
+Example `~/.raf/raf.config.json`:
+
+```json
+{
+  "models": {
+    "execute": "sonnet",
+    "nameGeneration": "haiku"
+  },
+  "worktree": true,
+  "timeout": 45
+}
+```
+
+Run `raf config` without arguments and ask what's available — the session has full knowledge of every configurable option.
 
 ### `raf migrate-project-ids-base26`
 
@@ -180,6 +208,12 @@ Alias: `raf act`
 | `-w, --worktree` | Migrate worktree project folders |
 
 > **Note:** `raf do` and `raf plan -y` run Claude with `--dangerously-skip-permissions` for fully automated execution without interactive prompts.
+
+### `raf config [prompt]`
+
+| Option | Description |
+|--------|-------------|
+| `--reset` | Reset config file to defaults |
 
 ### `raf status [identifier]`
 

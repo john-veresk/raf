@@ -13,14 +13,18 @@ import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFro
 import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
-import { getConfig } from '../utils/config.js';
+import { getConfig, getEffort, getWorktreeDefault } from '../utils/config.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
 import { createStatusLine } from '../utils/status-line.js';
 import {
   formatProjectHeader,
   formatSummary,
   formatTaskProgress,
+  formatTaskTokenSummary,
+  formatTokenTotalSummary,
 } from '../utils/terminal-symbols.js';
+import { TokenTracker } from '../utils/token-tracker.js';
+import { VerboseToggle } from '../utils/verbose-toggle.js';
 import {
   deriveProjectState,
   discoverProjects,
@@ -134,12 +138,12 @@ export function createDoCommand(): Command {
 async function runDoCommand(projectIdentifierArg: string | undefined, options: DoCommandOptions): Promise<void> {
   const rafDir = getRafDir();
   let projectIdentifier = projectIdentifierArg;
-  let worktreeMode = options.worktree ?? false;
+  let worktreeMode = options.worktree ?? getWorktreeDefault();
 
   // Validate and resolve model option
   let model: string;
   try {
-    model = resolveModelOption(options.model as string | undefined, options.sonnet);
+    model = resolveModelOption(options.model as string | undefined, options.sonnet, 'execute');
   } catch (error) {
     logger.error((error as Error).message);
     process.exit(1);
@@ -711,6 +715,13 @@ async function executeSingleProject(
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
+  // Initialize token tracker for usage reporting
+  const tokenTracker = new TokenTracker();
+
+  // Set up runtime verbose toggle (Tab key to toggle during execution)
+  const verboseToggle = new VerboseToggle(verbose);
+  shutdownHandler.onShutdown(() => verboseToggle.stop());
+
   // Start project timer
   const projectStartTime = Date.now();
 
@@ -816,6 +827,9 @@ async function executeSingleProject(
     return lines.join('\n');
   }
 
+  // Start verbose toggle listener (Tab key)
+  verboseToggle.start();
+
   let task = getNextTaskToProcess(state);
 
   while (task) {
@@ -891,6 +905,7 @@ async function executeSingleProject(
     let attempts = 0;
     let lastOutput = '';
     let failureReason = '';
+    let lastUsageData: import('../types/config.js').UsageData | undefined;
     // Track failure history for each attempt (attempt number -> reason)
     const failureHistory: Array<{ attempt: number; reason: string }> = [];
 
@@ -940,11 +955,23 @@ async function executeSingleProject(
       } : undefined;
 
       // Run Claude (use worktree root as cwd if in worktree mode)
+      const executeEffort = getEffort('execute');
+      const runnerOptions = {
+        timeout,
+        outcomeFilePath,
+        commitContext,
+        cwd: worktreeCwd,
+        effortLevel: executeEffort,
+        verboseCheck: () => verboseToggle.isVerbose,
+      };
       const result = verbose
-        ? await claudeRunner.runVerbose(prompt, { timeout, outcomeFilePath, commitContext, cwd: worktreeCwd, effortLevel: 'medium' })
-        : await claudeRunner.run(prompt, { timeout, outcomeFilePath, commitContext, cwd: worktreeCwd, effortLevel: 'medium' });
+        ? await claudeRunner.runVerbose(prompt, runnerOptions)
+        : await claudeRunner.run(prompt, runnerOptions);
 
       lastOutput = result.output;
+      if (result.usageData) {
+        lastUsageData = result.usageData;
+      }
 
       // Parse result
       const parsed = parseOutput(result.output);
@@ -1059,6 +1086,13 @@ Task completed. No detailed report provided.
         // Minimal mode: show completed task line
         logger.info(formatTaskProgress(taskNumber, totalTasks, 'completed', displayName, elapsedMs, task.id));
       }
+
+      // Track and display token usage for this task
+      if (lastUsageData) {
+        const entry = tokenTracker.addTask(task.id, lastUsageData);
+        logger.dim(formatTaskTokenSummary(entry.usage, entry.cost));
+      }
+
       completedInSession.add(task.id);
     } else {
       // Stash any uncommitted changes on complete failure
@@ -1078,6 +1112,12 @@ Task completed. No detailed report provided.
       } else {
         // Minimal mode: show failed task line
         logger.info(formatTaskProgress(taskNumber, totalTasks, 'failed', displayName, elapsedMs, task.id));
+      }
+
+      // Track token usage even for failed tasks (partial data still useful for totals)
+      if (lastUsageData) {
+        const entry = tokenTracker.addTask(task.id, lastUsageData);
+        logger.dim(formatTaskTokenSummary(entry.usage, entry.cost));
       }
 
       // Analyze failure and generate structured report
@@ -1113,6 +1153,9 @@ ${stashName ? `- Stash: ${stashName}` : ''}
     // Get next task to process
     task = getNextTaskToProcess(state);
   }
+
+  // Stop verbose toggle listener before summary output
+  verboseToggle.stop();
 
   // Ensure context is cleared for summary
   logger.clearContext();
@@ -1180,6 +1223,14 @@ ${stashName ? `- Stash: ${stashName}` : ''}
         sessionStats.blocked
       ));
     }
+  }
+
+  // Show token usage summary if any tasks reported usage data
+  const trackerEntries = tokenTracker.getEntries();
+  if (trackerEntries.length > 0) {
+    logger.newline();
+    const totals = tokenTracker.getTotals();
+    logger.dim(formatTokenTotalSummary(totals.usage, totals.cost));
   }
 
   // Show retry history for tasks that had failures (even if eventually successful)

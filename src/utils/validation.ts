@@ -2,6 +2,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execSync } from 'node:child_process';
 import { logger } from './logger.js';
+import type { ClaudeModelName, ModelScenario } from '../types/config.js';
+import { VALID_MODEL_ALIASES, FULL_MODEL_ID_PATTERN } from '../types/config.js';
+import { getModel } from './config.js';
 
 export interface ValidationResult {
   valid: boolean;
@@ -88,19 +91,21 @@ export function reportValidation(result: ValidationResult): void {
   }
 }
 
-const VALID_MODELS = ['sonnet', 'haiku', 'opus'] as const;
+/** @deprecated Use ClaudeModelName from types/config.js instead */
+export type ValidModelName = ClaudeModelName;
 
-export type ValidModelName = (typeof VALID_MODELS)[number];
-
-export function validateModelName(model: string): ValidModelName | null {
+export function validateModelName(model: string): ClaudeModelName | null {
   const normalized = model.toLowerCase();
-  if (VALID_MODELS.includes(normalized as ValidModelName)) {
-    return normalized as ValidModelName;
+  if ((VALID_MODEL_ALIASES as readonly string[]).includes(normalized)) {
+    return normalized as ClaudeModelName;
+  }
+  if (FULL_MODEL_ID_PATTERN.test(normalized)) {
+    return normalized as ClaudeModelName;
   }
   return null;
 }
 
-export function resolveModelOption(model?: string, sonnet?: boolean): ValidModelName {
+export function resolveModelOption(model?: string, sonnet?: boolean, scenario: ModelScenario = 'execute'): ClaudeModelName {
   // Check for conflicting flags
   if (model && sonnet) {
     throw new Error('Cannot specify both --model and --sonnet flags');
@@ -115,11 +120,11 @@ export function resolveModelOption(model?: string, sonnet?: boolean): ValidModel
   if (model) {
     const validated = validateModelName(model);
     if (!validated) {
-      throw new Error(`Invalid model name: "${model}". Valid options: ${VALID_MODELS.join(', ')}`);
+      throw new Error(`Invalid model name: "${model}". Valid options: ${VALID_MODEL_ALIASES.join(', ')} or a full model ID (e.g., claude-sonnet-4-5-20250929)`);
     }
     return validated;
   }
 
-  // Default to opus
-  return 'opus';
+  // Default from config
+  return getModel(scenario);
 }

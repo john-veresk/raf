@@ -4,8 +4,14 @@ import {
   formatProjectHeader,
   formatSummary,
   formatProgressBar,
+  formatNumber,
+  formatCost,
+  formatTaskTokenSummary,
+  formatTokenTotalSummary,
   TaskStatus,
 } from '../../src/utils/terminal-symbols.js';
+import type { UsageData } from '../../src/types/config.js';
+import type { CostBreakdown } from '../../src/utils/token-tracker.js';
 
 describe('Terminal Symbols', () => {
   describe('SYMBOLS', () => {
@@ -229,6 +235,157 @@ describe('Terminal Symbols', () => {
       const tasks: TaskStatus[] = ['completed', 'failed', 'blocked', 'pending'];
       const result = formatProgressBar(tasks);
       expect(result).toBe('✓✗⊘○');
+    });
+  });
+
+  describe('formatNumber', () => {
+    it('should format small numbers without separators', () => {
+      expect(formatNumber(42)).toBe('42');
+    });
+
+    it('should format numbers with thousands separators', () => {
+      expect(formatNumber(12345)).toBe('12,345');
+    });
+
+    it('should format large numbers', () => {
+      expect(formatNumber(1234567)).toBe('1,234,567');
+    });
+
+    it('should format zero', () => {
+      expect(formatNumber(0)).toBe('0');
+    });
+  });
+
+  describe('formatCost', () => {
+    it('should format zero cost', () => {
+      expect(formatCost(0)).toBe('$0.00');
+    });
+
+    it('should format normal costs with 2 decimals', () => {
+      expect(formatCost(1.23)).toBe('$1.23');
+    });
+
+    it('should format small costs with 4 decimals', () => {
+      expect(formatCost(0.0042)).toBe('$0.0042');
+    });
+
+    it('should format costs just at the threshold', () => {
+      expect(formatCost(0.01)).toBe('$0.01');
+    });
+
+    it('should format costs below threshold', () => {
+      expect(formatCost(0.009)).toBe('$0.0090');
+    });
+  });
+
+  describe('formatTaskTokenSummary', () => {
+    const makeUsage = (overrides: Partial<UsageData> = {}): UsageData => ({
+      inputTokens: 5234,
+      outputTokens: 1023,
+      cacheReadInputTokens: 0,
+      cacheCreationInputTokens: 0,
+      modelUsage: {},
+      ...overrides,
+    });
+
+    const makeCost = (total: number): CostBreakdown => ({
+      inputCost: 0,
+      outputCost: 0,
+      cacheReadCost: 0,
+      cacheCreateCost: 0,
+      totalCost: total,
+    });
+
+    it('should format basic token summary without cache', () => {
+      const result = formatTaskTokenSummary(makeUsage(), makeCost(0.42));
+      expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Est. cost: $0.42');
+    });
+
+    it('should include cache read tokens', () => {
+      const result = formatTaskTokenSummary(
+        makeUsage({ cacheReadInputTokens: 18500 }),
+        makeCost(0.42)
+      );
+      expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cache: 18,500 read | Est. cost: $0.42');
+    });
+
+    it('should include cache creation tokens', () => {
+      const result = formatTaskTokenSummary(
+        makeUsage({ cacheCreationInputTokens: 5000 }),
+        makeCost(0.55)
+      );
+      expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cache: 5,000 created | Est. cost: $0.55');
+    });
+
+    it('should include both cache read and creation tokens', () => {
+      const result = formatTaskTokenSummary(
+        makeUsage({ cacheReadInputTokens: 18500, cacheCreationInputTokens: 5000 }),
+        makeCost(0.75)
+      );
+      expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cache: 18,500 read / 5,000 created | Est. cost: $0.75');
+    });
+
+    it('should format small costs with 4 decimal places', () => {
+      const result = formatTaskTokenSummary(makeUsage(), makeCost(0.0042));
+      expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Est. cost: $0.0042');
+    });
+  });
+
+  describe('formatTokenTotalSummary', () => {
+    const makeUsage = (overrides: Partial<UsageData> = {}): UsageData => ({
+      inputTokens: 45678,
+      outputTokens: 12345,
+      cacheReadInputTokens: 0,
+      cacheCreationInputTokens: 0,
+      modelUsage: {},
+      ...overrides,
+    });
+
+    const makeCost = (total: number): CostBreakdown => ({
+      inputCost: 0,
+      outputCost: 0,
+      cacheReadCost: 0,
+      cacheCreateCost: 0,
+      totalCost: total,
+    });
+
+    it('should format total summary without cache', () => {
+      const result = formatTokenTotalSummary(makeUsage(), makeCost(3.75));
+      expect(result).toContain('Token Usage Summary');
+      expect(result).toContain('Total tokens: 45,678 in / 12,345 out');
+      expect(result).toContain('Estimated cost: $3.75');
+      expect(result).not.toContain('Cache:');
+    });
+
+    it('should include cache read in total summary', () => {
+      const result = formatTokenTotalSummary(
+        makeUsage({ cacheReadInputTokens: 125000 }),
+        makeCost(3.75)
+      );
+      expect(result).toContain('Cache: 125,000 read');
+    });
+
+    it('should include cache creation in total summary', () => {
+      const result = formatTokenTotalSummary(
+        makeUsage({ cacheCreationInputTokens: 8000 }),
+        makeCost(3.75)
+      );
+      expect(result).toContain('Cache: 8,000 created');
+    });
+
+    it('should include both cache types in total summary', () => {
+      const result = formatTokenTotalSummary(
+        makeUsage({ cacheReadInputTokens: 125000, cacheCreationInputTokens: 8000 }),
+        makeCost(3.75)
+      );
+      expect(result).toContain('Cache: 125,000 read / 8,000 created');
+    });
+
+    it('should have divider lines', () => {
+      const result = formatTokenTotalSummary(makeUsage(), makeCost(3.75));
+      const lines = result.split('\n');
+      expect(lines[0]).toContain('──');
+      expect(lines[lines.length - 1]).toContain('──');
     });
   });
 });

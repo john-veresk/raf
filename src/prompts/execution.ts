@@ -1,3 +1,5 @@
+import { getCommitFormat, getCommitPrefix, renderCommitMessage } from '../utils/config.js';
+
 /**
  * Maximum characters for a dependency outcome summary.
  * Outcomes larger than this will be truncated to avoid context bloat.
@@ -86,6 +88,16 @@ ${previousOutcomes.map((o) => `### Task ${o.taskId}\n${o.content}`).join('\n\n')
   // Encode task number to 2-char base36
   const paddedTaskNumber = taskNumber.toString(36).padStart(2, '0');
 
+  // Build example commit message from config template
+  const commitTemplate = getCommitFormat('task');
+  const commitPrefix = getCommitPrefix();
+  const exampleCommit = renderCommitMessage(commitTemplate, {
+    prefix: commitPrefix,
+    projectId: projectNumber,
+    taskId: paddedTaskNumber,
+    description: '<description>',
+  });
+
   const commitInstructions = autoCommit
     ? `
 ## Git Instructions
@@ -95,7 +107,7 @@ After successfully completing the task:
    - Add each code file you changed: \`git add <file1> <file2> ...\`
    - Add the outcome file: \`git add ${outcomeFilePath}\`
    - Add this task's plan file: \`git add ${planPath}\`
-2. Commit with message: "RAF[${projectNumber}:${paddedTaskNumber}] <description>"
+2. Commit with message: "${exampleCommit}"
    - Write a concise description of what was accomplished
    - Focus on the actual change, not the task name
    - The commit message must be a SINGLE LINE — no body, no trailers
