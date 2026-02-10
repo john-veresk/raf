@@ -261,6 +261,16 @@ export function getClaudeCommand(): string {
   return getResolvedConfig().claudeCommand;
 }
 
+/**
+ * Render a commit message template by replacing {placeholder} tokens with values.
+ * Unknown placeholders are left as-is.
+ */
+export function renderCommitMessage(template: string, variables: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (match, key: string) => {
+    return variables[key] ?? match;
+  });
+}
+
 export function getEditor(): string {
   return process.env['EDITOR'] ?? process.env['VISUAL'] ?? 'vi';
 }

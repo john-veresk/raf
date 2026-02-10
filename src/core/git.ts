@@ -2,6 +2,7 @@ import { execSync } from 'node:child_process';
 import * as path from 'node:path';
 import { logger } from '../utils/logger.js';
 import { extractProjectNumber, extractProjectName } from '../utils/paths.js';
+import { getCommitFormat, getCommitPrefix, renderCommitMessage } from '../utils/config.js';
 
 export interface GitStatus {
   isRepo: boolean;
@@ -246,9 +247,15 @@ export async function commitPlanningArtifacts(projectPath: string, options?: { c
   const inputFile = path.join(projectPath, 'input.md');
   const decisionsFile = path.join(projectPath, 'decisions.md');
 
-  // Build commit message
-  const prefix = options?.isAmend ? 'Amend' : 'Plan';
-  const commitMessage = `RAF[${projectNumber}] ${prefix}: ${projectName}`;
+  // Build commit message from config template
+  const formatType = options?.isAmend ? 'amend' as const : 'plan' as const;
+  const template = getCommitFormat(formatType);
+  const commitPrefix = getCommitPrefix();
+  const commitMessage = renderCommitMessage(template, {
+    prefix: commitPrefix,
+    projectId: projectNumber,
+    projectName,
+  });
 
   // Build list of files to stage (absolute paths)
   const absoluteFiles = [inputFile, decisionsFile, ...(options?.additionalFiles ?? [])];

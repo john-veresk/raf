@@ -15,6 +15,7 @@ import {
   resolveModelOption,
 } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
+import { getWorktreeDefault } from '../utils/config.js';
 import { generateProjectNames } from '../utils/name-generator.js';
 import { pickProjectName } from '../ui/name-picker.js';
 import {
@@ -73,14 +74,14 @@ export function createPlanCommand(): Command {
       // Validate and resolve model option
       let model: string;
       try {
-        model = resolveModelOption(options.model, options.sonnet);
+        model = resolveModelOption(options.model, options.sonnet, 'plan');
       } catch (error) {
         logger.error((error as Error).message);
         process.exit(1);
       }
 
       const autoMode = options.auto ?? false;
-      const worktreeMode = options.worktree ?? false;
+      const worktreeMode = options.worktree ?? getWorktreeDefault();
 
       if (options.amend) {
         if (!projectName) {

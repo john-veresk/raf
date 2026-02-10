@@ -25,8 +25,10 @@ jest.unstable_mockModule('node:fs', () => ({
 
 // Mock os
 const mockTmpdir = jest.fn().mockReturnValue('/tmp');
+const mockHomedir = jest.fn().mockReturnValue('/home/testuser');
 jest.unstable_mockModule('node:os', () => ({
   tmpdir: mockTmpdir,
+  homedir: mockHomedir,
 }));
 
 // Mock logger to prevent console output

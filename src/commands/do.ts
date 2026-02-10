@@ -13,7 +13,7 @@ import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFro
 import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
-import { getConfig } from '../utils/config.js';
+import { getConfig, getEffort, getWorktreeDefault } from '../utils/config.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
 import { createStatusLine } from '../utils/status-line.js';
 import {
@@ -134,12 +134,12 @@ export function createDoCommand(): Command {
 async function runDoCommand(projectIdentifierArg: string | undefined, options: DoCommandOptions): Promise<void> {
   const rafDir = getRafDir();
   let projectIdentifier = projectIdentifierArg;
-  let worktreeMode = options.worktree ?? false;
+  let worktreeMode = options.worktree ?? getWorktreeDefault();
 
   // Validate and resolve model option
   let model: string;
   try {
-    model = resolveModelOption(options.model as string | undefined, options.sonnet);
+    model = resolveModelOption(options.model as string | undefined, options.sonnet, 'execute');
   } catch (error) {
     logger.error((error as Error).message);
     process.exit(1);
@@ -940,9 +940,10 @@ async function executeSingleProject(
       } : undefined;
 
       // Run Claude (use worktree root as cwd if in worktree mode)
+      const executeEffort = getEffort('execute');
       const result = verbose
-        ? await claudeRunner.runVerbose(prompt, { timeout, outcomeFilePath, commitContext, cwd: worktreeCwd, effortLevel: 'medium' })
-        : await claudeRunner.run(prompt, { timeout, outcomeFilePath, commitContext, cwd: worktreeCwd, effortLevel: 'medium' });
+        ? await claudeRunner.runVerbose(prompt, { timeout, outcomeFilePath, commitContext, cwd: worktreeCwd, effortLevel: executeEffort })
+        : await claudeRunner.run(prompt, { timeout, outcomeFilePath, commitContext, cwd: worktreeCwd, effortLevel: executeEffort });
 
       lastOutput = result.output;
 

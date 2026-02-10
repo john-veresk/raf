@@ -18,6 +18,7 @@ import {
   getClaudeCommand,
   resetConfigCache,
   saveConfig,
+  renderCommitMessage,
 } from '../../src/utils/config.js';
 import { DEFAULT_CONFIG } from '../../src/types/config.js';
 
@@ -343,6 +344,161 @@ describe('Config', () => {
       expect(DEFAULT_CONFIG.commitFormat.plan).toContain('{prefix}');
       expect(DEFAULT_CONFIG.commitFormat.amend).toContain('{prefix}');
       expect(DEFAULT_CONFIG.commitFormat.prefix).toBe('RAF');
+    });
+  });
+
+  describe('renderCommitMessage', () => {
+    it('should replace all placeholders in a template', () => {
+      const result = renderCommitMessage('{prefix}[{projectId}:{taskId}] {description}', {
+        prefix: 'RAF',
+        projectId: '001',
+        taskId: '01',
+        description: 'Add feature',
+      });
+      expect(result).toBe('RAF[001:01] Add feature');
+    });
+
+    it('should leave unknown placeholders as-is', () => {
+      const result = renderCommitMessage('{prefix}[{unknown}]', { prefix: 'RAF' });
+      expect(result).toBe('RAF[{unknown}]');
+    });
+
+    it('should handle plan commit format', () => {
+      const result = renderCommitMessage(DEFAULT_CONFIG.commitFormat.plan, {
+        prefix: 'RAF',
+        projectId: 'abc123',
+        projectName: 'my-project',
+      });
+      expect(result).toBe('RAF[abc123] Plan: my-project');
+    });
+
+    it('should handle amend commit format', () => {
+      const result = renderCommitMessage(DEFAULT_CONFIG.commitFormat.amend, {
+        prefix: 'RAF',
+        projectId: 'abc123',
+        projectName: 'my-project',
+      });
+      expect(result).toBe('RAF[abc123] Amend: my-project');
+    });
+
+    it('should handle task commit format', () => {
+      const result = renderCommitMessage(DEFAULT_CONFIG.commitFormat.task, {
+        prefix: 'RAF',
+        projectId: '001',
+        taskId: '0a',
+        description: 'Fix bug',
+      });
+      expect(result).toBe('RAF[001:0a] Fix bug');
+    });
+
+    it('should handle empty variables gracefully', () => {
+      const result = renderCommitMessage('{prefix}[{id}]', {});
+      expect(result).toBe('{prefix}[{id}]');
+    });
+
+    it('should handle custom prefix', () => {
+      const result = renderCommitMessage('{prefix}[{projectId}:{taskId}] {description}', {
+        prefix: 'CUSTOM',
+        projectId: '001',
+        taskId: '01',
+        description: 'Test',
+      });
+      expect(result).toBe('CUSTOM[001:01] Test');
+    });
+  });
+
+  describe('config integration - defaults match previous hardcoded values', () => {
+    it('should default models to match previous hardcoded values', () => {
+      expect(DEFAULT_CONFIG.models.execute).toBe('opus');
+      expect(DEFAULT_CONFIG.models.plan).toBe('opus');
+      expect(DEFAULT_CONFIG.models.nameGeneration).toBe('sonnet');
+      expect(DEFAULT_CONFIG.models.failureAnalysis).toBe('haiku');
+      expect(DEFAULT_CONFIG.models.prGeneration).toBe('sonnet');
+    });
+
+    it('should default effort to match previous hardcoded values', () => {
+      expect(DEFAULT_CONFIG.effort.execute).toBe('medium');
+    });
+
+    it('should default timeout to 60', () => {
+      expect(DEFAULT_CONFIG.timeout).toBe(60);
+    });
+
+    it('should default maxRetries to 3', () => {
+      expect(DEFAULT_CONFIG.maxRetries).toBe(3);
+    });
+
+    it('should default autoCommit to true', () => {
+      expect(DEFAULT_CONFIG.autoCommit).toBe(true);
+    });
+
+    it('should default worktree to false', () => {
+      expect(DEFAULT_CONFIG.worktree).toBe(false);
+    });
+
+    it('should default claudeCommand to claude', () => {
+      expect(DEFAULT_CONFIG.claudeCommand).toBe('claude');
+    });
+
+    it('should default commit format to match previous hardcoded format', () => {
+      // The task format should produce the same output as the old hardcoded format
+      const result = renderCommitMessage(DEFAULT_CONFIG.commitFormat.task, {
+        prefix: DEFAULT_CONFIG.commitFormat.prefix,
+        projectId: 'abcdef',
+        taskId: '01',
+        description: 'Add feature',
+      });
+      expect(result).toBe('RAF[abcdef:01] Add feature');
+    });
+
+    it('should default plan commit format to match previous hardcoded format', () => {
+      const result = renderCommitMessage(DEFAULT_CONFIG.commitFormat.plan, {
+        prefix: DEFAULT_CONFIG.commitFormat.prefix,
+        projectId: 'abcdef',
+        projectName: 'my-project',
+      });
+      expect(result).toBe('RAF[abcdef] Plan: my-project');
+    });
+
+    it('should default amend commit format to match previous hardcoded format', () => {
+      const result = renderCommitMessage(DEFAULT_CONFIG.commitFormat.amend, {
+        prefix: DEFAULT_CONFIG.commitFormat.prefix,
+        projectId: 'abcdef',
+        projectName: 'my-project',
+      });
+      expect(result).toBe('RAF[abcdef] Amend: my-project');
+    });
+  });
+
+  describe('config integration - overrides work', () => {
+    it('should use custom model when configured', () => {
+      const configPath = path.join(tempDir, 'custom-models.json');
+      saveConfig(configPath, { models: { execute: 'sonnet', plan: 'haiku' } });
+      const config = resolveConfig(configPath);
+      expect(config.models.execute).toBe('sonnet');
+      expect(config.models.plan).toBe('haiku');
+      // Others should remain at defaults
+      expect(config.models.nameGeneration).toBe('sonnet');
+      expect(config.models.failureAnalysis).toBe('haiku');
+    });
+
+    it('should use custom effort when configured', () => {
+      const configPath = path.join(tempDir, 'custom-effort.json');
+      saveConfig(configPath, { effort: { execute: 'high' } });
+      const config = resolveConfig(configPath);
+      expect(config.effort.execute).toBe('high');
+      // Others should remain at defaults
+      expect(config.effort.plan).toBe('high');
+    });
+
+    it('should use custom commit format when configured', () => {
+      const configPath = path.join(tempDir, 'custom-commit.json');
+      saveConfig(configPath, { commitFormat: { prefix: 'CUSTOM', task: '{prefix}-{taskId}: {description}' } });
+      const config = resolveConfig(configPath);
+      expect(config.commitFormat.prefix).toBe('CUSTOM');
+      expect(config.commitFormat.task).toBe('{prefix}-{taskId}: {description}');
+      // plan/amend remain at defaults
+      expect(config.commitFormat.plan).toBe(DEFAULT_CONFIG.commitFormat.plan);
     });
   });
 });

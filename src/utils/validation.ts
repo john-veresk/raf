@@ -2,6 +2,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execSync } from 'node:child_process';
 import { logger } from './logger.js';
+import type { ModelScenario } from '../types/config.js';
+import { getModel } from './config.js';
 
 export interface ValidationResult {
   valid: boolean;
@@ -100,7 +102,7 @@ export function validateModelName(model: string): ValidModelName | null {
   return null;
 }
 
-export function resolveModelOption(model?: string, sonnet?: boolean): ValidModelName {
+export function resolveModelOption(model?: string, sonnet?: boolean, scenario: ModelScenario = 'execute'): ValidModelName {
   // Check for conflicting flags
   if (model && sonnet) {
     throw new Error('Cannot specify both --model and --sonnet flags');
@@ -120,6 +122,6 @@ export function resolveModelOption(model?: string, sonnet?: boolean): ValidModel
     return validated;
   }
 
-  // Default to opus
-  return 'opus';
+  // Default from config
+  return getModel(scenario);
 }

@@ -5,10 +5,12 @@ import { execSync, spawn } from 'node:child_process';
 import { logger } from '../utils/logger.js';
 import { renderStreamEvent } from '../parsers/stream-renderer.js';
 import { getHeadCommitHash, getHeadCommitMessage, isFileCommittedInHead } from './git.js';
+import { getClaudeCommand, getModel } from '../utils/config.js';
 
 function getClaudePath(): string {
+  const cmd = getClaudeCommand();
   try {
-    return execSync('which claude', { encoding: 'utf-8' }).trim();
+    return execSync(`which ${cmd}`, { encoding: 'utf-8' }).trim();
   } catch {
     throw new Error('Claude CLI not found. Please ensure it is installed and in your PATH.');
   }
@@ -260,7 +262,7 @@ export class ClaudeRunner {
   private model: string;
 
   constructor(config: ClaudeRunnerConfig = {}) {
-    this.model = config.model ?? 'opus';
+    this.model = config.model ?? getModel('execute');
   }
 
   /**

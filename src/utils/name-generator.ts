@@ -1,8 +1,7 @@
 import { execSync } from 'node:child_process';
 import { logger } from './logger.js';
 import { sanitizeProjectName } from './validation.js';
-
-const SONNET_MODEL = 'sonnet';
+import { getModel, getClaudeCommand } from './config.js';
 
 const NAME_GENERATION_PROMPT = `Generate a short, punchy, creative project name (1-3 words, kebab-case).
 
@@ -40,7 +39,7 @@ Output format: ONLY output 5 names, one per line, no numbers, no explanations, n
 Project description:`;
 
 /**
- * Generate a single project name using Claude Sonnet.
+ * Generate a single project name using Claude.
  * Falls back to extracting words from the description if the API call fails.
  */
 export async function generateProjectName(description: string): Promise<string> {
@@ -54,7 +53,7 @@ export async function generateProjectName(description: string): Promise<string> 
       }
     }
   } catch (error) {
-    logger.debug(`Failed to generate name with Sonnet: ${error}`);
+    logger.debug(`Failed to generate name with Claude: ${error}`);
   }
 
   // Fallback to extracting words from description
@@ -62,7 +61,7 @@ export async function generateProjectName(description: string): Promise<string> 
 }
 
 /**
- * Generate multiple project name suggestions using Claude Sonnet.
+ * Generate multiple project name suggestions using Claude.
  * Returns 3-5 unique names with varied styles.
  */
 export async function generateProjectNames(description: string): Promise<string[]> {
@@ -73,7 +72,7 @@ export async function generateProjectNames(description: string): Promise<string[
       return names;
     }
   } catch (error) {
-    logger.debug(`Failed to generate names with Sonnet: ${error}`);
+    logger.debug(`Failed to generate names with Claude: ${error}`);
   }
 
   // Fallback: generate a single fallback name
@@ -83,15 +82,17 @@ export async function generateProjectNames(description: string): Promise<string[
 }
 
 /**
- * Call Claude Sonnet to generate a single project name.
+ * Call Claude to generate a single project name.
  */
 async function callSonnetForName(description: string): Promise<string | null> {
   try {
     const fullPrompt = `${NAME_GENERATION_PROMPT}\n${description}`;
 
-    // Use claude CLI with --model sonnet and --print for non-interactive output
+    const model = getModel('nameGeneration');
+    const cmd = getClaudeCommand();
+    // Use claude CLI with configured model and --print for non-interactive output
     const result = execSync(
-      `claude --model ${SONNET_MODEL} --print "${escapeShellArg(fullPrompt)}"`,
+      `${cmd} --model ${model} --print "${escapeShellArg(fullPrompt)}"`,
       {
         encoding: 'utf-8',
         timeout: 30000, // 30 second timeout
@@ -101,20 +102,22 @@ async function callSonnetForName(description: string): Promise<string | null> {
 
     return result.trim();
   } catch (error) {
-    logger.debug(`Sonnet API call failed: ${error}`);
+    logger.debug(`Claude API call failed: ${error}`);
     return null;
   }
 }
 
 /**
- * Call Claude Sonnet to generate multiple project names.
+ * Call Claude to generate multiple project names.
  */
 async function callSonnetForMultipleNames(description: string): Promise<string[]> {
   try {
     const fullPrompt = `${MULTI_NAME_GENERATION_PROMPT}\n${description}`;
 
+    const model = getModel('nameGeneration');
+    const cmd = getClaudeCommand();
     const result = execSync(
-      `claude --model ${SONNET_MODEL} --print "${escapeShellArg(fullPrompt)}"`,
+      `${cmd} --model ${model} --print "${escapeShellArg(fullPrompt)}"`,
       {
         encoding: 'utf-8',
         timeout: 30000,
@@ -141,7 +144,7 @@ async function callSonnetForMultipleNames(description: string): Promise<string[]
     // Return 3-5 names
     return validNames.slice(0, 5);
   } catch (error) {
-    logger.debug(`Sonnet API call for multiple names failed: ${error}`);
+    logger.debug(`Claude API call for multiple names failed: ${error}`);
     return [];
   }
 }
