@@ -26,3 +26,12 @@ Warn then continue — show a warning about the invalid config, then launch the 
 
 ## Should config resilience apply to all commands or only `raf config`?
 Only `raf config` — it's the recovery tool. Other commands can still fail fast on invalid config.
+
+## When verbose is ON, should the task name and elapsed time be shown as a header?
+No header at all — when verbose is ON, only show Claude's raw output and tool descriptions. No task name or timer.
+
+## When toggling back to verbose OFF, should the timer resume or reset?
+Resume counting — timer continues from actual elapsed time since task start.
+
+## When verbose is ON, should tool use descriptions still be shown?
+Show both — show Claude's text AND tool use descriptions (→ Reading file.ts, → Running: npm test, etc.).
