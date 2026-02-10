@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { logger } from '../utils/logger.js';
+import { extractProjectNumber, extractProjectName, isBase26Prefix, decodeBase26 } from '../utils/paths.js';
 
 export interface WorktreeCreateResult {
   success: boolean;
@@ -354,4 +355,80 @@ export function listWorktreeProjects(repoBasename: string): string[] {
   } catch {
     return [];
   }
+}
+
+export interface WorktreeProjectResolution {
+  /** The worktree project folder name (e.g., "ahrren-turbo-finder") */
+  folder: string;
+  /** The worktree root path (e.g., ~/.raf/worktrees/RAF/ahrren-turbo-finder) */
+  worktreeRoot: string;
+}
+
+/**
+ * Resolve a project identifier against worktree folder names.
+ * Uses the same matching strategy as `resolveProjectIdentifierWithDetails`:
+ * 1. Full folder name match (exact, case-insensitive)
+ * 2. Base26 prefix match (6-char ID)
+ * 3. Project name match (the portion after the prefix)
+ *
+ * @param repoBasename - The basename of the current git repo
+ * @param identifier - The project identifier to resolve
+ * @returns The matched worktree project info or null if not found
+ */
+export function resolveWorktreeProjectByIdentifier(
+  repoBasename: string,
+  identifier: string,
+): WorktreeProjectResolution | null {
+  const wtProjectDirs = listWorktreeProjects(repoBasename);
+  if (wtProjectDirs.length === 0) return null;
+
+  const lowerIdentifier = identifier.toLowerCase();
+
+  // 1. Full folder name match (exact, case-insensitive)
+  for (const dir of wtProjectDirs) {
+    if (dir.toLowerCase() === lowerIdentifier) {
+      return {
+        folder: dir,
+        worktreeRoot: computeWorktreePath(repoBasename, dir),
+      };
+    }
+  }
+
+  // 2. Base26 prefix match
+  if (isBase26Prefix(identifier)) {
+    const targetNumber = decodeBase26(identifier);
+    if (targetNumber !== null) {
+      for (const dir of wtProjectDirs) {
+        const prefix = extractProjectNumber(dir);
+        if (prefix) {
+          const dirNumber = decodeBase26(prefix);
+          if (dirNumber === targetNumber) {
+            return {
+              folder: dir,
+              worktreeRoot: computeWorktreePath(repoBasename, dir),
+            };
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Project name match (case-insensitive)
+  const nameMatches: string[] = [];
+  for (const dir of wtProjectDirs) {
+    const name = extractProjectName(dir);
+    if (name && name.toLowerCase() === lowerIdentifier) {
+      nameMatches.push(dir);
+    }
+  }
+
+  if (nameMatches.length === 1) {
+    return {
+      folder: nameMatches[0]!,
+      worktreeRoot: computeWorktreePath(repoBasename, nameMatches[0]!),
+    };
+  }
+
+  // Ambiguous or no match
+  return null;
 }

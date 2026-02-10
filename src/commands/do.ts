@@ -44,6 +44,7 @@ import {
   listWorktreeProjects,
   mergeWorktreeBranch,
   removeWorktree,
+  resolveWorktreeProjectByIdentifier,
 } from '../core/worktree.js';
 import { createPullRequest, prPreflight } from '../core/pull-request.js';
 import type { DoCommandOptions } from '../types/config.js';
@@ -219,7 +220,7 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
   }
 
   // Resolve project identifier
-  let resolvedProject: { identifier: string; path: string; name: string };
+  let resolvedProject: { identifier: string; path: string; name: string } | undefined;
 
   if (worktreeMode) {
     // Worktree mode: resolve project inside the worktree
@@ -303,24 +304,50 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
       resolvedProject = { identifier: projectIdentifier, path: projectPath, name: projectName };
     }
   } else {
-    // Standard mode: resolve from main repo
-    const result = resolveProjectIdentifierWithDetails(rafDir, projectIdentifier);
+    // Standard mode: check worktrees first (worktree takes priority), then main repo
+    const repoRoot = getRepoRoot();
+    const repoBasename = repoRoot ? getRepoBasename() : null;
 
-    if (!result.path) {
-      if (result.error === 'ambiguous' && result.matches) {
-        const matchList = result.matches
-          .map((m) => `  - ${m.folder}`)
-          .join('\n');
-        logger.error(`${projectIdentifier}: Ambiguous project name. Multiple projects match:\n${matchList}\nPlease specify the project ID or full folder name.`);
-      } else {
-        logger.error(`${projectIdentifier}: Project not found`);
+    // Try worktree resolution first (preferred when project exists in both)
+    if (repoBasename) {
+      const wtResolution = resolveWorktreeProjectByIdentifier(repoBasename, projectIdentifier);
+      if (wtResolution) {
+        const rafRelativePath = path.relative(repoRoot!, rafDir);
+        const wtRafDir = path.join(wtResolution.worktreeRoot, rafRelativePath);
+        const wtProjectPath = path.join(wtRafDir, wtResolution.folder);
+
+        if (fs.existsSync(wtProjectPath)) {
+          // Auto-switch to worktree mode
+          worktreeMode = true;
+          worktreeRoot = wtResolution.worktreeRoot;
+          originalBranch = getCurrentBranch() ?? undefined;
+
+          const projectName = extractProjectName(wtResolution.folder) ?? projectIdentifier;
+          resolvedProject = { identifier: projectIdentifier, path: wtProjectPath, name: projectName };
+        }
       }
-      logger.info("Run 'raf status' to see available projects.");
-      process.exit(1);
     }
 
-    const projectName = extractProjectName(result.path) ?? projectIdentifier;
-    resolvedProject = { identifier: projectIdentifier, path: result.path, name: projectName };
+    // Fall back to main repo if worktree didn't match
+    if (!resolvedProject) {
+      const result = resolveProjectIdentifierWithDetails(rafDir, projectIdentifier);
+
+      if (!result.path) {
+        if (result.error === 'ambiguous' && result.matches) {
+          const matchList = result.matches
+            .map((m) => `  - ${m.folder}`)
+            .join('\n');
+          logger.error(`${projectIdentifier}: Ambiguous project name. Multiple projects match:\n${matchList}\nPlease specify the project ID or full folder name.`);
+        } else {
+          logger.error(`${projectIdentifier}: Project not found`);
+        }
+        logger.info("Run 'raf status' to see available projects.");
+        process.exit(1);
+      }
+
+      const projectName = extractProjectName(result.path) ?? projectIdentifier;
+      resolvedProject = { identifier: projectIdentifier, path: result.path, name: projectName };
+    }
   }
 
   // Get configuration

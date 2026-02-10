@@ -42,6 +42,7 @@ const {
   mergeWorktreeBranch,
   removeWorktree,
   listWorktreeProjects,
+  resolveWorktreeProjectByIdentifier,
 } = await import('../../src/core/worktree.js');
 
 const HOME = os.homedir();
@@ -518,6 +519,107 @@ describe('worktree utilities', () => {
       const result = listWorktreeProjects('myapp');
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('resolveWorktreeProjectByIdentifier', () => {
+    const worktreeDirs = [
+      { name: 'ahrren-turbo-finder', isDirectory: () => true },
+      { name: 'abcdef-cool-feature', isDirectory: () => true },
+      { name: 'ghijkl-another-thing', isDirectory: () => true },
+    ];
+
+    beforeEach(() => {
+      mockExistsSync.mockReturnValue(true);
+      mockReaddirSync.mockReturnValue(worktreeDirs);
+    });
+
+    it('should resolve by full folder name (exact match)', () => {
+      const result = resolveWorktreeProjectByIdentifier('myapp', 'ahrren-turbo-finder');
+
+      expect(result).not.toBeNull();
+      expect(result!.folder).toBe('ahrren-turbo-finder');
+      expect(result!.worktreeRoot).toBe(
+        path.join(HOME, '.raf', 'worktrees', 'myapp', 'ahrren-turbo-finder')
+      );
+    });
+
+    it('should resolve by full folder name case-insensitively', () => {
+      const result = resolveWorktreeProjectByIdentifier('myapp', 'Ahrren-Turbo-Finder');
+
+      expect(result).not.toBeNull();
+      expect(result!.folder).toBe('ahrren-turbo-finder');
+    });
+
+    it('should resolve by base26 prefix (6-char ID)', () => {
+      const result = resolveWorktreeProjectByIdentifier('myapp', 'ahrren');
+
+      expect(result).not.toBeNull();
+      expect(result!.folder).toBe('ahrren-turbo-finder');
+    });
+
+    it('should resolve by base26 prefix for different project', () => {
+      const result = resolveWorktreeProjectByIdentifier('myapp', 'abcdef');
+
+      expect(result).not.toBeNull();
+      expect(result!.folder).toBe('abcdef-cool-feature');
+    });
+
+    it('should resolve by project name', () => {
+      const result = resolveWorktreeProjectByIdentifier('myapp', 'turbo-finder');
+
+      expect(result).not.toBeNull();
+      expect(result!.folder).toBe('ahrren-turbo-finder');
+    });
+
+    it('should resolve by project name case-insensitively', () => {
+      const result = resolveWorktreeProjectByIdentifier('myapp', 'Turbo-Finder');
+
+      expect(result).not.toBeNull();
+      expect(result!.folder).toBe('ahrren-turbo-finder');
+    });
+
+    it('should return null when no match found', () => {
+      const result = resolveWorktreeProjectByIdentifier('myapp', 'nonexistent');
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when no worktree projects exist', () => {
+      mockExistsSync.mockReturnValue(false);
+
+      const result = resolveWorktreeProjectByIdentifier('myapp', 'turbo-finder');
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null for ambiguous name match (multiple projects with same name)', () => {
+      mockReaddirSync.mockReturnValue([
+        { name: 'ahrren-my-feature', isDirectory: () => true },
+        { name: 'abcdef-my-feature', isDirectory: () => true },
+      ]);
+
+      const result = resolveWorktreeProjectByIdentifier('myapp', 'my-feature');
+
+      // Ambiguous: two projects named "my-feature"
+      expect(result).toBeNull();
+    });
+
+    it('should prefer full folder name match over name match', () => {
+      // "abcdef-cool-feature" could match as full folder name
+      const result = resolveWorktreeProjectByIdentifier('myapp', 'abcdef-cool-feature');
+
+      expect(result).not.toBeNull();
+      expect(result!.folder).toBe('abcdef-cool-feature');
+    });
+
+    it('should return correct worktreeRoot path', () => {
+      const result = resolveWorktreeProjectByIdentifier('myapp', 'another-thing');
+
+      expect(result).not.toBeNull();
+      expect(result!.worktreeRoot).toBe(
+        path.join(HOME, '.raf', 'worktrees', 'myapp', 'ghijkl-another-thing')
+      );
     });
   });
 });

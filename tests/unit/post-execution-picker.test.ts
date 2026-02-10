@@ -59,6 +59,7 @@ jest.unstable_mockModule('../../src/core/worktree.js', () => ({
   createWorktreeFromBranch: jest.fn(),
   branchExists: jest.fn(),
   getWorktreeProjectPath: jest.fn(),
+  resolveWorktreeProjectByIdentifier: jest.fn(),
 }));
 
 // Import after mocking
