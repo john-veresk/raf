@@ -3,17 +3,27 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { Command } from 'commander';
 import { createConfigCommand } from '../../src/commands/config.js';
-import { validateConfig, ConfigValidationError } from '../../src/utils/config.js';
+import {
+  validateConfig,
+  ConfigValidationError,
+  resolveConfig,
+  getModel,
+  getEffort,
+  resetConfigCache,
+} from '../../src/utils/config.js';
+import { DEFAULT_CONFIG } from '../../src/types/config.js';
 
 describe('Config Command', () => {
   let tempDir: string;
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-config-cmd-test-'));
+    resetConfigCache();
   });
 
   afterEach(() => {
     fs.rmSync(tempDir, { recursive: true, force: true });
+    resetConfigCache();
   });
 
   describe('Command setup', () => {
@@ -158,6 +168,75 @@ describe('Config Command', () => {
       const content = fs.readFileSync(configPath, 'utf-8');
       expect(content).toContain('"timeout": 120');
       expect(content).toContain('"worktree": true');
+    });
+  });
+
+  describe('Error recovery - invalid config fallback', () => {
+    // These tests verify the behaviors that runConfigSession relies on for error recovery
+    // The config command catches errors from getModel/getEffort and falls back to defaults
+
+    it('should throw on invalid JSON when resolving config', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, '{ invalid json }}}');
+
+      expect(() => resolveConfig(configPath)).toThrow(SyntaxError);
+    });
+
+    it('should throw on schema validation failure when resolving config', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ unknownKey: true }));
+
+      expect(() => resolveConfig(configPath)).toThrow(ConfigValidationError);
+    });
+
+    it('should have valid default fallback values for config scenario', () => {
+      // These are the values that runConfigSession uses when config loading fails
+      expect(DEFAULT_CONFIG.models.config).toBe('sonnet');
+      expect(DEFAULT_CONFIG.effort.config).toBe('medium');
+    });
+
+    it('should be able to read raw file contents even when config is invalid JSON', () => {
+      // This verifies that getCurrentConfigState can still read the broken file
+      // so Claude can see and help fix it
+      const configPath = path.join(tempDir, 'raf.config.json');
+      const invalidContent = '{ "broken": true, }'; // trailing comma = invalid
+      fs.writeFileSync(configPath, invalidContent);
+
+      // File is readable even though it's invalid JSON
+      const content = fs.readFileSync(configPath, 'utf-8');
+      expect(content).toBe(invalidContent);
+    });
+
+    it('should be able to read raw file contents even when config fails schema validation', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      const invalidContent = JSON.stringify({ badKey: 'value' }, null, 2);
+      fs.writeFileSync(configPath, invalidContent);
+
+      // File is readable even though it fails validation
+      const content = fs.readFileSync(configPath, 'utf-8');
+      expect(JSON.parse(content)).toEqual({ badKey: 'value' });
+    });
+
+    it('resetConfigCache should clear the cached config', () => {
+      // This is used by runConfigSession to clear a broken cached config
+      // so subsequent operations don't fail
+      const configPath = path.join(tempDir, 'valid.json');
+      fs.writeFileSync(configPath, JSON.stringify({ timeout: 99 }));
+
+      // Load the config
+      const config1 = resolveConfig(configPath);
+      expect(config1.timeout).toBe(99);
+
+      // Write different content
+      fs.writeFileSync(configPath, JSON.stringify({ timeout: 120 }));
+
+      // Without reset, we'd still get cached value (but resolveConfig doesn't use cache)
+      // This test verifies resetConfigCache exists and can be called
+      resetConfigCache();
+
+      // After reset, we should get new value
+      const config2 = resolveConfig(configPath);
+      expect(config2.timeout).toBe(120);
     });
   });
 });

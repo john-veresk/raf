@@ -13,7 +13,9 @@ import {
   getModelShortName,
   validateConfig,
   ConfigValidationError,
+  resetConfigCache,
 } from '../utils/config.js';
+import { DEFAULT_CONFIG } from '../types/config.js';
 
 interface ConfigCommandOptions {
   reset?: boolean;
@@ -154,8 +156,31 @@ async function handleReset(): Promise<void> {
 
 async function runConfigSession(initialPrompt?: string): Promise<void> {
   const configPath = getConfigPath();
-  const model = getModel('config');
-  const effort = getEffort('config');
+
+  // Try to load config, but fall back to defaults if it's broken
+  // This allows raf config to be used to fix a broken config file
+  let model: string;
+  let effort: string;
+  let configError: Error | null = null;
+
+  try {
+    model = getModel('config');
+    effort = getEffort('config');
+  } catch (error) {
+    // Config file has errors - fall back to defaults so the session can launch
+    configError = error instanceof Error ? error : new Error(String(error));
+    model = DEFAULT_CONFIG.models.config;
+    effort = DEFAULT_CONFIG.effort.config;
+    // Clear the cached config so subsequent calls don't use the broken cache
+    resetConfigCache();
+  }
+
+  // Warn user if config has errors, before starting the session
+  if (configError) {
+    logger.warn(`Config file has errors, using defaults: ${configError.message}`);
+    logger.warn('Fix the config in this session or run `raf config --reset` to start fresh.');
+    logger.newline();
+  }
 
   // Set effort level env var for the Claude session
   process.env['CLAUDE_CODE_EFFORT_LEVEL'] = effort;
