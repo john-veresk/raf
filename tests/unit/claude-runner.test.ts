@@ -880,6 +880,44 @@ describe('ClaudeRunner', () => {
 
       writeSpy.mockRestore();
     });
+
+    it('should use verboseCheck callback to dynamically control display', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const writeSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      let dynamicVerbose = false;
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', {
+        timeout: 60,
+        verboseCheck: () => dynamicVerbose,
+      });
+
+      // First event with verbose OFF — should not display
+      const event1 = JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name: 'Read', input: { file_path: '/a.ts' } }] },
+      });
+      mockProc.stdout.emit('data', Buffer.from(event1 + '\n'));
+      expect(writeSpy).not.toHaveBeenCalled();
+
+      // Toggle verbose ON
+      dynamicVerbose = true;
+
+      // Second event with verbose ON — should display
+      const event2 = JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name: 'Read', input: { file_path: '/b.ts' } }] },
+      });
+      mockProc.stdout.emit('data', Buffer.from(event2 + '\n'));
+      expect(writeSpy).toHaveBeenCalled();
+
+      mockProc.emit('close', 0);
+      await runPromise;
+
+      writeSpy.mockRestore();
+    });
   });
 
   describe('retry isolation (timeout per attempt)', () => {

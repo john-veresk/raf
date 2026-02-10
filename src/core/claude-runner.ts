@@ -59,6 +59,12 @@ export interface ClaudeRunnerOptions {
    * Only applied in non-interactive modes (run, runVerbose).
    */
   effortLevel?: 'low' | 'medium' | 'high';
+  /**
+   * Dynamic verbose display callback. When provided, called for each stream event
+   * to determine whether to write display output to stdout. Overrides the static
+   * verbose parameter in _runStreamJson. Used by the runtime verbose toggle.
+   */
+  verboseCheck?: () => boolean;
 }
 
 export interface ClaudeRunnerConfig {
@@ -409,10 +415,14 @@ export class ClaudeRunner {
     options: ClaudeRunnerOptions,
     verbose: boolean,
   ): Promise<RunResult> {
-    const { timeout = 60, cwd = process.cwd(), outcomeFilePath, commitContext, effortLevel } = options;
+    const { timeout = 60, cwd = process.cwd(), outcomeFilePath, commitContext, effortLevel, verboseCheck } = options;
     // Ensure timeout is a positive number, fallback to 60 minutes
     const validatedTimeout = Number(timeout) > 0 ? Number(timeout) : 60;
     const timeoutMs = validatedTimeout * 60 * 1000;
+
+    // When verboseCheck callback is provided, use it to dynamically determine display.
+    // Otherwise, fall back to the static verbose parameter.
+    const shouldDisplay = verboseCheck ?? (() => verbose);
 
     return new Promise((resolve) => {
       let output = '';
@@ -514,7 +524,7 @@ export class ClaudeRunner {
             usageData = rendered.usageData;
           }
 
-          if (verbose && rendered.display) {
+          if (shouldDisplay() && rendered.display) {
             process.stdout.write(rendered.display);
           }
         }
@@ -535,7 +545,7 @@ export class ClaudeRunner {
           if (rendered.usageData) {
             usageData = rendered.usageData;
           }
-          if (verbose && rendered.display) {
+          if (shouldDisplay() && rendered.display) {
             process.stdout.write(rendered.display);
           }
         }

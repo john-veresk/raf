@@ -24,6 +24,7 @@ import {
   formatTokenTotalSummary,
 } from '../utils/terminal-symbols.js';
 import { TokenTracker } from '../utils/token-tracker.js';
+import { VerboseToggle } from '../utils/verbose-toggle.js';
 import {
   deriveProjectState,
   discoverProjects,
@@ -717,6 +718,10 @@ async function executeSingleProject(
   // Initialize token tracker for usage reporting
   const tokenTracker = new TokenTracker();
 
+  // Set up runtime verbose toggle (Tab key to toggle during execution)
+  const verboseToggle = new VerboseToggle(verbose);
+  shutdownHandler.onShutdown(() => verboseToggle.stop());
+
   // Start project timer
   const projectStartTime = Date.now();
 
@@ -821,6 +826,9 @@ async function executeSingleProject(
 
     return lines.join('\n');
   }
+
+  // Start verbose toggle listener (Tab key)
+  verboseToggle.start();
 
   let task = getNextTaskToProcess(state);
 
@@ -948,9 +956,17 @@ async function executeSingleProject(
 
       // Run Claude (use worktree root as cwd if in worktree mode)
       const executeEffort = getEffort('execute');
+      const runnerOptions = {
+        timeout,
+        outcomeFilePath,
+        commitContext,
+        cwd: worktreeCwd,
+        effortLevel: executeEffort,
+        verboseCheck: () => verboseToggle.isVerbose,
+      };
       const result = verbose
-        ? await claudeRunner.runVerbose(prompt, { timeout, outcomeFilePath, commitContext, cwd: worktreeCwd, effortLevel: executeEffort })
-        : await claudeRunner.run(prompt, { timeout, outcomeFilePath, commitContext, cwd: worktreeCwd, effortLevel: executeEffort });
+        ? await claudeRunner.runVerbose(prompt, runnerOptions)
+        : await claudeRunner.run(prompt, runnerOptions);
 
       lastOutput = result.output;
       if (result.usageData) {
@@ -1137,6 +1153,9 @@ ${stashName ? `- Stash: ${stashName}` : ''}
     // Get next task to process
     task = getNextTaskToProcess(state);
   }
+
+  // Stop verbose toggle listener before summary output
+  verboseToggle.stop();
 
   // Ensure context is cleared for summary
   logger.clearContext();
