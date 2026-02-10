@@ -50,6 +50,12 @@ export interface ClaudeRunnerOptions {
     /** Path to the outcome file that should be committed. */
     outcomeFilePath: string;
   };
+  /**
+   * Claude Code reasoning effort level.
+   * Sets CLAUDE_CODE_EFFORT_LEVEL env var for the spawned process.
+   * Only applied in non-interactive modes (run, runVerbose).
+   */
+  effortLevel?: 'low' | 'medium' | 'high';
 }
 
 export interface ClaudeRunnerConfig {
@@ -367,7 +373,7 @@ export class ClaudeRunner {
    * - Default timeout is 60 minutes if not specified
    */
   async run(prompt: string, options: ClaudeRunnerOptions = {}): Promise<RunResult> {
-    const { timeout = 60, cwd = process.cwd(), outcomeFilePath, commitContext } = options;
+    const { timeout = 60, cwd = process.cwd(), outcomeFilePath, commitContext, effortLevel } = options;
     // Ensure timeout is a positive number, fallback to 60 minutes
     const validatedTimeout = Number(timeout) > 0 ? Number(timeout) : 60;
     const timeoutMs = validatedTimeout * 60 * 1000;
@@ -383,6 +389,11 @@ export class ClaudeRunner {
       logger.debug(`Starting Claude execution session with model: ${this.model}`);
       logger.debug(`Claude path: ${claudePath}`);
 
+      // Build env, optionally injecting effort level
+      const env = effortLevel
+        ? { ...process.env, CLAUDE_CODE_EFFORT_LEVEL: effortLevel }
+        : process.env;
+
       // Use --append-system-prompt to add RAF instructions to system prompt
       // This gives RAF instructions stronger precedence than passing as user message
       // --dangerously-skip-permissions bypasses interactive prompts
@@ -397,7 +408,7 @@ export class ClaudeRunner {
         'Execute the task as described in the system prompt.',
       ], {
         cwd,
-        env: process.env,
+        env,
         stdio: ['ignore', 'pipe', 'pipe'], // no stdin needed
       });
 
@@ -474,7 +485,7 @@ export class ClaudeRunner {
    * - Default timeout is 60 minutes if not specified
    */
   async runVerbose(prompt: string, options: ClaudeRunnerOptions = {}): Promise<RunResult> {
-    const { timeout = 60, cwd = process.cwd(), outcomeFilePath, commitContext } = options;
+    const { timeout = 60, cwd = process.cwd(), outcomeFilePath, commitContext, effortLevel } = options;
     // Ensure timeout is a positive number, fallback to 60 minutes
     const validatedTimeout = Number(timeout) > 0 ? Number(timeout) : 60;
     const timeoutMs = validatedTimeout * 60 * 1000;
@@ -490,6 +501,11 @@ export class ClaudeRunner {
       logger.debug(`Starting Claude execution session (verbose/stream-json) with model: ${this.model}`);
       logger.debug(`Prompt length: ${prompt.length}, timeout: ${timeoutMs}ms, cwd: ${cwd}`);
       logger.debug(`Claude path: ${claudePath}`);
+
+      // Build env, optionally injecting effort level
+      const env = effortLevel
+        ? { ...process.env, CLAUDE_CODE_EFFORT_LEVEL: effortLevel }
+        : process.env;
 
       logger.debug('Spawning process...');
       // Use --output-format stream-json --verbose to get real-time streaming events
@@ -509,7 +525,7 @@ export class ClaudeRunner {
         'Execute the task as described in the system prompt.',
       ], {
         cwd,
-        env: process.env,
+        env,
         stdio: ['ignore', 'pipe', 'pipe'], // no stdin needed
       });
 

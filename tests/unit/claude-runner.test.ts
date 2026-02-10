@@ -472,6 +472,109 @@ describe('ClaudeRunner', () => {
     });
   });
 
+  describe('effort level', () => {
+    function createMockProcess() {
+      const stdout = new EventEmitter();
+      const stderr = new EventEmitter();
+      const proc = new EventEmitter() as any;
+      proc.stdout = stdout;
+      proc.stderr = stderr;
+      proc.kill = jest.fn();
+      return proc;
+    }
+
+    it('should set CLAUDE_CODE_EFFORT_LEVEL env var in run() when effortLevel is provided', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', { timeout: 60, effortLevel: 'medium' });
+
+      mockProc.emit('close', 0);
+      await runPromise;
+
+      const spawnOptions = mockSpawn.mock.calls[0][2];
+      expect(spawnOptions.env.CLAUDE_CODE_EFFORT_LEVEL).toBe('medium');
+    });
+
+    it('should set CLAUDE_CODE_EFFORT_LEVEL env var in runVerbose() when effortLevel is provided', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.runVerbose('test prompt', { timeout: 60, effortLevel: 'medium' });
+
+      mockProc.emit('close', 0);
+      await runPromise;
+
+      const spawnOptions = mockSpawn.mock.calls[0][2];
+      expect(spawnOptions.env.CLAUDE_CODE_EFFORT_LEVEL).toBe('medium');
+    });
+
+    it('should NOT set CLAUDE_CODE_EFFORT_LEVEL when effortLevel is not provided in run()', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', { timeout: 60 });
+
+      mockProc.emit('close', 0);
+      await runPromise;
+
+      const spawnOptions = mockSpawn.mock.calls[0][2];
+      // env should be process.env directly (no CLAUDE_CODE_EFFORT_LEVEL override)
+      expect(spawnOptions.env).toBe(process.env);
+    });
+
+    it('should NOT set CLAUDE_CODE_EFFORT_LEVEL when effortLevel is not provided in runVerbose()', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.runVerbose('test prompt', { timeout: 60 });
+
+      mockProc.emit('close', 0);
+      await runPromise;
+
+      const spawnOptions = mockSpawn.mock.calls[0][2];
+      // env should be process.env directly (no CLAUDE_CODE_EFFORT_LEVEL override)
+      expect(spawnOptions.env).toBe(process.env);
+    });
+
+    it('should support different effort levels', async () => {
+      for (const level of ['low', 'medium', 'high'] as const) {
+        const mockProc = createMockProcess();
+        mockSpawn.mockReturnValue(mockProc);
+
+        const runner = new ClaudeRunner();
+        const runPromise = runner.run('test prompt', { timeout: 60, effortLevel: level });
+
+        mockProc.emit('close', 0);
+        await runPromise;
+
+        const spawnOptions = mockSpawn.mock.calls[mockSpawn.mock.calls.length - 1][2];
+        expect(spawnOptions.env.CLAUDE_CODE_EFFORT_LEVEL).toBe(level);
+      }
+    });
+
+    it('should preserve other env vars when effortLevel is set', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', { timeout: 60, effortLevel: 'medium' });
+
+      mockProc.emit('close', 0);
+      await runPromise;
+
+      const spawnOptions = mockSpawn.mock.calls[0][2];
+      // Should have PATH from process.env
+      expect(spawnOptions.env.PATH).toBe(process.env.PATH);
+      // And the injected effort level
+      expect(spawnOptions.env.CLAUDE_CODE_EFFORT_LEVEL).toBe('medium');
+    });
+  });
+
   describe('system prompt append flag', () => {
     function createMockProcess() {
       const stdout = new EventEmitter();

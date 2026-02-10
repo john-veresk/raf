@@ -244,6 +244,30 @@ describe('ClaudeRunner - runInteractive', () => {
     });
   });
 
+  describe('effort level (not applied in interactive mode)', () => {
+    it('should NOT set CLAUDE_CODE_EFFORT_LEVEL in runInteractive env', async () => {
+      const mockProc = createMockPtyProcess();
+      const mockStdin = createMockStdin();
+      const mockStdout = createMockStdout();
+
+      Object.defineProperty(process, 'stdin', { value: mockStdin, configurable: true });
+      Object.defineProperty(process, 'stdout', { value: mockStdout, configurable: true });
+
+      mockPtySpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      // Even if effortLevel were somehow passed, interactive mode should use process.env as-is
+      const runPromise = runner.runInteractive('system', 'user');
+
+      const spawnOptions = mockPtySpawn.mock.calls[0][2];
+      // Interactive mode passes process.env directly, no effort level override
+      expect(spawnOptions.env).not.toHaveProperty('CLAUDE_CODE_EFFORT_LEVEL');
+
+      mockProc._exitCallback({ exitCode: 0 });
+      await runPromise;
+    });
+  });
+
   describe('--dangerously-skip-permissions flag', () => {
     it('should NOT include --dangerously-skip-permissions by default', async () => {
       const mockProc = createMockPtyProcess();

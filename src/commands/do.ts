@@ -941,8 +941,8 @@ async function executeSingleProject(
 
       // Run Claude (use worktree root as cwd if in worktree mode)
       const result = verbose
-        ? await claudeRunner.runVerbose(prompt, { timeout, outcomeFilePath, commitContext, cwd: worktreeCwd })
-        : await claudeRunner.run(prompt, { timeout, outcomeFilePath, commitContext, cwd: worktreeCwd });
+        ? await claudeRunner.runVerbose(prompt, { timeout, outcomeFilePath, commitContext, cwd: worktreeCwd, effortLevel: 'medium' })
+        : await claudeRunner.run(prompt, { timeout, outcomeFilePath, commitContext, cwd: worktreeCwd, effortLevel: 'medium' });
 
       lastOutput = result.output;
 
