@@ -5,7 +5,7 @@
 
 import { formatElapsedTime } from './timer.js';
 import type { UsageData } from '../types/config.js';
-import type { CostBreakdown } from './token-tracker.js';
+import type { CostBreakdown, TaskUsageEntry } from './token-tracker.js';
 
 /**
  * Visual symbols for terminal output using dots/symbols style.
@@ -146,12 +146,18 @@ export function formatCost(cost: number): string {
 }
 
 /**
- * Formats a per-task token usage summary line.
- * Example: "  Tokens: 5,234 in / 1,023 out | Cache: 18,500 read | Est. cost: $0.42"
+ * Formats a single line of token usage (for a single attempt or total).
+ * Used internally by formatTaskTokenSummary.
  */
-export function formatTaskTokenSummary(usage: UsageData, cost: CostBreakdown): string {
+function formatTokenLine(
+  usage: UsageData,
+  costValue: number,
+  prefix: string = '',
+  indent: string = '  '
+): string {
   const parts: string[] = [];
-  parts.push(`Tokens: ${formatNumber(usage.inputTokens)} in / ${formatNumber(usage.outputTokens)} out`);
+  const tokenPart = `${formatNumber(usage.inputTokens)} in / ${formatNumber(usage.outputTokens)} out`;
+  parts.push(prefix ? `${prefix}: ${tokenPart}` : `Tokens: ${tokenPart}`);
 
   const cacheTotal = usage.cacheReadInputTokens + usage.cacheCreationInputTokens;
   if (cacheTotal > 0) {
@@ -164,8 +170,37 @@ export function formatTaskTokenSummary(usage: UsageData, cost: CostBreakdown): s
     }
   }
 
-  parts.push(`Est. cost: ${formatCost(cost.totalCost)}`);
-  return `  ${parts.join(' | ')}`;
+  parts.push(`Est. cost: ${formatCost(costValue)}`);
+  return `${indent}${parts.join(' | ')}`;
+}
+
+/**
+ * Formats a per-task token usage summary.
+ * For single-attempt tasks: "  Tokens: 5,234 in / 1,023 out | Cache: 18,500 read | Est. cost: $0.42"
+ * For multi-attempt tasks: shows per-attempt breakdown plus total.
+ *
+ * @param entry - The TaskUsageEntry containing accumulated usage, cost, and attempts array
+ * @param calculateAttemptCost - Optional function to calculate cost for a single attempt's UsageData
+ */
+export function formatTaskTokenSummary(
+  entry: TaskUsageEntry,
+  calculateAttemptCost?: (usage: UsageData) => CostBreakdown
+): string {
+  // Single-attempt: render exactly as before (no per-attempt breakdown)
+  if (entry.attempts.length <= 1) {
+    return formatTokenLine(entry.usage, entry.cost.totalCost);
+  }
+
+  // Multi-attempt: show per-attempt lines plus total
+  const lines: string[] = [];
+  entry.attempts.forEach((attemptUsage, i) => {
+    const attemptCost = calculateAttemptCost
+      ? calculateAttemptCost(attemptUsage).totalCost
+      : 0;
+    lines.push(formatTokenLine(attemptUsage, attemptCost, `Attempt ${i + 1}`, '    '));
+  });
+  lines.push(formatTokenLine(entry.usage, entry.cost.totalCost, 'Total', '    '));
+  return lines.join('\n');
 }
 
 /**

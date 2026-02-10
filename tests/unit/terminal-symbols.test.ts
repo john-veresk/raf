@@ -11,7 +11,7 @@ import {
   TaskStatus,
 } from '../../src/utils/terminal-symbols.js';
 import type { UsageData } from '../../src/types/config.js';
-import type { CostBreakdown } from '../../src/utils/token-tracker.js';
+import type { CostBreakdown, TaskUsageEntry } from '../../src/utils/token-tracker.js';
 
 describe('Terminal Symbols', () => {
   describe('SYMBOLS', () => {
@@ -296,38 +296,126 @@ describe('Terminal Symbols', () => {
       totalCost: total,
     });
 
-    it('should format basic token summary without cache', () => {
-      const result = formatTaskTokenSummary(makeUsage(), makeCost(0.42));
-      expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Est. cost: $0.42');
+    const makeEntry = (usage: UsageData, cost: CostBreakdown, attempts?: UsageData[]): TaskUsageEntry => ({
+      taskId: '01',
+      usage,
+      cost,
+      attempts: attempts ?? [usage],
     });
 
-    it('should include cache read tokens', () => {
-      const result = formatTaskTokenSummary(
-        makeUsage({ cacheReadInputTokens: 18500 }),
-        makeCost(0.42)
-      );
-      expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cache: 18,500 read | Est. cost: $0.42');
+    describe('single-attempt tasks', () => {
+      it('should format basic token summary without cache', () => {
+        const usage = makeUsage();
+        const result = formatTaskTokenSummary(makeEntry(usage, makeCost(0.42)));
+        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Est. cost: $0.42');
+      });
+
+      it('should include cache read tokens', () => {
+        const usage = makeUsage({ cacheReadInputTokens: 18500 });
+        const result = formatTaskTokenSummary(makeEntry(usage, makeCost(0.42)));
+        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cache: 18,500 read | Est. cost: $0.42');
+      });
+
+      it('should include cache creation tokens', () => {
+        const usage = makeUsage({ cacheCreationInputTokens: 5000 });
+        const result = formatTaskTokenSummary(makeEntry(usage, makeCost(0.55)));
+        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cache: 5,000 created | Est. cost: $0.55');
+      });
+
+      it('should include both cache read and creation tokens', () => {
+        const usage = makeUsage({ cacheReadInputTokens: 18500, cacheCreationInputTokens: 5000 });
+        const result = formatTaskTokenSummary(makeEntry(usage, makeCost(0.75)));
+        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cache: 18,500 read / 5,000 created | Est. cost: $0.75');
+      });
+
+      it('should format small costs with 4 decimal places', () => {
+        const usage = makeUsage();
+        const result = formatTaskTokenSummary(makeEntry(usage, makeCost(0.0042)));
+        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Est. cost: $0.0042');
+      });
+
+      it('should format single-attempt task with empty attempts array as single-line', () => {
+        const usage = makeUsage();
+        const result = formatTaskTokenSummary(makeEntry(usage, makeCost(0.42), []));
+        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Est. cost: $0.42');
+      });
     });
 
-    it('should include cache creation tokens', () => {
-      const result = formatTaskTokenSummary(
-        makeUsage({ cacheCreationInputTokens: 5000 }),
-        makeCost(0.55)
-      );
-      expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cache: 5,000 created | Est. cost: $0.55');
-    });
+    describe('multi-attempt tasks', () => {
+      it('should show per-attempt breakdown with costs when calculateAttemptCost provided', () => {
+        const attempt1 = makeUsage({ inputTokens: 1234, outputTokens: 567 });
+        const attempt2 = makeUsage({ inputTokens: 2345, outputTokens: 890 });
+        const totalUsage = makeUsage({ inputTokens: 3579, outputTokens: 1457 });
+        const entry = makeEntry(totalUsage, makeCost(0.06), [attempt1, attempt2]);
 
-    it('should include both cache read and creation tokens', () => {
-      const result = formatTaskTokenSummary(
-        makeUsage({ cacheReadInputTokens: 18500, cacheCreationInputTokens: 5000 }),
-        makeCost(0.75)
-      );
-      expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cache: 18,500 read / 5,000 created | Est. cost: $0.75');
-    });
+        const calculateCost = (usage: UsageData): CostBreakdown => ({
+          inputCost: 0,
+          outputCost: 0,
+          cacheReadCost: 0,
+          cacheCreateCost: 0,
+          totalCost: usage.inputTokens === 1234 ? 0.02 : 0.04,
+        });
 
-    it('should format small costs with 4 decimal places', () => {
-      const result = formatTaskTokenSummary(makeUsage(), makeCost(0.0042));
-      expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Est. cost: $0.0042');
+        const result = formatTaskTokenSummary(entry, calculateCost);
+        const lines = result.split('\n');
+
+        expect(lines).toHaveLength(3);
+        expect(lines[0]).toBe('    Attempt 1: 1,234 in / 567 out | Est. cost: $0.02');
+        expect(lines[1]).toBe('    Attempt 2: 2,345 in / 890 out | Est. cost: $0.04');
+        expect(lines[2]).toBe('    Total: 3,579 in / 1,457 out | Est. cost: $0.06');
+      });
+
+      it('should show per-attempt breakdown without costs when no calculateAttemptCost', () => {
+        const attempt1 = makeUsage({ inputTokens: 1000, outputTokens: 200 });
+        const attempt2 = makeUsage({ inputTokens: 2000, outputTokens: 400 });
+        const totalUsage = makeUsage({ inputTokens: 3000, outputTokens: 600 });
+        const entry = makeEntry(totalUsage, makeCost(0.05), [attempt1, attempt2]);
+
+        const result = formatTaskTokenSummary(entry);
+        const lines = result.split('\n');
+
+        expect(lines).toHaveLength(3);
+        expect(lines[0]).toBe('    Attempt 1: 1,000 in / 200 out | Est. cost: $0.00');
+        expect(lines[1]).toBe('    Attempt 2: 2,000 in / 400 out | Est. cost: $0.00');
+        expect(lines[2]).toBe('    Total: 3,000 in / 600 out | Est. cost: $0.05');
+      });
+
+      it('should include cache tokens in per-attempt breakdown', () => {
+        const attempt1 = makeUsage({ inputTokens: 1000, outputTokens: 200, cacheReadInputTokens: 5000 });
+        const attempt2 = makeUsage({ inputTokens: 1500, outputTokens: 300, cacheCreationInputTokens: 2000 });
+        const totalUsage = makeUsage({
+          inputTokens: 2500,
+          outputTokens: 500,
+          cacheReadInputTokens: 5000,
+          cacheCreationInputTokens: 2000,
+        });
+        const entry = makeEntry(totalUsage, makeCost(0.08), [attempt1, attempt2]);
+
+        const result = formatTaskTokenSummary(entry);
+        const lines = result.split('\n');
+
+        expect(lines).toHaveLength(3);
+        expect(lines[0]).toContain('Cache: 5,000 read');
+        expect(lines[1]).toContain('Cache: 2,000 created');
+        expect(lines[2]).toContain('Cache: 5,000 read / 2,000 created');
+      });
+
+      it('should handle three or more attempts', () => {
+        const attempt1 = makeUsage({ inputTokens: 500, outputTokens: 100 });
+        const attempt2 = makeUsage({ inputTokens: 600, outputTokens: 120 });
+        const attempt3 = makeUsage({ inputTokens: 700, outputTokens: 140 });
+        const totalUsage = makeUsage({ inputTokens: 1800, outputTokens: 360 });
+        const entry = makeEntry(totalUsage, makeCost(0.10), [attempt1, attempt2, attempt3]);
+
+        const result = formatTaskTokenSummary(entry);
+        const lines = result.split('\n');
+
+        expect(lines).toHaveLength(4);
+        expect(lines[0]).toContain('Attempt 1');
+        expect(lines[1]).toContain('Attempt 2');
+        expect(lines[2]).toContain('Attempt 3');
+        expect(lines[3]).toContain('Total');
+      });
     });
   });
 

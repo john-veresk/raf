@@ -1091,7 +1091,7 @@ Task completed. No detailed report provided.
       // Track and display token usage for this task
       if (attemptUsageData.length > 0) {
         const entry = tokenTracker.addTask(task.id, attemptUsageData);
-        logger.dim(formatTaskTokenSummary(entry.usage, entry.cost));
+        logger.dim(formatTaskTokenSummary(entry, (u) => tokenTracker.calculateCost(u)));
       }
 
       completedInSession.add(task.id);
@@ -1118,7 +1118,7 @@ Task completed. No detailed report provided.
       // Track token usage even for failed tasks (partial data still useful for totals)
       if (attemptUsageData.length > 0) {
         const entry = tokenTracker.addTask(task.id, attemptUsageData);
-        logger.dim(formatTaskTokenSummary(entry.usage, entry.cost));
+        logger.dim(formatTaskTokenSummary(entry, (u) => tokenTracker.calculateCost(u)));
       }
 
       // Analyze failure and generate structured report
