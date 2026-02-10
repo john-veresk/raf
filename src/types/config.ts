@@ -37,6 +37,24 @@ export interface CommitFormatConfig {
   prefix: string;
 }
 
+/** Pricing category derived from model family name. */
+export type PricingCategory = 'opus' | 'sonnet' | 'haiku';
+
+/** Per-direction pricing for a single model category, in dollars per million tokens. */
+export interface ModelPricing {
+  inputPerMTok: number;
+  outputPerMTok: number;
+  cacheReadPerMTok: number;
+  cacheCreatePerMTok: number;
+}
+
+/** Pricing config: per-category pricing in dollars per million tokens. */
+export interface PricingConfig {
+  opus: ModelPricing;
+  sonnet: ModelPricing;
+  haiku: ModelPricing;
+}
+
 export interface RafConfig {
   models: ModelsConfig;
   effort: EffortConfig;
@@ -46,6 +64,7 @@ export interface RafConfig {
   worktree: boolean;
   commitFormat: CommitFormatConfig;
   claudeCommand: string;
+  pricing: PricingConfig;
 }
 
 export const DEFAULT_CONFIG: RafConfig = {
@@ -76,6 +95,26 @@ export const DEFAULT_CONFIG: RafConfig = {
     prefix: 'RAF',
   },
   claudeCommand: 'claude',
+  pricing: {
+    opus: {
+      inputPerMTok: 15,
+      outputPerMTok: 75,
+      cacheReadPerMTok: 1.5,
+      cacheCreatePerMTok: 18.75,
+    },
+    sonnet: {
+      inputPerMTok: 3,
+      outputPerMTok: 15,
+      cacheReadPerMTok: 0.3,
+      cacheCreatePerMTok: 3.75,
+    },
+    haiku: {
+      inputPerMTok: 1,
+      outputPerMTok: 5,
+      cacheReadPerMTok: 0.1,
+      cacheCreatePerMTok: 1.25,
+    },
+  },
 };
 
 /** Deep partial type for user config files — all fields optional at every level */

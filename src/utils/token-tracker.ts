@@ -1,0 +1,135 @@
+import { UsageData, PricingConfig } from '../types/config.js';
+import { resolveModelPricingCategory, getPricingConfig } from './config.js';
+
+/** Cost breakdown for a single task or accumulated total. */
+export interface CostBreakdown {
+  inputCost: number;
+  outputCost: number;
+  cacheReadCost: number;
+  cacheCreateCost: number;
+  totalCost: number;
+}
+
+/** Per-task usage snapshot stored by the tracker. */
+export interface TaskUsageEntry {
+  taskId: string;
+  usage: UsageData;
+  cost: CostBreakdown;
+}
+
+/**
+ * Accumulates token usage across multiple task executions and calculates costs
+ * using configurable per-model pricing.
+ */
+export class TokenTracker {
+  private entries: TaskUsageEntry[] = [];
+  private pricingConfig: PricingConfig;
+
+  constructor(pricingConfig?: PricingConfig) {
+    this.pricingConfig = pricingConfig ?? getPricingConfig();
+  }
+
+  /**
+   * Record usage data from a completed task.
+   */
+  addTask(taskId: string, usage: UsageData): TaskUsageEntry {
+    const cost = this.calculateCost(usage);
+    const entry: TaskUsageEntry = { taskId, usage, cost };
+    this.entries.push(entry);
+    return entry;
+  }
+
+  /**
+   * Get all recorded task entries.
+   */
+  getEntries(): readonly TaskUsageEntry[] {
+    return this.entries;
+  }
+
+  /**
+   * Get accumulated totals across all tasks.
+   */
+  getTotals(): { usage: UsageData; cost: CostBreakdown } {
+    const totalUsage: UsageData = {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadInputTokens: 0,
+      cacheCreationInputTokens: 0,
+      modelUsage: {},
+    };
+    const totalCost: CostBreakdown = {
+      inputCost: 0,
+      outputCost: 0,
+      cacheReadCost: 0,
+      cacheCreateCost: 0,
+      totalCost: 0,
+    };
+
+    for (const entry of this.entries) {
+      totalUsage.inputTokens += entry.usage.inputTokens;
+      totalUsage.outputTokens += entry.usage.outputTokens;
+      totalUsage.cacheReadInputTokens += entry.usage.cacheReadInputTokens;
+      totalUsage.cacheCreationInputTokens += entry.usage.cacheCreationInputTokens;
+
+      // Merge per-model usage
+      for (const [modelId, modelUsage] of Object.entries(entry.usage.modelUsage)) {
+        const existing = totalUsage.modelUsage[modelId];
+        if (existing) {
+          existing.inputTokens += modelUsage.inputTokens;
+          existing.outputTokens += modelUsage.outputTokens;
+          existing.cacheReadInputTokens += modelUsage.cacheReadInputTokens;
+          existing.cacheCreationInputTokens += modelUsage.cacheCreationInputTokens;
+        } else {
+          totalUsage.modelUsage[modelId] = { ...modelUsage };
+        }
+      }
+
+      totalCost.inputCost += entry.cost.inputCost;
+      totalCost.outputCost += entry.cost.outputCost;
+      totalCost.cacheReadCost += entry.cost.cacheReadCost;
+      totalCost.cacheCreateCost += entry.cost.cacheCreateCost;
+      totalCost.totalCost += entry.cost.totalCost;
+    }
+
+    return { usage: totalUsage, cost: totalCost };
+  }
+
+  /**
+   * Calculate cost for a given UsageData using per-model pricing.
+   * Uses per-model breakdown when available, falls back to aggregate with sonnet pricing.
+   */
+  calculateCost(usage: UsageData): CostBreakdown {
+    const result: CostBreakdown = {
+      inputCost: 0,
+      outputCost: 0,
+      cacheReadCost: 0,
+      cacheCreateCost: 0,
+      totalCost: 0,
+    };
+
+    const modelEntries = Object.entries(usage.modelUsage);
+
+    if (modelEntries.length > 0) {
+      // Use per-model breakdown for accurate pricing
+      for (const [modelId, modelUsage] of modelEntries) {
+        const category = resolveModelPricingCategory(modelId);
+        const pricing = this.pricingConfig[category ?? 'sonnet'];
+
+        result.inputCost += (modelUsage.inputTokens / 1_000_000) * pricing.inputPerMTok;
+        result.outputCost += (modelUsage.outputTokens / 1_000_000) * pricing.outputPerMTok;
+        result.cacheReadCost += (modelUsage.cacheReadInputTokens / 1_000_000) * pricing.cacheReadPerMTok;
+        result.cacheCreateCost += (modelUsage.cacheCreationInputTokens / 1_000_000) * pricing.cacheCreatePerMTok;
+      }
+    } else {
+      // Fallback: use aggregate totals with sonnet pricing
+      const pricing = this.pricingConfig.sonnet;
+      result.inputCost = (usage.inputTokens / 1_000_000) * pricing.inputPerMTok;
+      result.outputCost = (usage.outputTokens / 1_000_000) * pricing.outputPerMTok;
+      result.cacheReadCost = (usage.cacheReadInputTokens / 1_000_000) * pricing.cacheReadPerMTok;
+      result.cacheCreateCost = (usage.cacheCreationInputTokens / 1_000_000) * pricing.cacheCreatePerMTok;
+    }
+
+    result.totalCost = result.inputCost + result.outputCost + result.cacheReadCost + result.cacheCreateCost;
+    return result;
+  }
+}
