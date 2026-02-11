@@ -531,7 +531,7 @@ export function pullMainBranch(cwd?: string): SyncMainBranchResult {
         });
         logger.debug(`Fetched origin/${mainBranch} (local ${mainBranch} diverged, not updated)`);
         return {
-          success: true,
+          success: false,
           mainBranch,
           hadChanges: false,
           error: `Local ${mainBranch} has diverged from origin, not updated`,

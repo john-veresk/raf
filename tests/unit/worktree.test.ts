@@ -729,7 +729,7 @@ describe('worktree utilities', () => {
 
       const result = pullMainBranch();
 
-      expect(result.success).toBe(true);
+      expect(result.success).toBe(false);
       expect(result.mainBranch).toBe('main');
       expect(result.hadChanges).toBe(false);
       expect(result.error).toContain('diverged');
