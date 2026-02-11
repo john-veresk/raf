@@ -49,6 +49,7 @@ import {
   removeWorktree,
   computeWorktreeBaseDir,
   pullMainBranch,
+  resolveWorktreeProjectByIdentifier,
 } from '../core/worktree.js';
 
 interface PlanCommandOptions {
@@ -690,54 +691,58 @@ async function runResumeCommand(identifier: string, model?: string): Promise<voi
     process.exit(1);
   }
 
-  // First, try to resolve the project from main repo
+  // Try to resolve the project from worktrees first, then fall back to main repo
+  const repoBasename = getRepoBasename();
   const rafDir = getRafDir();
-  const mainResolution = resolveProjectIdentifierWithDetails(rafDir, identifier);
 
-  if (!mainResolution.path) {
-    if (mainResolution.error === 'ambiguous' && mainResolution.matches) {
-      logger.error(`Ambiguous project name: ${identifier}`);
-      logger.error('Multiple projects match:');
-      for (const match of mainResolution.matches) {
-        logger.error(`  - ${match.folder}`);
+  let projectPath: string | undefined;
+  let resumeCwd: string | undefined;
+  let folderName: string | undefined;
+
+  // 1. Try worktree resolution first (if we're in a git repo)
+  if (repoBasename) {
+    const worktreeResolution = resolveWorktreeProjectByIdentifier(repoBasename, identifier);
+
+    if (worktreeResolution) {
+      // Found in worktree - validate and use it
+      const wtValidation = validateWorktree(worktreeResolution.worktreeRoot, '');
+
+      if (wtValidation.isValidWorktree) {
+        folderName = worktreeResolution.folder;
+        const repoRoot = getRepoRoot()!;
+        const rafRelativePath = path.relative(repoRoot, rafDir);
+        projectPath = path.join(worktreeResolution.worktreeRoot, rafRelativePath, folderName);
+        resumeCwd = worktreeResolution.worktreeRoot;
+        logger.info(`Resuming session in worktree: ${resumeCwd}`);
+      } else {
+        logger.warn(`Worktree found but invalid: ${worktreeResolution.worktreeRoot}`);
+        logger.warn('Falling back to main repo resolution.');
+        // Fall through to main repo resolution
       }
-      logger.error('Please specify the project ID or full folder name.');
-    } else {
-      logger.error(`Project not found: ${identifier}`);
     }
-    process.exit(1);
   }
 
-  const projectPath = mainResolution.path;
-  const folderName = path.basename(projectPath);
+  // 2. If not found in worktree (or invalid), try main repo
+  if (!projectPath) {
+    const mainResolution = resolveProjectIdentifierWithDetails(rafDir, identifier);
 
-  // Determine if this is a worktree project by checking if a worktree exists
-  let resumeCwd = projectPath; // Default to main repo project path
-  const repoBasename = getRepoBasename();
-
-  if (repoBasename) {
-    const worktreeBaseDir = computeWorktreeBaseDir(repoBasename);
-
-    // Check if a worktree exists for this project
-    if (fs.existsSync(worktreeBaseDir)) {
-      const entries = fs.readdirSync(worktreeBaseDir, { withFileTypes: true });
-      const worktreeEntry = entries.find(
-        (entry) => entry.isDirectory() && entry.name === folderName
-      );
-
-      if (worktreeEntry) {
-        // Worktree exists - use it as the CWD
-        const worktreePath = path.join(worktreeBaseDir, worktreeEntry.name);
-        const wtValidation = validateWorktree(worktreePath, '');
-        if (wtValidation.isValidWorktree) {
-          resumeCwd = worktreePath;
-          logger.info(`Resuming session in worktree: ${worktreePath}`);
-        } else {
-          logger.warn(`Worktree found but invalid: ${worktreePath}`);
-          logger.warn('Falling back to main repo path.');
+    if (!mainResolution.path) {
+      if (mainResolution.error === 'ambiguous' && mainResolution.matches) {
+        logger.error(`Ambiguous project name: ${identifier}`);
+        logger.error('Multiple projects match:');
+        for (const match of mainResolution.matches) {
+          logger.error(`  - ${match.folder}`);
         }
+        logger.error('Please specify the project ID or full folder name.');
+      } else {
+        logger.error(`Project not found: ${identifier}`);
       }
+      process.exit(1);
     }
+
+    projectPath = mainResolution.path;
+    folderName = path.basename(projectPath);
+    resumeCwd = projectPath; // Use main repo project path as CWD
   }
 
   logger.info(`Project: ${folderName}`);
