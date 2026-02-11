@@ -432,3 +432,233 @@ export function resolveWorktreeProjectByIdentifier(
   // Ambiguous or no match
   return null;
 }
+
+export interface SyncMainBranchResult {
+  success: boolean;
+  /** The detected main branch name (e.g., 'main' or 'master') */
+  mainBranch: string | null;
+  /** Whether any changes were pulled */
+  hadChanges: boolean;
+  error?: string;
+}
+
+/**
+ * Detect the main branch name from the remote.
+ * Uses refs/remotes/origin/HEAD, falling back to main/master.
+ * Reuses the same logic as detectBaseBranch from pull-request.ts.
+ */
+export function detectMainBranch(cwd?: string): string | null {
+  // Try to find the default branch from the remote
+  try {
+    const output = execSync('git symbolic-ref refs/remotes/origin/HEAD', {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      ...(cwd ? { cwd } : {}),
+    }).trim();
+    // Output is like "refs/remotes/origin/main"
+    const parts = output.split('/');
+    return parts[parts.length - 1] ?? null;
+  } catch {
+    // Fallback: check for common branch names
+  }
+
+  // Try common default branches
+  for (const branch of ['main', 'master']) {
+    try {
+      execSync(`git rev-parse --verify "refs/heads/${branch}"`, {
+        encoding: 'utf-8',
+        stdio: 'pipe',
+        ...(cwd ? { cwd } : {}),
+      });
+      return branch;
+    } catch {
+      // Try next
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Pull the main branch from remote before worktree creation.
+ * Uses fetch + merge --ff-only to safely update the main branch.
+ * This ensures the worktree is created from the latest remote state.
+ *
+ * Only pulls if currently on the main branch or if the main branch exists.
+ * Fails gracefully if there are conflicts or the branch has diverged.
+ *
+ * @param cwd - The directory to run git commands in (defaults to current directory)
+ */
+export function pullMainBranch(cwd?: string): SyncMainBranchResult {
+  const mainBranch = detectMainBranch(cwd);
+
+  if (!mainBranch) {
+    return {
+      success: false,
+      mainBranch: null,
+      hadChanges: false,
+      error: 'Could not detect main branch (no origin/HEAD or main/master found)',
+    };
+  }
+
+  // Get current branch to check if we need to switch
+  const currentBranch = getCurrentBranch();
+
+  // If not on main, we need to fetch and update the main branch ref
+  // without checking it out (to avoid disrupting the user's work)
+  if (currentBranch !== mainBranch) {
+    // Fetch the main branch from origin
+    try {
+      execSync(`git fetch origin ${mainBranch}:${mainBranch}`, {
+        encoding: 'utf-8',
+        stdio: 'pipe',
+        ...(cwd ? { cwd } : {}),
+      });
+      logger.debug(`Fetched ${mainBranch} from origin`);
+      return {
+        success: true,
+        mainBranch,
+        hadChanges: true, // We fetched updates (may or may not have actual changes)
+      };
+    } catch (error) {
+      // This can fail if the local main has diverged from remote
+      // Try a simple fetch without updating the local ref
+      try {
+        execSync(`git fetch origin ${mainBranch}`, {
+          encoding: 'utf-8',
+          stdio: 'pipe',
+          ...(cwd ? { cwd } : {}),
+        });
+        logger.debug(`Fetched origin/${mainBranch} (local ${mainBranch} diverged, not updated)`);
+        return {
+          success: true,
+          mainBranch,
+          hadChanges: false,
+          error: `Local ${mainBranch} has diverged from origin, not updated`,
+        };
+      } catch (fetchError) {
+        const msg = fetchError instanceof Error ? fetchError.message : String(fetchError);
+        return {
+          success: false,
+          mainBranch,
+          hadChanges: false,
+          error: `Failed to fetch ${mainBranch}: ${msg}`,
+        };
+      }
+    }
+  }
+
+  // Currently on main branch - can do a regular pull with ff-only
+  // First, check for uncommitted changes that would block the pull
+  try {
+    const status = execSync('git status --porcelain', {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      ...(cwd ? { cwd } : {}),
+    }).trim();
+
+    if (status) {
+      return {
+        success: false,
+        mainBranch,
+        hadChanges: false,
+        error: `Cannot pull ${mainBranch}: uncommitted changes in working directory`,
+      };
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      mainBranch,
+      hadChanges: false,
+      error: `Failed to check git status: ${msg}`,
+    };
+  }
+
+  // Fetch and merge with ff-only
+  try {
+    execSync(`git fetch origin ${mainBranch}`, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      ...(cwd ? { cwd } : {}),
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      mainBranch,
+      hadChanges: false,
+      error: `Failed to fetch from origin: ${msg}`,
+    };
+  }
+
+  try {
+    const output = execSync(`git merge --ff-only origin/${mainBranch}`, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      ...(cwd ? { cwd } : {}),
+    });
+    const hadChanges = !output.includes('Already up to date');
+    return {
+      success: true,
+      mainBranch,
+      hadChanges,
+    };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      mainBranch,
+      hadChanges: false,
+      error: `Cannot fast-forward ${mainBranch}: ${msg.includes('Not possible to fast-forward') ? 'branch has diverged from origin' : msg}`,
+    };
+  }
+}
+
+/**
+ * Push the main branch to remote before PR creation.
+ * Ensures the PR base is up to date.
+ *
+ * @param cwd - The directory to run git commands in (defaults to current directory)
+ */
+export function pushMainBranch(cwd?: string): SyncMainBranchResult {
+  const mainBranch = detectMainBranch(cwd);
+
+  if (!mainBranch) {
+    return {
+      success: false,
+      mainBranch: null,
+      hadChanges: false,
+      error: 'Could not detect main branch (no origin/HEAD or main/master found)',
+    };
+  }
+
+  try {
+    execSync(`git push origin ${mainBranch}`, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      ...(cwd ? { cwd } : {}),
+    });
+    return {
+      success: true,
+      mainBranch,
+      hadChanges: true,
+    };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    // Check if it's just "already up to date"
+    if (msg.includes('Everything up-to-date')) {
+      return {
+        success: true,
+        mainBranch,
+        hadChanges: false,
+      };
+    }
+    return {
+      success: false,
+      mainBranch,
+      hadChanges: false,
+      error: `Failed to push ${mainBranch}: ${msg}`,
+    };
+  }
+}

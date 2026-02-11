@@ -80,6 +80,18 @@ Controls the effort level passed to Claude for each scenario. All values must be
 - **Default**: `false`
 - **Description**: When `true`, `raf plan` and `raf do` default to worktree mode (isolated git worktree). Can be overridden per-command with `--worktree` flag.
 
+### `syncMainBranch` — Sync Main Branch with Remote
+
+- **Type**: boolean
+- **Default**: `true`
+- **Description**: When `true`, RAF automatically syncs the main branch with the remote before worktree operations:
+  - **Before worktree creation** (`raf plan --worktree`): Pulls the main branch from remote to ensure the worktree starts from the latest code
+  - **Before PR creation** (post-execution "Create PR" action): Pushes the main branch to remote so the PR base is up to date
+
+The main branch is auto-detected from `refs/remotes/origin/HEAD`, falling back to `main` or `master` if not set.
+
+Failures in sync operations produce warnings but don't block the workflow. For example, if the local main branch has diverged from remote, the sync will warn and continue.
+
 ### `commitFormat` — Commit Message Templates
 
 Controls the format of git commit messages. Templates use `{placeholder}` syntax for variable substitution.
@@ -198,7 +210,7 @@ The config is validated when loaded. Invalid configs cause an error with a descr
 - **Effort values** must be exactly `"low"`, `"medium"`, or `"high"` (case-sensitive).
 - **`timeout`** must be a positive finite number.
 - **`maxRetries`** must be a non-negative integer.
-- **`autoCommit`** and **`worktree`** must be booleans.
+- **`autoCommit`**, **`worktree`**, and **`syncMainBranch`** must be booleans.
 - **`commitFormat` values** must be strings.
 - **`pricing`** categories must be `"opus"`, `"sonnet"`, or `"haiku"`. Each field must be a non-negative number.
 - **`display` values** (`showRateLimitEstimate`, `showCacheTokens`) must be booleans.
@@ -269,6 +281,7 @@ Uses Sonnet for both planning and execution, reduces planning effort, and defaul
   "maxRetries": 3,
   "autoCommit": true,
   "worktree": false,
+  "syncMainBranch": true,
   "commitFormat": {
     "task": "{prefix}[{projectId}:{taskId}] {description}",
     "plan": "{prefix}[{projectId}] Plan: {projectName}",

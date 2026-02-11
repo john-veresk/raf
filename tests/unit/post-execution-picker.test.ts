@@ -45,6 +45,8 @@ jest.unstable_mockModule('../../src/core/pull-request.js', () => ({
 // Mock worktree module
 const mockMergeWorktreeBranch = jest.fn();
 const mockRemoveWorktree = jest.fn();
+const mockPullMainBranch = jest.fn();
+const mockPushMainBranch = jest.fn();
 jest.unstable_mockModule('../../src/core/worktree.js', () => ({
   getRepoRoot: jest.fn(),
   getRepoBasename: jest.fn(),
@@ -60,6 +62,9 @@ jest.unstable_mockModule('../../src/core/worktree.js', () => ({
   branchExists: jest.fn(),
   getWorktreeProjectPath: jest.fn(),
   resolveWorktreeProjectByIdentifier: jest.fn(),
+  pullMainBranch: mockPullMainBranch,
+  pushMainBranch: mockPushMainBranch,
+  detectMainBranch: jest.fn(),
 }));
 
 // Import after mocking

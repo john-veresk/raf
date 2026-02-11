@@ -76,6 +76,8 @@ export interface RafConfig {
   maxRetries: number;
   autoCommit: boolean;
   worktree: boolean;
+  /** Sync main branch with remote before worktree/PR operations. Default: true */
+  syncMainBranch: boolean;
   commitFormat: CommitFormatConfig;
   pricing: PricingConfig;
   display: DisplayConfig;
@@ -103,6 +105,7 @@ export const DEFAULT_CONFIG: RafConfig = {
   maxRetries: 3,
   autoCommit: true,
   worktree: false,
+  syncMainBranch: true,
   commitFormat: {
     task: '{prefix}[{projectId}:{taskId}] {description}',
     plan: '{prefix}[{projectId}] Plan: {projectName}',

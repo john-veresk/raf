@@ -13,7 +13,7 @@ import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFro
 import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
-import { getConfig, getEffort, getWorktreeDefault, getModel, getModelShortName, resolveFullModelId } from '../utils/config.js';
+import { getConfig, getEffort, getWorktreeDefault, getModel, getModelShortName, resolveFullModelId, getSyncMainBranch } from '../utils/config.js';
 import { getVersion } from '../utils/version.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
 import { createStatusLine } from '../utils/status-line.js';
@@ -50,6 +50,8 @@ import {
   mergeWorktreeBranch,
   removeWorktree,
   resolveWorktreeProjectByIdentifier,
+  pushMainBranch,
+  pullMainBranch,
 } from '../core/worktree.js';
 import { createPullRequest, prPreflight } from '../core/pull-request.js';
 import type { DoCommandOptions } from '../types/config.js';
@@ -166,6 +168,18 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
 
     // Record original branch before any worktree operations
     originalBranch = getCurrentBranch() ?? undefined;
+
+    // Sync main branch before worktree operations (if enabled)
+    if (getSyncMainBranch()) {
+      const syncResult = pullMainBranch();
+      if (syncResult.success) {
+        if (syncResult.hadChanges) {
+          logger.info(`Synced ${syncResult.mainBranch} from remote`);
+        }
+      } else {
+        logger.warn(`Could not sync main branch: ${syncResult.error}`);
+      }
+    }
 
     if (!projectIdentifier) {
       // Auto-discovery flow
@@ -500,6 +514,19 @@ async function executePostAction(
 
     case 'pr': {
       logger.newline();
+
+      // Push main branch to remote before PR creation (if enabled)
+      if (getSyncMainBranch()) {
+        const syncResult = pushMainBranch();
+        if (syncResult.success) {
+          if (syncResult.hadChanges) {
+            logger.info(`Pushed ${syncResult.mainBranch} to remote`);
+          }
+        } else {
+          logger.warn(`Could not push main branch: ${syncResult.error}`);
+        }
+      }
+
       logger.info(`Creating PR for branch "${worktreeBranch}"...`);
 
       const prResult = await createPullRequest(worktreeBranch, projectPath, { cwd: worktreeRoot });

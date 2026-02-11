@@ -39,7 +39,7 @@ export function getClaudeSettingsPath(): string {
 
 const VALID_TOP_LEVEL_KEYS = new Set<string>([
   'models', 'effort', 'timeout', 'maxRetries', 'autoCommit',
-  'worktree', 'commitFormat', 'pricing', 'display', 'rateLimitWindow',
+  'worktree', 'syncMainBranch', 'commitFormat', 'pricing', 'display', 'rateLimitWindow',
 ]);
 
 const VALID_PRICING_CATEGORIES = new Set<string>(['opus', 'sonnet', 'haiku']);
@@ -147,6 +147,13 @@ export function validateConfig(config: unknown): UserConfig {
     }
   }
 
+  // syncMainBranch
+  if (obj.syncMainBranch !== undefined) {
+    if (typeof obj.syncMainBranch !== 'boolean') {
+      throw new ConfigValidationError('syncMainBranch must be a boolean');
+    }
+  }
+
   // commitFormat
   if (obj.commitFormat !== undefined) {
     if (typeof obj.commitFormat !== 'object' || obj.commitFormat === null || Array.isArray(obj.commitFormat)) {
@@ -244,6 +251,7 @@ function deepMerge(defaults: RafConfig, overrides: UserConfig): RafConfig {
   if (overrides.maxRetries !== undefined) result.maxRetries = overrides.maxRetries;
   if (overrides.autoCommit !== undefined) result.autoCommit = overrides.autoCommit;
   if (overrides.worktree !== undefined) result.worktree = overrides.worktree;
+  if (overrides.syncMainBranch !== undefined) result.syncMainBranch = overrides.syncMainBranch;
 
   return result;
 }
@@ -338,6 +346,10 @@ export function getAutoCommit(): boolean {
 
 export function getWorktreeDefault(): boolean {
   return getResolvedConfig().worktree;
+}
+
+export function getSyncMainBranch(): boolean {
+  return getResolvedConfig().syncMainBranch;
 }
 
 /**

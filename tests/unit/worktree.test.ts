@@ -43,6 +43,9 @@ const {
   removeWorktree,
   listWorktreeProjects,
   resolveWorktreeProjectByIdentifier,
+  detectMainBranch,
+  pullMainBranch,
+  pushMainBranch,
 } = await import('../../src/core/worktree.js');
 
 const HOME = os.homedir();
@@ -620,6 +623,245 @@ describe('worktree utilities', () => {
       expect(result!.worktreeRoot).toBe(
         path.join(HOME, '.raf', 'worktrees', 'myapp', 'ghijkl-another-thing')
       );
+    });
+  });
+
+  describe('detectMainBranch', () => {
+    it('should detect main branch from origin/HEAD', () => {
+      mockExecSync.mockReturnValue('refs/remotes/origin/main\n');
+      expect(detectMainBranch()).toBe('main');
+    });
+
+    it('should detect master from origin/HEAD', () => {
+      mockExecSync.mockReturnValue('refs/remotes/origin/master\n');
+      expect(detectMainBranch()).toBe('master');
+    });
+
+    it('should fall back to main when origin/HEAD not set', () => {
+      let callCount = 0;
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        callCount++;
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('symbolic-ref')) {
+          throw new Error('ref refs/remotes/origin/HEAD is not a symbolic ref');
+        }
+        if (cmdStr.includes('refs/heads/main') && callCount === 2) {
+          return 'valid\n';
+        }
+        throw new Error('fatal');
+      });
+
+      expect(detectMainBranch()).toBe('main');
+    });
+
+    it('should fall back to master when main does not exist', () => {
+      let callCount = 0;
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        callCount++;
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('symbolic-ref')) {
+          throw new Error('ref refs/remotes/origin/HEAD is not a symbolic ref');
+        }
+        if (cmdStr.includes('refs/heads/main')) {
+          throw new Error('fatal: Needed a single revision');
+        }
+        if (cmdStr.includes('refs/heads/master') && callCount === 3) {
+          return 'valid\n';
+        }
+        throw new Error('fatal');
+      });
+
+      expect(detectMainBranch()).toBe('master');
+    });
+
+    it('should return null when no main branch found', () => {
+      mockExecSync.mockImplementation(() => {
+        throw new Error('not found');
+      });
+
+      expect(detectMainBranch()).toBeNull();
+    });
+  });
+
+  describe('pullMainBranch', () => {
+    it('should return error when main branch cannot be detected', () => {
+      mockExecSync.mockImplementation(() => {
+        throw new Error('not found');
+      });
+
+      const result = pullMainBranch();
+
+      expect(result.success).toBe(false);
+      expect(result.mainBranch).toBeNull();
+      expect(result.error).toContain('Could not detect main branch');
+    });
+
+    it('should fetch main when not on main branch', () => {
+      let commands: string[] = [];
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        commands.push(cmdStr);
+        if (cmdStr.includes('symbolic-ref')) return 'refs/remotes/origin/main\n';
+        if (cmdStr.includes('branch --show-current')) return 'feature-branch\n';
+        if (cmdStr.includes('fetch origin main:main')) return '';
+        return '';
+      });
+
+      const result = pullMainBranch();
+
+      expect(result.success).toBe(true);
+      expect(result.mainBranch).toBe('main');
+      expect(result.hadChanges).toBe(true);
+      expect(commands).toContain('git fetch origin main:main');
+    });
+
+    it('should warn when local main has diverged', () => {
+      let commands: string[] = [];
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        commands.push(cmdStr);
+        if (cmdStr.includes('symbolic-ref')) return 'refs/remotes/origin/main\n';
+        if (cmdStr.includes('branch --show-current')) return 'feature-branch\n';
+        if (cmdStr.includes('fetch origin main:main')) throw new Error('not fast-forward');
+        if (cmdStr.includes('fetch origin main')) return '';
+        return '';
+      });
+
+      const result = pullMainBranch();
+
+      expect(result.success).toBe(true);
+      expect(result.mainBranch).toBe('main');
+      expect(result.hadChanges).toBe(false);
+      expect(result.error).toContain('diverged');
+    });
+
+    it('should fail when on main but has uncommitted changes', () => {
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('symbolic-ref')) return 'refs/remotes/origin/main\n';
+        if (cmdStr.includes('branch --show-current')) return 'main\n';
+        if (cmdStr.includes('status --porcelain')) return ' M file.ts\n';
+        return '';
+      });
+
+      const result = pullMainBranch();
+
+      expect(result.success).toBe(false);
+      expect(result.mainBranch).toBe('main');
+      expect(result.error).toContain('uncommitted changes');
+    });
+
+    it('should pull successfully when on main with no changes', () => {
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('symbolic-ref')) return 'refs/remotes/origin/main\n';
+        if (cmdStr.includes('branch --show-current')) return 'main\n';
+        if (cmdStr.includes('status --porcelain')) return '';
+        if (cmdStr.includes('fetch origin main')) return '';
+        if (cmdStr.includes('merge --ff-only')) return 'Updating abc123..def456\n';
+        return '';
+      });
+
+      const result = pullMainBranch();
+
+      expect(result.success).toBe(true);
+      expect(result.mainBranch).toBe('main');
+      expect(result.hadChanges).toBe(true);
+    });
+
+    it('should report no changes when already up to date', () => {
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('symbolic-ref')) return 'refs/remotes/origin/main\n';
+        if (cmdStr.includes('branch --show-current')) return 'main\n';
+        if (cmdStr.includes('status --porcelain')) return '';
+        if (cmdStr.includes('fetch origin main')) return '';
+        if (cmdStr.includes('merge --ff-only')) return 'Already up to date.\n';
+        return '';
+      });
+
+      const result = pullMainBranch();
+
+      expect(result.success).toBe(true);
+      expect(result.mainBranch).toBe('main');
+      expect(result.hadChanges).toBe(false);
+    });
+
+    it('should fail when branch has diverged', () => {
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('symbolic-ref')) return 'refs/remotes/origin/main\n';
+        if (cmdStr.includes('branch --show-current')) return 'main\n';
+        if (cmdStr.includes('status --porcelain')) return '';
+        if (cmdStr.includes('fetch origin main')) return '';
+        if (cmdStr.includes('merge --ff-only')) throw new Error('Not possible to fast-forward');
+        return '';
+      });
+
+      const result = pullMainBranch();
+
+      expect(result.success).toBe(false);
+      expect(result.mainBranch).toBe('main');
+      expect(result.error).toContain('diverged from origin');
+    });
+  });
+
+  describe('pushMainBranch', () => {
+    it('should return error when main branch cannot be detected', () => {
+      mockExecSync.mockImplementation(() => {
+        throw new Error('not found');
+      });
+
+      const result = pushMainBranch();
+
+      expect(result.success).toBe(false);
+      expect(result.mainBranch).toBeNull();
+      expect(result.error).toContain('Could not detect main branch');
+    });
+
+    it('should push main successfully', () => {
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('symbolic-ref')) return 'refs/remotes/origin/main\n';
+        if (cmdStr.includes('push origin main')) return '';
+        return '';
+      });
+
+      const result = pushMainBranch();
+
+      expect(result.success).toBe(true);
+      expect(result.mainBranch).toBe('main');
+      expect(result.hadChanges).toBe(true);
+    });
+
+    it('should report no changes when already up to date', () => {
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('symbolic-ref')) return 'refs/remotes/origin/main\n';
+        if (cmdStr.includes('push origin main')) throw new Error('Everything up-to-date');
+        return '';
+      });
+
+      const result = pushMainBranch();
+
+      expect(result.success).toBe(true);
+      expect(result.mainBranch).toBe('main');
+      expect(result.hadChanges).toBe(false);
+    });
+
+    it('should fail when push is rejected', () => {
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('symbolic-ref')) return 'refs/remotes/origin/main\n';
+        if (cmdStr.includes('push origin main')) throw new Error('rejected - non-fast-forward');
+        return '';
+      });
+
+      const result = pushMainBranch();
+
+      expect(result.success).toBe(false);
+      expect(result.mainBranch).toBe('main');
+      expect(result.error).toContain('Failed to push main');
     });
   });
 });

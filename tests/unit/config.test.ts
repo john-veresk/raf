@@ -15,6 +15,7 @@ import {
   getMaxRetries,
   getAutoCommit,
   getWorktreeDefault,
+  getSyncMainBranch,
   getModelShortName,
   resolveFullModelId,
   resetConfigCache,
@@ -211,6 +212,15 @@ describe('Config', () => {
       expect(() => validateConfig({ worktree: 1 })).toThrow('worktree must be a boolean');
     });
 
+    it('should reject non-boolean syncMainBranch', () => {
+      expect(() => validateConfig({ syncMainBranch: 'yes' })).toThrow('syncMainBranch must be a boolean');
+    });
+
+    it('should accept boolean syncMainBranch', () => {
+      expect(() => validateConfig({ syncMainBranch: true })).not.toThrow();
+      expect(() => validateConfig({ syncMainBranch: false })).not.toThrow();
+    });
+
     // Non-string commitFormat values
     it('should reject non-string commitFormat values', () => {
       expect(() => validateConfig({ commitFormat: { prefix: 123 } })).toThrow('commitFormat.prefix must be a string');
@@ -285,6 +295,19 @@ describe('Config', () => {
       expect(config.autoCommit).toBe(false);
       expect(config.worktree).toBe(true);
       expect(config.maxRetries).toBe(3); // default preserved
+    });
+
+    it('should override syncMainBranch', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ syncMainBranch: false }));
+
+      const config = resolveConfig(configPath);
+      expect(config.syncMainBranch).toBe(false);
+    });
+
+    it('should default syncMainBranch to true', () => {
+      const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
+      expect(config.syncMainBranch).toBe(true);
     });
 
     it('should throw on invalid config file', () => {

@@ -151,10 +151,11 @@ npm run lint       # Type check without emit
   - `maxRetries` — max retry attempts per task
   - `autoCommit` — whether Claude auto-commits on task completion
   - `worktree` — default worktree mode for plan/do commands
+  - `syncMainBranch` — sync main branch with remote before worktree/PR operations (default: true)
   - `commitFormat.*` — commit message templates (`task`, `plan`, `amend`, `prefix`)
 - **Validation**: strict — unknown keys rejected at every nesting level (`src/utils/config.ts`)
 - **Deep-merge**: partial overrides merge with defaults (only specify keys you want to change)
-- **Helper accessors**: `getModel()`, `getEffort()`, `getCommitFormat()`, `getCommitPrefix()`, `getTimeout()`, `getMaxRetries()`, `getAutoCommit()`, `getWorktreeDefault()` (all in `src/utils/config.ts`)
+- **Helper accessors**: `getModel()`, `getEffort()`, `getCommitFormat()`, `getCommitPrefix()`, `getTimeout()`, `getMaxRetries()`, `getAutoCommit()`, `getWorktreeDefault()`, `getSyncMainBranch()` (all in `src/utils/config.ts`)
 - **Full reference**: `src/prompts/config-docs.md` (also serves as system prompt for `raf config`)
 
 ### `raf config` Command

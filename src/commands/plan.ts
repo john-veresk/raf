@@ -16,7 +16,7 @@ import {
   resolveModelOption,
 } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
-import { getWorktreeDefault, getModel, getModelShortName, getDisplayConfig, getPricingConfig } from '../utils/config.js';
+import { getWorktreeDefault, getModel, getModelShortName, getDisplayConfig, getPricingConfig, getSyncMainBranch } from '../utils/config.js';
 import { TokenTracker } from '../utils/token-tracker.js';
 import { parseSessionById } from '../utils/session-parser.js';
 import { formatTokenTotalSummary, TokenSummaryOptions } from '../utils/terminal-symbols.js';
@@ -52,6 +52,7 @@ import {
   validateWorktree,
   removeWorktree,
   computeWorktreeBaseDir,
+  pullMainBranch,
 } from '../core/worktree.js';
 
 interface PlanCommandOptions {
@@ -188,6 +189,18 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
     const repoBasename = getRepoBasename()!;
     const repoRoot = getRepoRoot()!;
     const rafDir = getRafDir();
+
+    // Sync main branch before creating worktree (if enabled)
+    if (getSyncMainBranch()) {
+      const syncResult = pullMainBranch();
+      if (syncResult.success) {
+        if (syncResult.hadChanges) {
+          logger.info(`Synced ${syncResult.mainBranch} from remote`);
+        }
+      } else {
+        logger.warn(`Could not sync main branch: ${syncResult.error}`);
+      }
+    }
 
     // Compute project number from main repo's RAF directory
     const projectNumber = getNextProjectNumber(rafDir);
@@ -424,6 +437,18 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
         logger.info(`Recreated worktree from branch: ${folderName}`);
       } else {
         // No branch — create fresh worktree and copy project files
+        // Sync main branch before creating worktree (if enabled)
+        if (getSyncMainBranch()) {
+          const syncResult = pullMainBranch();
+          if (syncResult.success) {
+            if (syncResult.hadChanges) {
+              logger.info(`Synced ${syncResult.mainBranch} from remote`);
+            }
+          } else {
+            logger.warn(`Could not sync main branch: ${syncResult.error}`);
+          }
+        }
+
         const result = createWorktree(repoBasename, folderName);
         if (!result.success) {
           logger.error(`Failed to create worktree: ${result.error}`);
