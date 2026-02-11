@@ -110,6 +110,61 @@ describe('Terminal Symbols', () => {
       const result = formatTaskProgress(3, 5, 'failed', 'deploy', 45000, '003');
       expect(result).toBe('✗ 003-deploy 45s');
     });
+
+    it('should show model name in parentheses for running task with time', () => {
+      const result = formatTaskProgress(1, 5, 'running', 'auth-login', 83000, undefined, 'sonnet');
+      expect(result).toBe('● auth-login (sonnet) 1m 23s');
+    });
+
+    it('should show model name in parentheses for running task without time', () => {
+      const result = formatTaskProgress(1, 5, 'running', 'auth-login', undefined, undefined, 'opus');
+      expect(result).toBe('● auth-login (opus) 1/5');
+    });
+
+    it('should show model name in parentheses for completed task with time', () => {
+      const result = formatTaskProgress(3, 5, 'completed', 'setup-db', 154000, undefined, 'haiku');
+      expect(result).toBe('✓ setup-db (haiku) 2m 34s');
+    });
+
+    it('should show model name in parentheses for completed task without time', () => {
+      const result = formatTaskProgress(3, 5, 'completed', 'setup-db', undefined, undefined, 'sonnet');
+      expect(result).toBe('✓ setup-db (sonnet) 3/5');
+    });
+
+    it('should show model name in parentheses for failed task with time', () => {
+      const result = formatTaskProgress(2, 5, 'failed', 'deploy', 45000, undefined, 'opus');
+      expect(result).toBe('✗ deploy (opus) 45s');
+    });
+
+    it('should show model name in parentheses for failed task without time', () => {
+      const result = formatTaskProgress(2, 5, 'failed', 'deploy', undefined, undefined, 'haiku');
+      expect(result).toBe('✗ deploy (haiku) 2/5');
+    });
+
+    it('should show model name with task ID prefix', () => {
+      const result = formatTaskProgress(1, 5, 'running', 'auth-login', 83000, '001', 'sonnet');
+      expect(result).toBe('● 001-auth-login (sonnet) 1m 23s');
+    });
+
+    it('should show model name for blocked task without time', () => {
+      const result = formatTaskProgress(2, 5, 'blocked', 'depends-on-failed', undefined, undefined, 'sonnet');
+      expect(result).toBe('⊘ depends-on-failed (sonnet) 2/5');
+    });
+
+    it('should show model name for pending task', () => {
+      const result = formatTaskProgress(4, 5, 'pending', 'cleanup', undefined, undefined, 'haiku');
+      expect(result).toBe('○ cleanup (haiku) 4/5');
+    });
+
+    it('should not show model name when model is undefined', () => {
+      const result = formatTaskProgress(1, 5, 'running', 'auth-login', 83000, undefined, undefined);
+      expect(result).toBe('● auth-login 1m 23s');
+    });
+
+    it('should handle model name with task ID and time', () => {
+      const result = formatTaskProgress(2, 5, 'completed', 'setup-db', 154000, '002', 'opus');
+      expect(result).toBe('✓ 002-setup-db (opus) 2m 34s');
+    });
   });
 
   describe('formatProjectHeader', () => {

@@ -49,7 +49,8 @@ function truncate(str: string, maxLength: number): string {
  * @param name - Task name
  * @param elapsedMs - Optional elapsed time in milliseconds
  * @param taskId - Optional task ID prefix display
- * @returns Formatted string like "● 001-auth-login 1:23" or "✓ 001-auth-login 1/5"
+ * @param model - Optional model short name to display (e.g., "sonnet", "opus", "haiku")
+ * @returns Formatted string like "● 001-auth-login (sonnet) 1:23" or "✓ 001-auth-login (opus) 1/5"
  */
 export function formatTaskProgress(
   current: number,
@@ -57,19 +58,21 @@ export function formatTaskProgress(
   status: TaskStatus,
   name: string,
   elapsedMs?: number,
-  taskId?: string
+  taskId?: string,
+  model?: string
 ): string {
   const symbol = SYMBOLS[status];
   const displayName = truncate(name || 'task', 40);
   const idPrefix = taskId ? `${taskId}-` : '';
+  const modelSuffix = model ? ` (${model})` : '';
 
   // Show elapsed time for running tasks, completed tasks, and failed tasks
   if (elapsedMs !== undefined) {
     const timeStr = formatElapsedTime(elapsedMs);
-    return `${symbol} ${idPrefix}${displayName} ${timeStr}`;
+    return `${symbol} ${idPrefix}${displayName}${modelSuffix} ${timeStr}`;
   }
 
-  return `${symbol} ${idPrefix}${displayName} ${current}/${total}`;
+  return `${symbol} ${idPrefix}${displayName}${modelSuffix} ${current}/${total}`;
 }
 
 /**

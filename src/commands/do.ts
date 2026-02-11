@@ -1021,6 +1021,8 @@ async function executeSingleProject(
     const attemptUsageData: import('../types/config.js').UsageData[] = [];
     // Track failure history for each attempt (attempt number -> reason)
     const failureHistory: Array<{ attempt: number; reason: string }> = [];
+    // Track current model for display in status line (updated in retry loop)
+    let currentModel: string | undefined;
 
     // Set up timer for elapsed time tracking
     const statusLine = createStatusLine();
@@ -1031,7 +1033,8 @@ async function executeSingleProject(
         return;
       }
       // Show running status with task name and timer (updates in place)
-      statusLine.update(formatTaskProgress(taskNumber, totalTasks, 'running', displayName, elapsed, taskId));
+      const modelShortName = currentModel ? getModelShortName(currentModel) : undefined;
+      statusLine.update(formatTaskProgress(taskNumber, totalTasks, 'running', displayName, elapsed, taskId, modelShortName));
     });
     timer.start();
 
@@ -1053,6 +1056,9 @@ async function executeSingleProject(
         ceilingModel,
         isRetry,
       );
+
+      // Update current model for timer callback display
+      currentModel = modelResolution.model;
 
       // Log missing frontmatter warning on first attempt only
       if (!isRetry && modelResolution.missingFrontmatter) {
@@ -1229,7 +1235,8 @@ Task completed. No detailed report provided.
         logger.success(`  Task ${taskLabel} completed (${elapsedFormatted})`);
       } else {
         // Minimal mode: show completed task line
-        logger.info(formatTaskProgress(taskNumber, totalTasks, 'completed', displayName, elapsedMs, task.id));
+        const modelShortName = currentModel ? getModelShortName(currentModel) : undefined;
+        logger.info(formatTaskProgress(taskNumber, totalTasks, 'completed', displayName, elapsedMs, task.id, modelShortName));
       }
 
       // Track and display token usage for this task
@@ -1262,7 +1269,8 @@ Task completed. No detailed report provided.
         logger.info(`  Analyzing failure with ${analysisModel}...`);
       } else {
         // Minimal mode: show failed task line
-        logger.info(formatTaskProgress(taskNumber, totalTasks, 'failed', displayName, elapsedMs, task.id));
+        const modelShortName = currentModel ? getModelShortName(currentModel) : undefined;
+        logger.info(formatTaskProgress(taskNumber, totalTasks, 'failed', displayName, elapsedMs, task.id, modelShortName));
       }
 
       // Track token usage even for failed tasks (partial data still useful for totals)
