@@ -1,7 +1,101 @@
 import { parsePlanFrontmatter } from '../../src/utils/frontmatter.js';
 
 describe('parsePlanFrontmatter', () => {
-  describe('valid frontmatter', () => {
+  describe('standard format (---/---)', () => {
+    it('should parse effort field', () => {
+      const content = `---
+effort: medium
+---
+# Task: Test Task`;
+      const result = parsePlanFrontmatter(content);
+      expect(result.hasFrontmatter).toBe(true);
+      expect(result.frontmatter.effort).toBe('medium');
+      expect(result.warnings).toHaveLength(0);
+    });
+
+    it('should parse model field', () => {
+      const content = `---
+model: sonnet
+---
+# Task: Test Task`;
+      const result = parsePlanFrontmatter(content);
+      expect(result.hasFrontmatter).toBe(true);
+      expect(result.frontmatter.model).toBe('sonnet');
+      expect(result.warnings).toHaveLength(0);
+    });
+
+    it('should parse both effort and model', () => {
+      const content = `---
+effort: high
+model: opus
+---
+# Task: Test Task`;
+      const result = parsePlanFrontmatter(content);
+      expect(result.hasFrontmatter).toBe(true);
+      expect(result.frontmatter.effort).toBe('high');
+      expect(result.frontmatter.model).toBe('opus');
+    });
+
+    it('should handle empty frontmatter block', () => {
+      const content = `---
+---
+# Task: Test Task`;
+      const result = parsePlanFrontmatter(content);
+      expect(result.hasFrontmatter).toBe(false);
+    });
+
+    it('should handle whitespace before opening delimiter', () => {
+      const content = `
+---
+effort: low
+---
+# Task: Test Task`;
+      const result = parsePlanFrontmatter(content);
+      expect(result.hasFrontmatter).toBe(true);
+      expect(result.frontmatter.effort).toBe('low');
+    });
+
+    it('should handle empty lines in frontmatter', () => {
+      const content = `---
+effort: low
+
+model: haiku
+---
+# Task: Test`;
+      const result = parsePlanFrontmatter(content);
+      expect(result.hasFrontmatter).toBe(true);
+      expect(result.frontmatter.effort).toBe('low');
+      expect(result.frontmatter.model).toBe('haiku');
+    });
+
+    it('should handle opening delimiter with trailing spaces', () => {
+      const content = `---
+effort: medium
+---
+# Task: Test Task`;
+      const result = parsePlanFrontmatter(content);
+      expect(result.hasFrontmatter).toBe(true);
+      expect(result.frontmatter.effort).toBe('medium');
+    });
+
+    it('should return empty for missing closing delimiter', () => {
+      const content = `---
+effort: medium
+# Task: Test Task`;
+      const result = parsePlanFrontmatter(content);
+      expect(result.hasFrontmatter).toBe(false);
+    });
+
+    it('should return empty for opening delimiter without newline', () => {
+      const content = `---effort: medium
+---
+# Task: Test Task`;
+      const result = parsePlanFrontmatter(content);
+      expect(result.hasFrontmatter).toBe(false);
+    });
+  });
+
+  describe('legacy format (closing --- only)', () => {
     it('should parse effort field', () => {
       const content = `effort: medium
 ---

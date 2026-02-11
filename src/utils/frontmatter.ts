@@ -26,10 +26,20 @@ export interface FrontmatterParseResult {
 /**
  * Parse Obsidian-style frontmatter from plan file content.
  *
- * Format: `key: value` lines at the top of the file, terminated by a `---` line.
- * There is NO opening `---` delimiter — just properties followed by `---`.
+ * Supports two formats:
+ * 1. Standard format (preferred): `---` delimiter at the top and bottom
+ * 2. Legacy format (backward compatibility): properties followed by closing `---` only
  *
- * Example:
+ * Standard format example:
+ * ```
+ * ---
+ * effort: medium
+ * model: sonnet
+ * ---
+ * # Task: ...
+ * ```
+ *
+ * Legacy format example:
  * ```
  * effort: medium
  * model: sonnet
@@ -50,15 +60,35 @@ export function parsePlanFrontmatter(content: string): FrontmatterParseResult {
     warnings: [],
   };
 
-  // Find the closing `---` delimiter
-  const delimiterIndex = content.indexOf('---');
-  if (delimiterIndex === -1) {
-    // No delimiter found - no frontmatter
-    return result;
-  }
+  const trimmedContent = content.trimStart();
 
-  // Extract the frontmatter section (everything before the delimiter)
-  const frontmatterSection = content.substring(0, delimiterIndex);
+  let frontmatterSection: string;
+
+  if (trimmedContent.startsWith('---')) {
+    // Standard format: ---\nkey: value\n---
+    const afterOpener = trimmedContent.substring(3);
+    // Skip the rest of the opener line (handles "---\n" or "--- \n")
+    const openerEnd = afterOpener.indexOf('\n');
+    if (openerEnd === -1) {
+      // No newline after opening delimiter - no valid frontmatter
+      return result;
+    }
+    const rest = afterOpener.substring(openerEnd + 1);
+    const closerIndex = rest.indexOf('---');
+    if (closerIndex === -1) {
+      // No closing delimiter - no valid frontmatter
+      return result;
+    }
+    frontmatterSection = rest.substring(0, closerIndex);
+  } else {
+    // Legacy format: key: value\n---
+    const delimiterIndex = content.indexOf('---');
+    if (delimiterIndex === -1) {
+      // No delimiter found - no frontmatter
+      return result;
+    }
+    frontmatterSection = content.substring(0, delimiterIndex);
+  }
 
   // Parse key: value lines
   const lines = frontmatterSection.split('\n');

@@ -13,7 +13,7 @@ import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFro
 import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
-import { getConfig, getWorktreeDefault, getModel, getModelShortName, resolveFullModelId, getSyncMainBranch, resolveEffortToModel, applyModelCeiling } from '../utils/config.js';
+import { getConfig, getWorktreeDefault, getModel, getModelShortName, resolveFullModelId, getSyncMainBranch, resolveEffortToModel, applyModelCeiling, getShowRateLimitEstimate, getShowCacheTokens } from '../utils/config.js';
 import type { PlanFrontmatter } from '../utils/frontmatter.js';
 import { getVersion } from '../utils/version.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
@@ -53,6 +53,8 @@ import {
   resolveWorktreeProjectByIdentifier,
   pushMainBranch,
   pullMainBranch,
+  detectMainBranch,
+  rebaseOntoMain,
 } from '../core/worktree.js';
 import { createPullRequest, prPreflight } from '../core/pull-request.js';
 import type { DoCommandOptions } from '../types/config.js';
@@ -224,6 +226,7 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
   // Variables for worktree context (set when --worktree is used)
   let worktreeRoot: string | undefined;
   let originalBranch: string | undefined;
+  let mainBranchName: string | null = null;
 
   if (worktreeMode) {
     // Validate git repo
@@ -241,6 +244,7 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
     // Sync main branch before worktree operations (if enabled)
     if (getSyncMainBranch()) {
       const syncResult = pullMainBranch();
+      mainBranchName = syncResult.mainBranch;
       if (syncResult.success) {
         if (syncResult.hadChanges) {
           logger.info(`Synced ${syncResult.mainBranch} from remote`);
@@ -461,6 +465,20 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
         process.exit(0);
       }
       throw error;
+    }
+
+    // Rebase worktree branch onto main before execution (if sync is enabled)
+    if (getSyncMainBranch()) {
+      const mainBranch = mainBranchName ?? detectMainBranch();
+      if (mainBranch) {
+        const rebaseResult = rebaseOntoMain(mainBranch, worktreeRoot);
+        if (rebaseResult.success) {
+          logger.info(`Rebased onto ${mainBranch}`);
+        } else {
+          logger.warn(`Could not rebase onto ${mainBranch}: ${rebaseResult.error}`);
+          logger.warn('Continuing with current branch state.');
+        }
+      }
     }
   }
 
@@ -1217,7 +1235,12 @@ Task completed. No detailed report provided.
       // Track and display token usage for this task
       if (attemptUsageData.length > 0) {
         const entry = tokenTracker.addTask(task.id, attemptUsageData);
-        logger.dim(formatTaskTokenSummary(entry, (u) => tokenTracker.calculateCost(u)));
+        const taskRateLimitPct = tokenTracker.getCumulativeRateLimitPercentage();
+        logger.dim(formatTaskTokenSummary(entry, (u) => tokenTracker.calculateCost(u), {
+          showCacheTokens: getShowCacheTokens(),
+          showRateLimitEstimate: getShowRateLimitEstimate(),
+          rateLimitPercentage: taskRateLimitPct,
+        }));
       }
 
       completedInSession.add(task.id);
@@ -1245,7 +1268,12 @@ Task completed. No detailed report provided.
       // Track token usage even for failed tasks (partial data still useful for totals)
       if (attemptUsageData.length > 0) {
         const entry = tokenTracker.addTask(task.id, attemptUsageData);
-        logger.dim(formatTaskTokenSummary(entry, (u) => tokenTracker.calculateCost(u)));
+        const taskRateLimitPct = tokenTracker.getCumulativeRateLimitPercentage();
+        logger.dim(formatTaskTokenSummary(entry, (u) => tokenTracker.calculateCost(u), {
+          showCacheTokens: getShowCacheTokens(),
+          showRateLimitEstimate: getShowRateLimitEstimate(),
+          rateLimitPercentage: taskRateLimitPct,
+        }));
       }
 
       // Analyze failure and generate structured report
@@ -1358,7 +1386,12 @@ ${stashName ? `- Stash: ${stashName}` : ''}
   if (trackerEntries.length > 0) {
     logger.newline();
     const totals = tokenTracker.getTotals();
-    logger.dim(formatTokenTotalSummary(totals.usage, totals.cost));
+    const totalRateLimitPct = tokenTracker.getCumulativeRateLimitPercentage();
+    logger.dim(formatTokenTotalSummary(totals.usage, totals.cost, {
+      showCacheTokens: getShowCacheTokens(),
+      showRateLimitEstimate: getShowRateLimitEstimate(),
+      rateLimitPercentage: totalRateLimitPct,
+    }));
   }
 
   // Show retry history for tasks that had failures (even if eventually successful)

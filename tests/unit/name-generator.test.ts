@@ -170,7 +170,7 @@ describe('Name Generator', () => {
       expect(mockSpawn).toHaveBeenCalledTimes(1);
       // Verify the prompt contains the multi-name generation prompt
       const promptArg = (mockSpawn.mock.calls[0][1] as string[]).at(-1);
-      expect(promptArg).toContain('Generate 5 creative project names');
+      expect(promptArg).toContain('Output EXACTLY 5 project names');
     });
 
     it('should handle names with numbering prefixes', async () => {

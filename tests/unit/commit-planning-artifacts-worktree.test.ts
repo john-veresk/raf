@@ -162,13 +162,9 @@ describe('commitPlanningArtifacts - worktree integration', () => {
       '# Task: New Task'
     );
 
-    // Call commitPlanningArtifacts with additional files
-    const additionalFiles = [
-      path.join(wtProjectPath, 'plans', '02-new-task.md'),
-    ];
+    // Call commitPlanningArtifacts (plan files not included in amend commit)
     await commitPlanningArtifacts(wtProjectPath, {
       cwd: worktreePath,
-      additionalFiles,
       isAmend: true,
     });
 
@@ -176,11 +172,11 @@ describe('commitPlanningArtifacts - worktree integration', () => {
     const lastMsg = getLastCommitMessage(worktreePath);
     expect(lastMsg).toMatch(/RAF\[aatest\] Amend: my-project/);
 
-    // Verify all three files are in the commit
+    // Verify only input.md and decisions.md are in the commit (not plan files)
     const committedFiles = getLastCommitFiles(worktreePath);
     expect(committedFiles).toContain(`RAF/${projectFolder}/input.md`);
     expect(committedFiles).toContain(`RAF/${projectFolder}/decisions.md`);
-    expect(committedFiles).toContain(`RAF/${projectFolder}/plans/02-new-task.md`);
+    expect(committedFiles).not.toContain(`RAF/${projectFolder}/plans/02-new-task.md`);
   });
 
   it('should commit after worktree recreation from branch', async () => {
@@ -234,13 +230,9 @@ describe('commitPlanningArtifacts - worktree integration', () => {
       '# Task: New Task'
     );
 
-    // Call commitPlanningArtifacts with worktree cwd
-    const additionalFiles = [
-      path.join(recreatedProjectPath, 'plans', '02-new-task.md'),
-    ];
+    // Call commitPlanningArtifacts (plan files not included in amend commit)
     await commitPlanningArtifacts(recreatedProjectPath, {
       cwd: recreatedWtPath,
-      additionalFiles,
       isAmend: true,
     });
 
@@ -248,11 +240,11 @@ describe('commitPlanningArtifacts - worktree integration', () => {
     const lastMsg = getLastCommitMessage(recreatedWtPath);
     expect(lastMsg).toMatch(/RAF\[aatest\] Amend: my-project/);
 
-    // Verify all files are in the commit
+    // Verify only input.md and decisions.md are in the commit (not plan files)
     const committedFiles = getLastCommitFiles(recreatedWtPath);
     expect(committedFiles).toContain(`RAF/${projectFolder}/input.md`);
     expect(committedFiles).toContain(`RAF/${projectFolder}/decisions.md`);
-    expect(committedFiles).toContain(`RAF/${projectFolder}/plans/02-new-task.md`);
+    expect(committedFiles).not.toContain(`RAF/${projectFolder}/plans/02-new-task.md`);
   });
 
   it('should work when only some files have changed', async () => {

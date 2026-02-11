@@ -3,7 +3,9 @@ import { logger } from './logger.js';
 import { sanitizeProjectName } from './validation.js';
 import { getModel } from './config.js';
 
-const NAME_GENERATION_PROMPT = `Generate a short, punchy, creative project name (1-3 words, kebab-case).
+const NAME_GENERATION_PROMPT = `Output ONLY the kebab-case name. No introduction, no explanation, no quotes.
+
+Generate a short, punchy, creative project name (1-3 words, kebab-case).
 
 Be creative! Use metaphors, analogies, or evocative words that capture the SPIRIT of the project.
 Don't literally describe what it does - make it memorable and fun.
@@ -15,26 +17,15 @@ Good examples:
 - Refactoring → 'spring-cleaning', 'phoenix', 'makeover'
 - New feature → 'moonshot', 'secret-sauce', 'magic-wand'
 
-Output ONLY the kebab-case name. No quotes, no explanation.
-
 Project description:`;
 
-const MULTI_NAME_GENERATION_PROMPT = `Generate 5 creative project names for the description below.
-
-IMPORTANT: Each name should use a DIFFERENT naming style:
-1. **Metaphorical** - Use a metaphor or analogy (e.g., 'phoenix', 'lighthouse', 'compass')
-2. **Fun/Playful** - Make it fun or quirky (e.g., 'turbo-boost', 'magic-beans', 'ninja-move')
-3. **Action-oriented** - Focus on what it does with flair (e.g., 'bug-squasher', 'speed-demon', 'data-whisperer')
-4. **Abstract** - Use abstract/poetic concepts (e.g., 'horizon', 'cascade', 'catalyst')
-5. **Cultural reference** - Reference pop culture, mythology, or literature (e.g., 'atlas', 'merlin', 'gandalf')
+const MULTI_NAME_GENERATION_PROMPT = `Output EXACTLY 5 project names, one per line. Do NOT include any introduction, explanation, preamble, numbering, or quotes.
 
 Rules:
-- Each name should be 1-3 words in kebab-case
-- Names must be lowercase with hyphens only
+- Each name: 1-3 words, kebab-case, lowercase with hyphens only
+- Use varied styles: metaphorical, playful, action-oriented, abstract, cultural reference
 - Make them memorable and evocative
-- If the project has many unrelated tasks, prefer abstract/metaphorical/fun names over descriptive ones
-
-Output format: ONLY output 5 names, one per line, no numbers, no explanations, no quotes.
+- For projects with many unrelated tasks, prefer abstract/metaphorical names
 
 Project description:`;
 

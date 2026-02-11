@@ -46,6 +46,7 @@ const {
   detectMainBranch,
   pullMainBranch,
   pushMainBranch,
+  rebaseOntoMain,
 } = await import('../../src/core/worktree.js');
 
 const HOME = os.homedir();
@@ -729,7 +730,7 @@ describe('worktree utilities', () => {
 
       const result = pullMainBranch();
 
-      expect(result.success).toBe(true);
+      expect(result.success).toBe(false);
       expect(result.mainBranch).toBe('main');
       expect(result.hadChanges).toBe(false);
       expect(result.error).toContain('diverged');
@@ -803,6 +804,72 @@ describe('worktree utilities', () => {
       expect(result.success).toBe(false);
       expect(result.mainBranch).toBe('main');
       expect(result.error).toContain('diverged from origin');
+    });
+  });
+
+  describe('rebaseOntoMain', () => {
+    it('should successfully rebase onto main branch', () => {
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('git rebase main')) return '';
+        return '';
+      });
+
+      const result = rebaseOntoMain('main', '/path/to/worktree');
+
+      expect(result.success).toBe(true);
+      expect(result.error).toBeUndefined();
+      expect(mockExecSync).toHaveBeenCalledWith(
+        'git rebase main',
+        expect.objectContaining({
+          cwd: '/path/to/worktree',
+        })
+      );
+    });
+
+    it('should abort rebase and return failure on conflict', () => {
+      const commands: string[] = [];
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        commands.push(cmdStr);
+        if (cmdStr.includes('git rebase main')) {
+          throw new Error('CONFLICT: Merge conflict in file.ts');
+        }
+        if (cmdStr.includes('git rebase --abort')) return '';
+        return '';
+      });
+
+      const result = rebaseOntoMain('main', '/path/to/worktree');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('CONFLICT');
+      expect(commands).toContain('git rebase main');
+      expect(commands).toContain('git rebase --abort');
+      expect(mockExecSync).toHaveBeenCalledWith(
+        'git rebase --abort',
+        expect.objectContaining({
+          cwd: '/path/to/worktree',
+        })
+      );
+    });
+
+    it('should handle rebase abort failure gracefully', () => {
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('git rebase main')) {
+          throw new Error('CONFLICT: Merge conflict');
+        }
+        if (cmdStr.includes('git rebase --abort')) {
+          throw new Error('abort failed');
+        }
+        return '';
+      });
+
+      const result = rebaseOntoMain('main', '/path/to/worktree');
+
+      // Should still return failure even if abort fails
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('CONFLICT');
     });
   });
 

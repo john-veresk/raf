@@ -177,7 +177,7 @@ function formatTokenLine(
   indent: string = '  ',
   options: TokenSummaryOptions = {}
 ): string {
-  const { showCacheTokens = true, showRateLimitEstimate = false, rateLimitPercentage } = options;
+  const { showCacheTokens = true, showRateLimitEstimate = true, rateLimitPercentage } = options;
   const parts: string[] = [];
   const tokenPart = `${formatNumber(usage.inputTokens)} in / ${formatNumber(usage.outputTokens)} out`;
   parts.push(prefix ? `${prefix}: ${tokenPart}` : `Tokens: ${tokenPart}`);
@@ -255,7 +255,7 @@ export function formatTokenTotalSummary(
   cost: CostBreakdown,
   options: TokenSummaryOptions = {}
 ): string {
-  const { showCacheTokens = true, showRateLimitEstimate = false, rateLimitPercentage } = options;
+  const { showCacheTokens = true, showRateLimitEstimate = true, rateLimitPercentage } = options;
   const lines: string[] = [];
   const divider = '── Token Usage Summary ──────────────────';
   lines.push(divider);
