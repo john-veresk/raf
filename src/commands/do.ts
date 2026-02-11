@@ -53,6 +53,8 @@ import {
   resolveWorktreeProjectByIdentifier,
   pushMainBranch,
   pullMainBranch,
+  detectMainBranch,
+  rebaseOntoMain,
 } from '../core/worktree.js';
 import { createPullRequest, prPreflight } from '../core/pull-request.js';
 import type { DoCommandOptions } from '../types/config.js';
@@ -224,6 +226,7 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
   // Variables for worktree context (set when --worktree is used)
   let worktreeRoot: string | undefined;
   let originalBranch: string | undefined;
+  let mainBranchName: string | null = null;
 
   if (worktreeMode) {
     // Validate git repo
@@ -241,6 +244,7 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
     // Sync main branch before worktree operations (if enabled)
     if (getSyncMainBranch()) {
       const syncResult = pullMainBranch();
+      mainBranchName = syncResult.mainBranch;
       if (syncResult.success) {
         if (syncResult.hadChanges) {
           logger.info(`Synced ${syncResult.mainBranch} from remote`);
@@ -461,6 +465,20 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
         process.exit(0);
       }
       throw error;
+    }
+
+    // Rebase worktree branch onto main before execution (if sync is enabled)
+    if (getSyncMainBranch()) {
+      const mainBranch = mainBranchName ?? detectMainBranch();
+      if (mainBranch) {
+        const rebaseResult = rebaseOntoMain(mainBranch, worktreeRoot);
+        if (rebaseResult.success) {
+          logger.info(`Rebased onto ${mainBranch}`);
+        } else {
+          logger.warn(`Could not rebase onto ${mainBranch}: ${rebaseResult.error}`);
+          logger.warn('Continuing with current branch state.');
+        }
+      }
     }
   }
 

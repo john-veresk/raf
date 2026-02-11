@@ -442,6 +442,11 @@ export interface SyncMainBranchResult {
   error?: string;
 }
 
+export interface RebaseResult {
+  success: boolean;
+  error?: string;
+}
+
 /**
  * Detect the main branch name from the remote.
  * Uses refs/remotes/origin/HEAD, falling back to main/master.
@@ -660,5 +665,36 @@ export function pushMainBranch(cwd?: string): SyncMainBranchResult {
       hadChanges: false,
       error: `Failed to push ${mainBranch}: ${msg}`,
     };
+  }
+}
+
+/**
+ * Rebase the current branch onto the main branch.
+ * If the rebase fails with conflicts, aborts the rebase and returns failure.
+ *
+ * @param mainBranch - The main branch name to rebase onto (e.g., 'main' or 'master')
+ * @param cwd - The directory to run git commands in (defaults to current directory)
+ */
+export function rebaseOntoMain(mainBranch: string, cwd: string): RebaseResult {
+  try {
+    execSync(`git rebase ${mainBranch}`, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      cwd,
+    });
+    return { success: true };
+  } catch (error) {
+    // Abort the failed rebase to restore clean state
+    try {
+      execSync('git rebase --abort', {
+        encoding: 'utf-8',
+        stdio: 'pipe',
+        cwd,
+      });
+    } catch {
+      // Ignore abort errors
+    }
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false, error: msg };
   }
 }

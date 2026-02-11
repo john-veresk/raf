@@ -65,6 +65,7 @@ jest.unstable_mockModule('../../src/core/worktree.js', () => ({
   pullMainBranch: mockPullMainBranch,
   pushMainBranch: mockPushMainBranch,
   detectMainBranch: jest.fn(),
+  rebaseOntoMain: jest.fn(),
 }));
 
 // Import after mocking
