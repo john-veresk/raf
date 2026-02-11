@@ -363,6 +363,30 @@ export function getModelShortName(modelId: string): string {
 }
 
 /**
+ * Mapping of short model aliases to their current full model IDs.
+ * These should match the latest Claude model versions.
+ */
+const MODEL_ALIAS_TO_FULL_ID: Record<string, string> = {
+  opus: 'claude-opus-4-6',
+  sonnet: 'claude-sonnet-4-5-20250929',
+  haiku: 'claude-haiku-4-5-20251001',
+};
+
+/**
+ * Resolve a model name to its full model ID.
+ * If already a full model ID, returns as-is.
+ * If a short alias (opus, sonnet, haiku), returns the corresponding full ID.
+ */
+export function resolveFullModelId(modelName: string): string {
+  const fullId = MODEL_ALIAS_TO_FULL_ID[modelName];
+  if (fullId) {
+    return fullId;
+  }
+  // Already a full ID or unknown, return as-is
+  return modelName;
+}
+
+/**
  * Map a full model ID (e.g., `claude-opus-4-6`) or short alias to a pricing category.
  * Returns null if the model cannot be mapped.
  */

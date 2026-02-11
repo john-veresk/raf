@@ -16,6 +16,7 @@ import {
   getAutoCommit,
   getWorktreeDefault,
   getModelShortName,
+  resolveFullModelId,
   resetConfigCache,
   saveConfig,
   renderCommitMessage,
@@ -621,6 +622,26 @@ describe('Config', () => {
       expect(getModelShortName('claude-unknown-3-0')).toBe('claude-unknown-3-0');
       expect(getModelShortName('')).toBe('');
       expect(getModelShortName('some-random-model')).toBe('some-random-model');
+    });
+  });
+
+  describe('resolveFullModelId', () => {
+    it('should resolve short aliases to full model IDs', () => {
+      expect(resolveFullModelId('opus')).toBe('claude-opus-4-6');
+      expect(resolveFullModelId('sonnet')).toBe('claude-sonnet-4-5-20250929');
+      expect(resolveFullModelId('haiku')).toBe('claude-haiku-4-5-20251001');
+    });
+
+    it('should return full model IDs as-is', () => {
+      expect(resolveFullModelId('claude-opus-4-6')).toBe('claude-opus-4-6');
+      expect(resolveFullModelId('claude-sonnet-4-5-20250929')).toBe('claude-sonnet-4-5-20250929');
+      expect(resolveFullModelId('claude-haiku-4-5-20251001')).toBe('claude-haiku-4-5-20251001');
+    });
+
+    it('should return unknown model strings as-is', () => {
+      expect(resolveFullModelId('gpt-4')).toBe('gpt-4');
+      expect(resolveFullModelId('claude-unknown-3-0')).toBe('claude-unknown-3-0');
+      expect(resolveFullModelId('')).toBe('');
     });
   });
 

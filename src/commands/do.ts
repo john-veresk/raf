@@ -13,7 +13,8 @@ import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFro
 import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
-import { getConfig, getEffort, getWorktreeDefault, getModel, getModelShortName } from '../utils/config.js';
+import { getConfig, getEffort, getWorktreeDefault, getModel, getModelShortName, resolveFullModelId } from '../utils/config.js';
+import { getVersion } from '../utils/version.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
 import { createStatusLine } from '../utils/status-line.js';
 import {
@@ -394,7 +395,6 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
         force,
         maxRetries,
         autoCommit,
-        showModel: true,
         model,
         worktreeCwd: worktreeRoot,
       }
@@ -658,7 +658,6 @@ interface SingleProjectOptions {
   force: boolean;
   maxRetries: number;
   autoCommit: boolean;
-  showModel: boolean;
   model: string;
   /** Worktree root directory. When set, Claude runs with cwd in the worktree. */
   worktreeCwd?: string;
@@ -669,7 +668,7 @@ async function executeSingleProject(
   projectName: string,
   options: SingleProjectOptions
 ): Promise<ProjectExecutionResult> {
-  const { timeout, verbose, debug, force, maxRetries, autoCommit, showModel, model, worktreeCwd } = options;
+  const { timeout, verbose, debug, force, maxRetries, autoCommit, model, worktreeCwd } = options;
 
   if (!validatePlansExist(projectPath)) {
     return {
@@ -725,15 +724,13 @@ async function executeSingleProject(
   // Start project timer
   const projectStartTime = Date.now();
 
+  // Resolve and display version + model info (before any tasks run)
+  const fullModelId = resolveFullModelId(model);
+  logger.dim(`RAF v${getVersion()} | Model: ${fullModelId}`);
+
   if (verbose) {
     logger.info(`Executing project: ${projectName}`);
     logger.info(`Tasks: ${state.tasks.length}, Task timeout: ${timeout} minutes`);
-
-    // Log Claude model name
-    if (showModel && model) {
-      logger.info(`Using model: ${model}`);
-    }
-
     logger.newline();
   } else {
     // Minimal mode: show project header
