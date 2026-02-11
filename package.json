@@ -1,6 +1,6 @@
 {
   "name": "rafcode",
-  "version": "2.4.0",
+  "version": "2.4.1-0",
   "description": "Automated Task Planning & Execution with Claude Code",
   "type": "module",
   "bin": {
