@@ -1,0 +1,1 @@
+- [ ] make sonnet default for easy tasks
