@@ -36,4 +36,9 @@
 		 **[![P1 Badge](https://camo.githubusercontent.com/c595229c0ecb6ee85b9c7804144d495f131a495ec87091fea2b262d954c9a92d/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f50312d6f72616e67653f7374796c653d666c6174)](https://camo.githubusercontent.com/c595229c0ecb6ee85b9c7804144d495f131a495ec87091fea2b262d954c9a92d/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f50312d6f72616e67653f7374796c653d666c6174) Use default Claude command when config parsing fails**
 		
 		The new recovery path only falls back `model`/`effort` after config parsing errors, but `runInteractive()` still resolves the CLI binary via `getClaudeCommand()`inside `getClaudePath` (`src/core/claude-runner.ts`). With a malformed `~/.raf/raf.config.json`, that second config read still throws before the interactive session starts, so `raf config` remains unusable as a repair path even after showing the fallback warning.
-		
+
+---
+
+- [ ] add token tracker feature from 'raf do' to 'raf plan', display stat AFTER planning interactive session (combined with task 03)
+- [ ] add --no-session-persistence to PR description generation and failure analysis Claude calls (like name-generator already has)
+- [ ] add per-task model/effort frontmatter metadata to plan files, RAF reads and uses during execution; remove "no implementation details" restriction from planning prompts
