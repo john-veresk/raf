@@ -76,7 +76,7 @@ raf do                # Interactive picker
 raf do abcdef         # Execute by project ID
 raf do my-project     # Execute by name
 raf do --worktree     # Pick and execute a worktree project
-raf do my-feature -w --merge  # Execute in worktree, merge on success
+raf do my-feature -w  # Execute in worktree (picker will ask what to do after)
 ```
 
 Note: In non-verbose mode, the completion summary reflects the tasks executed in that run (the remaining tasks at start), so the elapsed time maps to those tasks.
@@ -163,18 +163,39 @@ Worktree mode runs planning and execution in an isolated git worktree, keeping y
 # Plan in a worktree (creates branch and worktree directory)
 raf plan my-feature --worktree
 
-# Execute tasks in the worktree, merge back on success
-raf do my-feature --worktree --merge
+# Execute tasks in the worktree
+raf do my-feature --worktree
 ```
+
+### Post-execution picker
+
+When running `raf do` in worktree mode, an interactive picker appears **before** task execution asking what to do after tasks complete:
+
+- **Merge into current branch** — Merge the worktree branch back (fast-forward preferred, merge commit fallback)
+- **Create a GitHub PR** — Push the branch and create a pull request (requires `gh` CLI)
+- **Leave branch as-is** — Do nothing, keep the branch for later
+
+The chosen action only runs if all tasks succeed. On task failure, the action is skipped and the worktree is kept for inspection.
+
+### PR creation
+
+The "Create a GitHub PR" option:
+
+- Requires `gh` CLI installed and authenticated (`gh auth login`)
+- Auto-detects the base branch from `origin/HEAD`
+- Generates a PR title from the project name
+- Uses Claude to summarize your input, decisions, and outcomes into a PR body
+- Auto-pushes the branch to origin if needed
+
+If `gh` is missing or unauthenticated, the option falls back to "Leave branch" with a warning.
 
 ### How it works
 
 - `--worktree` creates a git worktree at `~/.raf/worktrees/<repo>/<project>/` with a new branch named after the project folder (e.g., `abcdef-my-feature`)
 - All planning artifacts, code changes, and commits happen in the worktree branch
-- `--merge` on `raf do` merges the branch back after all tasks succeed (fast-forward preferred, merge commit as fallback)
+- After successful post-actions (merge, PR, or leave), the worktree directory is cleaned up automatically — the git branch is preserved
 - On merge conflicts, the merge is aborted and you get instructions for manual resolution
-- If tasks fail, the worktree branch is preserved for inspection
-- Worktrees persist after completion — clean them up manually with `git worktree remove` when done
+- If tasks fail, the worktree is kept for inspection
 
 ## Command Reference
 
@@ -196,7 +217,6 @@ raf do my-feature --worktree --merge
 | `-m, --model <name>` | Claude model (sonnet, haiku, opus) |
 | `--sonnet` | Shorthand for `--model sonnet` |
 | `-w, --worktree` | Execute tasks in a git worktree |
-| `--merge` | Merge worktree branch after successful completion (requires `--worktree`) |
 
 Alias: `raf act`
 
