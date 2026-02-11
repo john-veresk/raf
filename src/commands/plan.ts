@@ -73,6 +73,7 @@ export function createPlanCommand(): Command {
     .option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')
     .option('-y, --auto', "Skip Claude's permission prompts for file operations")
     .option('-w, --worktree', 'Create a git worktree for isolated planning')
+    .option('--no-worktree', 'Disable worktree mode (overrides config)')
     .option('-r, --resume <identifier>', 'Resume a planning session for an existing project')
     .action(async (projectName: string | undefined, options: PlanCommandOptions) => {
       // Validate and resolve model option

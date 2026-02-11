@@ -202,6 +202,7 @@ export function createDoCommand(): Command {
     .option('-m, --model <name>', 'Claude model to use (sonnet, haiku, opus)')
     .option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')
     .option('-w, --worktree', 'Execute tasks in a git worktree')
+    .option('--no-worktree', 'Disable worktree mode (overrides config)')
     .action(async (project: string | undefined, options: DoCommandOptions) => {
       await runDoCommand(project, options);
     });

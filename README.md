@@ -186,6 +186,7 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 - After successful post-actions (merge, PR, or leave), the worktree directory is cleaned up automatically — the git branch is preserved
 - On merge conflicts, the merge is aborted and you get instructions for manual resolution
 - If tasks fail, the worktree is kept for inspection
+- Use `--no-worktree` to disable worktree mode for a single invocation (useful when `worktree: true` is set in config)
 
 ## Command Reference
 
@@ -196,6 +197,7 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 | `--amend <id>` | Add tasks to existing project |
 | `-y, --auto` | Skip permission prompts (runs in dangerous mode) |
 | `-w, --worktree` | Create a git worktree for isolated planning |
+| `--no-worktree` | Disable worktree mode (overrides config) |
 
 ### `raf do [project]`
 
@@ -207,6 +209,7 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 | `-m, --model <name>` | Claude model (sonnet, haiku, opus) |
 | `--sonnet` | Shorthand for `--model sonnet` |
 | `-w, --worktree` | Execute tasks in a git worktree |
+| `--no-worktree` | Disable worktree mode (overrides config) |
 
 Alias: `raf act`
 
