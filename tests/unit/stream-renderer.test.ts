@@ -267,6 +267,7 @@ describe('renderStreamEvent', () => {
         outputTokens: 500,
         cacheReadInputTokens: 200,
         cacheCreationInputTokens: 100,
+        costUsd: 0, // costUSD is extracted from modelUsage data
       });
     });
 
@@ -317,6 +318,87 @@ describe('renderStreamEvent', () => {
       expect(Object.keys(result.usageData!.modelUsage)).toHaveLength(2);
       expect(result.usageData!.modelUsage['claude-opus-4-6'].inputTokens).toBe(1500);
       expect(result.usageData!.modelUsage['claude-haiku-4-5-20251001'].inputTokens).toBe(500);
+    });
+
+    it('should extract total_cost_usd from result event', () => {
+      const line = JSON.stringify({
+        type: 'result',
+        subtype: 'success',
+        result: 'Done',
+        usage: {
+          input_tokens: 1000,
+          output_tokens: 500,
+        },
+        total_cost_usd: 18.5,
+      });
+      const result = renderStreamEvent(line);
+      expect(result.usageData).toBeDefined();
+      expect(result.usageData!.totalCostUsd).toBe(18.5);
+    });
+
+    it('should default totalCostUsd to 0 when no cost provided', () => {
+      const line = JSON.stringify({
+        type: 'result',
+        subtype: 'success',
+        result: 'Done',
+        usage: {
+          input_tokens: 1000,
+          output_tokens: 500,
+        },
+        // No cost field - costUSD is in modelUsage, not at top level
+      });
+      const result = renderStreamEvent(line);
+      expect(result.usageData).toBeDefined();
+      expect(result.usageData!.totalCostUsd).toBe(0);
+    });
+
+    it('should prioritize total_cost_usd over costUSD', () => {
+      const line = JSON.stringify({
+        type: 'result',
+        subtype: 'success',
+        result: 'Done',
+        usage: {
+          input_tokens: 1000,
+          output_tokens: 500,
+        },
+        total_cost_usd: 18.5,
+        costUSD: 20.0,
+      });
+      const result = renderStreamEvent(line);
+      expect(result.usageData).toBeDefined();
+      expect(result.usageData!.totalCostUsd).toBe(18.5);
+    });
+
+    it('should handle missing cost fields gracefully', () => {
+      const line = JSON.stringify({
+        type: 'result',
+        subtype: 'success',
+        result: 'Done',
+        usage: {
+          input_tokens: 1000,
+          output_tokens: 500,
+        },
+      });
+      const result = renderStreamEvent(line);
+      expect(result.usageData).toBeDefined();
+      // When no cost is provided, defaults to 0
+      expect(result.usageData!.totalCostUsd).toBe(0);
+    });
+
+    it('should extract zero cost correctly', () => {
+      const line = JSON.stringify({
+        type: 'result',
+        subtype: 'success',
+        result: 'Done',
+        usage: {
+          input_tokens: 0,
+          output_tokens: 0,
+        },
+        total_cost_usd: 0,
+      });
+      const result = renderStreamEvent(line);
+      expect(result.usageData).toBeDefined();
+      expect(result.usageData!.totalCostUsd).toBe(0);
     });
   });
 

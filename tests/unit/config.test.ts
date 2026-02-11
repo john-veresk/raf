@@ -25,9 +25,6 @@ import {
   saveConfig,
   renderCommitMessage,
   isValidModelName,
-  resolveModelPricingCategory,
-  getPricing,
-  getPricingConfig,
 } from '../../src/utils/config.js';
 import { DEFAULT_CONFIG } from '../../src/types/config.js';
 
@@ -538,97 +535,6 @@ describe('Config', () => {
     });
   });
 
-  describe('validateConfig - pricing', () => {
-    it('should accept valid pricing config', () => {
-      expect(() => validateConfig({
-        pricing: {
-          opus: { inputPerMTok: 15, outputPerMTok: 75 },
-        },
-      })).not.toThrow();
-    });
-
-    it('should accept partial pricing override', () => {
-      expect(() => validateConfig({
-        pricing: {
-          haiku: { outputPerMTok: 4 },
-        },
-      })).not.toThrow();
-    });
-
-    it('should reject non-object pricing', () => {
-      expect(() => validateConfig({ pricing: 'expensive' })).toThrow('pricing must be an object');
-    });
-
-    it('should reject unknown pricing categories', () => {
-      expect(() => validateConfig({ pricing: { gpt4: { inputPerMTok: 10 } } })).toThrow('Unknown config key: pricing.gpt4');
-    });
-
-    it('should reject non-object category value', () => {
-      expect(() => validateConfig({ pricing: { opus: 'expensive' } })).toThrow('pricing.opus must be an object');
-    });
-
-    it('should reject unknown pricing fields', () => {
-      expect(() => validateConfig({ pricing: { opus: { unknownField: 5 } } })).toThrow('Unknown config key: pricing.opus.unknownField');
-    });
-
-    it('should reject negative pricing values', () => {
-      expect(() => validateConfig({ pricing: { opus: { inputPerMTok: -1 } } })).toThrow('pricing.opus.inputPerMTok must be a non-negative number');
-    });
-
-    it('should reject non-number pricing values', () => {
-      expect(() => validateConfig({ pricing: { opus: { inputPerMTok: 'fifteen' } } })).toThrow('pricing.opus.inputPerMTok must be a non-negative number');
-    });
-
-    it('should accept zero pricing values', () => {
-      expect(() => validateConfig({ pricing: { haiku: { inputPerMTok: 0 } } })).not.toThrow();
-    });
-
-    it('should reject Infinity pricing values', () => {
-      expect(() => validateConfig({ pricing: { opus: { inputPerMTok: Infinity } } })).toThrow('must be a non-negative number');
-    });
-  });
-
-  describe('resolveModelPricingCategory', () => {
-    it('should map short aliases directly', () => {
-      expect(resolveModelPricingCategory('opus')).toBe('opus');
-      expect(resolveModelPricingCategory('sonnet')).toBe('sonnet');
-      expect(resolveModelPricingCategory('haiku')).toBe('haiku');
-    });
-
-    it('should extract family from full model IDs', () => {
-      expect(resolveModelPricingCategory('claude-opus-4-6')).toBe('opus');
-      expect(resolveModelPricingCategory('claude-sonnet-4-5-20250929')).toBe('sonnet');
-      expect(resolveModelPricingCategory('claude-haiku-4-5-20251001')).toBe('haiku');
-    });
-
-    it('should return null for unknown model families', () => {
-      expect(resolveModelPricingCategory('claude-unknown-3-0')).toBeNull();
-      expect(resolveModelPricingCategory('gpt-4')).toBeNull();
-      expect(resolveModelPricingCategory('')).toBeNull();
-    });
-  });
-
-  describe('resolveConfig - pricing', () => {
-    it('should include default pricing when no config file', () => {
-      const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
-      expect(config.pricing.opus.inputPerMTok).toBe(15);
-      expect(config.pricing.sonnet.inputPerMTok).toBe(3);
-      expect(config.pricing.haiku.inputPerMTok).toBe(1);
-    });
-
-    it('should deep-merge partial pricing override', () => {
-      const configPath = path.join(tempDir, 'pricing.json');
-      fs.writeFileSync(configPath, JSON.stringify({
-        pricing: { opus: { inputPerMTok: 10 } },
-      }));
-
-      const config = resolveConfig(configPath);
-      expect(config.pricing.opus.inputPerMTok).toBe(10);
-      expect(config.pricing.opus.outputPerMTok).toBe(75); // default preserved
-      expect(config.pricing.sonnet.inputPerMTok).toBe(3); // default preserved
-    });
-  });
-
   describe('getModelShortName', () => {
     it('should return short aliases as-is', () => {
       expect(getModelShortName('opus')).toBe('opus');
@@ -709,7 +615,6 @@ describe('Config', () => {
     it('should accept valid display config', () => {
       expect(() => validateConfig({
         display: {
-          showRateLimitEstimate: true,
           showCacheTokens: false,
         },
       })).not.toThrow();
@@ -717,7 +622,7 @@ describe('Config', () => {
 
     it('should accept partial display override', () => {
       expect(() => validateConfig({
-        display: { showRateLimitEstimate: false },
+        display: { showCacheTokens: false },
       })).not.toThrow();
     });
 
@@ -730,77 +635,30 @@ describe('Config', () => {
     });
 
     it('should reject non-boolean display values', () => {
-      expect(() => validateConfig({ display: { showRateLimitEstimate: 'yes' } })).toThrow('display.showRateLimitEstimate must be a boolean');
+      expect(() => validateConfig({ display: { showCacheTokens: 'yes' } })).toThrow('display.showCacheTokens must be a boolean');
     });
   });
 
-  describe('validateConfig - rateLimitWindow', () => {
-    it('should accept valid rateLimitWindow config', () => {
-      expect(() => validateConfig({
-        rateLimitWindow: { sonnetTokenCap: 100000 },
-      })).not.toThrow();
-    });
-
-    it('should reject non-object rateLimitWindow', () => {
-      expect(() => validateConfig({ rateLimitWindow: 88000 })).toThrow('rateLimitWindow must be an object');
-    });
-
-    it('should reject unknown rateLimitWindow keys', () => {
-      expect(() => validateConfig({ rateLimitWindow: { unknownKey: 50000 } })).toThrow('Unknown config key: rateLimitWindow.unknownKey');
-    });
-
-    it('should reject non-positive sonnetTokenCap', () => {
-      expect(() => validateConfig({ rateLimitWindow: { sonnetTokenCap: 0 } })).toThrow('rateLimitWindow.sonnetTokenCap must be a positive number');
-      expect(() => validateConfig({ rateLimitWindow: { sonnetTokenCap: -100 } })).toThrow('rateLimitWindow.sonnetTokenCap must be a positive number');
-    });
-
-    it('should reject non-number sonnetTokenCap', () => {
-      expect(() => validateConfig({ rateLimitWindow: { sonnetTokenCap: '88000' } })).toThrow('rateLimitWindow.sonnetTokenCap must be a positive number');
-    });
-  });
-
-  describe('resolveConfig - display and rateLimitWindow', () => {
+  describe('resolveConfig - display', () => {
     it('should include default display when no config file', () => {
       const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
-      expect(config.display.showRateLimitEstimate).toBe(true);
       expect(config.display.showCacheTokens).toBe(true);
-    });
-
-    it('should include default rateLimitWindow when no config file', () => {
-      const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
-      expect(config.rateLimitWindow.sonnetTokenCap).toBe(88000);
     });
 
     it('should deep-merge partial display override', () => {
       const configPath = path.join(tempDir, 'display.json');
       fs.writeFileSync(configPath, JSON.stringify({
-        display: { showRateLimitEstimate: false },
+        display: { showCacheTokens: false },
       }));
 
       const config = resolveConfig(configPath);
-      expect(config.display.showRateLimitEstimate).toBe(false);
-      expect(config.display.showCacheTokens).toBe(true); // default preserved
-    });
-
-    it('should deep-merge partial rateLimitWindow override', () => {
-      const configPath = path.join(tempDir, 'rateLimit.json');
-      fs.writeFileSync(configPath, JSON.stringify({
-        rateLimitWindow: { sonnetTokenCap: 100000 },
-      }));
-
-      const config = resolveConfig(configPath);
-      expect(config.rateLimitWindow.sonnetTokenCap).toBe(100000);
+      expect(config.display.showCacheTokens).toBe(false);
     });
   });
 
-  describe('DEFAULT_CONFIG - display and rateLimitWindow', () => {
+  describe('DEFAULT_CONFIG - display', () => {
     it('should have default display settings', () => {
-      expect(DEFAULT_CONFIG.display.showRateLimitEstimate).toBe(true);
       expect(DEFAULT_CONFIG.display.showCacheTokens).toBe(true);
-    });
-
-    it('should have default rateLimitWindow settings', () => {
-      expect(DEFAULT_CONFIG.rateLimitWindow.sonnetTokenCap).toBe(88000);
     });
   });
 

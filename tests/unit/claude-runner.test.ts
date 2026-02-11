@@ -736,6 +736,7 @@ describe('ClaudeRunner', () => {
         outputTokens: 500,
         cacheReadInputTokens: 200,
         cacheCreationInputTokens: 100,
+        costUsd: 0,
       });
     });
 

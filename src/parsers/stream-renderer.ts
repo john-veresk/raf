@@ -23,11 +23,13 @@ export interface StreamEvent {
     cache_read_input_tokens?: number;
     cache_creation_input_tokens?: number;
   };
+  total_cost_usd?: number;
   modelUsage?: Record<string, {
     inputTokens?: number;
     outputTokens?: number;
     cacheReadInputTokens?: number;
     cacheCreationInputTokens?: number;
+    costUSD?: number;
   }>;
   tool_use_result?: {
     type?: string;
@@ -175,6 +177,7 @@ function extractUsageData(event: StreamEvent): UsageData | undefined {
         outputTokens: data.outputTokens ?? 0,
         cacheReadInputTokens: data.cacheReadInputTokens ?? 0,
         cacheCreationInputTokens: data.cacheCreationInputTokens ?? 0,
+        costUsd: data.costUSD ?? 0,
       };
     }
   }
@@ -185,5 +188,6 @@ function extractUsageData(event: StreamEvent): UsageData | undefined {
     cacheReadInputTokens: usage?.cache_read_input_tokens ?? 0,
     cacheCreationInputTokens: usage?.cache_creation_input_tokens ?? 0,
     modelUsage,
+    totalCostUsd: event.total_cost_usd ?? 0,
   };
 }

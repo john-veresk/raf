@@ -1,5 +1,5 @@
 import { TokenTracker, CostBreakdown, accumulateUsage, sumCostBreakdowns } from '../../src/utils/token-tracker.js';
-import { UsageData, PricingConfig, DEFAULT_CONFIG } from '../../src/types/config.js';
+import { UsageData } from '../../src/types/config.js';
 
 function makeUsage(overrides: Partial<UsageData> = {}): UsageData {
   return {
@@ -8,251 +8,185 @@ function makeUsage(overrides: Partial<UsageData> = {}): UsageData {
     cacheReadInputTokens: 0,
     cacheCreationInputTokens: 0,
     modelUsage: {},
+    totalCostUsd: 0, // Default to 0 instead of undefined
     ...overrides,
   };
 }
 
-const testPricing: PricingConfig = DEFAULT_CONFIG.pricing;
-
 describe('TokenTracker', () => {
-  describe('calculateCost', () => {
-    it('should calculate cost for opus model usage', () => {
-      const tracker = new TokenTracker(testPricing);
-      const usage = makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 500_000,
-        cacheReadInputTokens: 200_000,
-        cacheCreationInputTokens: 100_000,
-        modelUsage: {
-          'claude-opus-4-6': {
-            inputTokens: 1_000_000,
-            outputTokens: 500_000,
-            cacheReadInputTokens: 200_000,
-            cacheCreationInputTokens: 100_000,
-          },
-        },
-      });
-
-      const cost = tracker.calculateCost(usage);
-      expect(cost.inputCost).toBeCloseTo(15); // 1M * $15/MTok
-      expect(cost.outputCost).toBeCloseTo(37.5); // 0.5M * $75/MTok
-      expect(cost.cacheReadCost).toBeCloseTo(0.3); // 0.2M * $1.5/MTok
-      expect(cost.cacheCreateCost).toBeCloseTo(1.875); // 0.1M * $18.75/MTok
-      expect(cost.totalCost).toBeCloseTo(15 + 37.5 + 0.3 + 1.875);
-    });
-
-    it('should calculate cost for sonnet model usage', () => {
-      const tracker = new TokenTracker(testPricing);
-      const usage = makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 1_000_000,
-        modelUsage: {
-          'claude-sonnet-4-5-20250929': {
-            inputTokens: 1_000_000,
-            outputTokens: 1_000_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
-      });
-
-      const cost = tracker.calculateCost(usage);
-      expect(cost.inputCost).toBeCloseTo(3); // 1M * $3/MTok
-      expect(cost.outputCost).toBeCloseTo(15); // 1M * $15/MTok
-      expect(cost.totalCost).toBeCloseTo(18);
-    });
-
-    it('should calculate cost for haiku model usage', () => {
-      const tracker = new TokenTracker(testPricing);
-      const usage = makeUsage({
-        inputTokens: 2_000_000,
-        outputTokens: 1_000_000,
-        modelUsage: {
-          'claude-haiku-4-5-20251001': {
-            inputTokens: 2_000_000,
-            outputTokens: 1_000_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
-      });
-
-      const cost = tracker.calculateCost(usage);
-      expect(cost.inputCost).toBeCloseTo(2); // 2M * $1/MTok
-      expect(cost.outputCost).toBeCloseTo(5); // 1M * $5/MTok
-      expect(cost.totalCost).toBeCloseTo(7);
-    });
-
-    it('should handle multi-model usage in a single task', () => {
-      const tracker = new TokenTracker(testPricing);
-      const usage = makeUsage({
-        inputTokens: 2_000_000,
-        outputTokens: 1_500_000,
-        modelUsage: {
-          'claude-opus-4-6': {
-            inputTokens: 1_000_000,
-            outputTokens: 500_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-          'claude-haiku-4-5-20251001': {
-            inputTokens: 1_000_000,
-            outputTokens: 1_000_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
-      });
-
-      const cost = tracker.calculateCost(usage);
-      // Opus: 1M*$15 + 0.5M*$75 = $15 + $37.5
-      // Haiku: 1M*$1 + 1M*$5 = $1 + $5
-      expect(cost.inputCost).toBeCloseTo(16); // 15 + 1
-      expect(cost.outputCost).toBeCloseTo(42.5); // 37.5 + 5
-      expect(cost.totalCost).toBeCloseTo(58.5);
-    });
-
-    it('should fallback to sonnet pricing when no model breakdown', () => {
-      const tracker = new TokenTracker(testPricing);
-      const usage = makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 1_000_000,
-        modelUsage: {},
-      });
-
-      const cost = tracker.calculateCost(usage);
-      expect(cost.inputCost).toBeCloseTo(3); // sonnet fallback
-      expect(cost.outputCost).toBeCloseTo(15);
-      expect(cost.totalCost).toBeCloseTo(18);
-    });
-
-    it('should fallback to sonnet pricing for unknown model families', () => {
-      const tracker = new TokenTracker(testPricing);
-      const usage = makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 1_000_000,
-        modelUsage: {
-          'claude-unknown-3-0': {
-            inputTokens: 1_000_000,
-            outputTokens: 1_000_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
-      });
-
-      const cost = tracker.calculateCost(usage);
-      expect(cost.inputCost).toBeCloseTo(3); // sonnet fallback
-      expect(cost.outputCost).toBeCloseTo(15);
-    });
-
-    it('should return zero cost for zero tokens', () => {
-      const tracker = new TokenTracker(testPricing);
-      const usage = makeUsage();
-      const cost = tracker.calculateCost(usage);
-      expect(cost.totalCost).toBe(0);
-    });
-
-    it('should apply cache read discount correctly', () => {
-      const tracker = new TokenTracker(testPricing);
-      const usage = makeUsage({
-        cacheReadInputTokens: 1_000_000,
-        modelUsage: {
-          'claude-sonnet-4-5': {
-            inputTokens: 0,
-            outputTokens: 0,
-            cacheReadInputTokens: 1_000_000,
-            cacheCreationInputTokens: 0,
-          },
-        },
-      });
-
-      const cost = tracker.calculateCost(usage);
-      // Cache read: 1M * $0.30/MTok = $0.30 (90% off $3 input price)
-      expect(cost.cacheReadCost).toBeCloseTo(0.3);
-      expect(cost.totalCost).toBeCloseTo(0.3);
+  describe('constructor', () => {
+    it('should create tracker without parameters', () => {
+      const tracker = new TokenTracker();
+      expect(tracker).toBeDefined();
     });
   });
 
-  describe('addTask and accumulation', () => {
+  describe('addTask with Claude-provided costs', () => {
+    it('should sum totalCostUsd from single attempt', () => {
+      const tracker = new TokenTracker();
+      const usage = makeUsage({
+        inputTokens: 1_000_000,
+        outputTokens: 500_000,
+        totalCostUsd: 52.5,
+      });
+
+      const entry = tracker.addTask('01', [usage]);
+      expect(entry.cost.totalCost).toBe(52.5);
+      expect(entry.usage.inputTokens).toBe(1_000_000);
+      expect(entry.usage.outputTokens).toBe(500_000);
+    });
+
+    it('should sum totalCostUsd from multiple attempts', () => {
+      const tracker = new TokenTracker();
+      const attempt1 = makeUsage({
+        inputTokens: 1_000_000,
+        outputTokens: 500_000,
+        totalCostUsd: 25.0,
+      });
+      const attempt2 = makeUsage({
+        inputTokens: 500_000,
+        outputTokens: 250_000,
+        totalCostUsd: 12.5,
+      });
+
+      const entry = tracker.addTask('01', [attempt1, attempt2]);
+      expect(entry.cost.totalCost).toBe(37.5);
+      expect(entry.usage.inputTokens).toBe(1_500_000);
+      expect(entry.usage.outputTokens).toBe(750_000);
+    });
+
+    it('should handle missing totalCostUsd gracefully', () => {
+      const tracker = new TokenTracker();
+      // makeUsage() now defaults totalCostUsd to 0
+      const usage = makeUsage({
+        inputTokens: 1_000_000,
+        outputTokens: 500_000,
+        totalCostUsd: 0,
+      });
+
+      const entry = tracker.addTask('01', [usage]);
+      expect(entry.cost.totalCost).toBe(0);
+    });
+
+    it('should handle mixed attempts with and without costs', () => {
+      const tracker = new TokenTracker();
+      const attempt1 = makeUsage({
+        inputTokens: 1_000_000,
+        outputTokens: 500_000,
+        totalCostUsd: 25.0,
+      });
+      const attempt2 = makeUsage({
+        inputTokens: 500_000,
+        outputTokens: 250_000,
+        totalCostUsd: 0, // explicitly 0 means no cost
+      });
+
+      const entry = tracker.addTask('01', [attempt1, attempt2]);
+      expect(entry.cost.totalCost).toBe(25.0);
+    });
+
+    it('should store attempts array in entry', () => {
+      const tracker = new TokenTracker();
+      const usage = makeUsage({ inputTokens: 100, totalCostUsd: 0.01 });
+      const entry = tracker.addTask('01', [usage]);
+
+      expect(entry.attempts).toHaveLength(1);
+      expect(entry.attempts[0]).toEqual(usage);
+    });
+
+    it('should handle zero cost', () => {
+      const tracker = new TokenTracker();
+      const usage = makeUsage({
+        inputTokens: 100,
+        outputTokens: 50,
+        totalCostUsd: 0,
+      });
+
+      const entry = tracker.addTask('01', [usage]);
+      expect(entry.cost.totalCost).toBe(0);
+    });
+  });
+
+  describe('getTotals', () => {
+    it('should accumulate costs across multiple tasks', () => {
+      const tracker = new TokenTracker();
+
+      tracker.addTask('01', [makeUsage({
+        inputTokens: 1_000_000,
+        outputTokens: 500_000,
+        totalCostUsd: 18.0,
+      })]);
+
+      tracker.addTask('02', [makeUsage({
+        inputTokens: 500_000,
+        outputTokens: 250_000,
+        totalCostUsd: 9.0,
+      })]);
+
+      const totals = tracker.getTotals();
+      expect(totals.cost.totalCost).toBe(27.0);
+      expect(totals.usage.inputTokens).toBe(1_500_000);
+      expect(totals.usage.outputTokens).toBe(750_000);
+    });
+
+    it('should return empty totals when no tasks added', () => {
+      const tracker = new TokenTracker();
+      const totals = tracker.getTotals();
+      expect(totals.usage.inputTokens).toBe(0);
+      expect(totals.usage.outputTokens).toBe(0);
+      expect(totals.cost.totalCost).toBe(0);
+      expect(Object.keys(totals.usage.modelUsage)).toHaveLength(0);
+    });
+
     it('should accumulate usage across multiple tasks', () => {
-      const tracker = new TokenTracker(testPricing);
+      const tracker = new TokenTracker();
 
       tracker.addTask('01', [makeUsage({
         inputTokens: 500_000,
         outputTokens: 200_000,
-        modelUsage: {
-          'claude-opus-4-6': {
-            inputTokens: 500_000,
-            outputTokens: 200_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
+        totalCostUsd: 10.0,
       })]);
 
       tracker.addTask('02', [makeUsage({
         inputTokens: 300_000,
         outputTokens: 100_000,
-        modelUsage: {
-          'claude-opus-4-6': {
-            inputTokens: 300_000,
-            outputTokens: 100_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
+        totalCostUsd: 5.0,
       })]);
 
       const totals = tracker.getTotals();
       expect(totals.usage.inputTokens).toBe(800_000);
       expect(totals.usage.outputTokens).toBe(300_000);
-      expect(totals.usage.modelUsage['claude-opus-4-6']?.inputTokens).toBe(800_000);
-      expect(totals.usage.modelUsage['claude-opus-4-6']?.outputTokens).toBe(300_000);
     });
 
-    it('should accumulate costs across multiple tasks', () => {
-      const tracker = new TokenTracker(testPricing);
+    it('should accumulate cache tokens', () => {
+      const tracker = new TokenTracker();
 
-      const entry1 = tracker.addTask('01', [makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 1_000_000,
-        modelUsage: {
-          'claude-sonnet-4-5': {
-            inputTokens: 1_000_000,
-            outputTokens: 1_000_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
+      tracker.addTask('01', [makeUsage({
+        inputTokens: 100_000,
+        cacheReadInputTokens: 50_000,
+        cacheCreationInputTokens: 20_000,
+        totalCostUsd: 2.0,
       })]);
 
-      const entry2 = tracker.addTask('02', [makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 1_000_000,
-        modelUsage: {
-          'claude-sonnet-4-5': {
-            inputTokens: 1_000_000,
-            outputTokens: 1_000_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
+      tracker.addTask('02', [makeUsage({
+        inputTokens: 100_000,
+        cacheReadInputTokens: 30_000,
+        cacheCreationInputTokens: 10_000,
+        totalCostUsd: 1.5,
       })]);
 
       const totals = tracker.getTotals();
-      // Each task: $3 input + $15 output = $18
-      expect(entry1.cost.totalCost).toBeCloseTo(18);
-      expect(entry2.cost.totalCost).toBeCloseTo(18);
-      expect(totals.cost.totalCost).toBeCloseTo(36);
+      expect(totals.usage.cacheReadInputTokens).toBe(80_000);
+      expect(totals.usage.cacheCreationInputTokens).toBe(30_000);
     });
 
     it('should accumulate multi-model usage across tasks', () => {
-      const tracker = new TokenTracker(testPricing);
+      const tracker = new TokenTracker();
 
       tracker.addTask('01', [makeUsage({
         inputTokens: 1_000_000,
         outputTokens: 500_000,
+        totalCostUsd: 52.5,
         modelUsage: {
           'claude-opus-4-6': {
             inputTokens: 1_000_000,
@@ -266,6 +200,7 @@ describe('TokenTracker', () => {
       tracker.addTask('02', [makeUsage({
         inputTokens: 500_000,
         outputTokens: 200_000,
+        totalCostUsd: 6.0,
         modelUsage: {
           'claude-haiku-4-5-20251001': {
             inputTokens: 500_000,
@@ -280,120 +215,58 @@ describe('TokenTracker', () => {
       expect(totals.usage.modelUsage['claude-opus-4-6']?.inputTokens).toBe(1_000_000);
       expect(totals.usage.modelUsage['claude-haiku-4-5-20251001']?.inputTokens).toBe(500_000);
     });
+  });
 
-    it('should return empty totals when no tasks added', () => {
-      const tracker = new TokenTracker(testPricing);
-      const totals = tracker.getTotals();
-      expect(totals.usage.inputTokens).toBe(0);
-      expect(totals.usage.outputTokens).toBe(0);
-      expect(totals.cost.totalCost).toBe(0);
-      expect(Object.keys(totals.usage.modelUsage)).toHaveLength(0);
-    });
-
+  describe('getEntries', () => {
     it('should return per-task entries', () => {
-      const tracker = new TokenTracker(testPricing);
-      tracker.addTask('01', [makeUsage({ inputTokens: 100 })]);
-      tracker.addTask('02', [makeUsage({ inputTokens: 200 })]);
+      const tracker = new TokenTracker();
+      tracker.addTask('01', [makeUsage({ inputTokens: 100, totalCostUsd: 0.01 })]);
+      tracker.addTask('02', [makeUsage({ inputTokens: 200, totalCostUsd: 0.02 })]);
 
       const entries = tracker.getEntries();
       expect(entries).toHaveLength(2);
       expect(entries[0].taskId).toBe('01');
       expect(entries[1].taskId).toBe('02');
+      expect(entries[0].cost.totalCost).toBe(0.01);
+      expect(entries[1].cost.totalCost).toBe(0.02);
     });
+  });
 
-    it('addTask returns the entry with cost', () => {
-      const tracker = new TokenTracker(testPricing);
-      const entry = tracker.addTask('01', [makeUsage({
-        inputTokens: 1_000_000,
-        modelUsage: {
-          'claude-opus-4-6': {
-            inputTokens: 1_000_000,
-            outputTokens: 0,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
-      })]);
-
-      expect(entry.taskId).toBe('01');
-      expect(entry.cost.inputCost).toBeCloseTo(15);
-      expect(entry.cost.totalCost).toBeCloseTo(15);
-    });
-
-    it('should store attempts array in entry', () => {
-      const tracker = new TokenTracker(testPricing);
-      const usage = makeUsage({ inputTokens: 100 });
-      const entry = tracker.addTask('01', [usage]);
-
-      expect(entry.attempts).toHaveLength(1);
-      expect(entry.attempts[0]).toEqual(usage);
-    });
-
-    it('should accumulate multiple attempts for a single task', () => {
-      const tracker = new TokenTracker(testPricing);
-      const attempt1 = makeUsage({
-        inputTokens: 500_000,
-        outputTokens: 100_000,
-        modelUsage: {
-          'claude-opus-4-6': {
-            inputTokens: 500_000,
-            outputTokens: 100_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
-      });
-      const attempt2 = makeUsage({
-        inputTokens: 600_000,
-        outputTokens: 200_000,
-        modelUsage: {
-          'claude-opus-4-6': {
-            inputTokens: 600_000,
-            outputTokens: 200_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
-      });
-
-      const entry = tracker.addTask('01', [attempt1, attempt2]);
-
-      expect(entry.usage.inputTokens).toBe(1_100_000);
-      expect(entry.usage.outputTokens).toBe(300_000);
-      expect(entry.usage.modelUsage['claude-opus-4-6']?.inputTokens).toBe(1_100_000);
-      expect(entry.attempts).toHaveLength(2);
-    });
-
-    it('should correctly accumulate multi-attempt costs', () => {
-      const tracker = new TokenTracker(testPricing);
+  describe('multi-attempt cost calculation', () => {
+    it('should handle retry with different costs', () => {
+      const tracker = new TokenTracker();
       const attempt1 = makeUsage({
         inputTokens: 1_000_000,
-        modelUsage: {
-          'claude-sonnet-4-5': {
-            inputTokens: 1_000_000,
-            outputTokens: 0,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
+        outputTokens: 500_000,
+        totalCostUsd: 52.5,
       });
       const attempt2 = makeUsage({
         inputTokens: 1_000_000,
-        modelUsage: {
-          'claude-sonnet-4-5': {
-            inputTokens: 1_000_000,
-            outputTokens: 0,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
+        outputTokens: 1_000_000,
+        totalCostUsd: 18.0,
       });
 
       const entry = tracker.addTask('01', [attempt1, attempt2]);
+      expect(entry.cost.totalCost).toBe(70.5);
+    });
 
-      // 2M tokens * $3/MTok = $6
-      expect(entry.cost.inputCost).toBeCloseTo(6);
-      expect(entry.cost.totalCost).toBeCloseTo(6);
+    it('should include all attempt usage in grand totals', () => {
+      const tracker = new TokenTracker();
+
+      // Task 1: 2 attempts
+      tracker.addTask('01', [
+        makeUsage({ inputTokens: 500_000, totalCostUsd: 10.0 }),
+        makeUsage({ inputTokens: 500_000, totalCostUsd: 10.0 }),
+      ]);
+
+      // Task 2: 1 attempt
+      tracker.addTask('02', [
+        makeUsage({ inputTokens: 1_000_000, totalCostUsd: 20.0 }),
+      ]);
+
+      const totals = tracker.getTotals();
+      expect(totals.usage.inputTokens).toBe(2_000_000);
+      expect(totals.cost.totalCost).toBe(40.0);
     });
   });
 
@@ -413,6 +286,7 @@ describe('TokenTracker', () => {
         outputTokens: 200,
         cacheReadInputTokens: 50,
         cacheCreationInputTokens: 25,
+        totalCostUsd: 1.5,
         modelUsage: {
           'claude-opus-4-6': {
             inputTokens: 100,
@@ -428,6 +302,7 @@ describe('TokenTracker', () => {
       expect(result.outputTokens).toBe(200);
       expect(result.cacheReadInputTokens).toBe(50);
       expect(result.cacheCreationInputTokens).toBe(25);
+      expect(result.totalCostUsd).toBe(1.5);
       expect(result.modelUsage['claude-opus-4-6']?.inputTokens).toBe(100);
     });
 
@@ -437,12 +312,14 @@ describe('TokenTracker', () => {
         outputTokens: 50,
         cacheReadInputTokens: 10,
         cacheCreationInputTokens: 5,
+        totalCostUsd: 0.5,
       });
       const attempt2 = makeUsage({
         inputTokens: 200,
         outputTokens: 100,
         cacheReadInputTokens: 20,
         cacheCreationInputTokens: 10,
+        totalCostUsd: 1.0,
       });
 
       const result = accumulateUsage([attempt1, attempt2]);
@@ -450,6 +327,7 @@ describe('TokenTracker', () => {
       expect(result.outputTokens).toBe(150);
       expect(result.cacheReadInputTokens).toBe(30);
       expect(result.cacheCreationInputTokens).toBe(15);
+      expect(result.totalCostUsd).toBe(1.5);
     });
 
     it('should merge modelUsage for same model across attempts', () => {
@@ -515,55 +393,6 @@ describe('TokenTracker', () => {
       expect(Object.keys(result.modelUsage)).toHaveLength(2);
     });
 
-    it('should handle mixed model usage across attempts', () => {
-      const attempt1 = makeUsage({
-        inputTokens: 300,
-        outputTokens: 150,
-        modelUsage: {
-          'claude-opus-4-6': {
-            inputTokens: 200,
-            outputTokens: 100,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-          'claude-haiku-4-5': {
-            inputTokens: 100,
-            outputTokens: 50,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
-      });
-      const attempt2 = makeUsage({
-        inputTokens: 400,
-        outputTokens: 200,
-        modelUsage: {
-          'claude-opus-4-6': {
-            inputTokens: 100,
-            outputTokens: 50,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-          'claude-sonnet-4-5': {
-            inputTokens: 300,
-            outputTokens: 150,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
-      });
-
-      const result = accumulateUsage([attempt1, attempt2]);
-      expect(result.inputTokens).toBe(700);
-      expect(result.outputTokens).toBe(350);
-      // Opus: 200 + 100 = 300
-      expect(result.modelUsage['claude-opus-4-6']?.inputTokens).toBe(300);
-      // Haiku: only from attempt1
-      expect(result.modelUsage['claude-haiku-4-5']?.inputTokens).toBe(100);
-      // Sonnet: only from attempt2
-      expect(result.modelUsage['claude-sonnet-4-5']?.inputTokens).toBe(300);
-    });
-
     it('should not mutate input objects', () => {
       const attempt1 = makeUsage({
         inputTokens: 100,
@@ -594,202 +423,31 @@ describe('TokenTracker', () => {
       expect(attempt1.modelUsage['claude-opus-4-6']?.inputTokens).toBe(100);
       expect(attempt2.inputTokens).toBe(200);
     });
-  });
 
-  describe('multi-attempt cost calculation', () => {
-    it('should calculate correct cost when retry uses different model', () => {
-      const tracker = new TokenTracker(testPricing);
-      // Attempt 1: Opus, Attempt 2: Sonnet (fallback)
+    it('should handle zero totalCostUsd in some attempts', () => {
       const attempt1 = makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 500_000,
-        modelUsage: {
-          'claude-opus-4-6': {
-            inputTokens: 1_000_000,
-            outputTokens: 500_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
+        inputTokens: 100,
+        totalCostUsd: 0.5,
       });
       const attempt2 = makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 1_000_000,
-        modelUsage: {
-          'claude-sonnet-4-5': {
-            inputTokens: 1_000_000,
-            outputTokens: 1_000_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
+        inputTokens: 200,
+        totalCostUsd: 0, // explicitly 0
       });
 
-      const entry = tracker.addTask('01', [attempt1, attempt2]);
-
-      // Opus: 1M*$15 + 0.5M*$75 = $15 + $37.5 = $52.5
-      // Sonnet: 1M*$3 + 1M*$15 = $3 + $15 = $18
-      // Total: $52.5 + $18 = $70.5
-      expect(entry.cost.inputCost).toBeCloseTo(18); // 15 + 3
-      expect(entry.cost.outputCost).toBeCloseTo(52.5); // 37.5 + 15
-      expect(entry.cost.totalCost).toBeCloseTo(70.5);
-    });
-
-    it('should include all attempt usage in grand totals', () => {
-      const tracker = new TokenTracker(testPricing);
-
-      // Task 1: 2 attempts
-      tracker.addTask('01', [
-        makeUsage({ inputTokens: 500_000 }),
-        makeUsage({ inputTokens: 500_000 }),
-      ]);
-
-      // Task 2: 1 attempt
-      tracker.addTask('02', [
-        makeUsage({ inputTokens: 1_000_000 }),
-      ]);
-
-      const totals = tracker.getTotals();
-      expect(totals.usage.inputTokens).toBe(2_000_000);
-    });
-  });
-
-  describe('mixed-attempt cost calculation (aggregate + modelUsage)', () => {
-    it('should correctly price attempts with mixed modelUsage presence', () => {
-      const tracker = new TokenTracker(testPricing);
-      // Attempt 1: has modelUsage (opus)
-      const attempt1 = makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 500_000,
-        modelUsage: {
-          'claude-opus-4-6': {
-            inputTokens: 1_000_000,
-            outputTokens: 500_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
-      });
-      // Attempt 2: NO modelUsage (aggregate-only, should use sonnet fallback)
-      const attempt2 = makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 1_000_000,
-        modelUsage: {}, // Empty - should fallback to sonnet pricing
-      });
-
-      const entry = tracker.addTask('01', [attempt1, attempt2]);
-
-      // Attempt 1 (Opus): 1M*$15 + 0.5M*$75 = $15 + $37.5 = $52.5
-      // Attempt 2 (Sonnet fallback): 1M*$3 + 1M*$15 = $3 + $15 = $18
-      // Total: $52.5 + $18 = $70.5
-      expect(entry.cost.inputCost).toBeCloseTo(18); // 15 + 3
-      expect(entry.cost.outputCost).toBeCloseTo(52.5); // 37.5 + 15
-      expect(entry.cost.totalCost).toBeCloseTo(70.5);
-    });
-
-    it('should not underreport cost when first attempt has no modelUsage', () => {
-      const tracker = new TokenTracker(testPricing);
-      // Attempt 1: aggregate-only (no modelUsage)
-      const attempt1 = makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 1_000_000,
-        modelUsage: {},
-      });
-      // Attempt 2: has modelUsage
-      const attempt2 = makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 500_000,
-        modelUsage: {
-          'claude-opus-4-6': {
-            inputTokens: 1_000_000,
-            outputTokens: 500_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
-      });
-
-      const entry = tracker.addTask('01', [attempt1, attempt2]);
-
-      // Attempt 1 (Sonnet fallback): 1M*$3 + 1M*$15 = $18
-      // Attempt 2 (Opus): 1M*$15 + 0.5M*$75 = $52.5
-      // Total: $18 + $52.5 = $70.5
-      expect(entry.cost.totalCost).toBeCloseTo(70.5);
-    });
-
-    it('should handle all aggregate-only attempts', () => {
-      const tracker = new TokenTracker(testPricing);
-      const attempt1 = makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 1_000_000,
-        modelUsage: {},
-      });
-      const attempt2 = makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 1_000_000,
-        modelUsage: {},
-      });
-
-      const entry = tracker.addTask('01', [attempt1, attempt2]);
-
-      // Both use sonnet fallback: 2 * (1M*$3 + 1M*$15) = 2 * $18 = $36
-      expect(entry.cost.totalCost).toBeCloseTo(36);
-    });
-
-    it('should include cache costs from aggregate-only attempts', () => {
-      const tracker = new TokenTracker(testPricing);
-      // Attempt 1: has modelUsage with cache
-      const attempt1 = makeUsage({
-        inputTokens: 500_000,
-        outputTokens: 200_000,
-        cacheReadInputTokens: 100_000,
-        cacheCreationInputTokens: 50_000,
-        modelUsage: {
-          'claude-opus-4-6': {
-            inputTokens: 500_000,
-            outputTokens: 200_000,
-            cacheReadInputTokens: 100_000,
-            cacheCreationInputTokens: 50_000,
-          },
-        },
-      });
-      // Attempt 2: aggregate-only with cache
-      const attempt2 = makeUsage({
-        inputTokens: 500_000,
-        outputTokens: 200_000,
-        cacheReadInputTokens: 100_000,
-        cacheCreationInputTokens: 50_000,
-        modelUsage: {},
-      });
-
-      const entry = tracker.addTask('01', [attempt1, attempt2]);
-
-      // Opus cache rates: $1.5/MTok read, $18.75/MTok create
-      // Sonnet cache rates: $0.30/MTok read, $3.75/MTok create
-      // Attempt 1 cache: 0.1M*$1.5 + 0.05M*$18.75 = $0.15 + $0.9375 = $1.0875
-      // Attempt 2 cache: 0.1M*$0.30 + 0.05M*$3.75 = $0.03 + $0.1875 = $0.2175
-      // Total cache: $1.0875 + $0.2175 = $1.305
-      expect(entry.cost.cacheReadCost).toBeCloseTo(0.15 + 0.03);
-      expect(entry.cost.cacheCreateCost).toBeCloseTo(0.9375 + 0.1875);
+      const result = accumulateUsage([attempt1, attempt2]);
+      expect(result.inputTokens).toBe(300);
+      expect(result.totalCostUsd).toBe(0.5);
     });
   });
 
   describe('sumCostBreakdowns', () => {
     it('should return zero breakdown for empty array', () => {
       const result = sumCostBreakdowns([]);
-      expect(result.inputCost).toBe(0);
-      expect(result.outputCost).toBe(0);
-      expect(result.cacheReadCost).toBe(0);
-      expect(result.cacheCreateCost).toBe(0);
       expect(result.totalCost).toBe(0);
     });
 
     it('should return same breakdown for single element', () => {
       const cost: CostBreakdown = {
-        inputCost: 10,
-        outputCost: 20,
-        cacheReadCost: 1,
-        cacheCreateCost: 2,
         totalCost: 33,
       };
       const result = sumCostBreakdowns([cost]);
@@ -798,191 +456,13 @@ describe('TokenTracker', () => {
 
     it('should sum all cost fields across breakdowns', () => {
       const cost1: CostBreakdown = {
-        inputCost: 10,
-        outputCost: 20,
-        cacheReadCost: 1,
-        cacheCreateCost: 2,
         totalCost: 33,
       };
       const cost2: CostBreakdown = {
-        inputCost: 5,
-        outputCost: 10,
-        cacheReadCost: 0.5,
-        cacheCreateCost: 1,
         totalCost: 16.5,
       };
       const result = sumCostBreakdowns([cost1, cost2]);
-      expect(result.inputCost).toBe(15);
-      expect(result.outputCost).toBe(30);
-      expect(result.cacheReadCost).toBe(1.5);
-      expect(result.cacheCreateCost).toBe(3);
       expect(result.totalCost).toBe(49.5);
-    });
-  });
-
-  describe('custom pricing', () => {
-    it('should use custom pricing config', () => {
-      const customPricing: PricingConfig = {
-        opus: { inputPerMTok: 10, outputPerMTok: 50, cacheReadPerMTok: 1, cacheCreatePerMTok: 12.5 },
-        sonnet: { inputPerMTok: 2, outputPerMTok: 10, cacheReadPerMTok: 0.2, cacheCreatePerMTok: 2.5 },
-        haiku: { inputPerMTok: 0.5, outputPerMTok: 2.5, cacheReadPerMTok: 0.05, cacheCreatePerMTok: 0.625 },
-      };
-
-      const tracker = new TokenTracker(customPricing);
-      const usage = makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 1_000_000,
-        modelUsage: {
-          'claude-opus-4-6': {
-            inputTokens: 1_000_000,
-            outputTokens: 1_000_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
-      });
-
-      const cost = tracker.calculateCost(usage);
-      expect(cost.inputCost).toBeCloseTo(10); // 1M * $10/MTok
-      expect(cost.outputCost).toBeCloseTo(50); // 1M * $50/MTok
-      expect(cost.totalCost).toBeCloseTo(60);
-    });
-  });
-
-  describe('rate limit estimation', () => {
-    it('should calculate rate limit percentage from cost', () => {
-      const tracker = new TokenTracker(testPricing);
-      // With default sonnet pricing ($3 input, $15 output), avg = $9/MTok
-      // Sonnet-equivalent tokens = cost / (9/1M) = cost * 1M/9
-      // Percentage = sonnetEquivTokens / cap * 100
-
-      // Test with $0.18 cost (should be ~2222 Sonnet-equiv tokens)
-      // With cap of 88000, that's ~2.5%
-      const percentage = tracker.calculateRateLimitPercentage(0.18, 88000);
-      // $0.18 / ($9/1M) = 20000 Sonnet-equiv tokens
-      // 20000 / 88000 * 100 = ~22.7%
-      expect(percentage).toBeCloseTo(22.73, 1);
-    });
-
-    it('should return 0 for zero cost', () => {
-      const tracker = new TokenTracker(testPricing);
-      expect(tracker.calculateRateLimitPercentage(0, 88000)).toBe(0);
-    });
-
-    it('should respect custom sonnetTokenCap', () => {
-      const tracker = new TokenTracker(testPricing);
-      const percentageDefault = tracker.calculateRateLimitPercentage(0.09, 88000);
-      const percentageHigherCap = tracker.calculateRateLimitPercentage(0.09, 176000);
-      // Higher cap should halve the percentage
-      expect(percentageHigherCap).toBeCloseTo(percentageDefault / 2, 1);
-    });
-
-    it('should calculate cumulative rate limit across tasks', () => {
-      const tracker = new TokenTracker(testPricing);
-
-      // Add a task with sonnet usage: 1M in / 1M out = $3 + $15 = $18
-      tracker.addTask('01', [makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 1_000_000,
-        modelUsage: {
-          'claude-sonnet-4-5': {
-            inputTokens: 1_000_000,
-            outputTokens: 1_000_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
-      })]);
-
-      const percentage = tracker.getCumulativeRateLimitPercentage(88000);
-      // $18 / ($9/1M) = 2,000,000 Sonnet-equiv tokens
-      // 2,000,000 / 88,000 * 100 = ~2272.7%
-      expect(percentage).toBeCloseTo(2272.73, 0);
-    });
-
-    it('should correctly weight Opus usage higher than Sonnet', () => {
-      const tracker = new TokenTracker(testPricing);
-
-      // Opus task: 1M in / 1M out = $15 + $75 = $90
-      tracker.addTask('01', [makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 1_000_000,
-        modelUsage: {
-          'claude-opus-4-6': {
-            inputTokens: 1_000_000,
-            outputTokens: 1_000_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
-      })]);
-
-      const opusPercentage = tracker.getCumulativeRateLimitPercentage(88000);
-
-      // Sonnet equivalent of $90 = $90 / ($9/1M) = 10,000,000 tokens
-      // 10,000,000 / 88,000 * 100 = ~11363.6%
-      expect(opusPercentage).toBeCloseTo(11363.6, 0);
-    });
-
-    it('should correctly weight Haiku usage lower than Sonnet', () => {
-      const tracker = new TokenTracker(testPricing);
-
-      // Haiku task: 1M in / 1M out = $1 + $5 = $6
-      tracker.addTask('01', [makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 1_000_000,
-        modelUsage: {
-          'claude-haiku-4-5': {
-            inputTokens: 1_000_000,
-            outputTokens: 1_000_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
-      })]);
-
-      const haikuPercentage = tracker.getCumulativeRateLimitPercentage(88000);
-
-      // Sonnet equivalent of $6 = $6 / ($9/1M) = ~666,667 tokens
-      // 666,667 / 88,000 * 100 = ~757.6%
-      expect(haikuPercentage).toBeCloseTo(757.6, 0);
-    });
-
-    it('should handle multi-model tasks correctly for rate limit', () => {
-      const tracker = new TokenTracker(testPricing);
-
-      // Mixed task: Opus attempt ($52.5) + Sonnet attempt ($18) = $70.5
-      const attempt1 = makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 500_000,
-        modelUsage: {
-          'claude-opus-4-6': {
-            inputTokens: 1_000_000,
-            outputTokens: 500_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
-      });
-      const attempt2 = makeUsage({
-        inputTokens: 1_000_000,
-        outputTokens: 1_000_000,
-        modelUsage: {
-          'claude-sonnet-4-5': {
-            inputTokens: 1_000_000,
-            outputTokens: 1_000_000,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
-          },
-        },
-      });
-
-      tracker.addTask('01', [attempt1, attempt2]);
-      const percentage = tracker.getCumulativeRateLimitPercentage(88000);
-
-      // $70.5 / ($9/1M) = 7,833,333 Sonnet-equiv tokens
-      // 7,833,333 / 88,000 * 100 = ~8901.5%
-      expect(percentage).toBeCloseTo(8901.5, 0);
     });
   });
 });

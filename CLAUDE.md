@@ -210,11 +210,11 @@ Support multiple identifier formats in commands:
 Use `resolveProjectIdentifierWithDetails()` from `src/utils/paths.ts`
 
 ### Token Usage Tracking
-- After each task, RAF displays a per-task token summary (input/output tokens, cache tokens, estimated cost)
+- After each task, RAF displays a per-task token summary (input/output tokens, cache tokens, cost)
 - After all tasks complete, RAF displays a grand total summary block
-- Token data comes from Claude's `--output-format stream-json --verbose` result events
-- Cost calculation uses configurable per-model pricing (`pricing.*` config keys)
-- `TokenTracker` class (`src/utils/token-tracker.ts`) accumulates usage across tasks
+- Token data and costs come from Claude's `--output-format stream-json --verbose` result events
+- Claude CLI provides exact costs via `total_cost_usd` and per-model `costUSD` fields
+- `TokenTracker` class (`src/utils/token-tracker.ts`) accumulates usage and costs across tasks
 - Formatting utilities in `src/utils/terminal-symbols.ts`: `formatTaskTokenSummary()`, `formatTokenTotalSummary()`, `formatNumber()`, `formatCost()`
 - Failed tasks with partial usage data are still tracked in totals
 - Tasks with no usage data (timeout, crash) are silently skipped

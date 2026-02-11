@@ -13,7 +13,7 @@ import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFro
 import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
-import { getConfig, getWorktreeDefault, getModel, getModelShortName, resolveFullModelId, getSyncMainBranch, resolveEffortToModel, applyModelCeiling, getShowRateLimitEstimate, getShowCacheTokens } from '../utils/config.js';
+import { getConfig, getWorktreeDefault, getModel, getModelShortName, resolveFullModelId, getSyncMainBranch, resolveEffortToModel, applyModelCeiling, getShowCacheTokens } from '../utils/config.js';
 import type { PlanFrontmatter } from '../utils/frontmatter.js';
 import { getVersion } from '../utils/version.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
@@ -1242,11 +1242,8 @@ Task completed. No detailed report provided.
       // Track and display token usage for this task
       if (attemptUsageData.length > 0) {
         const entry = tokenTracker.addTask(task.id, attemptUsageData);
-        const taskRateLimitPct = tokenTracker.getCumulativeRateLimitPercentage();
-        logger.dim(formatTaskTokenSummary(entry, (u) => tokenTracker.calculateCost(u), {
+        logger.dim(formatTaskTokenSummary(entry, {
           showCacheTokens: getShowCacheTokens(),
-          showRateLimitEstimate: getShowRateLimitEstimate(),
-          rateLimitPercentage: taskRateLimitPct,
         }));
       }
 
@@ -1276,11 +1273,8 @@ Task completed. No detailed report provided.
       // Track token usage even for failed tasks (partial data still useful for totals)
       if (attemptUsageData.length > 0) {
         const entry = tokenTracker.addTask(task.id, attemptUsageData);
-        const taskRateLimitPct = tokenTracker.getCumulativeRateLimitPercentage();
-        logger.dim(formatTaskTokenSummary(entry, (u) => tokenTracker.calculateCost(u), {
+        logger.dim(formatTaskTokenSummary(entry, {
           showCacheTokens: getShowCacheTokens(),
-          showRateLimitEstimate: getShowRateLimitEstimate(),
-          rateLimitPercentage: taskRateLimitPct,
         }));
       }
 
@@ -1394,11 +1388,8 @@ ${stashName ? `- Stash: ${stashName}` : ''}
   if (trackerEntries.length > 0) {
     logger.newline();
     const totals = tokenTracker.getTotals();
-    const totalRateLimitPct = tokenTracker.getCumulativeRateLimitPercentage();
     logger.dim(formatTokenTotalSummary(totals.usage, totals.cost, {
       showCacheTokens: getShowCacheTokens(),
-      showRateLimitEstimate: getShowRateLimitEstimate(),
-      rateLimitPercentage: totalRateLimitPct,
     }));
   }
 

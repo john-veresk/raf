@@ -135,49 +135,12 @@ Controls the format of git commit messages. Templates use `{placeholder}` syntax
 
 Unknown placeholders are left as-is in the output.
 
-### `pricing` — Token Cost Pricing
-
-Controls per-model token pricing used for cost estimation. Prices are in dollars per million tokens. Each model category (`opus`, `sonnet`, `haiku`) has four pricing fields:
-
-| Field | Description |
-|-------|-------------|
-| `inputPerMTok` | Cost per million input tokens |
-| `outputPerMTok` | Cost per million output tokens |
-| `cacheReadPerMTok` | Cost per million cache read tokens (discounted) |
-| `cacheCreatePerMTok` | Cost per million cache creation tokens |
-
-**Default values:**
-
-| Category | Input | Output | Cache Read | Cache Create |
-|----------|-------|--------|------------|--------------|
-| `opus` | $15 | $75 | $1.50 | $18.75 |
-| `sonnet` | $3 | $15 | $0.30 | $3.75 |
-| `haiku` | $1 | $5 | $0.10 | $1.25 |
-
-Full model IDs from CLI output (e.g., `claude-opus-4-6`) are automatically mapped to the corresponding pricing category based on the model family name.
-
-Example override:
-
-```json
-{
-  "pricing": {
-    "opus": {
-      "inputPerMTok": 10,
-      "outputPerMTok": 50
-    }
-  }
-}
-```
-
-Only specify the fields you want to change — unset fields keep their defaults.
-
 ### `display` — Token Summary Display Options
 
 Controls what information is shown in token usage summaries after tasks and in the grand total.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `display.showRateLimitEstimate` | `true` | Show estimated 5h rate limit window percentage (e.g., `~42% of 5h window`) |
 | `display.showCacheTokens` | `true` | Show cache read/create token counts in summaries |
 
 Example:
@@ -185,30 +148,7 @@ Example:
 ```json
 {
   "display": {
-    "showRateLimitEstimate": false,
     "showCacheTokens": true
-  }
-}
-```
-
-### `rateLimitWindow` — Rate Limit Configuration
-
-Controls the rate limit estimation calculation.
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `rateLimitWindow.sonnetTokenCap` | `88000` | The Sonnet-equivalent token cap for the 5-hour window. All token usage is normalized to Sonnet-equivalent tokens using pricing ratios. |
-
-The 5h window percentage is calculated as: `(estimatedCost / sonnetCostPerToken) / sonnetTokenCap * 100`
-
-Where `sonnetCostPerToken` is derived from the configured Sonnet pricing. Heavier models (Opus) consume the window faster than lighter ones (Haiku) in proportion to their API pricing ratios.
-
-Example:
-
-```json
-{
-  "rateLimitWindow": {
-    "sonnetTokenCap": 100000
   }
 }
 ```
@@ -224,9 +164,7 @@ The config is validated when loaded. Invalid configs cause an error with a descr
 - **`maxRetries`** must be a non-negative integer.
 - **`autoCommit`**, **`worktree`**, and **`syncMainBranch`** must be booleans.
 - **`commitFormat` values** must be strings.
-- **`pricing`** categories must be `"opus"`, `"sonnet"`, or `"haiku"`. Each field must be a non-negative number.
-- **`display` values** (`showRateLimitEstimate`, `showCacheTokens`) must be booleans.
-- **`rateLimitWindow.sonnetTokenCap`** must be a positive number.
+- **`display` values** (`showCacheTokens`) must be booleans.
 - The config file must be valid JSON containing an object (not an array or primitive).
 
 ## CLI Precedence
@@ -294,17 +232,8 @@ Uses Sonnet for planning and caps task execution at Sonnet (tasks with `effort: 
     "amend": "{prefix}[{projectId}] Amend: {projectName}",
     "prefix": "RAF"
   },
-  "pricing": {
-    "opus": { "inputPerMTok": 15, "outputPerMTok": 75, "cacheReadPerMTok": 1.5, "cacheCreatePerMTok": 18.75 },
-    "sonnet": { "inputPerMTok": 3, "outputPerMTok": 15, "cacheReadPerMTok": 0.3, "cacheCreatePerMTok": 3.75 },
-    "haiku": { "inputPerMTok": 1, "outputPerMTok": 5, "cacheReadPerMTok": 0.1, "cacheCreatePerMTok": 1.25 }
-  },
   "display": {
-    "showRateLimitEstimate": true,
     "showCacheTokens": true
-  },
-  "rateLimitWindow": {
-    "sonnetTokenCap": 88000
   }
 }
 ```

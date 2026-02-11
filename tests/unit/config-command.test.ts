@@ -277,18 +277,10 @@ describe('Config Command', () => {
 
     it('should handle nested keys', () => {
       const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, JSON.stringify({ display: { showRateLimitEstimate: false } }, null, 2));
+      fs.writeFileSync(configPath, JSON.stringify({ display: { showCacheTokens: false } }, null, 2));
 
       const config = resolveConfig(configPath);
-      expect(config.display.showRateLimitEstimate).toBe(false);
-    });
-
-    it('should handle deeply nested pricing keys', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, JSON.stringify({ pricing: { opus: { inputPerMTok: 20 } } }, null, 2));
-
-      const config = resolveConfig(configPath);
-      expect(config.pricing.opus.inputPerMTok).toBe(20);
+      expect(config.display.showCacheTokens).toBe(false);
     });
   });
 
@@ -401,12 +393,11 @@ describe('Config Command', () => {
       const configPath = path.join(tempDir, 'raf.config.json');
 
       // Set a nested value
-      const userConfig = { display: { showRateLimitEstimate: false } };
+      const userConfig = { display: { showCacheTokens: false } };
       fs.writeFileSync(configPath, JSON.stringify(userConfig, null, 2));
 
       const config = resolveConfig(configPath);
-      expect(config.display.showRateLimitEstimate).toBe(false);
-      expect(config.display.showCacheTokens).toBe(DEFAULT_CONFIG.display.showCacheTokens);
+      expect(config.display.showCacheTokens).toBe(false);
     });
   });
 });

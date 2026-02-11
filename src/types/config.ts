@@ -39,36 +39,10 @@ export interface CommitFormatConfig {
   prefix: string;
 }
 
-/** Pricing category derived from model family name. */
-export type PricingCategory = 'opus' | 'sonnet' | 'haiku';
-
-/** Per-direction pricing for a single model category, in dollars per million tokens. */
-export interface ModelPricing {
-  inputPerMTok: number;
-  outputPerMTok: number;
-  cacheReadPerMTok: number;
-  cacheCreatePerMTok: number;
-}
-
-/** Pricing config: per-category pricing in dollars per million tokens. */
-export interface PricingConfig {
-  opus: ModelPricing;
-  sonnet: ModelPricing;
-  haiku: ModelPricing;
-}
-
 /** Display options for token usage summaries. */
 export interface DisplayConfig {
-  /** Show estimated 5h rate limit window percentage. Default: true */
-  showRateLimitEstimate: boolean;
   /** Show cache token counts in summaries. Default: true */
   showCacheTokens: boolean;
-}
-
-/** Rate limit window configuration. */
-export interface RateLimitWindowConfig {
-  /** Sonnet-equivalent token cap for the 5h window. Default: 88000 */
-  sonnetTokenCap: number;
 }
 
 export interface RafConfig {
@@ -82,9 +56,7 @@ export interface RafConfig {
   /** Sync main branch with remote before worktree/PR operations. Default: true */
   syncMainBranch: boolean;
   commitFormat: CommitFormatConfig;
-  pricing: PricingConfig;
   display: DisplayConfig;
-  rateLimitWindow: RateLimitWindowConfig;
 }
 
 export const DEFAULT_CONFIG: RafConfig = {
@@ -112,32 +84,8 @@ export const DEFAULT_CONFIG: RafConfig = {
     amend: '{prefix}[{projectId}] Amend: {projectName}',
     prefix: 'RAF',
   },
-  pricing: {
-    opus: {
-      inputPerMTok: 15,
-      outputPerMTok: 75,
-      cacheReadPerMTok: 1.5,
-      cacheCreatePerMTok: 18.75,
-    },
-    sonnet: {
-      inputPerMTok: 3,
-      outputPerMTok: 15,
-      cacheReadPerMTok: 0.3,
-      cacheCreatePerMTok: 3.75,
-    },
-    haiku: {
-      inputPerMTok: 1,
-      outputPerMTok: 5,
-      cacheReadPerMTok: 0.1,
-      cacheCreatePerMTok: 1.25,
-    },
-  },
   display: {
-    showRateLimitEstimate: true,
     showCacheTokens: true,
-  },
-  rateLimitWindow: {
-    sonnetTokenCap: 88000,
   },
 };
 
@@ -201,6 +149,8 @@ export interface ModelTokenUsage {
   outputTokens: number;
   cacheReadInputTokens: number;
   cacheCreationInputTokens: number;
+  /** Cost in USD for this model's usage (provided by Claude CLI). */
+  costUsd: number;
 }
 
 /** Token usage data extracted from Claude CLI stream-json result event. */
@@ -212,4 +162,6 @@ export interface UsageData {
   cacheCreationInputTokens: number;
   /** Per-model breakdown (e.g., { "claude-opus-4-6": { ... } }). */
   modelUsage: Record<string, ModelTokenUsage>;
+  /** Total cost in USD for this usage (provided by Claude CLI). */
+  totalCostUsd: number;
 }

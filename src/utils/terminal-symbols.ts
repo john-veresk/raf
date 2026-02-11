@@ -11,10 +11,6 @@ import type { CostBreakdown, TaskUsageEntry } from './token-tracker.js';
 export interface TokenSummaryOptions {
   /** Whether to show cache token counts. Default: true */
   showCacheTokens?: boolean;
-  /** Whether to show rate limit percentage. Default: true */
-  showRateLimitEstimate?: boolean;
-  /** Rate limit percentage to display (requires showRateLimitEstimate: true) */
-  rateLimitPercentage?: number;
 }
 
 /**
@@ -159,17 +155,6 @@ export function formatCost(cost: number): string {
 }
 
 /**
- * Formats a rate limit percentage for display.
- * Uses tilde (~) prefix to indicate estimate.
- */
-export function formatRateLimitPercentage(percentage: number): string {
-  if (percentage === 0) return '~0% of 5h window';
-  if (percentage < 0.1) return `~${percentage.toFixed(2)}% of 5h window`;
-  if (percentage < 1) return `~${percentage.toFixed(1)}% of 5h window`;
-  return `~${Math.round(percentage)}% of 5h window`;
-}
-
-/**
  * Formats a single line of token usage (for a single attempt or total).
  * Used internally by formatTaskTokenSummary.
  */
@@ -180,7 +165,7 @@ function formatTokenLine(
   indent: string = '  ',
   options: TokenSummaryOptions = {}
 ): string {
-  const { showCacheTokens = true, showRateLimitEstimate = true, rateLimitPercentage } = options;
+  const { showCacheTokens = true } = options;
   const parts: string[] = [];
   const tokenPart = `${formatNumber(usage.inputTokens)} in / ${formatNumber(usage.outputTokens)} out`;
   parts.push(prefix ? `${prefix}: ${tokenPart}` : `Tokens: ${tokenPart}`);
@@ -198,27 +183,21 @@ function formatTokenLine(
     }
   }
 
-  parts.push(`Est. cost: ${formatCost(costValue)}`);
-
-  if (showRateLimitEstimate && rateLimitPercentage !== undefined) {
-    parts.push(formatRateLimitPercentage(rateLimitPercentage));
-  }
+  parts.push(`Cost: ${formatCost(costValue)}`);
 
   return `${indent}${parts.join(' | ')}`;
 }
 
 /**
  * Formats a per-task token usage summary.
- * For single-attempt tasks: "  Tokens: 5,234 in / 1,023 out | Cache: 18,500 read | Est. cost: $0.42 | ~2% of 5h window"
+ * For single-attempt tasks: "  Tokens: 5,234 in / 1,023 out | Cache: 18,500 read | Cost: $0.42"
  * For multi-attempt tasks: shows per-attempt breakdown plus total.
  *
  * @param entry - The TaskUsageEntry containing accumulated usage, cost, and attempts array
- * @param calculateAttemptCost - Optional function to calculate cost for a single attempt's UsageData
- * @param options - Display options for showing cache tokens and rate limit percentage
+ * @param options - Display options for showing cache tokens
  */
 export function formatTaskTokenSummary(
   entry: TaskUsageEntry,
-  calculateAttemptCost?: (usage: UsageData) => CostBreakdown,
   options: TokenSummaryOptions = {}
 ): string {
   // Single-attempt: render exactly as before (no per-attempt breakdown)
@@ -227,19 +206,10 @@ export function formatTaskTokenSummary(
   }
 
   // Multi-attempt: show per-attempt lines plus total
-  // Per-attempt lines don't show rate limit (only show on total)
-  const perAttemptOptions: TokenSummaryOptions = {
-    ...options,
-    showRateLimitEstimate: false,
-    rateLimitPercentage: undefined,
-  };
-
   const lines: string[] = [];
   entry.attempts.forEach((attemptUsage, i) => {
-    const attemptCost = calculateAttemptCost
-      ? calculateAttemptCost(attemptUsage).totalCost
-      : 0;
-    lines.push(formatTokenLine(attemptUsage, attemptCost, `Attempt ${i + 1}`, '    ', perAttemptOptions));
+    const attemptCost = attemptUsage.totalCostUsd;
+    lines.push(formatTokenLine(attemptUsage, attemptCost, `Attempt ${i + 1}`, '    ', options));
   });
   lines.push(formatTokenLine(entry.usage, entry.cost.totalCost, 'Total', '    ', options));
   return lines.join('\n');
@@ -251,14 +221,14 @@ export function formatTaskTokenSummary(
  *
  * @param usage - Total usage data
  * @param cost - Total cost breakdown
- * @param options - Display options for cache tokens and rate limit
+ * @param options - Display options for cache tokens
  */
 export function formatTokenTotalSummary(
   usage: UsageData,
   cost: CostBreakdown,
   options: TokenSummaryOptions = {}
 ): string {
-  const { showCacheTokens = true, showRateLimitEstimate = true, rateLimitPercentage } = options;
+  const { showCacheTokens = true } = options;
   const lines: string[] = [];
   const divider = '── Token Usage Summary ──────────────────';
   lines.push(divider);
@@ -275,11 +245,8 @@ export function formatTokenTotalSummary(
     lines.push(`Cache: ${cacheParts.join(' / ')}`);
   }
 
-  lines.push(`Estimated cost: ${formatCost(cost.totalCost)}`);
+  lines.push(`Total cost: ${formatCost(cost.totalCost)}`);
 
-  if (showRateLimitEstimate && rateLimitPercentage !== undefined) {
-    lines.push(formatRateLimitPercentage(rateLimitPercentage));
-  }
   lines.push('─────────────────────────────────────────');
   return lines.join('\n');
 }

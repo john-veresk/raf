@@ -8,7 +8,6 @@ import {
   formatCost,
   formatTaskTokenSummary,
   formatTokenTotalSummary,
-  formatRateLimitPercentage,
   TokenSummaryOptions,
   TaskStatus,
 } from '../../src/utils/terminal-symbols.js';
@@ -346,10 +345,6 @@ describe('Terminal Symbols', () => {
     });
 
     const makeCost = (total: number): CostBreakdown => ({
-      inputCost: 0,
-      outputCost: 0,
-      cacheReadCost: 0,
-      cacheCreateCost: 0,
       totalCost: total,
     });
 
@@ -364,67 +359,59 @@ describe('Terminal Symbols', () => {
       it('should format basic token summary without cache', () => {
         const usage = makeUsage();
         const result = formatTaskTokenSummary(makeEntry(usage, makeCost(0.42)));
-        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Est. cost: $0.42');
+        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cost: $0.42');
       });
 
       it('should include cache read tokens', () => {
         const usage = makeUsage({ cacheReadInputTokens: 18500 });
         const result = formatTaskTokenSummary(makeEntry(usage, makeCost(0.42)));
-        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cache: 18,500 read | Est. cost: $0.42');
+        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cache: 18,500 read | Cost: $0.42');
       });
 
       it('should include cache creation tokens', () => {
         const usage = makeUsage({ cacheCreationInputTokens: 5000 });
         const result = formatTaskTokenSummary(makeEntry(usage, makeCost(0.55)));
-        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cache: 5,000 created | Est. cost: $0.55');
+        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cache: 5,000 created | Cost: $0.55');
       });
 
       it('should include both cache read and creation tokens', () => {
         const usage = makeUsage({ cacheReadInputTokens: 18500, cacheCreationInputTokens: 5000 });
         const result = formatTaskTokenSummary(makeEntry(usage, makeCost(0.75)));
-        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cache: 18,500 read / 5,000 created | Est. cost: $0.75');
+        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cache: 18,500 read / 5,000 created | Cost: $0.75');
       });
 
       it('should format small costs with 4 decimal places', () => {
         const usage = makeUsage();
         const result = formatTaskTokenSummary(makeEntry(usage, makeCost(0.0042)));
-        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Est. cost: $0.0042');
+        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cost: $0.0042');
       });
 
       it('should format single-attempt task with empty attempts array as single-line', () => {
         const usage = makeUsage();
         const result = formatTaskTokenSummary(makeEntry(usage, makeCost(0.42), []));
-        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Est. cost: $0.42');
+        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cost: $0.42');
       });
     });
 
     describe('multi-attempt tasks', () => {
-      it('should show per-attempt breakdown with costs when calculateAttemptCost provided', () => {
-        const attempt1 = makeUsage({ inputTokens: 1234, outputTokens: 567 });
-        const attempt2 = makeUsage({ inputTokens: 2345, outputTokens: 890 });
+      it('should show per-attempt breakdown with Claude-provided costs', () => {
+        const attempt1 = makeUsage({ inputTokens: 1234, outputTokens: 567, totalCostUsd: 0.02 });
+        const attempt2 = makeUsage({ inputTokens: 2345, outputTokens: 890, totalCostUsd: 0.04 });
         const totalUsage = makeUsage({ inputTokens: 3579, outputTokens: 1457 });
         const entry = makeEntry(totalUsage, makeCost(0.06), [attempt1, attempt2]);
 
-        const calculateCost = (usage: UsageData): CostBreakdown => ({
-          inputCost: 0,
-          outputCost: 0,
-          cacheReadCost: 0,
-          cacheCreateCost: 0,
-          totalCost: usage.inputTokens === 1234 ? 0.02 : 0.04,
-        });
-
-        const result = formatTaskTokenSummary(entry, calculateCost);
+        const result = formatTaskTokenSummary(entry);
         const lines = result.split('\n');
 
         expect(lines).toHaveLength(3);
-        expect(lines[0]).toBe('    Attempt 1: 1,234 in / 567 out | Est. cost: $0.02');
-        expect(lines[1]).toBe('    Attempt 2: 2,345 in / 890 out | Est. cost: $0.04');
-        expect(lines[2]).toBe('    Total: 3,579 in / 1,457 out | Est. cost: $0.06');
+        expect(lines[0]).toBe('    Attempt 1: 1,234 in / 567 out | Cost: $0.02');
+        expect(lines[1]).toBe('    Attempt 2: 2,345 in / 890 out | Cost: $0.04');
+        expect(lines[2]).toBe('    Total: 3,579 in / 1,457 out | Cost: $0.06');
       });
 
-      it('should show per-attempt breakdown without costs when no calculateAttemptCost', () => {
-        const attempt1 = makeUsage({ inputTokens: 1000, outputTokens: 200 });
-        const attempt2 = makeUsage({ inputTokens: 2000, outputTokens: 400 });
+      it('should show per-attempt breakdown with zero costs', () => {
+        const attempt1 = makeUsage({ inputTokens: 1000, outputTokens: 200, totalCostUsd: 0 });
+        const attempt2 = makeUsage({ inputTokens: 2000, outputTokens: 400, totalCostUsd: 0 });
         const totalUsage = makeUsage({ inputTokens: 3000, outputTokens: 600 });
         const entry = makeEntry(totalUsage, makeCost(0.05), [attempt1, attempt2]);
 
@@ -432,14 +419,14 @@ describe('Terminal Symbols', () => {
         const lines = result.split('\n');
 
         expect(lines).toHaveLength(3);
-        expect(lines[0]).toBe('    Attempt 1: 1,000 in / 200 out | Est. cost: $0.00');
-        expect(lines[1]).toBe('    Attempt 2: 2,000 in / 400 out | Est. cost: $0.00');
-        expect(lines[2]).toBe('    Total: 3,000 in / 600 out | Est. cost: $0.05');
+        expect(lines[0]).toBe('    Attempt 1: 1,000 in / 200 out | Cost: $0.00');
+        expect(lines[1]).toBe('    Attempt 2: 2,000 in / 400 out | Cost: $0.00');
+        expect(lines[2]).toBe('    Total: 3,000 in / 600 out | Cost: $0.05');
       });
 
       it('should include cache tokens in per-attempt breakdown', () => {
-        const attempt1 = makeUsage({ inputTokens: 1000, outputTokens: 200, cacheReadInputTokens: 5000 });
-        const attempt2 = makeUsage({ inputTokens: 1500, outputTokens: 300, cacheCreationInputTokens: 2000 });
+        const attempt1 = makeUsage({ inputTokens: 1000, outputTokens: 200, cacheReadInputTokens: 5000, totalCostUsd: 0.04 });
+        const attempt2 = makeUsage({ inputTokens: 1500, outputTokens: 300, cacheCreationInputTokens: 2000, totalCostUsd: 0.04 });
         const totalUsage = makeUsage({
           inputTokens: 2500,
           outputTokens: 500,
@@ -458,9 +445,9 @@ describe('Terminal Symbols', () => {
       });
 
       it('should handle three or more attempts', () => {
-        const attempt1 = makeUsage({ inputTokens: 500, outputTokens: 100 });
-        const attempt2 = makeUsage({ inputTokens: 600, outputTokens: 120 });
-        const attempt3 = makeUsage({ inputTokens: 700, outputTokens: 140 });
+        const attempt1 = makeUsage({ inputTokens: 500, outputTokens: 100, totalCostUsd: 0.03 });
+        const attempt2 = makeUsage({ inputTokens: 600, outputTokens: 120, totalCostUsd: 0.03 });
+        const attempt3 = makeUsage({ inputTokens: 700, outputTokens: 140, totalCostUsd: 0.04 });
         const totalUsage = makeUsage({ inputTokens: 1800, outputTokens: 360 });
         const entry = makeEntry(totalUsage, makeCost(0.10), [attempt1, attempt2, attempt3]);
 
@@ -483,14 +470,11 @@ describe('Terminal Symbols', () => {
       cacheReadInputTokens: 0,
       cacheCreationInputTokens: 0,
       modelUsage: {},
+      totalCostUsd: 0,
       ...overrides,
     });
 
     const makeCost = (total: number): CostBreakdown => ({
-      inputCost: 0,
-      outputCost: 0,
-      cacheReadCost: 0,
-      cacheCreateCost: 0,
       totalCost: total,
     });
 
@@ -498,7 +482,7 @@ describe('Terminal Symbols', () => {
       const result = formatTokenTotalSummary(makeUsage(), makeCost(3.75));
       expect(result).toContain('Token Usage Summary');
       expect(result).toContain('Total tokens: 45,678 in / 12,345 out');
-      expect(result).toContain('Estimated cost: $3.75');
+      expect(result).toContain('Total cost: $3.75');
       expect(result).not.toContain('Cache:');
     });
 
@@ -533,24 +517,6 @@ describe('Terminal Symbols', () => {
       expect(lines[lines.length - 1]).toContain('──');
     });
 
-    it('should include rate limit percentage when option enabled', () => {
-      const options: TokenSummaryOptions = {
-        showRateLimitEstimate: true,
-        rateLimitPercentage: 42.5,
-      };
-      const result = formatTokenTotalSummary(makeUsage(), makeCost(3.75), options);
-      expect(result).toContain('~43% of 5h window');
-    });
-
-    it('should not include rate limit when option disabled', () => {
-      const options: TokenSummaryOptions = {
-        showRateLimitEstimate: false,
-        rateLimitPercentage: 42.5,
-      };
-      const result = formatTokenTotalSummary(makeUsage(), makeCost(3.75), options);
-      expect(result).not.toContain('5h window');
-    });
-
     it('should hide cache tokens when option disabled', () => {
       const options: TokenSummaryOptions = {
         showCacheTokens: false,
@@ -561,30 +527,6 @@ describe('Terminal Symbols', () => {
         options
       );
       expect(result).not.toContain('Cache:');
-    });
-  });
-
-  describe('formatRateLimitPercentage', () => {
-    it('should format zero percentage', () => {
-      expect(formatRateLimitPercentage(0)).toBe('~0% of 5h window');
-    });
-
-    it('should format very small percentages with 2 decimals', () => {
-      expect(formatRateLimitPercentage(0.05)).toBe('~0.05% of 5h window');
-    });
-
-    it('should format small percentages with 1 decimal', () => {
-      expect(formatRateLimitPercentage(0.5)).toBe('~0.5% of 5h window');
-    });
-
-    it('should round percentages >= 1', () => {
-      expect(formatRateLimitPercentage(1.5)).toBe('~2% of 5h window');
-      expect(formatRateLimitPercentage(42.3)).toBe('~42% of 5h window');
-      expect(formatRateLimitPercentage(100)).toBe('~100% of 5h window');
-    });
-
-    it('should handle percentages over 100%', () => {
-      expect(formatRateLimitPercentage(150.7)).toBe('~151% of 5h window');
     });
   });
 
@@ -599,10 +541,6 @@ describe('Terminal Symbols', () => {
     });
 
     const makeCost = (total: number): CostBreakdown => ({
-      inputCost: 0,
-      outputCost: 0,
-      cacheReadCost: 0,
-      cacheCreateCost: 0,
       totalCost: total,
     });
 
@@ -613,51 +551,20 @@ describe('Terminal Symbols', () => {
       attempts: attempts ?? [usage],
     });
 
-    it('should include rate limit percentage in single-attempt summary', () => {
-      const usage = makeUsage({ cacheReadInputTokens: 18500 });
-      const entry = makeEntry(usage, makeCost(0.42));
-      const options: TokenSummaryOptions = {
-        showRateLimitEstimate: true,
-        rateLimitPercentage: 2.5,
-      };
-
-      const result = formatTaskTokenSummary(entry, undefined, options);
-      expect(result).toContain('~3% of 5h window');
-    });
-
     it('should hide cache tokens in single-attempt summary when disabled', () => {
-      const usage = makeUsage({ cacheReadInputTokens: 18500 });
+      const usage = makeUsage({ cacheReadInputTokens: 18500, totalCostUsd: 0.42 });
       const entry = makeEntry(usage, makeCost(0.42));
       const options: TokenSummaryOptions = {
         showCacheTokens: false,
       };
 
-      const result = formatTaskTokenSummary(entry, undefined, options);
+      const result = formatTaskTokenSummary(entry, options);
       expect(result).not.toContain('Cache:');
     });
 
-    it('should only show rate limit on total line in multi-attempt summary', () => {
-      const attempt1 = makeUsage({ inputTokens: 1000, outputTokens: 200 });
-      const attempt2 = makeUsage({ inputTokens: 2000, outputTokens: 400 });
-      const totalUsage = makeUsage({ inputTokens: 3000, outputTokens: 600 });
-      const entry = makeEntry(totalUsage, makeCost(0.05), [attempt1, attempt2]);
-      const options: TokenSummaryOptions = {
-        showRateLimitEstimate: true,
-        rateLimitPercentage: 1.5,
-      };
-
-      const result = formatTaskTokenSummary(entry, undefined, options);
-      const lines = result.split('\n');
-
-      // Rate limit should only appear on the Total line
-      expect(lines[0]).not.toContain('5h window'); // Attempt 1
-      expect(lines[1]).not.toContain('5h window'); // Attempt 2
-      expect(lines[2]).toContain('~2% of 5h window'); // Total
-    });
-
     it('should respect showCacheTokens in multi-attempt summary', () => {
-      const attempt1 = makeUsage({ inputTokens: 1000, outputTokens: 200, cacheReadInputTokens: 5000 });
-      const attempt2 = makeUsage({ inputTokens: 1500, outputTokens: 300, cacheCreationInputTokens: 2000 });
+      const attempt1 = makeUsage({ inputTokens: 1000, outputTokens: 200, cacheReadInputTokens: 5000, totalCostUsd: 0.04 });
+      const attempt2 = makeUsage({ inputTokens: 1500, outputTokens: 300, cacheCreationInputTokens: 2000, totalCostUsd: 0.04 });
       const totalUsage = makeUsage({
         inputTokens: 2500,
         outputTokens: 500,
@@ -669,7 +576,7 @@ describe('Terminal Symbols', () => {
         showCacheTokens: false,
       };
 
-      const result = formatTaskTokenSummary(entry, undefined, options);
+      const result = formatTaskTokenSummary(entry, options);
       expect(result).not.toContain('Cache:');
     });
   });
