@@ -57,6 +57,7 @@ interface PlanCommandOptions {
   sonnet?: boolean;
   auto?: boolean;
   worktree?: boolean;
+  resume?: string;
 }
 
 export function createPlanCommand(): Command {
@@ -71,6 +72,7 @@ export function createPlanCommand(): Command {
     .option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')
     .option('-y, --auto', "Skip Claude's permission prompts for file operations")
     .option('-w, --worktree', 'Create a git worktree for isolated planning')
+    .option('-r, --resume <identifier>', 'Resume a planning session for an existing project')
     .action(async (projectName: string | undefined, options: PlanCommandOptions) => {
       // Validate and resolve model option
       let model: string;
@@ -84,7 +86,9 @@ export function createPlanCommand(): Command {
       const autoMode = options.auto ?? false;
       const worktreeMode = options.worktree ?? getWorktreeDefault();
 
-      if (options.amend) {
+      if (options.resume) {
+        await runResumeCommand(options.resume, model);
+      } else if (options.amend) {
         if (!projectName) {
           logger.error('--amend requires a project identifier');
           logger.error('Usage: raf plan <project> --amend');
@@ -675,4 +679,106 @@ ${taskList}
 #
 # Describe what you want to add below:
 `;
+}
+
+async function runResumeCommand(identifier: string, model?: string): Promise<void> {
+  // Validate environment
+  const validation = validateEnvironment();
+  reportValidation(validation);
+
+  if (!validation.valid) {
+    process.exit(1);
+  }
+
+  // First, try to resolve the project from main repo
+  const rafDir = getRafDir();
+  const mainResolution = resolveProjectIdentifierWithDetails(rafDir, identifier);
+
+  if (!mainResolution.path) {
+    if (mainResolution.error === 'ambiguous' && mainResolution.matches) {
+      logger.error(`Ambiguous project name: ${identifier}`);
+      logger.error('Multiple projects match:');
+      for (const match of mainResolution.matches) {
+        logger.error(`  - ${match.folder}`);
+      }
+      logger.error('Please specify the project ID or full folder name.');
+    } else {
+      logger.error(`Project not found: ${identifier}`);
+    }
+    process.exit(1);
+  }
+
+  const projectPath = mainResolution.path;
+  const folderName = path.basename(projectPath);
+
+  // Determine if this is a worktree project by checking if a worktree exists
+  let resumeCwd = projectPath; // Default to main repo project path
+  const repoBasename = getRepoBasename();
+
+  if (repoBasename) {
+    const worktreeBaseDir = computeWorktreeBaseDir(repoBasename);
+
+    // Check if a worktree exists for this project
+    if (fs.existsSync(worktreeBaseDir)) {
+      const entries = fs.readdirSync(worktreeBaseDir, { withFileTypes: true });
+      const worktreeEntry = entries.find(
+        (entry) => entry.isDirectory() && entry.name === folderName
+      );
+
+      if (worktreeEntry) {
+        // Worktree exists - use it as the CWD
+        const worktreePath = path.join(worktreeBaseDir, worktreeEntry.name);
+        const wtValidation = validateWorktree(worktreePath, '');
+        if (wtValidation.isValidWorktree) {
+          resumeCwd = worktreePath;
+          logger.info(`Resuming session in worktree: ${worktreePath}`);
+        } else {
+          logger.warn(`Worktree found but invalid: ${worktreePath}`);
+          logger.warn('Falling back to main repo path.');
+        }
+      }
+    }
+  }
+
+  logger.info(`Project: ${folderName}`);
+  if (model) {
+    logger.info(`Model: ${model}`);
+  }
+  logger.newline();
+
+  // Set up shutdown handler
+  const claudeRunner = new ClaudeRunner({ model });
+  shutdownHandler.init();
+  shutdownHandler.registerClaudeRunner(claudeRunner);
+
+  // Launch Claude's resume picker
+  logger.info('Starting Claude session resume picker...');
+  logger.newline();
+
+  try {
+    const exitCode = await claudeRunner.runResume({ cwd: resumeCwd });
+
+    if (exitCode !== 0) {
+      logger.warn(`Claude exited with code ${exitCode}`);
+    }
+
+    // Check for created/updated plan files after resume session
+    const plansDir = getPlansDir(projectPath);
+    const planFiles = fs.existsSync(plansDir)
+      ? fs.readdirSync(plansDir).filter((f) => f.endsWith('.md')).sort()
+      : [];
+
+    if (planFiles.length > 0) {
+      logger.newline();
+      logger.success(`Session complete! Project has ${planFiles.length} plan(s).`);
+      logger.newline();
+      logger.info('Plans:');
+      for (const planFile of planFiles) {
+        logger.info(`  - plans/${planFile}`);
+      }
+    }
+  } catch (error) {
+    logger.error(`Resume session failed: ${error}`);
+    throw error;
+  }
 }

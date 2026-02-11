@@ -365,6 +365,87 @@ export class ClaudeRunner {
   }
 
   /**
+   * Resume a Claude planning session using the interactive session picker.
+   * Launches `claude --resume` (or `claude -r`) to show available sessions for the CWD.
+   * Minimal approach - no system prompt or user message injection.
+   *
+   * @param options - Runner options (cwd)
+   */
+  async runResume(options: ClaudeRunnerOptions = {}): Promise<number> {
+    const { cwd = process.cwd() } = options;
+
+    return new Promise((resolve) => {
+      const args = ['--resume', '--model', this.model];
+
+      logger.debug(`Starting Claude session resume picker with model: ${this.model}`);
+
+      this.activeProcess = pty.spawn(getClaudePath(), args, {
+        name: 'xterm-256color',
+        cols: process.stdout.columns ?? 80,
+        rows: process.stdout.rows ?? 24,
+        cwd,
+        env: process.env as Record<string, string>,
+      });
+
+      // Set raw mode to pass through all input
+      if (process.stdin.isTTY) {
+        process.stdin.setRawMode(true);
+      }
+      process.stdin.resume();
+
+      // Pipe input to Claude
+      const onData = (data: Buffer): void => {
+        if (this.activeProcess && !this.killed) {
+          this.activeProcess.write(data.toString());
+        }
+      };
+      process.stdin.on('data', onData);
+
+      // Store disposables for proper cleanup
+      const disposables: IDisposable[] = [];
+
+      // Pipe output to stdout
+      disposables.push(this.activeProcess.onData((data) => {
+        process.stdout.write(data);
+      }));
+
+      disposables.push(this.activeProcess.onExit(({ exitCode }) => {
+        // Cleanup stdin
+        process.stdin.off('data', onData);
+        if (process.stdin.isTTY) {
+          process.stdin.setRawMode(false);
+        }
+        process.stdin.pause();
+
+        // Dispose all event listeners to prevent FD leaks
+        for (const disposable of disposables) {
+          try {
+            disposable.dispose();
+          } catch {
+            // Ignore disposal errors
+          }
+        }
+
+        // Ensure PTY is fully cleaned up
+        if (this.activeProcess) {
+          try {
+            this.activeProcess.kill();
+          } catch {
+            // Ignore - process may already be dead
+          }
+          this.activeProcess = null;
+        }
+
+        if (this.killed) {
+          resolve(130); // SIGINT exit code
+        } else {
+          resolve(exitCode);
+        }
+      }));
+    });
+  }
+
+  /**
    * Run Claude non-interactively and collect output.
    * Uses stream-json format internally to capture token usage data.
    * Tool display is suppressed (non-verbose mode).
