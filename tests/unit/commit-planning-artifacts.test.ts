@@ -252,7 +252,7 @@ describe('commitPlanningArtifacts', () => {
     );
   });
 
-  it('should stage additional files when provided', async () => {
+  it('should not stage plan files in amend mode', async () => {
     mockExecSync.mockImplementation((cmd: unknown) => {
       const cmdStr = cmd as string;
       if (cmdStr.includes('rev-parse')) {
@@ -262,32 +262,24 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/aaaaar-decision-vault/input.md\nRAF/aaaaar-decision-vault/plans/04-new-task.md\n';
+        return 'RAF/aaaaar-decision-vault/input.md\n';
       }
       return '';
     });
 
-    const additionalFiles = [
-      '/Users/test/RAF/aaaaar-decision-vault/plans/04-new-task.md',
-      '/Users/test/RAF/aaaaar-decision-vault/plans/05-another-task.md',
-    ];
-
     await commitPlanningArtifacts('/Users/test/RAF/aaaaar-decision-vault', {
-      additionalFiles,
       isAmend: true,
     });
 
-    // Verify git add called for all 4 files (input, decisions, 2 plans)
+    // Verify git add called for only 2 files (input, decisions)
     const addCalls = mockExecSync.mock.calls.filter(
       (call) => (call[0] as string).includes('git add')
     );
-    expect(addCalls.length).toBe(4);
+    expect(addCalls.length).toBe(2);
 
     const addCmds = addCalls.map((c) => c[0] as string);
     expect(addCmds.some((cmd) => cmd.includes('input.md'))).toBe(true);
     expect(addCmds.some((cmd) => cmd.includes('decisions.md'))).toBe(true);
-    expect(addCmds.some((cmd) => cmd.includes('04-new-task.md'))).toBe(true);
-    expect(addCmds.some((cmd) => cmd.includes('05-another-task.md'))).toBe(true);
   });
 
   it('should pass cwd to isGitRepo for worktree support', async () => {

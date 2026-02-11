@@ -647,11 +647,9 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
         logger.info(`  - plans/${planFile}`);
       }
 
-      // Commit planning artifacts (input.md, decisions.md, and new plan files)
-      const newPlanPaths = newPlanFiles.map(f => path.join(plansDir, f));
+      // Commit planning artifacts (input.md, decisions.md only — plan files committed during execution)
       await commitPlanningArtifacts(projectPath, {
         cwd: worktreePath ?? undefined,
-        additionalFiles: newPlanPaths,
         isAmend: true,
       });
 
