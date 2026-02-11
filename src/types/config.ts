@@ -69,7 +69,7 @@ export const DEFAULT_CONFIG: RafConfig = {
     config: 'sonnet',
   },
   effortMapping: {
-    low: 'haiku',
+    low: 'sonnet',
     medium: 'sonnet',
     high: 'opus',
   },

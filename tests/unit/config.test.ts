@@ -91,7 +91,7 @@ describe('Config', () => {
     it('should accept a full valid config', () => {
       const config = {
         models: { plan: 'opus', execute: 'haiku' },
-        effortMapping: { low: 'haiku', medium: 'sonnet', high: 'opus' },
+        effortMapping: { low: 'sonnet', medium: 'sonnet', high: 'opus' },
         timeout: 30,
         maxRetries: 5,
         autoCommit: false,
@@ -274,7 +274,7 @@ describe('Config', () => {
 
       const config = resolveConfig(configPath);
       expect(config.effortMapping.medium).toBe('opus');
-      expect(config.effortMapping.low).toBe('haiku'); // default preserved
+      expect(config.effortMapping.low).toBe('sonnet'); // default preserved
       expect(config.effortMapping.high).toBe('opus'); // default preserved
     });
 
@@ -368,7 +368,7 @@ describe('Config', () => {
       fs.writeFileSync(configPath, JSON.stringify({ effortMapping: { high: 'sonnet' } }));
       const config = resolveConfig(configPath);
       expect(config.effortMapping.high).toBe('sonnet');
-      expect(config.effortMapping.low).toBe('haiku'); // default preserved
+      expect(config.effortMapping.low).toBe('sonnet'); // default preserved
     });
 
     it('getCommitFormat returns correct format', () => {
@@ -401,7 +401,7 @@ describe('Config', () => {
     });
 
     it('should have all effortMapping levels defined', () => {
-      expect(DEFAULT_CONFIG.effortMapping.low).toBe('haiku');
+      expect(DEFAULT_CONFIG.effortMapping.low).toBe('sonnet');
       expect(DEFAULT_CONFIG.effortMapping.medium).toBe('sonnet');
       expect(DEFAULT_CONFIG.effortMapping.high).toBe('opus');
     });
@@ -483,8 +483,8 @@ describe('Config', () => {
       expect(DEFAULT_CONFIG.models.prGeneration).toBe('sonnet');
     });
 
-    it('should default effortMapping to haiku/sonnet/opus', () => {
-      expect(DEFAULT_CONFIG.effortMapping.low).toBe('haiku');
+    it('should default effortMapping to sonnet/sonnet/opus', () => {
+      expect(DEFAULT_CONFIG.effortMapping.low).toBe('sonnet');
       expect(DEFAULT_CONFIG.effortMapping.medium).toBe('sonnet');
       expect(DEFAULT_CONFIG.effortMapping.high).toBe('opus');
     });
@@ -596,7 +596,7 @@ describe('Config', () => {
       const config = resolveConfig(configPath);
       expect(config.effortMapping.high).toBe('sonnet');
       // Others should remain at defaults
-      expect(config.effortMapping.low).toBe('haiku');
+      expect(config.effortMapping.low).toBe('sonnet');
       expect(config.effortMapping.medium).toBe('sonnet');
     });
 
@@ -711,7 +711,7 @@ describe('Config', () => {
       const configPath = path.join(tempDir, 'default.json');
       // Use default config
       const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
-      expect(config.effortMapping.low).toBe('haiku');
+      expect(config.effortMapping.low).toBe('sonnet');
       expect(config.effortMapping.medium).toBe('sonnet');
       expect(config.effortMapping.high).toBe('opus');
     });
@@ -721,7 +721,7 @@ describe('Config', () => {
     it('should accept valid effortMapping config', () => {
       expect(() => validateConfig({
         effortMapping: {
-          low: 'haiku',
+          low: 'sonnet',
           medium: 'sonnet',
           high: 'opus',
         },

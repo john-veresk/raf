@@ -77,7 +77,7 @@ describe('Config Command', () => {
     });
 
     it('should accept valid config with effortMapping override', () => {
-      const config = { effortMapping: { low: 'haiku', medium: 'sonnet' } };
+      const config = { effortMapping: { low: 'sonnet', medium: 'sonnet' } };
       expect(() => validateConfig(config)).not.toThrow();
     });
 
