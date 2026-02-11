@@ -368,6 +368,7 @@ async function callClaudeForPrBody(prompt: string, timeoutMs: number): Promise<s
     const prModel = getModel('prGeneration');
     const proc = spawn(claudePath, [
       '--model', prModel,
+      '--no-session-persistence',
       '--dangerously-skip-permissions',
       '-p',
       prompt,

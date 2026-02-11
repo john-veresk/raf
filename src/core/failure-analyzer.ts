@@ -311,6 +311,7 @@ Respond with ONLY a markdown report in this exact format:
     const failureModel = getModel('failureAnalysis');
     const proc = spawn(claudePath, [
       '--model', failureModel,
+      '--no-session-persistence',
       '--dangerously-skip-permissions',
       '-p',
       prompt,
