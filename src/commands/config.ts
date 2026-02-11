@@ -13,11 +13,16 @@ import {
   validateConfig,
   ConfigValidationError,
   resetConfigCache,
+  resolveConfig,
+  saveConfig,
 } from '../utils/config.js';
 import { DEFAULT_CONFIG } from '../types/config.js';
+import type { UserConfig } from '../types/config.js';
 
 interface ConfigCommandOptions {
   reset?: boolean;
+  get?: true | string;  // true when --get with no key, string when --get <key>
+  set?: string[];       // [key, value]
 }
 
 /**
@@ -114,17 +119,254 @@ async function confirm(message: string): Promise<boolean> {
   });
 }
 
+// ---- Helper functions for nested config access ----
+
+/**
+ * Get a nested value from an object using dot notation.
+ * Returns undefined if the path doesn't exist.
+ */
+function getNestedValue(obj: unknown, dotPath: string): unknown {
+  const keys = dotPath.split('.');
+  let current: unknown = obj;
+
+  for (const key of keys) {
+    if (current === null || typeof current !== 'object') {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[key];
+  }
+
+  return current;
+}
+
+/**
+ * Set a nested value in an object using dot notation.
+ * Creates intermediate objects as needed.
+ */
+function setNestedValue(obj: Record<string, unknown>, dotPath: string, value: unknown): void {
+  const keys = dotPath.split('.');
+  let current: Record<string, unknown> = obj;
+
+  for (let i = 0; i < keys.length - 1; i++) {
+    const key = keys[i]!;
+    if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
+      current[key] = {};
+    }
+    current = current[key] as Record<string, unknown>;
+  }
+
+  const lastKey = keys[keys.length - 1]!;
+  current[lastKey] = value;
+}
+
+/**
+ * Delete a nested value from an object using dot notation.
+ * Cleans up empty parent objects after deletion.
+ */
+function deleteNestedValue(obj: Record<string, unknown>, dotPath: string): void {
+  const keys = dotPath.split('.');
+
+  // Navigate to parent and delete the key
+  if (keys.length === 1) {
+    delete obj[keys[0]!];
+    return;
+  }
+
+  // Build path to parent
+  let current: Record<string, unknown> = obj;
+  const path: Array<{ obj: Record<string, unknown>; key: string }> = [];
+
+  for (let i = 0; i < keys.length - 1; i++) {
+    const key = keys[i]!;
+    path.push({ obj: current, key });
+
+    if (typeof current[key] !== 'object' || current[key] === null) {
+      return; // Path doesn't exist
+    }
+    current = current[key] as Record<string, unknown>;
+  }
+
+  // Delete the leaf value
+  const lastKey = keys[keys.length - 1]!;
+  delete current[lastKey];
+
+  // Clean up empty parents
+  for (let i = path.length - 1; i >= 0; i--) {
+    const { obj, key } = path[i]!;
+    const child = obj[key] as Record<string, unknown>;
+    if (Object.keys(child).length === 0) {
+      delete obj[key];
+    } else {
+      break; // Stop if we find a non-empty parent
+    }
+  }
+}
+
+/**
+ * Get the default value at a dot-notation path from DEFAULT_CONFIG.
+ */
+function getDefaultValue(dotPath: string): unknown {
+  return getNestedValue(DEFAULT_CONFIG, dotPath);
+}
+
+/**
+ * Parse a string value, attempting JSON.parse for numbers/booleans, falling back to string.
+ */
+function parseValue(value: string): unknown {
+  // Try JSON.parse for numbers, booleans, null
+  try {
+    return JSON.parse(value);
+  } catch {
+    // Fall back to string
+    return value;
+  }
+}
+
+/**
+ * Format a value for console output.
+ * Strings are printed plain, objects/arrays as JSON.
+ */
+function formatValue(value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (value === null || value === undefined) {
+    return String(value);
+  }
+  return JSON.stringify(value, null, 2);
+}
+
+// ---- Config get/set handlers ----
+
+/**
+ * Handle --get flag: print config value(s).
+ */
+function handleGet(key: true | string): void {
+  const config = resolveConfig();
+
+  if (key === true) {
+    // No key specified: print full config
+    console.log(JSON.stringify(config, null, 2));
+    return;
+  }
+
+  // Specific key requested
+  const value = getNestedValue(config, key);
+
+  if (value === undefined) {
+    logger.error(`Config key not found: ${key}`);
+    process.exit(1);
+  }
+
+  console.log(formatValue(value));
+}
+
+/**
+ * Handle --set flag: update config file with a new value.
+ */
+function handleSet(args: string[]): void {
+  if (args.length !== 2) {
+    logger.error('--set requires exactly 2 arguments: key and value');
+    process.exit(1);
+  }
+
+  const [key, rawValue] = args as [string, string];
+  const value = parseValue(rawValue);
+  const configPath = getConfigPath();
+
+  // Read current user config (or start with empty)
+  let userConfig: UserConfig = {};
+  if (fs.existsSync(configPath)) {
+    try {
+      const content = fs.readFileSync(configPath, 'utf-8');
+      userConfig = JSON.parse(content) as UserConfig;
+    } catch (error) {
+      logger.error(`Failed to read config file: ${error}`);
+      process.exit(1);
+    }
+  }
+
+  // Check if value matches default
+  const defaultValue = getDefaultValue(key);
+
+  if (defaultValue === undefined) {
+    logger.error(`Config key not found in schema: ${key}`);
+    process.exit(1);
+  }
+
+  // Deep equality check for objects
+  const valuesMatch = JSON.stringify(value) === JSON.stringify(defaultValue);
+
+  if (valuesMatch) {
+    // Remove from config file (keep config minimal)
+    deleteNestedValue(userConfig as Record<string, unknown>, key);
+    logger.info(`Value matches default, removing ${key} from config`);
+  } else {
+    // Set the value
+    setNestedValue(userConfig as Record<string, unknown>, key, value);
+    logger.info(`Set ${key} = ${formatValue(value)}`);
+  }
+
+  // Validate the resulting config
+  try {
+    validateConfig(userConfig);
+  } catch (error) {
+    if (error instanceof ConfigValidationError) {
+      logger.error(`Validation error: ${error.message}`);
+      process.exit(1);
+    }
+    throw error;
+  }
+
+  // Save or delete config file
+  if (Object.keys(userConfig).length === 0) {
+    // Config is empty, delete the file
+    if (fs.existsSync(configPath)) {
+      fs.unlinkSync(configPath);
+      logger.info('Config is empty, removed file');
+    }
+  } else {
+    saveConfig(configPath, userConfig);
+    logger.success('Config updated successfully');
+  }
+}
+
 export function createConfigCommand(): Command {
   const command = new Command('config')
     .description('View and edit RAF configuration with Claude')
     .argument('[prompt...]', 'Optional initial prompt for the config session')
     .option('--reset', 'Delete config file and restore all defaults')
+    .option('--get [key]', 'Show config value (all config if no key, or specific dot-notation key)')
+    .option('--set <items...>', 'Set a config value using dot-notation key and value')
     .action(async (promptParts: string[], options: ConfigCommandOptions) => {
+      // --reset takes precedence
       if (options.reset) {
         await handleReset();
         return;
       }
 
+      // --get and --set are mutually exclusive
+      if (options.get !== undefined && options.set !== undefined) {
+        logger.error('Cannot use --get and --set together');
+        process.exit(1);
+      }
+
+      // Handle --get
+      if (options.get !== undefined) {
+        handleGet(options.get);
+        return;
+      }
+
+      // Handle --set
+      if (options.set !== undefined) {
+        handleSet(options.set);
+        return;
+      }
+
+      // Default: run interactive session
       const initialPrompt = promptParts.length > 0 ? promptParts.join(' ') : undefined;
       await runConfigSession(initialPrompt);
     });
