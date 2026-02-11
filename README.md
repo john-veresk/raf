@@ -117,16 +117,6 @@ Example `~/.raf/raf.config.json`:
 
 Run `raf config` without arguments and ask what's available — the session has full knowledge of every configurable option.
 
-### `raf migrate-project-ids-base26`
-
-Rename legacy project folders (3-char base36 or 6-char base36 with digits) to the current 6-char base26 format.
-
-```bash
-raf migrate-project-ids-base26             # Migrate project folders in ./RAF/
-raf migrate-project-ids-base26 --dry-run   # Preview renames without executing
-raf migrate-project-ids-base26 --worktree  # Migrate worktree project folders
-```
-
 ## Status Symbols
 
 ```
@@ -219,13 +209,6 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 | `-w, --worktree` | Execute tasks in a git worktree |
 
 Alias: `raf act`
-
-### `raf migrate-project-ids-base26`
-
-| Option | Description |
-|--------|-------------|
-| `--dry-run` | Preview renames without executing |
-| `-w, --worktree` | Migrate worktree project folders |
 
 > **Note:** `raf do` and `raf plan -y` run Claude with `--dangerously-skip-permissions` for fully automated execution without interactive prompts.
 

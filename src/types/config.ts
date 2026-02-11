@@ -138,11 +138,6 @@ export interface StatusCommandOptions {
   json?: boolean;
 }
 
-export interface MigrateCommandOptions {
-  dryRun?: boolean;
-  worktree?: boolean;
-}
-
 /** Per-model token usage breakdown from stream-json result event. */
 export interface ModelTokenUsage {
   inputTokens: number;
