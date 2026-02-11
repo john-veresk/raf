@@ -1,6 +1,5 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as crypto from 'node:crypto';
 import { Command } from 'commander';
 import { ProjectManager } from '../core/project-manager.js';
 import { ClaudeRunner } from '../core/claude-runner.js';
@@ -16,10 +15,7 @@ import {
   resolveModelOption,
 } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
-import { getWorktreeDefault, getModel, getModelShortName, getDisplayConfig, getPricingConfig, getSyncMainBranch } from '../utils/config.js';
-import { TokenTracker } from '../utils/token-tracker.js';
-import { parseSessionById } from '../utils/session-parser.js';
-import { formatTokenTotalSummary, TokenSummaryOptions } from '../utils/terminal-symbols.js';
+import { getWorktreeDefault, getModel, getModelShortName, getSyncMainBranch } from '../utils/config.js';
 import { generateProjectNames } from '../utils/name-generator.js';
 import { pickProjectName } from '../ui/name-picker.js';
 import {
@@ -289,24 +285,16 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
     worktreeMode,
   });
 
-  // Generate session ID for token tracking
-  const sessionId = crypto.randomUUID();
-  const sessionCwd = worktreePath ?? process.cwd();
-
   try {
     const exitCode = await claudeRunner.runInteractive(systemPrompt, userMessage, {
       dangerouslySkipPermissions: autoMode,
       // Run Claude session in the worktree root if in worktree mode
       cwd: worktreePath ?? undefined,
-      sessionId,
     });
 
     if (exitCode !== 0) {
       logger.warn(`Claude exited with code ${exitCode}`);
     }
-
-    // Parse session file and display token usage summary
-    displayPlanSessionTokenSummary(sessionId, sessionCwd);
 
     // Check for created plan files
     const plansDir = getPlansDir(projectPath);
@@ -604,24 +592,16 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
     worktreeMode,
   });
 
-  // Generate session ID for token tracking
-  const sessionId = crypto.randomUUID();
-  const sessionCwd = worktreePath ?? process.cwd();
-
   try {
     const exitCode = await claudeRunner.runInteractive(systemPrompt, userMessage, {
       dangerouslySkipPermissions: autoMode,
       // Run Claude session in the worktree root if in worktree mode
       cwd: worktreePath ?? undefined,
-      sessionId,
     });
 
     if (exitCode !== 0) {
       logger.warn(`Claude exited with code ${exitCode}`);
     }
-
-    // Parse session file and display token usage summary
-    displayPlanSessionTokenSummary(sessionId, sessionCwd);
 
     // Check for new plan files
     const allPlanFiles = fs.existsSync(plansDir)
@@ -695,45 +675,4 @@ ${taskList}
 #
 # Describe what you want to add below:
 `;
-}
-
-/**
- * Display token usage summary for a plan/amend session.
- * Parses the Claude session file and displays formatted usage data.
- */
-function displayPlanSessionTokenSummary(sessionId: string, cwd: string): void {
-  const result = parseSessionById(sessionId, cwd);
-
-  if (!result.success) {
-    // Session file not found or couldn't be parsed - just log debug and continue
-    logger.debug(`Could not parse session file: ${result.error}`);
-    return;
-  }
-
-  // Check if there's any usage data
-  const totalTokens = result.usage.inputTokens + result.usage.outputTokens;
-  if (totalTokens === 0) {
-    logger.debug('No token usage data found in session file');
-    return;
-  }
-
-  // Create tracker and add the session as a single "task"
-  const pricingConfig = getPricingConfig();
-  const tracker = new TokenTracker(pricingConfig);
-  const entry = tracker.addTask('plan', [result.usage]);
-
-  // Get display options
-  const displayConfig = getDisplayConfig();
-  const options: TokenSummaryOptions = {
-    showCacheTokens: displayConfig.showCacheTokens,
-    showRateLimitEstimate: displayConfig.showRateLimitEstimate,
-    rateLimitPercentage: displayConfig.showRateLimitEstimate
-      ? tracker.calculateRateLimitPercentage(entry.cost.totalCost)
-      : undefined,
-  };
-
-  // Display the summary
-  logger.newline();
-  const summary = formatTokenTotalSummary(result.usage, entry.cost, options);
-  console.log(summary);
 }
