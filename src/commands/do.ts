@@ -13,7 +13,7 @@ import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFro
 import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
-import { getConfig, getWorktreeDefault, getModel, getModelShortName, resolveFullModelId, getSyncMainBranch, resolveEffortToModel, applyModelCeiling } from '../utils/config.js';
+import { getConfig, getWorktreeDefault, getModel, getModelShortName, resolveFullModelId, getSyncMainBranch, resolveEffortToModel, applyModelCeiling, getShowRateLimitEstimate, getShowCacheTokens } from '../utils/config.js';
 import type { PlanFrontmatter } from '../utils/frontmatter.js';
 import { getVersion } from '../utils/version.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
@@ -1217,7 +1217,12 @@ Task completed. No detailed report provided.
       // Track and display token usage for this task
       if (attemptUsageData.length > 0) {
         const entry = tokenTracker.addTask(task.id, attemptUsageData);
-        logger.dim(formatTaskTokenSummary(entry, (u) => tokenTracker.calculateCost(u)));
+        const taskRateLimitPct = tokenTracker.getCumulativeRateLimitPercentage();
+        logger.dim(formatTaskTokenSummary(entry, (u) => tokenTracker.calculateCost(u), {
+          showCacheTokens: getShowCacheTokens(),
+          showRateLimitEstimate: getShowRateLimitEstimate(),
+          rateLimitPercentage: taskRateLimitPct,
+        }));
       }
 
       completedInSession.add(task.id);
@@ -1245,7 +1250,12 @@ Task completed. No detailed report provided.
       // Track token usage even for failed tasks (partial data still useful for totals)
       if (attemptUsageData.length > 0) {
         const entry = tokenTracker.addTask(task.id, attemptUsageData);
-        logger.dim(formatTaskTokenSummary(entry, (u) => tokenTracker.calculateCost(u)));
+        const taskRateLimitPct = tokenTracker.getCumulativeRateLimitPercentage();
+        logger.dim(formatTaskTokenSummary(entry, (u) => tokenTracker.calculateCost(u), {
+          showCacheTokens: getShowCacheTokens(),
+          showRateLimitEstimate: getShowRateLimitEstimate(),
+          rateLimitPercentage: taskRateLimitPct,
+        }));
       }
 
       // Analyze failure and generate structured report
@@ -1358,7 +1368,12 @@ ${stashName ? `- Stash: ${stashName}` : ''}
   if (trackerEntries.length > 0) {
     logger.newline();
     const totals = tokenTracker.getTotals();
-    logger.dim(formatTokenTotalSummary(totals.usage, totals.cost));
+    const totalRateLimitPct = tokenTracker.getCumulativeRateLimitPercentage();
+    logger.dim(formatTokenTotalSummary(totals.usage, totals.cost, {
+      showCacheTokens: getShowCacheTokens(),
+      showRateLimitEstimate: getShowRateLimitEstimate(),
+      rateLimitPercentage: totalRateLimitPct,
+    }));
   }
 
   // Show retry history for tasks that had failures (even if eventually successful)
