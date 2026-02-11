@@ -22,6 +22,29 @@ export interface TaskUsageEntry {
 }
 
 /**
+ * Sum multiple CostBreakdown objects into a single total.
+ */
+export function sumCostBreakdowns(costs: CostBreakdown[]): CostBreakdown {
+  const result: CostBreakdown = {
+    inputCost: 0,
+    outputCost: 0,
+    cacheReadCost: 0,
+    cacheCreateCost: 0,
+    totalCost: 0,
+  };
+
+  for (const cost of costs) {
+    result.inputCost += cost.inputCost;
+    result.outputCost += cost.outputCost;
+    result.cacheReadCost += cost.cacheReadCost;
+    result.cacheCreateCost += cost.cacheCreateCost;
+    result.totalCost += cost.totalCost;
+  }
+
+  return result;
+}
+
+/**
  * Merge multiple UsageData objects into a single accumulated UsageData.
  * Sums all token fields and merges modelUsage maps.
  */
@@ -72,10 +95,15 @@ export class TokenTracker {
   /**
    * Record usage data from a completed task.
    * Accepts an array of UsageData (one per attempt) and accumulates them.
+   * Cost is calculated per-attempt to avoid underreporting when some attempts
+   * have modelUsage and others only have aggregate fields.
    */
   addTask(taskId: string, attempts: UsageData[]): TaskUsageEntry {
     const usage = accumulateUsage(attempts);
-    const cost = this.calculateCost(usage);
+    // Calculate cost per-attempt, then sum. This ensures attempts with only
+    // aggregate fields use sonnet fallback pricing independently.
+    const perAttemptCosts = attempts.map((attempt) => this.calculateCost(attempt));
+    const cost = sumCostBreakdowns(perAttemptCosts);
     const entry: TaskUsageEntry = { taskId, usage, cost, attempts };
     this.entries.push(entry);
     return entry;

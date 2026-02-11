@@ -1,4 +1,4 @@
-import { TokenTracker, CostBreakdown, accumulateUsage } from '../../src/utils/token-tracker.js';
+import { TokenTracker, CostBreakdown, accumulateUsage, sumCostBreakdowns } from '../../src/utils/token-tracker.js';
 import { UsageData, PricingConfig, DEFAULT_CONFIG } from '../../src/types/config.js';
 
 function makeUsage(overrides: Partial<UsageData> = {}): UsageData {
@@ -651,6 +651,172 @@ describe('TokenTracker', () => {
 
       const totals = tracker.getTotals();
       expect(totals.usage.inputTokens).toBe(2_000_000);
+    });
+  });
+
+  describe('mixed-attempt cost calculation (aggregate + modelUsage)', () => {
+    it('should correctly price attempts with mixed modelUsage presence', () => {
+      const tracker = new TokenTracker(testPricing);
+      // Attempt 1: has modelUsage (opus)
+      const attempt1 = makeUsage({
+        inputTokens: 1_000_000,
+        outputTokens: 500_000,
+        modelUsage: {
+          'claude-opus-4-6': {
+            inputTokens: 1_000_000,
+            outputTokens: 500_000,
+            cacheReadInputTokens: 0,
+            cacheCreationInputTokens: 0,
+          },
+        },
+      });
+      // Attempt 2: NO modelUsage (aggregate-only, should use sonnet fallback)
+      const attempt2 = makeUsage({
+        inputTokens: 1_000_000,
+        outputTokens: 1_000_000,
+        modelUsage: {}, // Empty - should fallback to sonnet pricing
+      });
+
+      const entry = tracker.addTask('01', [attempt1, attempt2]);
+
+      // Attempt 1 (Opus): 1M*$15 + 0.5M*$75 = $15 + $37.5 = $52.5
+      // Attempt 2 (Sonnet fallback): 1M*$3 + 1M*$15 = $3 + $15 = $18
+      // Total: $52.5 + $18 = $70.5
+      expect(entry.cost.inputCost).toBeCloseTo(18); // 15 + 3
+      expect(entry.cost.outputCost).toBeCloseTo(52.5); // 37.5 + 15
+      expect(entry.cost.totalCost).toBeCloseTo(70.5);
+    });
+
+    it('should not underreport cost when first attempt has no modelUsage', () => {
+      const tracker = new TokenTracker(testPricing);
+      // Attempt 1: aggregate-only (no modelUsage)
+      const attempt1 = makeUsage({
+        inputTokens: 1_000_000,
+        outputTokens: 1_000_000,
+        modelUsage: {},
+      });
+      // Attempt 2: has modelUsage
+      const attempt2 = makeUsage({
+        inputTokens: 1_000_000,
+        outputTokens: 500_000,
+        modelUsage: {
+          'claude-opus-4-6': {
+            inputTokens: 1_000_000,
+            outputTokens: 500_000,
+            cacheReadInputTokens: 0,
+            cacheCreationInputTokens: 0,
+          },
+        },
+      });
+
+      const entry = tracker.addTask('01', [attempt1, attempt2]);
+
+      // Attempt 1 (Sonnet fallback): 1M*$3 + 1M*$15 = $18
+      // Attempt 2 (Opus): 1M*$15 + 0.5M*$75 = $52.5
+      // Total: $18 + $52.5 = $70.5
+      expect(entry.cost.totalCost).toBeCloseTo(70.5);
+    });
+
+    it('should handle all aggregate-only attempts', () => {
+      const tracker = new TokenTracker(testPricing);
+      const attempt1 = makeUsage({
+        inputTokens: 1_000_000,
+        outputTokens: 1_000_000,
+        modelUsage: {},
+      });
+      const attempt2 = makeUsage({
+        inputTokens: 1_000_000,
+        outputTokens: 1_000_000,
+        modelUsage: {},
+      });
+
+      const entry = tracker.addTask('01', [attempt1, attempt2]);
+
+      // Both use sonnet fallback: 2 * (1M*$3 + 1M*$15) = 2 * $18 = $36
+      expect(entry.cost.totalCost).toBeCloseTo(36);
+    });
+
+    it('should include cache costs from aggregate-only attempts', () => {
+      const tracker = new TokenTracker(testPricing);
+      // Attempt 1: has modelUsage with cache
+      const attempt1 = makeUsage({
+        inputTokens: 500_000,
+        outputTokens: 200_000,
+        cacheReadInputTokens: 100_000,
+        cacheCreationInputTokens: 50_000,
+        modelUsage: {
+          'claude-opus-4-6': {
+            inputTokens: 500_000,
+            outputTokens: 200_000,
+            cacheReadInputTokens: 100_000,
+            cacheCreationInputTokens: 50_000,
+          },
+        },
+      });
+      // Attempt 2: aggregate-only with cache
+      const attempt2 = makeUsage({
+        inputTokens: 500_000,
+        outputTokens: 200_000,
+        cacheReadInputTokens: 100_000,
+        cacheCreationInputTokens: 50_000,
+        modelUsage: {},
+      });
+
+      const entry = tracker.addTask('01', [attempt1, attempt2]);
+
+      // Opus cache rates: $1.5/MTok read, $18.75/MTok create
+      // Sonnet cache rates: $0.30/MTok read, $3.75/MTok create
+      // Attempt 1 cache: 0.1M*$1.5 + 0.05M*$18.75 = $0.15 + $0.9375 = $1.0875
+      // Attempt 2 cache: 0.1M*$0.30 + 0.05M*$3.75 = $0.03 + $0.1875 = $0.2175
+      // Total cache: $1.0875 + $0.2175 = $1.305
+      expect(entry.cost.cacheReadCost).toBeCloseTo(0.15 + 0.03);
+      expect(entry.cost.cacheCreateCost).toBeCloseTo(0.9375 + 0.1875);
+    });
+  });
+
+  describe('sumCostBreakdowns', () => {
+    it('should return zero breakdown for empty array', () => {
+      const result = sumCostBreakdowns([]);
+      expect(result.inputCost).toBe(0);
+      expect(result.outputCost).toBe(0);
+      expect(result.cacheReadCost).toBe(0);
+      expect(result.cacheCreateCost).toBe(0);
+      expect(result.totalCost).toBe(0);
+    });
+
+    it('should return same breakdown for single element', () => {
+      const cost: CostBreakdown = {
+        inputCost: 10,
+        outputCost: 20,
+        cacheReadCost: 1,
+        cacheCreateCost: 2,
+        totalCost: 33,
+      };
+      const result = sumCostBreakdowns([cost]);
+      expect(result).toEqual(cost);
+    });
+
+    it('should sum all cost fields across breakdowns', () => {
+      const cost1: CostBreakdown = {
+        inputCost: 10,
+        outputCost: 20,
+        cacheReadCost: 1,
+        cacheCreateCost: 2,
+        totalCost: 33,
+      };
+      const cost2: CostBreakdown = {
+        inputCost: 5,
+        outputCost: 10,
+        cacheReadCost: 0.5,
+        cacheCreateCost: 1,
+        totalCost: 16.5,
+      };
+      const result = sumCostBreakdowns([cost1, cost2]);
+      expect(result.inputCost).toBe(15);
+      expect(result.outputCost).toBe(30);
+      expect(result.cacheReadCost).toBe(1.5);
+      expect(result.cacheCreateCost).toBe(3);
+      expect(result.totalCost).toBe(49.5);
     });
   });
 
