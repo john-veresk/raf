@@ -29,3 +29,9 @@ Rebase onto main — Cleaner history, replays worktree commits on top of latest 
 
 ## If the rebase has conflicts, should `raf do` abort or skip sync?
 Skip sync and warn — Skip the sync step, show a warning, and continue execution on the current branch state.
+
+## For removing token report from plan: Should `session-parser.ts` and its tests be deleted or kept?
+Delete session-parser entirely — Remove session-parser.ts and its test file since they have no other consumers.
+
+## Should the `sessionId` parameter be removed from `runInteractive()` in claude-runner.ts?
+Remove sessionId from runInteractive() too — Clean up the runner API as well since no other callers pass sessionId.

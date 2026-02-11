@@ -29,3 +29,7 @@
 		 **[![P2 Badge](https://camo.githubusercontent.com/f2c1aacb361ddd3a0e9f9cacdb84fab050de434017f6747bb916e31e29bdf03d/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f50322d79656c6c6f773f7374796c653d666c6174)](https://camo.githubusercontent.com/f2c1aacb361ddd3a0e9f9cacdb84fab050de434017f6747bb916e31e29bdf03d/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f50322d79656c6c6f773f7374796c653d666c6174) Treat diverged main branch as sync failure**
 		
 		When `git fetch origin <main>:<main>` fails because local `<main>` has diverged, this branch returns `success: true` with an `error` message, which means the new callers in `runDoCommand`/`runPlanCommand` (they only warn on `success === false`) silently continue without actually updating the local main branch. In this state worktree/PR flows proceed on stale base refs without surfacing the sync problem, so this path should be reported as a failure (or callers must treat `error` as a warning condition).
+
+---
+
+- [ ] remove token report from plan (and all the code related)
