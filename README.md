@@ -14,15 +14,21 @@ Good software of the future will be built with good decisions by humans, not AI.
 
 ## Why RAF?
 
-**Human decisions matter** — RAF focuses on interviewing you during planning. Right questions lead to right decisions, and right decisions lead to better software.
+**Smart model selection** — RAF estimates task complexity during planning (low/medium/high effort) and automatically routes each task to the appropriate model. Simple tasks use cheaper, faster models; complex tasks get the most capable model. Fully configurable via `effortMapping`.
 
-**Better reviews** — Review the intent, decisions, plan and outcomes, not AI generated code.
+**Automatic PR creation** — In worktree mode, RAF can automatically create GitHub PRs with Claude-generated descriptions that summarize your original intent, key decisions made during planning, and task outcomes. Reviewers get meaningful context, not boilerplate.
 
-**Context rot** — Long AI sessions lose focus and make mistakes. RAF splits work into small, focused tasks that Claude executes one at a time with fresh context.
+**Structured decision-making** — The planning interview captures design decisions as reviewable artifacts (`decisions.md`). These persist alongside the code and give reviewers insight into the "why" behind changes.
 
-**Reliable execution** — Modern LLMs are remarkably capable when given clear instructions. A well-crafted plan yields working solutions reliably. RAF helps you build good plans.
+**Context isolation** — Each task executes with fresh context. No context rot, no degradation from long sessions. The plan provides all the context Claude needs.
 
-**Save on tokens** — Less back-and-forth during debugging saves tokens, even with planning overhead.
+**Token efficiency** — Focused, well-planned tasks avoid the back-and-forth debugging cycles that burn tokens. Planning overhead pays for itself.
+
+**Full auditability** — Every project preserves its input, decisions, plans, and outcomes as plain markdown. You can review the entire thought process, not just the final code.
+
+**Retry with escalation** — Failed tasks automatically retry with a more capable model, maximizing success rate without manual intervention.
+
+**Git worktree isolation** — Work happens on isolated branches without touching your working directory. Merge, PR, or leave — your choice after execution.
 
 ## Quick Start
 
@@ -46,13 +52,12 @@ That's it! RAF will guide you through breaking down your task and then execute i
 
 ## Features
 
-- **Interactive Planning**: Claude interviews you to break down complex tasks into 3-8 distinct tasks
-- **Automated Execution**: Execute plans with retry logic and progress tracking
-- **Resume Support**: Continue from where you left off after interruption
-- **Git Integration**: Automatic commits after each completed task
-- **Task Dependencies**: Tasks can depend on other tasks, with automatic blocking on failure
-- **Worktree Mode**: Isolate planning and execution in a git worktree branch with `--worktree`
-- **Configurable**: Customize models, effort levels, timeouts, and more via `raf config`
+- **Interactive Planning**: Claude interviews you to break down complex tasks into structured plans
+- **Smart Execution**: Automatic model selection, retry with escalation, and progress tracking
+- **Resume & Amend**: Continue interrupted sessions or extend existing projects
+- **Git Integration**: Automatic commits, worktree isolation, and PR generation
+- **Task Dependencies**: Dependency tracking with automatic blocking on failure
+- **Full Configurability**: Customize models, effort mappings, timeouts, and more via `raf config`
 
 ## Commands
 
@@ -66,6 +71,12 @@ raf plan my-feature   # Create with a specific name
 raf plan --amend abcdef  # Add tasks to existing project
 raf plan --worktree   # Plan in an isolated git worktree
 ```
+
+#### `--amend` vs `--resume`
+
+- **`--amend <id>`**: Adds new tasks to an existing project. Opens a new planning session that sees existing tasks (with their status) and creates additional plans numbered after the last task. Use when scope grows or you want to extend a completed project.
+
+- **`--resume <id>`**: Resumes an interrupted Claude planning session. Opens Claude's session picker scoped to the project directory so you can continue exactly where you left off. Use when your planning session was interrupted (Ctrl-C, network issue, etc.) and you want to continue the conversation.
 
 ### `raf do`
 
