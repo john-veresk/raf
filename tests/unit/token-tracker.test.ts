@@ -848,4 +848,141 @@ describe('TokenTracker', () => {
       expect(cost.totalCost).toBeCloseTo(60);
     });
   });
+
+  describe('rate limit estimation', () => {
+    it('should calculate rate limit percentage from cost', () => {
+      const tracker = new TokenTracker(testPricing);
+      // With default sonnet pricing ($3 input, $15 output), avg = $9/MTok
+      // Sonnet-equivalent tokens = cost / (9/1M) = cost * 1M/9
+      // Percentage = sonnetEquivTokens / cap * 100
+
+      // Test with $0.18 cost (should be ~2222 Sonnet-equiv tokens)
+      // With cap of 88000, that's ~2.5%
+      const percentage = tracker.calculateRateLimitPercentage(0.18, 88000);
+      // $0.18 / ($9/1M) = 20000 Sonnet-equiv tokens
+      // 20000 / 88000 * 100 = ~22.7%
+      expect(percentage).toBeCloseTo(22.73, 1);
+    });
+
+    it('should return 0 for zero cost', () => {
+      const tracker = new TokenTracker(testPricing);
+      expect(tracker.calculateRateLimitPercentage(0, 88000)).toBe(0);
+    });
+
+    it('should respect custom sonnetTokenCap', () => {
+      const tracker = new TokenTracker(testPricing);
+      const percentageDefault = tracker.calculateRateLimitPercentage(0.09, 88000);
+      const percentageHigherCap = tracker.calculateRateLimitPercentage(0.09, 176000);
+      // Higher cap should halve the percentage
+      expect(percentageHigherCap).toBeCloseTo(percentageDefault / 2, 1);
+    });
+
+    it('should calculate cumulative rate limit across tasks', () => {
+      const tracker = new TokenTracker(testPricing);
+
+      // Add a task with sonnet usage: 1M in / 1M out = $3 + $15 = $18
+      tracker.addTask('01', [makeUsage({
+        inputTokens: 1_000_000,
+        outputTokens: 1_000_000,
+        modelUsage: {
+          'claude-sonnet-4-5': {
+            inputTokens: 1_000_000,
+            outputTokens: 1_000_000,
+            cacheReadInputTokens: 0,
+            cacheCreationInputTokens: 0,
+          },
+        },
+      })]);
+
+      const percentage = tracker.getCumulativeRateLimitPercentage(88000);
+      // $18 / ($9/1M) = 2,000,000 Sonnet-equiv tokens
+      // 2,000,000 / 88,000 * 100 = ~2272.7%
+      expect(percentage).toBeCloseTo(2272.73, 0);
+    });
+
+    it('should correctly weight Opus usage higher than Sonnet', () => {
+      const tracker = new TokenTracker(testPricing);
+
+      // Opus task: 1M in / 1M out = $15 + $75 = $90
+      tracker.addTask('01', [makeUsage({
+        inputTokens: 1_000_000,
+        outputTokens: 1_000_000,
+        modelUsage: {
+          'claude-opus-4-6': {
+            inputTokens: 1_000_000,
+            outputTokens: 1_000_000,
+            cacheReadInputTokens: 0,
+            cacheCreationInputTokens: 0,
+          },
+        },
+      })]);
+
+      const opusPercentage = tracker.getCumulativeRateLimitPercentage(88000);
+
+      // Sonnet equivalent of $90 = $90 / ($9/1M) = 10,000,000 tokens
+      // 10,000,000 / 88,000 * 100 = ~11363.6%
+      expect(opusPercentage).toBeCloseTo(11363.6, 0);
+    });
+
+    it('should correctly weight Haiku usage lower than Sonnet', () => {
+      const tracker = new TokenTracker(testPricing);
+
+      // Haiku task: 1M in / 1M out = $1 + $5 = $6
+      tracker.addTask('01', [makeUsage({
+        inputTokens: 1_000_000,
+        outputTokens: 1_000_000,
+        modelUsage: {
+          'claude-haiku-4-5': {
+            inputTokens: 1_000_000,
+            outputTokens: 1_000_000,
+            cacheReadInputTokens: 0,
+            cacheCreationInputTokens: 0,
+          },
+        },
+      })]);
+
+      const haikuPercentage = tracker.getCumulativeRateLimitPercentage(88000);
+
+      // Sonnet equivalent of $6 = $6 / ($9/1M) = ~666,667 tokens
+      // 666,667 / 88,000 * 100 = ~757.6%
+      expect(haikuPercentage).toBeCloseTo(757.6, 0);
+    });
+
+    it('should handle multi-model tasks correctly for rate limit', () => {
+      const tracker = new TokenTracker(testPricing);
+
+      // Mixed task: Opus attempt ($52.5) + Sonnet attempt ($18) = $70.5
+      const attempt1 = makeUsage({
+        inputTokens: 1_000_000,
+        outputTokens: 500_000,
+        modelUsage: {
+          'claude-opus-4-6': {
+            inputTokens: 1_000_000,
+            outputTokens: 500_000,
+            cacheReadInputTokens: 0,
+            cacheCreationInputTokens: 0,
+          },
+        },
+      });
+      const attempt2 = makeUsage({
+        inputTokens: 1_000_000,
+        outputTokens: 1_000_000,
+        modelUsage: {
+          'claude-sonnet-4-5': {
+            inputTokens: 1_000_000,
+            outputTokens: 1_000_000,
+            cacheReadInputTokens: 0,
+            cacheCreationInputTokens: 0,
+          },
+        },
+      });
+
+      tracker.addTask('01', [attempt1, attempt2]);
+      const percentage = tracker.getCumulativeRateLimitPercentage(88000);
+
+      // $70.5 / ($9/1M) = 7,833,333 Sonnet-equiv tokens
+      // 7,833,333 / 88,000 * 100 = ~8901.5%
+      expect(percentage).toBeCloseTo(8901.5, 0);
+    });
+  });
 });

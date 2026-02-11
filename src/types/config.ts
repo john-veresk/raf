@@ -55,6 +55,20 @@ export interface PricingConfig {
   haiku: ModelPricing;
 }
 
+/** Display options for token usage summaries. */
+export interface DisplayConfig {
+  /** Show estimated 5h rate limit window percentage. Default: true */
+  showRateLimitEstimate: boolean;
+  /** Show cache token counts in summaries. Default: true */
+  showCacheTokens: boolean;
+}
+
+/** Rate limit window configuration. */
+export interface RateLimitWindowConfig {
+  /** Sonnet-equivalent token cap for the 5h window. Default: 88000 */
+  sonnetTokenCap: number;
+}
+
 export interface RafConfig {
   models: ModelsConfig;
   effort: EffortConfig;
@@ -64,6 +78,8 @@ export interface RafConfig {
   worktree: boolean;
   commitFormat: CommitFormatConfig;
   pricing: PricingConfig;
+  display: DisplayConfig;
+  rateLimitWindow: RateLimitWindowConfig;
 }
 
 export const DEFAULT_CONFIG: RafConfig = {
@@ -112,6 +128,13 @@ export const DEFAULT_CONFIG: RafConfig = {
       cacheReadPerMTok: 0.1,
       cacheCreatePerMTok: 1.25,
     },
+  },
+  display: {
+    showRateLimitEstimate: true,
+    showCacheTokens: true,
+  },
+  rateLimitWindow: {
+    sonnetTokenCap: 88000,
   },
 };
 

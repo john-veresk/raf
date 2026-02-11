@@ -32,6 +32,12 @@ export interface ClaudeRunnerOptions {
    */
   dangerouslySkipPermissions?: boolean;
   /**
+   * Session ID for Claude CLI. When provided, passed as --session-id to enable
+   * locating the session file after the session ends for token tracking.
+   * Only used in interactive mode (runInteractive).
+   */
+  sessionId?: string;
+  /**
    * Path to the outcome file. When provided, enables completion detection:
    * - Monitors stdout for completion markers (<promise>COMPLETE/FAILED</promise>)
    * - Polls the outcome file for completion markers
@@ -286,7 +292,7 @@ export class ClaudeRunner {
     userMessage: string,
     options: ClaudeRunnerOptions = {}
   ): Promise<number> {
-    const { cwd = process.cwd(), dangerouslySkipPermissions = false } = options;
+    const { cwd = process.cwd(), dangerouslySkipPermissions = false, sessionId } = options;
 
     return new Promise((resolve) => {
       const args = ['--model', this.model];
@@ -294,6 +300,11 @@ export class ClaudeRunner {
       // Add --dangerously-skip-permissions if requested (for --auto mode)
       if (dangerouslySkipPermissions) {
         args.push('--dangerously-skip-permissions');
+      }
+
+      // Add --session-id if provided (for token tracking)
+      if (sessionId) {
+        args.push('--session-id', sessionId);
       }
 
       // System instructions via --append-system-prompt

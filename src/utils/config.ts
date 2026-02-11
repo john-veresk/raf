@@ -17,6 +17,8 @@ import {
   PricingCategory,
   ModelPricing,
   PricingConfig,
+  DisplayConfig,
+  RateLimitWindowConfig,
 } from '../types/config.js';
 
 const CONFIG_DIR = path.join(os.homedir(), '.raf');
@@ -37,7 +39,7 @@ export function getClaudeSettingsPath(): string {
 
 const VALID_TOP_LEVEL_KEYS = new Set<string>([
   'models', 'effort', 'timeout', 'maxRetries', 'autoCommit',
-  'worktree', 'commitFormat', 'pricing',
+  'worktree', 'commitFormat', 'pricing', 'display', 'rateLimitWindow',
 ]);
 
 const VALID_PRICING_CATEGORIES = new Set<string>(['opus', 'sonnet', 'haiku']);
@@ -52,6 +54,10 @@ const VALID_EFFORT_KEYS = new Set<string>([
 ]);
 
 const VALID_COMMIT_FORMAT_KEYS = new Set<string>(['task', 'plan', 'amend', 'prefix']);
+
+const VALID_DISPLAY_KEYS = new Set<string>(['showRateLimitEstimate', 'showCacheTokens']);
+
+const VALID_RATE_LIMIT_WINDOW_KEYS = new Set<string>(['sonnetTokenCap']);
 
 export class ConfigValidationError extends Error {
   constructor(message: string) {
@@ -176,6 +182,34 @@ export function validateConfig(config: unknown): UserConfig {
     }
   }
 
+  // display
+  if (obj.display !== undefined) {
+    if (typeof obj.display !== 'object' || obj.display === null || Array.isArray(obj.display)) {
+      throw new ConfigValidationError('display must be an object');
+    }
+    const display = obj.display as Record<string, unknown>;
+    checkUnknownKeys(display, VALID_DISPLAY_KEYS, 'display');
+    for (const [key, val] of Object.entries(display)) {
+      if (typeof val !== 'boolean') {
+        throw new ConfigValidationError(`display.${key} must be a boolean`);
+      }
+    }
+  }
+
+  // rateLimitWindow
+  if (obj.rateLimitWindow !== undefined) {
+    if (typeof obj.rateLimitWindow !== 'object' || obj.rateLimitWindow === null || Array.isArray(obj.rateLimitWindow)) {
+      throw new ConfigValidationError('rateLimitWindow must be an object');
+    }
+    const rlw = obj.rateLimitWindow as Record<string, unknown>;
+    checkUnknownKeys(rlw, VALID_RATE_LIMIT_WINDOW_KEYS, 'rateLimitWindow');
+    if (rlw.sonnetTokenCap !== undefined) {
+      if (typeof rlw.sonnetTokenCap !== 'number' || rlw.sonnetTokenCap <= 0 || !Number.isFinite(rlw.sonnetTokenCap)) {
+        throw new ConfigValidationError('rateLimitWindow.sonnetTokenCap must be a positive number');
+      }
+    }
+  }
+
   return config as UserConfig;
 }
 
@@ -200,6 +234,12 @@ function deepMerge(defaults: RafConfig, overrides: UserConfig): RafConfig {
       haiku: { ...defaults.pricing.haiku, ...overrides.pricing.haiku },
     };
   }
+  if (overrides.display) {
+    result.display = { ...defaults.display, ...overrides.display };
+  }
+  if (overrides.rateLimitWindow) {
+    result.rateLimitWindow = { ...defaults.rateLimitWindow, ...overrides.rateLimitWindow };
+  }
   if (overrides.timeout !== undefined) result.timeout = overrides.timeout;
   if (overrides.maxRetries !== undefined) result.maxRetries = overrides.maxRetries;
   if (overrides.autoCommit !== undefined) result.autoCommit = overrides.autoCommit;
@@ -218,7 +258,14 @@ export function resolveConfig(configPath?: string): RafConfig {
   const filePath = configPath ?? getConfigPath();
 
   if (!fs.existsSync(filePath)) {
-    return { ...DEFAULT_CONFIG, models: { ...DEFAULT_CONFIG.models }, effort: { ...DEFAULT_CONFIG.effort }, commitFormat: { ...DEFAULT_CONFIG.commitFormat } };
+    return {
+      ...DEFAULT_CONFIG,
+      models: { ...DEFAULT_CONFIG.models },
+      effort: { ...DEFAULT_CONFIG.effort },
+      commitFormat: { ...DEFAULT_CONFIG.commitFormat },
+      display: { ...DEFAULT_CONFIG.display },
+      rateLimitWindow: { ...DEFAULT_CONFIG.rateLimitWindow },
+    };
   }
 
   const content = fs.readFileSync(filePath, 'utf-8');
@@ -347,6 +394,41 @@ export function getPricing(category: PricingCategory): ModelPricing {
  */
 export function getPricingConfig(): PricingConfig {
   return getResolvedConfig().pricing;
+}
+
+/**
+ * Get the full display config.
+ */
+export function getDisplayConfig(): DisplayConfig {
+  return getResolvedConfig().display;
+}
+
+/**
+ * Get the full rate limit window config.
+ */
+export function getRateLimitWindowConfig(): RateLimitWindowConfig {
+  return getResolvedConfig().rateLimitWindow;
+}
+
+/**
+ * Get whether to show rate limit estimate in token summaries.
+ */
+export function getShowRateLimitEstimate(): boolean {
+  return getResolvedConfig().display.showRateLimitEstimate;
+}
+
+/**
+ * Get whether to show cache tokens in summaries.
+ */
+export function getShowCacheTokens(): boolean {
+  return getResolvedConfig().display.showCacheTokens;
+}
+
+/**
+ * Get the Sonnet-equivalent token cap for the 5h rate limit window.
+ */
+export function getSonnetTokenCap(): number {
+  return getResolvedConfig().rateLimitWindow.sonnetTokenCap;
 }
 
 /**

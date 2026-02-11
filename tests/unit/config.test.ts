@@ -655,4 +655,103 @@ describe('Config', () => {
       expect(config.commitFormat.plan).toBe(DEFAULT_CONFIG.commitFormat.plan);
     });
   });
+
+  describe('validateConfig - display', () => {
+    it('should accept valid display config', () => {
+      expect(() => validateConfig({
+        display: {
+          showRateLimitEstimate: true,
+          showCacheTokens: false,
+        },
+      })).not.toThrow();
+    });
+
+    it('should accept partial display override', () => {
+      expect(() => validateConfig({
+        display: { showRateLimitEstimate: false },
+      })).not.toThrow();
+    });
+
+    it('should reject non-object display', () => {
+      expect(() => validateConfig({ display: 'full' })).toThrow('display must be an object');
+    });
+
+    it('should reject unknown display keys', () => {
+      expect(() => validateConfig({ display: { unknownKey: true } })).toThrow('Unknown config key: display.unknownKey');
+    });
+
+    it('should reject non-boolean display values', () => {
+      expect(() => validateConfig({ display: { showRateLimitEstimate: 'yes' } })).toThrow('display.showRateLimitEstimate must be a boolean');
+    });
+  });
+
+  describe('validateConfig - rateLimitWindow', () => {
+    it('should accept valid rateLimitWindow config', () => {
+      expect(() => validateConfig({
+        rateLimitWindow: { sonnetTokenCap: 100000 },
+      })).not.toThrow();
+    });
+
+    it('should reject non-object rateLimitWindow', () => {
+      expect(() => validateConfig({ rateLimitWindow: 88000 })).toThrow('rateLimitWindow must be an object');
+    });
+
+    it('should reject unknown rateLimitWindow keys', () => {
+      expect(() => validateConfig({ rateLimitWindow: { unknownKey: 50000 } })).toThrow('Unknown config key: rateLimitWindow.unknownKey');
+    });
+
+    it('should reject non-positive sonnetTokenCap', () => {
+      expect(() => validateConfig({ rateLimitWindow: { sonnetTokenCap: 0 } })).toThrow('rateLimitWindow.sonnetTokenCap must be a positive number');
+      expect(() => validateConfig({ rateLimitWindow: { sonnetTokenCap: -100 } })).toThrow('rateLimitWindow.sonnetTokenCap must be a positive number');
+    });
+
+    it('should reject non-number sonnetTokenCap', () => {
+      expect(() => validateConfig({ rateLimitWindow: { sonnetTokenCap: '88000' } })).toThrow('rateLimitWindow.sonnetTokenCap must be a positive number');
+    });
+  });
+
+  describe('resolveConfig - display and rateLimitWindow', () => {
+    it('should include default display when no config file', () => {
+      const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
+      expect(config.display.showRateLimitEstimate).toBe(true);
+      expect(config.display.showCacheTokens).toBe(true);
+    });
+
+    it('should include default rateLimitWindow when no config file', () => {
+      const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
+      expect(config.rateLimitWindow.sonnetTokenCap).toBe(88000);
+    });
+
+    it('should deep-merge partial display override', () => {
+      const configPath = path.join(tempDir, 'display.json');
+      fs.writeFileSync(configPath, JSON.stringify({
+        display: { showRateLimitEstimate: false },
+      }));
+
+      const config = resolveConfig(configPath);
+      expect(config.display.showRateLimitEstimate).toBe(false);
+      expect(config.display.showCacheTokens).toBe(true); // default preserved
+    });
+
+    it('should deep-merge partial rateLimitWindow override', () => {
+      const configPath = path.join(tempDir, 'rateLimit.json');
+      fs.writeFileSync(configPath, JSON.stringify({
+        rateLimitWindow: { sonnetTokenCap: 100000 },
+      }));
+
+      const config = resolveConfig(configPath);
+      expect(config.rateLimitWindow.sonnetTokenCap).toBe(100000);
+    });
+  });
+
+  describe('DEFAULT_CONFIG - display and rateLimitWindow', () => {
+    it('should have default display settings', () => {
+      expect(DEFAULT_CONFIG.display.showRateLimitEstimate).toBe(true);
+      expect(DEFAULT_CONFIG.display.showCacheTokens).toBe(true);
+    });
+
+    it('should have default rateLimitWindow settings', () => {
+      expect(DEFAULT_CONFIG.rateLimitWindow.sonnetTokenCap).toBe(88000);
+    });
+  });
 });

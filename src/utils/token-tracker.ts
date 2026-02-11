@@ -1,5 +1,5 @@
 import { UsageData, PricingConfig } from '../types/config.js';
-import { resolveModelPricingCategory, getPricingConfig } from './config.js';
+import { resolveModelPricingCategory, getPricingConfig, getRateLimitWindowConfig } from './config.js';
 
 /** Cost breakdown for a single task or accumulated total. */
 export interface CostBreakdown {
@@ -201,5 +201,40 @@ export class TokenTracker {
 
     result.totalCost = result.inputCost + result.outputCost + result.cacheReadCost + result.cacheCreateCost;
     return result;
+  }
+
+  /**
+   * Calculate the 5h rate limit window percentage for a given cost.
+   * Converts cost to Sonnet-equivalent tokens using the configured Sonnet pricing,
+   * then divides by the configured cap.
+   *
+   * @param totalCost - The total cost in dollars
+   * @param sonnetTokenCap - Optional override for the Sonnet-equivalent token cap (defaults to config value)
+   * @returns The percentage of the 5h window consumed (0-100+)
+   */
+  calculateRateLimitPercentage(totalCost: number, sonnetTokenCap?: number): number {
+    if (totalCost === 0) return 0;
+
+    // Get the configured cap or use the provided override
+    const cap = sonnetTokenCap ?? getRateLimitWindowConfig().sonnetTokenCap;
+
+    // Calculate the average Sonnet cost per token
+    // Using the average of input and output pricing (simplified approach)
+    const sonnetPricing = this.pricingConfig.sonnet;
+    const avgSonnetCostPerToken = (sonnetPricing.inputPerMTok + sonnetPricing.outputPerMTok) / 2 / 1_000_000;
+
+    // Convert cost to Sonnet-equivalent tokens
+    const sonnetEquivalentTokens = totalCost / avgSonnetCostPerToken;
+
+    // Calculate percentage
+    return (sonnetEquivalentTokens / cap) * 100;
+  }
+
+  /**
+   * Get the cumulative 5h window percentage across all recorded tasks.
+   */
+  getCumulativeRateLimitPercentage(sonnetTokenCap?: number): number {
+    const totals = this.getTotals();
+    return this.calculateRateLimitPercentage(totals.cost.totalCost, sonnetTokenCap);
   }
 }

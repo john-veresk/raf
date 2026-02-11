@@ -8,6 +8,8 @@ import {
   formatCost,
   formatTaskTokenSummary,
   formatTokenTotalSummary,
+  formatRateLimitPercentage,
+  TokenSummaryOptions,
   TaskStatus,
 } from '../../src/utils/terminal-symbols.js';
 import type { UsageData } from '../../src/types/config.js';
@@ -474,6 +476,146 @@ describe('Terminal Symbols', () => {
       const lines = result.split('\n');
       expect(lines[0]).toContain('──');
       expect(lines[lines.length - 1]).toContain('──');
+    });
+
+    it('should include rate limit percentage when option enabled', () => {
+      const options: TokenSummaryOptions = {
+        showRateLimitEstimate: true,
+        rateLimitPercentage: 42.5,
+      };
+      const result = formatTokenTotalSummary(makeUsage(), makeCost(3.75), options);
+      expect(result).toContain('~43% of 5h window');
+    });
+
+    it('should not include rate limit when option disabled', () => {
+      const options: TokenSummaryOptions = {
+        showRateLimitEstimate: false,
+        rateLimitPercentage: 42.5,
+      };
+      const result = formatTokenTotalSummary(makeUsage(), makeCost(3.75), options);
+      expect(result).not.toContain('5h window');
+    });
+
+    it('should hide cache tokens when option disabled', () => {
+      const options: TokenSummaryOptions = {
+        showCacheTokens: false,
+      };
+      const result = formatTokenTotalSummary(
+        makeUsage({ cacheReadInputTokens: 125000 }),
+        makeCost(3.75),
+        options
+      );
+      expect(result).not.toContain('Cache:');
+    });
+  });
+
+  describe('formatRateLimitPercentage', () => {
+    it('should format zero percentage', () => {
+      expect(formatRateLimitPercentage(0)).toBe('~0% of 5h window');
+    });
+
+    it('should format very small percentages with 2 decimals', () => {
+      expect(formatRateLimitPercentage(0.05)).toBe('~0.05% of 5h window');
+    });
+
+    it('should format small percentages with 1 decimal', () => {
+      expect(formatRateLimitPercentage(0.5)).toBe('~0.5% of 5h window');
+    });
+
+    it('should round percentages >= 1', () => {
+      expect(formatRateLimitPercentage(1.5)).toBe('~2% of 5h window');
+      expect(formatRateLimitPercentage(42.3)).toBe('~42% of 5h window');
+      expect(formatRateLimitPercentage(100)).toBe('~100% of 5h window');
+    });
+
+    it('should handle percentages over 100%', () => {
+      expect(formatRateLimitPercentage(150.7)).toBe('~151% of 5h window');
+    });
+  });
+
+  describe('formatTaskTokenSummary with options', () => {
+    const makeUsage = (overrides: Partial<UsageData> = {}): UsageData => ({
+      inputTokens: 5234,
+      outputTokens: 1023,
+      cacheReadInputTokens: 0,
+      cacheCreationInputTokens: 0,
+      modelUsage: {},
+      ...overrides,
+    });
+
+    const makeCost = (total: number): CostBreakdown => ({
+      inputCost: 0,
+      outputCost: 0,
+      cacheReadCost: 0,
+      cacheCreateCost: 0,
+      totalCost: total,
+    });
+
+    const makeEntry = (usage: UsageData, cost: CostBreakdown, attempts?: UsageData[]): TaskUsageEntry => ({
+      taskId: '01',
+      usage,
+      cost,
+      attempts: attempts ?? [usage],
+    });
+
+    it('should include rate limit percentage in single-attempt summary', () => {
+      const usage = makeUsage({ cacheReadInputTokens: 18500 });
+      const entry = makeEntry(usage, makeCost(0.42));
+      const options: TokenSummaryOptions = {
+        showRateLimitEstimate: true,
+        rateLimitPercentage: 2.5,
+      };
+
+      const result = formatTaskTokenSummary(entry, undefined, options);
+      expect(result).toContain('~3% of 5h window');
+    });
+
+    it('should hide cache tokens in single-attempt summary when disabled', () => {
+      const usage = makeUsage({ cacheReadInputTokens: 18500 });
+      const entry = makeEntry(usage, makeCost(0.42));
+      const options: TokenSummaryOptions = {
+        showCacheTokens: false,
+      };
+
+      const result = formatTaskTokenSummary(entry, undefined, options);
+      expect(result).not.toContain('Cache:');
+    });
+
+    it('should only show rate limit on total line in multi-attempt summary', () => {
+      const attempt1 = makeUsage({ inputTokens: 1000, outputTokens: 200 });
+      const attempt2 = makeUsage({ inputTokens: 2000, outputTokens: 400 });
+      const totalUsage = makeUsage({ inputTokens: 3000, outputTokens: 600 });
+      const entry = makeEntry(totalUsage, makeCost(0.05), [attempt1, attempt2]);
+      const options: TokenSummaryOptions = {
+        showRateLimitEstimate: true,
+        rateLimitPercentage: 1.5,
+      };
+
+      const result = formatTaskTokenSummary(entry, undefined, options);
+      const lines = result.split('\n');
+
+      // Rate limit should only appear on the Total line
+      expect(lines[0]).not.toContain('5h window'); // Attempt 1
+      expect(lines[1]).not.toContain('5h window'); // Attempt 2
+      expect(lines[2]).toContain('~2% of 5h window'); // Total
+    });
+
+    it('should respect showCacheTokens in multi-attempt summary', () => {
+      const attempt1 = makeUsage({ inputTokens: 1000, outputTokens: 200, cacheReadInputTokens: 5000 });
+      const attempt2 = makeUsage({ inputTokens: 1500, outputTokens: 300, cacheCreationInputTokens: 2000 });
+      const totalUsage = makeUsage({
+        inputTokens: 2500,
+        outputTokens: 500,
+        cacheReadInputTokens: 5000,
+        cacheCreationInputTokens: 2000,
+      });
+      const entry = makeEntry(totalUsage, makeCost(0.08), [attempt1, attempt2]);
+      const options: TokenSummaryOptions = {
+        showCacheTokens: false,
+      };
+
+      const result = formatTaskTokenSummary(entry, undefined, options);
+      expect(result).not.toContain('Cache:');
     });
   });
 });

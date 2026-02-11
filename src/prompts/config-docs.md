@@ -147,6 +147,48 @@ Example override:
 
 Only specify the fields you want to change — unset fields keep their defaults.
 
+### `display` — Token Summary Display Options
+
+Controls what information is shown in token usage summaries after tasks and in the grand total.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `display.showRateLimitEstimate` | `true` | Show estimated 5h rate limit window percentage (e.g., `~42% of 5h window`) |
+| `display.showCacheTokens` | `true` | Show cache read/create token counts in summaries |
+
+Example:
+
+```json
+{
+  "display": {
+    "showRateLimitEstimate": false,
+    "showCacheTokens": true
+  }
+}
+```
+
+### `rateLimitWindow` — Rate Limit Configuration
+
+Controls the rate limit estimation calculation.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `rateLimitWindow.sonnetTokenCap` | `88000` | The Sonnet-equivalent token cap for the 5-hour window. All token usage is normalized to Sonnet-equivalent tokens using pricing ratios. |
+
+The 5h window percentage is calculated as: `(estimatedCost / sonnetCostPerToken) / sonnetTokenCap * 100`
+
+Where `sonnetCostPerToken` is derived from the configured Sonnet pricing. Heavier models (Opus) consume the window faster than lighter ones (Haiku) in proportion to their API pricing ratios.
+
+Example:
+
+```json
+{
+  "rateLimitWindow": {
+    "sonnetTokenCap": 100000
+  }
+}
+```
+
 ## Validation Rules
 
 The config is validated when loaded. Invalid configs cause an error with a descriptive message. The following rules are enforced:
@@ -159,6 +201,8 @@ The config is validated when loaded. Invalid configs cause an error with a descr
 - **`autoCommit`** and **`worktree`** must be booleans.
 - **`commitFormat` values** must be strings.
 - **`pricing`** categories must be `"opus"`, `"sonnet"`, or `"haiku"`. Each field must be a non-negative number.
+- **`display` values** (`showRateLimitEstimate`, `showCacheTokens`) must be booleans.
+- **`rateLimitWindow.sonnetTokenCap`** must be a positive number.
 - The config file must be valid JSON containing an object (not an array or primitive).
 
 ## CLI Precedence
@@ -235,6 +279,13 @@ Uses Sonnet for both planning and execution, reduces planning effort, and defaul
     "opus": { "inputPerMTok": 15, "outputPerMTok": 75, "cacheReadPerMTok": 1.5, "cacheCreatePerMTok": 18.75 },
     "sonnet": { "inputPerMTok": 3, "outputPerMTok": 15, "cacheReadPerMTok": 0.3, "cacheCreatePerMTok": 3.75 },
     "haiku": { "inputPerMTok": 1, "outputPerMTok": 5, "cacheReadPerMTok": 0.1, "cacheCreatePerMTok": 1.25 }
+  },
+  "display": {
+    "showRateLimitEstimate": true,
+    "showCacheTokens": true
+  },
+  "rateLimitWindow": {
+    "sonnetTokenCap": 88000
   }
 }
 ```
