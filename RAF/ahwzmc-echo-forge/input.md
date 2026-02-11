@@ -1,1 +1,4 @@
 - [ ] make sonnet default for easy tasks
+- [ ] add --no-worktree counterpart for when worktree is on by default in config
+- [ ] update README: explain difference between --amend and --resume
+- [ ] update README: rewrite benefits section to highlight RAF's strengths (smart model selection, auto PR creation, structured decisions, etc.)
