@@ -200,7 +200,9 @@ This is rarely needed — prefer using the \`effort\` label so the user's config
 
 After creating all new plan files:
 1. Provide a summary of:
-   - The new tasks you've created
+   - The new tasks you've created, including the effort level for each task. Example format:
+     - Task 02: add-caching (effort: medium)
+     - Task 03: update-docs (effort: low)
    - How they relate to existing tasks
    - Total task count in the project
 2. Display this exit message to the user:

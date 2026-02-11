@@ -168,7 +168,10 @@ or for multiple dependencies:
 ### Step 5: Confirm Completion
 
 After creating all plan files:
-1. Provide a summary of the tasks you've created
+1. Provide a summary of the tasks you've created, including the effort level for each task. Example:
+   - Task 01: setup-database (effort: low)
+   - Task 02: implement-auth (effort: medium)
+   - Task 03: refactor-api (effort: high)
 2. Display this exit message to the user:
 
 \`\`\`
