@@ -135,9 +135,10 @@ After interviewing the user about all NEW tasks, create plan files starting from
 - ${projectPath}/plans/${encodeTaskId(nextTaskNumber + 1)}-task-name.md
 - etc.
 
-Each plan file MUST have Obsidian-style frontmatter at the top, before the \`# Task:\` heading. The frontmatter format uses only a closing \`---\` delimiter (no opening delimiter):
+Each plan file MUST have Obsidian-style frontmatter at the top, before the \`# Task:\` heading. The frontmatter uses standard YAML format with opening and closing \`---\` delimiters:
 
 \`\`\`markdown
+---
 effort: medium
 ---
 # Task: [Task Name]
@@ -186,6 +187,7 @@ The \`effort\` field is REQUIRED in every plan file. It indicates task complexit
 
 Optionally, you can add an explicit \`model\` field to override the effort-based model selection:
 \`\`\`markdown
+---
 effort: medium
 model: opus
 ---

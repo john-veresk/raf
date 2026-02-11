@@ -46,6 +46,7 @@ RAF/
 
 Each plan file MUST have Obsidian-style frontmatter at the top, before the `# Task:` heading:
 ```markdown
+---
 effort: medium
 ---
 # Task: [Task Name]
@@ -77,10 +78,11 @@ effort: medium
 ```
 
 **Frontmatter**:
-- Uses Obsidian-style format: `key: value` lines followed by `---` (no opening delimiter)
+- Uses standard Obsidian/YAML format: opening `---`, `key: value` lines, closing `---`
 - `effort` is REQUIRED: `low`, `medium`, or `high` — determines execution model via `effortMapping`
 - `model` is OPTIONAL: explicit model override (subject to ceiling)
 - Frontmatter is parsed by `src/utils/frontmatter.ts`
+- Parser also supports legacy format (no opening `---`) for backward compatibility
 
 **Dependencies Section**:
 - Optional - omit if task has no dependencies
