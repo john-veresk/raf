@@ -15,7 +15,6 @@ import {
   getMaxRetries,
   getAutoCommit,
   getWorktreeDefault,
-  getClaudeCommand,
   getModelShortName,
   resetConfigCache,
   saveConfig,
@@ -96,7 +95,6 @@ describe('Config', () => {
         autoCommit: false,
         worktree: true,
         commitFormat: { prefix: 'MY', task: '{prefix}[{projectId}] {description}' },
-        claudeCommand: '/usr/local/bin/claude',
       };
       expect(() => validateConfig(config)).not.toThrow();
     });
@@ -111,6 +109,10 @@ describe('Config', () => {
     // Unknown keys
     it('should reject unknown top-level keys', () => {
       expect(() => validateConfig({ unknownKey: 'value' })).toThrow('Unknown config key: unknownKey');
+    });
+
+    it('should reject removed claudeCommand key', () => {
+      expect(() => validateConfig({ claudeCommand: 'claude' })).toThrow('Unknown config key: claudeCommand');
     });
 
     it('should reject unknown model keys', () => {
@@ -206,19 +208,6 @@ describe('Config', () => {
 
     it('should reject non-boolean worktree', () => {
       expect(() => validateConfig({ worktree: 1 })).toThrow('worktree must be a boolean');
-    });
-
-    // Invalid claudeCommand
-    it('should reject empty claudeCommand', () => {
-      expect(() => validateConfig({ claudeCommand: '' })).toThrow('claudeCommand must be a non-empty string');
-    });
-
-    it('should reject whitespace-only claudeCommand', () => {
-      expect(() => validateConfig({ claudeCommand: '   ' })).toThrow('claudeCommand must be a non-empty string');
-    });
-
-    it('should reject non-string claudeCommand', () => {
-      expect(() => validateConfig({ claudeCommand: 123 })).toThrow('claudeCommand must be a non-empty string');
     });
 
     // Non-string commitFormat values
@@ -372,7 +361,6 @@ describe('Config', () => {
       expect(config.maxRetries).toBe(3);
       expect(config.autoCommit).toBe(true);
       expect(config.worktree).toBe(false);
-      expect(config.claudeCommand).toBe('claude');
     });
   });
 
@@ -490,10 +478,6 @@ describe('Config', () => {
 
     it('should default worktree to false', () => {
       expect(DEFAULT_CONFIG.worktree).toBe(false);
-    });
-
-    it('should default claudeCommand to claude', () => {
-      expect(DEFAULT_CONFIG.claudeCommand).toBe('claude');
     });
 
     it('should default commit format to match previous hardcoded format', () => {

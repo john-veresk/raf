@@ -152,10 +152,9 @@ npm run lint       # Type check without emit
   - `autoCommit` — whether Claude auto-commits on task completion
   - `worktree` — default worktree mode for plan/do commands
   - `commitFormat.*` — commit message templates (`task`, `plan`, `amend`, `prefix`)
-  - `claudeCommand` — path/name of the Claude CLI binary
 - **Validation**: strict — unknown keys rejected at every nesting level (`src/utils/config.ts`)
 - **Deep-merge**: partial overrides merge with defaults (only specify keys you want to change)
-- **Helper accessors**: `getModel()`, `getEffort()`, `getCommitFormat()`, `getCommitPrefix()`, `getTimeout()`, `getMaxRetries()`, `getAutoCommit()`, `getWorktreeDefault()`, `getClaudeCommand()` (all in `src/utils/config.ts`)
+- **Helper accessors**: `getModel()`, `getEffort()`, `getCommitFormat()`, `getCommitPrefix()`, `getTimeout()`, `getMaxRetries()`, `getAutoCommit()`, `getWorktreeDefault()` (all in `src/utils/config.ts`)
 - **Full reference**: `src/prompts/config-docs.md` (also serves as system prompt for `raf config`)
 
 ### `raf config` Command

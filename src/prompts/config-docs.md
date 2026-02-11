@@ -147,12 +147,6 @@ Example override:
 
 Only specify the fields you want to change — unset fields keep their defaults.
 
-### `claudeCommand` — Claude CLI Path
-
-- **Type**: string (non-empty)
-- **Default**: `"claude"`
-- **Description**: The command or path used to invoke the Claude CLI. Change this if `claude` is not on your PATH or you want to use a wrapper script.
-
 ## Validation Rules
 
 The config is validated when loaded. Invalid configs cause an error with a descriptive message. The following rules are enforced:
@@ -164,7 +158,6 @@ The config is validated when loaded. Invalid configs cause an error with a descr
 - **`maxRetries`** must be a non-negative integer.
 - **`autoCommit`** and **`worktree`** must be booleans.
 - **`commitFormat` values** must be strings.
-- **`claudeCommand`** must be a non-empty string.
 - **`pricing`** categories must be `"opus"`, `"sonnet"`, or `"haiku"`. Each field must be a non-negative number.
 - The config file must be valid JSON containing an object (not an array or primitive).
 
@@ -238,7 +231,6 @@ Uses Sonnet for both planning and execution, reduces planning effort, and defaul
     "amend": "{prefix}[{projectId}] Amend: {projectName}",
     "prefix": "RAF"
   },
-  "claudeCommand": "claude",
   "pricing": {
     "opus": { "inputPerMTok": 15, "outputPerMTok": 75, "cacheReadPerMTok": 1.5, "cacheCreatePerMTok": 18.75 },
     "sonnet": { "inputPerMTok": 3, "outputPerMTok": 15, "cacheReadPerMTok": 0.3, "cacheCreatePerMTok": 3.75 },

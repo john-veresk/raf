@@ -63,7 +63,6 @@ export interface RafConfig {
   autoCommit: boolean;
   worktree: boolean;
   commitFormat: CommitFormatConfig;
-  claudeCommand: string;
   pricing: PricingConfig;
 }
 
@@ -94,7 +93,6 @@ export const DEFAULT_CONFIG: RafConfig = {
     amend: '{prefix}[{projectId}] Amend: {projectName}',
     prefix: 'RAF',
   },
-  claudeCommand: 'claude',
   pricing: {
     opus: {
       inputPerMTok: 15,
@@ -142,7 +140,6 @@ export const DEFAULT_RAF_CONFIG = {
   defaultTimeout: DEFAULT_CONFIG.timeout,
   defaultMaxRetries: DEFAULT_CONFIG.maxRetries,
   autoCommit: DEFAULT_CONFIG.autoCommit,
-  claudeCommand: DEFAULT_CONFIG.claudeCommand,
 };
 
 export interface PlanCommandOptions {

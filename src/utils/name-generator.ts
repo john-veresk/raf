@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { logger } from './logger.js';
 import { sanitizeProjectName } from './validation.js';
-import { getModel, getClaudeCommand } from './config.js';
+import { getModel } from './config.js';
 
 const NAME_GENERATION_PROMPT = `Generate a short, punchy, creative project name (1-3 words, kebab-case).
 
@@ -45,9 +45,8 @@ Project description:`;
 function runClaudePrint(prompt: string): Promise<string | null> {
   return new Promise((resolve) => {
     const model = getModel('nameGeneration');
-    const cmd = getClaudeCommand();
 
-    const proc = spawn(cmd, [
+    const proc = spawn('claude', [
       '--model', model,
       '--no-session-persistence',
       '-p',

@@ -6,12 +6,11 @@ import { logger } from '../utils/logger.js';
 import { renderStreamEvent } from '../parsers/stream-renderer.js';
 import type { UsageData } from '../types/config.js';
 import { getHeadCommitHash, getHeadCommitMessage, isFileCommittedInHead } from './git.js';
-import { getClaudeCommand, getModel } from '../utils/config.js';
+import { getModel } from '../utils/config.js';
 
 function getClaudePath(): string {
-  const cmd = getClaudeCommand();
   try {
-    return execSync(`which ${cmd}`, { encoding: 'utf-8' }).trim();
+    return execSync('which claude', { encoding: 'utf-8' }).trim();
   } catch {
     throw new Error('Claude CLI not found. Please ensure it is installed and in your PATH.');
   }

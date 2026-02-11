@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { execSync } from 'node:child_process';
-import { getModel, getClaudeCommand } from '../utils/config.js';
+import { getModel } from '../utils/config.js';
 
 /**
  * Failure types that can be detected programmatically without using the API.
@@ -213,9 +213,8 @@ function extractRelevantOutput(output: string, maxLines: number): string {
  * Get the path to Claude CLI.
  */
 function getClaudePath(): string {
-  const cmd = getClaudeCommand();
   try {
-    return execSync(`which ${cmd}`, { encoding: 'utf-8' }).trim();
+    return execSync('which claude', { encoding: 'utf-8' }).trim();
   } catch {
     throw new Error('Claude CLI not found. Please ensure it is installed and in your PATH.');
   }

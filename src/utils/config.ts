@@ -37,7 +37,7 @@ export function getClaudeSettingsPath(): string {
 
 const VALID_TOP_LEVEL_KEYS = new Set<string>([
   'models', 'effort', 'timeout', 'maxRetries', 'autoCommit',
-  'worktree', 'commitFormat', 'claudeCommand', 'pricing',
+  'worktree', 'commitFormat', 'pricing',
 ]);
 
 const VALID_PRICING_CATEGORIES = new Set<string>(['opus', 'sonnet', 'haiku']);
@@ -155,13 +155,6 @@ export function validateConfig(config: unknown): UserConfig {
     }
   }
 
-  // claudeCommand
-  if (obj.claudeCommand !== undefined) {
-    if (typeof obj.claudeCommand !== 'string' || obj.claudeCommand.trim() === '') {
-      throw new ConfigValidationError('claudeCommand must be a non-empty string');
-    }
-  }
-
   // pricing
   if (obj.pricing !== undefined) {
     if (typeof obj.pricing !== 'object' || obj.pricing === null || Array.isArray(obj.pricing)) {
@@ -211,7 +204,6 @@ function deepMerge(defaults: RafConfig, overrides: UserConfig): RafConfig {
   if (overrides.maxRetries !== undefined) result.maxRetries = overrides.maxRetries;
   if (overrides.autoCommit !== undefined) result.autoCommit = overrides.autoCommit;
   if (overrides.worktree !== undefined) result.worktree = overrides.worktree;
-  if (overrides.claudeCommand !== undefined) result.claudeCommand = overrides.claudeCommand;
 
   return result;
 }
@@ -238,7 +230,7 @@ export function resolveConfig(configPath?: string): RafConfig {
 /**
  * @deprecated Use resolveConfig() instead. Kept for backward compatibility.
  */
-export function loadConfig(_rafDir: string): { defaultTimeout: number; defaultMaxRetries: number; autoCommit: boolean; claudeCommand: string } {
+export function loadConfig(_rafDir: string): { defaultTimeout: number; defaultMaxRetries: number; autoCommit: boolean } {
   return { ...DEFAULT_RAF_CONFIG };
 }
 
@@ -299,10 +291,6 @@ export function getAutoCommit(): boolean {
 
 export function getWorktreeDefault(): boolean {
   return getResolvedConfig().worktree;
-}
-
-export function getClaudeCommand(): string {
-  return getResolvedConfig().claudeCommand;
 }
 
 /**

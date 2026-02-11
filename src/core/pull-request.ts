@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { logger } from '../utils/logger.js';
-import { getModel, getClaudeCommand, getModelShortName } from '../utils/config.js';
+import { getModel, getModelShortName } from '../utils/config.js';
 import { extractProjectName, getInputPath, getDecisionsPath, getOutcomesDir, TASK_ID_PATTERN } from '../utils/paths.js';
 
 export interface PrCreateResult {
@@ -354,10 +354,9 @@ export function filterClaudeOutput(output: string): string {
  * Call Claude to generate a PR body.
  */
 async function callClaudeForPrBody(prompt: string, timeoutMs: number): Promise<string> {
-  const cmd = getClaudeCommand();
   let claudePath: string;
   try {
-    claudePath = execSync(`which ${cmd}`, { encoding: 'utf-8', stdio: 'pipe' }).trim();
+    claudePath = execSync('which claude', { encoding: 'utf-8', stdio: 'pipe' }).trim();
   } catch {
     throw new Error('Claude CLI not found');
   }
