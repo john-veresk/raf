@@ -135,9 +135,11 @@ After interviewing the user about all NEW tasks, create plan files starting from
 - ${projectPath}/plans/${encodeTaskId(nextTaskNumber + 1)}-task-name.md
 - etc.
 
-Each plan file should follow this structure:
+Each plan file MUST have Obsidian-style frontmatter at the top, before the \`# Task:\` heading. The frontmatter format uses only a closing \`---\` delimiter (no opening delimiter):
 
 \`\`\`markdown
+effort: medium
+---
 # Task: [Task Name]
 
 ## Objective
@@ -175,6 +177,23 @@ Each plan file should follow this structure:
 [Reference to existing task outcomes if relevant]
 \`\`\`
 
+### Frontmatter Requirements
+
+The \`effort\` field is REQUIRED in every plan file. It indicates task complexity and determines which Claude model will execute the task:
+- \`effort: low\` — Trivial/mechanical changes, simple one-file edits, config changes
+- \`effort: medium\` — Well-scoped feature work, bug fixes with clear plans, multi-file changes following existing patterns
+- \`effort: high\` — Architectural changes, complex logic, tasks requiring deep codebase understanding
+
+Optionally, you can add an explicit \`model\` field to override the effort-based model selection:
+\`\`\`markdown
+effort: medium
+model: opus
+---
+# Task: ...
+\`\`\`
+
+This is rarely needed — prefer using the \`effort\` label so the user's config controls the actual model used.
+
 ### Step 5: Confirm Completion
 
 After creating all new plan files:
@@ -201,19 +220,15 @@ Planning complete! To exit this session and run your tasks:
 7. Specify task dependencies using the ## Dependencies section with task IDs only (e.g., "01, 02")
 8. Tasks without dependencies should omit the Dependencies section entirely
 9. Be specific - vague plans lead to poor execution
+10. ALWAYS include the \`effort\` frontmatter field in every plan file — assess each task's complexity
 
 ## Plan Output Style
 
-**CRITICAL**: Plans should be HIGH-LEVEL and CONCEPTUAL:
-- Describe WHAT needs to be done, not HOW to code it
-- Focus on architecture, data flow, and component interactions
-- NO code snippets or implementation details in plans
-- File paths ARE acceptable when referencing:
-  - Existing project files to modify
-  - Previous plan/outcome files for context
-  - Project structure and directories
-- Let the executing agent decide implementation specifics
-- Plans guide the work; they don't prescribe exact code`;
+Plans can include whatever level of detail you deem helpful for the executing agent. Use your judgment:
+- Include implementation details when they clarify the approach
+- Code snippets are acceptable when they help illustrate a specific pattern
+- File paths are helpful when referencing existing project files, patterns, or directories
+- Focus on clarity — the goal is for the executing agent to understand what needs to be done`;
 
   const userMessage = `I want to add the following new tasks to this project:
 

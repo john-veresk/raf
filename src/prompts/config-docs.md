@@ -37,24 +37,36 @@ Controls which Claude model is used for each scenario. Values can be a short ali
 | Key | Default | Description |
 |-----|---------|-------------|
 | `models.plan` | `"opus"` | Model used for planning sessions (`raf plan`) |
-| `models.execute` | `"opus"` | Model used for task execution (`raf do`) |
+| `models.execute` | `"opus"` | Ceiling model for task execution (`raf do`). Per-task models from effort frontmatter are capped to this tier. Also used as the fallback when a plan has no effort frontmatter. |
 | `models.nameGeneration` | `"sonnet"` | Model used for generating project names |
 | `models.failureAnalysis` | `"haiku"` | Model used for analyzing task failures |
 | `models.prGeneration` | `"sonnet"` | Model used for generating PR titles and descriptions |
 | `models.config` | `"sonnet"` | Model used for the interactive config editor (`raf config`) |
 
-### `effort` — Claude Effort Level
+### `effortMapping` — Task Effort to Model Mapping
 
-Controls the effort level passed to Claude for each scenario. All values must be one of: `"low"`, `"medium"`, `"high"`.
+Maps task complexity labels (in plan frontmatter) to Claude models. When a plan file has `effort: medium`, RAF resolves the execution model using this mapping.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `effort.plan` | `"high"` | Effort level for planning sessions |
-| `effort.execute` | `"medium"` | Effort level for task execution |
-| `effort.nameGeneration` | `"low"` | Effort level for project name generation |
-| `effort.failureAnalysis` | `"low"` | Effort level for failure analysis |
-| `effort.prGeneration` | `"medium"` | Effort level for PR generation |
-| `effort.config` | `"medium"` | Effort level for config editing sessions |
+| `effortMapping.low` | `"haiku"` | Model for low-complexity tasks |
+| `effortMapping.medium` | `"sonnet"` | Model for medium-complexity tasks |
+| `effortMapping.high` | `"opus"` | Model for high-complexity tasks |
+
+Values must be a short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID.
+
+**Interaction with `models.execute`**: The `models.execute` value acts as a ceiling. If a task's effort maps to a more expensive model than the ceiling, the ceiling model is used instead. This gives users budget control while allowing tasks to use cheaper models when appropriate.
+
+Example:
+```json
+{
+  "models": { "execute": "sonnet" },
+  "effortMapping": { "low": "haiku", "medium": "sonnet", "high": "opus" }
+}
+```
+- Task with `effort: low` → haiku (under ceiling)
+- Task with `effort: medium` → sonnet (at ceiling)
+- Task with `effort: high` → sonnet (capped to ceiling, not opus)
 
 ### `timeout` — Task Timeout
 
@@ -206,8 +218,8 @@ Example:
 The config is validated when loaded. Invalid configs cause an error with a descriptive message. The following rules are enforced:
 
 - **Unknown keys are rejected** at every nesting level. Typos like `"model"` instead of `"models"` will be caught.
-- **Model values** must be a short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID matching the pattern `claude-{family}-{version}` (e.g., `"claude-sonnet-4-5-20250929"`).
-- **Effort values** must be exactly `"low"`, `"medium"`, or `"high"` (case-sensitive).
+- **Model values** (`models.*`, `effortMapping.*`) must be a short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID matching the pattern `claude-{family}-{version}` (e.g., `"claude-sonnet-4-5-20250929"`).
+- **`effortMapping` keys** must be `"low"`, `"medium"`, or `"high"`.
 - **`timeout`** must be a positive finite number.
 - **`maxRetries`** must be a non-negative integer.
 - **`autoCommit`**, **`worktree`**, and **`syncMainBranch`** must be booleans.
@@ -248,14 +260,11 @@ Uses Sonnet instead of Opus for task execution. Everything else stays at default
     "plan": "sonnet",
     "execute": "sonnet"
   },
-  "effort": {
-    "plan": "medium"
-  },
   "worktree": true
 }
 ```
 
-Uses Sonnet for both planning and execution, reduces planning effort, and defaults to worktree mode.
+Uses Sonnet for planning and caps task execution at Sonnet (tasks with `effort: high` will use Sonnet instead of Opus). Defaults to worktree mode.
 
 ### Full — All Settings Explicit
 
@@ -269,13 +278,10 @@ Uses Sonnet for both planning and execution, reduces planning effort, and defaul
     "prGeneration": "sonnet",
     "config": "sonnet"
   },
-  "effort": {
-    "plan": "high",
-    "execute": "medium",
-    "nameGeneration": "low",
-    "failureAnalysis": "low",
-    "prGeneration": "medium",
-    "config": "medium"
+  "effortMapping": {
+    "low": "haiku",
+    "medium": "sonnet",
+    "high": "opus"
   },
   "timeout": 60,
   "maxRetries": 3,

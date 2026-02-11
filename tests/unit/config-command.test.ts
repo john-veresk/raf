@@ -8,7 +8,6 @@ import {
   ConfigValidationError,
   resolveConfig,
   getModel,
-  getEffort,
   resetConfigCache,
 } from '../../src/utils/config.js';
 import { DEFAULT_CONFIG } from '../../src/types/config.js';
@@ -65,8 +64,8 @@ describe('Config Command', () => {
       expect(() => validateConfig(config)).not.toThrow();
     });
 
-    it('should accept valid config with effort override', () => {
-      const config = { effort: { plan: 'low' } };
+    it('should accept valid config with effortMapping override', () => {
+      const config = { effortMapping: { low: 'haiku', medium: 'sonnet' } };
       expect(() => validateConfig(config)).not.toThrow();
     });
 
@@ -85,8 +84,8 @@ describe('Config Command', () => {
       expect(() => validateConfig(config)).toThrow(ConfigValidationError);
     });
 
-    it('should reject config with invalid effort level', () => {
-      const config = { effort: { plan: 'max' } };
+    it('should reject config with invalid effortMapping model', () => {
+      const config = { effortMapping: { low: 'gpt-4' } };
       expect(() => validateConfig(config)).toThrow(ConfigValidationError);
     });
 
@@ -192,7 +191,8 @@ describe('Config Command', () => {
     it('should have valid default fallback values for config scenario', () => {
       // These are the values that runConfigSession uses when config loading fails
       expect(DEFAULT_CONFIG.models.config).toBe('sonnet');
-      expect(DEFAULT_CONFIG.effort.config).toBe('medium');
+      // effortMapping defaults used for per-task model resolution
+      expect(DEFAULT_CONFIG.effortMapping.medium).toBe('sonnet');
     });
 
     it('should be able to read raw file contents even when config is invalid JSON', () => {

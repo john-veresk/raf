@@ -473,7 +473,9 @@ describe('ClaudeRunner', () => {
     });
   });
 
-  describe('effort level', () => {
+  // Note: effortLevel option was removed from ClaudeRunner in favor of per-task model resolution
+  // via plan frontmatter. See effortMapping config and frontmatter.ts for the new approach.
+  describe('environment handling', () => {
     function createMockProcess() {
       const stdout = new EventEmitter();
       const stderr = new EventEmitter();
@@ -484,35 +486,7 @@ describe('ClaudeRunner', () => {
       return proc;
     }
 
-    it('should set CLAUDE_CODE_EFFORT_LEVEL env var in run() when effortLevel is provided', async () => {
-      const mockProc = createMockProcess();
-      mockSpawn.mockReturnValue(mockProc);
-
-      const runner = new ClaudeRunner();
-      const runPromise = runner.run('test prompt', { timeout: 60, effortLevel: 'medium' });
-
-      mockProc.emit('close', 0);
-      await runPromise;
-
-      const spawnOptions = mockSpawn.mock.calls[0][2];
-      expect(spawnOptions.env.CLAUDE_CODE_EFFORT_LEVEL).toBe('medium');
-    });
-
-    it('should set CLAUDE_CODE_EFFORT_LEVEL env var in runVerbose() when effortLevel is provided', async () => {
-      const mockProc = createMockProcess();
-      mockSpawn.mockReturnValue(mockProc);
-
-      const runner = new ClaudeRunner();
-      const runPromise = runner.runVerbose('test prompt', { timeout: 60, effortLevel: 'medium' });
-
-      mockProc.emit('close', 0);
-      await runPromise;
-
-      const spawnOptions = mockSpawn.mock.calls[0][2];
-      expect(spawnOptions.env.CLAUDE_CODE_EFFORT_LEVEL).toBe('medium');
-    });
-
-    it('should NOT set CLAUDE_CODE_EFFORT_LEVEL when effortLevel is not provided in run()', async () => {
+    it('should pass process.env to child process in run()', async () => {
       const mockProc = createMockProcess();
       mockSpawn.mockReturnValue(mockProc);
 
@@ -523,11 +497,10 @@ describe('ClaudeRunner', () => {
       await runPromise;
 
       const spawnOptions = mockSpawn.mock.calls[0][2];
-      // env should be process.env directly (no CLAUDE_CODE_EFFORT_LEVEL override)
       expect(spawnOptions.env).toBe(process.env);
     });
 
-    it('should NOT set CLAUDE_CODE_EFFORT_LEVEL when effortLevel is not provided in runVerbose()', async () => {
+    it('should pass process.env to child process in runVerbose()', async () => {
       const mockProc = createMockProcess();
       mockSpawn.mockReturnValue(mockProc);
 
@@ -538,41 +511,7 @@ describe('ClaudeRunner', () => {
       await runPromise;
 
       const spawnOptions = mockSpawn.mock.calls[0][2];
-      // env should be process.env directly (no CLAUDE_CODE_EFFORT_LEVEL override)
       expect(spawnOptions.env).toBe(process.env);
-    });
-
-    it('should support different effort levels', async () => {
-      for (const level of ['low', 'medium', 'high'] as const) {
-        const mockProc = createMockProcess();
-        mockSpawn.mockReturnValue(mockProc);
-
-        const runner = new ClaudeRunner();
-        const runPromise = runner.run('test prompt', { timeout: 60, effortLevel: level });
-
-        mockProc.emit('close', 0);
-        await runPromise;
-
-        const spawnOptions = mockSpawn.mock.calls[mockSpawn.mock.calls.length - 1][2];
-        expect(spawnOptions.env.CLAUDE_CODE_EFFORT_LEVEL).toBe(level);
-      }
-    });
-
-    it('should preserve other env vars when effortLevel is set', async () => {
-      const mockProc = createMockProcess();
-      mockSpawn.mockReturnValue(mockProc);
-
-      const runner = new ClaudeRunner();
-      const runPromise = runner.run('test prompt', { timeout: 60, effortLevel: 'medium' });
-
-      mockProc.emit('close', 0);
-      await runPromise;
-
-      const spawnOptions = mockSpawn.mock.calls[0][2];
-      // Should have PATH from process.env
-      expect(spawnOptions.env.PATH).toBe(process.env.PATH);
-      // And the injected effort level
-      expect(spawnOptions.env.CLAUDE_CODE_EFFORT_LEVEL).toBe('medium');
     });
   });
 

@@ -44,8 +44,10 @@ RAF/
 
 ### Plan File Structure
 
-Each plan file follows this structure:
+Each plan file MUST have Obsidian-style frontmatter at the top, before the `# Task:` heading:
 ```markdown
+effort: medium
+---
 # Task: [Task Name]
 
 ## Objective
@@ -73,6 +75,12 @@ Each plan file follows this structure:
 ## Notes
 [Additional context]
 ```
+
+**Frontmatter**:
+- Uses Obsidian-style format: `key: value` lines followed by `---` (no opening delimiter)
+- `effort` is REQUIRED: `low`, `medium`, or `high` — determines execution model via `effortMapping`
+- `model` is OPTIONAL: explicit model override (subject to ceiling)
+- Frontmatter is parsed by `src/utils/frontmatter.ts`
 
 **Dependencies Section**:
 - Optional - omit if task has no dependencies
@@ -146,7 +154,7 @@ npm run lint       # Type check without emit
 - **Config file**: `~/.raf/raf.config.json` (optional — missing file uses all defaults)
 - **Schema** (defined in `src/types/config.ts`):
   - `models.*` — Claude model per scenario (`execute`, `plan`, `nameGeneration`, `failureAnalysis`, `prGeneration`, `config`)
-  - `effort.*` — effort level per scenario (same scenarios as models)
+  - `effortMapping.*` — maps task effort labels (`low`, `medium`, `high`) to models
   - `timeout` — task timeout in seconds
   - `maxRetries` — max retry attempts per task
   - `autoCommit` — whether Claude auto-commits on task completion
@@ -155,8 +163,15 @@ npm run lint       # Type check without emit
   - `commitFormat.*` — commit message templates (`task`, `plan`, `amend`, `prefix`)
 - **Validation**: strict — unknown keys rejected at every nesting level (`src/utils/config.ts`)
 - **Deep-merge**: partial overrides merge with defaults (only specify keys you want to change)
-- **Helper accessors**: `getModel()`, `getEffort()`, `getCommitFormat()`, `getCommitPrefix()`, `getTimeout()`, `getMaxRetries()`, `getAutoCommit()`, `getWorktreeDefault()`, `getSyncMainBranch()` (all in `src/utils/config.ts`)
+- **Helper accessors**: `getModel()`, `getEffortMapping()`, `resolveEffortToModel()`, `getModelTier()`, `applyModelCeiling()`, `getCommitFormat()`, `getCommitPrefix()`, `getTimeout()`, `getMaxRetries()`, `getAutoCommit()`, `getWorktreeDefault()`, `getSyncMainBranch()` (all in `src/utils/config.ts`)
 - **Full reference**: `src/prompts/config-docs.md` (also serves as system prompt for `raf config`)
+
+### Per-Task Model Resolution
+- Plan files contain `effort` frontmatter that determines which model executes the task
+- `effortMapping` config maps effort labels to models: `{ low: "haiku", medium: "sonnet", high: "opus" }`
+- `models.execute` acts as a ceiling — tasks can't exceed this model tier
+- On retry, tasks escalate to the ceiling model for a better chance of success
+- If a plan has no effort frontmatter, `models.execute` is used as a fallback (with a warning)
 
 ### `raf config` Command
 - `raf config` — launches interactive Claude session for viewing/editing config

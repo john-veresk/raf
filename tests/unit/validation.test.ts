@@ -76,10 +76,12 @@ describe('Validation', () => {
   });
 
   describe('resolveModelOption', () => {
-    it('should return opus as default', () => {
-      expect(resolveModelOption()).toBe('opus');
-      expect(resolveModelOption(undefined, undefined)).toBe('opus');
-      expect(resolveModelOption(undefined, false)).toBe('opus');
+    it('should return a valid model as default', () => {
+      // Default comes from config, could be short alias or full model ID
+      const result = resolveModelOption();
+      expect(result).toMatch(/^(opus|sonnet|haiku|claude-(opus|sonnet|haiku)-.+)$/);
+      expect(resolveModelOption(undefined, undefined)).toBe(result);
+      expect(resolveModelOption(undefined, false)).toBe(result);
     });
 
     it('should use --model flag when provided', () => {

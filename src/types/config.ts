@@ -6,10 +6,11 @@ export type ClaudeModelAlias = 'sonnet' | 'haiku' | 'opus';
  * matching the pattern `claude-{family}-{version}` (e.g., `claude-opus-4-5-20251101`).
  */
 export type ClaudeModelName = ClaudeModelAlias | (string & { __brand?: 'FullModelId' });
-export type EffortLevel = 'low' | 'medium' | 'high';
+
+/** Task complexity label for per-task effort frontmatter. Maps to models via effortMapping. */
+export type TaskEffortLevel = 'low' | 'medium' | 'high';
 
 export type ModelScenario = 'plan' | 'execute' | 'nameGeneration' | 'failureAnalysis' | 'prGeneration' | 'config';
-export type EffortScenario = ModelScenario;
 export type CommitFormatType = 'task' | 'plan' | 'amend';
 
 export interface ModelsConfig {
@@ -21,13 +22,14 @@ export interface ModelsConfig {
   config: ClaudeModelName;
 }
 
-export interface EffortConfig {
-  plan: EffortLevel;
-  execute: EffortLevel;
-  nameGeneration: EffortLevel;
-  failureAnalysis: EffortLevel;
-  prGeneration: EffortLevel;
-  config: EffortLevel;
+/**
+ * Maps task complexity labels to model names.
+ * Used to resolve per-task effort frontmatter to a model.
+ */
+export interface EffortMappingConfig {
+  low: ClaudeModelName;
+  medium: ClaudeModelName;
+  high: ClaudeModelName;
 }
 
 export interface CommitFormatConfig {
@@ -71,7 +73,8 @@ export interface RateLimitWindowConfig {
 
 export interface RafConfig {
   models: ModelsConfig;
-  effort: EffortConfig;
+  /** Maps task complexity labels (low/medium/high) to models. Used for per-task effort frontmatter. */
+  effortMapping: EffortMappingConfig;
   timeout: number;
   maxRetries: number;
   autoCommit: boolean;
@@ -93,13 +96,10 @@ export const DEFAULT_CONFIG: RafConfig = {
     prGeneration: 'sonnet',
     config: 'sonnet',
   },
-  effort: {
-    plan: 'high',
-    execute: 'medium',
-    nameGeneration: 'low',
-    failureAnalysis: 'low',
-    prGeneration: 'medium',
-    config: 'medium',
+  effortMapping: {
+    low: 'haiku',
+    medium: 'sonnet',
+    high: 'opus',
   },
   timeout: 60,
   maxRetries: 3,
@@ -158,7 +158,9 @@ export const FULL_MODEL_ID_PATTERN = /^claude-[a-z]+-\d+(-\d+)*$/;
 
 /** @deprecated Use VALID_MODEL_ALIASES instead */
 export const VALID_MODELS = VALID_MODEL_ALIASES;
-export const VALID_EFFORTS: readonly EffortLevel[] = ['low', 'medium', 'high'];
+
+/** Valid task effort levels for plan frontmatter. */
+export const VALID_TASK_EFFORTS: readonly TaskEffortLevel[] = ['low', 'medium', 'high'];
 
 // Keep backward-compat exports used by other modules
 /** @deprecated Use DEFAULT_CONFIG instead */

@@ -8,17 +8,16 @@ import {
   UserConfig,
   VALID_MODEL_ALIASES,
   FULL_MODEL_ID_PATTERN,
-  VALID_EFFORTS,
   ClaudeModelName,
-  EffortLevel,
+  TaskEffortLevel,
   ModelScenario,
-  EffortScenario,
   CommitFormatType,
   PricingCategory,
   ModelPricing,
   PricingConfig,
   DisplayConfig,
   RateLimitWindowConfig,
+  EffortMappingConfig,
 } from '../types/config.js';
 
 const CONFIG_DIR = path.join(os.homedir(), '.raf');
@@ -38,7 +37,7 @@ export function getClaudeSettingsPath(): string {
 // ---- Validation ----
 
 const VALID_TOP_LEVEL_KEYS = new Set<string>([
-  'models', 'effort', 'timeout', 'maxRetries', 'autoCommit',
+  'models', 'effortMapping', 'timeout', 'maxRetries', 'autoCommit',
   'worktree', 'syncMainBranch', 'commitFormat', 'pricing', 'display', 'rateLimitWindow',
 ]);
 
@@ -49,9 +48,7 @@ const VALID_MODEL_KEYS = new Set<string>([
   'plan', 'execute', 'nameGeneration', 'failureAnalysis', 'prGeneration', 'config',
 ]);
 
-const VALID_EFFORT_KEYS = new Set<string>([
-  'plan', 'execute', 'nameGeneration', 'failureAnalysis', 'prGeneration', 'config',
-]);
+const VALID_EFFORT_MAPPING_KEYS = new Set<string>(['low', 'medium', 'high']);
 
 const VALID_COMMIT_FORMAT_KEYS = new Set<string>(['task', 'plan', 'amend', 'prefix']);
 
@@ -105,16 +102,18 @@ export function validateConfig(config: unknown): UserConfig {
     }
   }
 
-  // effort
-  if (obj.effort !== undefined) {
-    if (typeof obj.effort !== 'object' || obj.effort === null || Array.isArray(obj.effort)) {
-      throw new ConfigValidationError('effort must be an object');
+  // effortMapping
+  if (obj.effortMapping !== undefined) {
+    if (typeof obj.effortMapping !== 'object' || obj.effortMapping === null || Array.isArray(obj.effortMapping)) {
+      throw new ConfigValidationError('effortMapping must be an object');
     }
-    const effort = obj.effort as Record<string, unknown>;
-    checkUnknownKeys(effort, VALID_EFFORT_KEYS, 'effort');
-    for (const [key, val] of Object.entries(effort)) {
-      if (typeof val !== 'string' || !(VALID_EFFORTS as readonly string[]).includes(val)) {
-        throw new ConfigValidationError(`effort.${key} must be one of: ${VALID_EFFORTS.join(', ')}`);
+    const effortMapping = obj.effortMapping as Record<string, unknown>;
+    checkUnknownKeys(effortMapping, VALID_EFFORT_MAPPING_KEYS, 'effortMapping');
+    for (const [key, val] of Object.entries(effortMapping)) {
+      if (typeof val !== 'string' || !isValidModelName(val)) {
+        throw new ConfigValidationError(
+          `effortMapping.${key} must be a short alias (${VALID_MODEL_ALIASES.join(', ')}) or a full model ID (e.g., claude-sonnet-4-5-20250929)`
+        );
       }
     }
   }
@@ -228,8 +227,8 @@ function deepMerge(defaults: RafConfig, overrides: UserConfig): RafConfig {
   if (overrides.models) {
     result.models = { ...defaults.models, ...overrides.models };
   }
-  if (overrides.effort) {
-    result.effort = { ...defaults.effort, ...overrides.effort };
+  if (overrides.effortMapping) {
+    result.effortMapping = { ...defaults.effortMapping, ...overrides.effortMapping };
   }
   if (overrides.commitFormat) {
     result.commitFormat = { ...defaults.commitFormat, ...overrides.commitFormat };
@@ -269,7 +268,7 @@ export function resolveConfig(configPath?: string): RafConfig {
     return {
       ...DEFAULT_CONFIG,
       models: { ...DEFAULT_CONFIG.models },
-      effort: { ...DEFAULT_CONFIG.effort },
+      effortMapping: { ...DEFAULT_CONFIG.effortMapping },
       commitFormat: { ...DEFAULT_CONFIG.commitFormat },
       display: { ...DEFAULT_CONFIG.display },
       rateLimitWindow: { ...DEFAULT_CONFIG.rateLimitWindow },
@@ -320,8 +319,70 @@ export function getModel(scenario: ModelScenario): ClaudeModelName {
   return getResolvedConfig().models[scenario];
 }
 
-export function getEffort(scenario: EffortScenario): EffortLevel {
-  return getResolvedConfig().effort[scenario];
+/**
+ * Get the full effort mapping config.
+ */
+export function getEffortMapping(): EffortMappingConfig {
+  return getResolvedConfig().effortMapping;
+}
+
+/**
+ * Resolve a task effort level to a model name using the effort mapping config.
+ */
+export function resolveEffortToModel(effort: TaskEffortLevel): ClaudeModelName {
+  return getResolvedConfig().effortMapping[effort];
+}
+
+/**
+ * Model tier ordering for ceiling comparison.
+ * Higher tier = more capable/expensive model.
+ * haiku (1) < sonnet (2) < opus (3)
+ */
+const MODEL_TIER_ORDER: Record<string, number> = {
+  haiku: 1,
+  sonnet: 2,
+  opus: 3,
+};
+
+/**
+ * Get the numeric tier of a model for comparison.
+ * Extracts family from full model IDs (e.g., 'claude-opus-4-6' -> 3).
+ * Unknown models default to highest tier (3) so they're never accidentally capped.
+ */
+export function getModelTier(modelName: string): number {
+  // Check short aliases first
+  const tier = MODEL_TIER_ORDER[modelName];
+  if (tier !== undefined) {
+    return tier;
+  }
+
+  // Extract family from full model ID
+  const match = modelName.match(/^claude-([a-z]+)-/);
+  if (match && match[1]) {
+    const familyTier = MODEL_TIER_ORDER[match[1]];
+    if (familyTier !== undefined) {
+      return familyTier;
+    }
+  }
+
+  // Unknown model - default to highest tier (no cap)
+  return 3;
+}
+
+/**
+ * Apply ceiling to a model based on the configured models.execute ceiling.
+ * Returns the lower-tier model between the input and the ceiling.
+ */
+export function applyModelCeiling(resolvedModel: string, ceiling?: string): string {
+  const ceilingModel = ceiling ?? getModel('execute');
+  const resolvedTier = getModelTier(resolvedModel);
+  const ceilingTier = getModelTier(ceilingModel);
+
+  // If resolved model is above ceiling, use ceiling instead
+  if (resolvedTier > ceilingTier) {
+    return ceilingModel;
+  }
+  return resolvedModel;
 }
 
 export function getCommitFormat(type: CommitFormatType): string {

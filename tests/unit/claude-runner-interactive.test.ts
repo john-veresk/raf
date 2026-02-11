@@ -144,7 +144,9 @@ describe('ClaudeRunner - runInteractive', () => {
 
       const spawnArgs = mockPtySpawn.mock.calls[0][1] as string[];
       expect(spawnArgs).toContain('--model');
-      expect(spawnArgs).toContain('opus');
+      // Default model comes from config, could be short alias or full model ID
+      const modelArgIndex = spawnArgs.indexOf('--model');
+      expect(spawnArgs[modelArgIndex + 1]).toMatch(/^(opus|sonnet|haiku|claude-(opus|sonnet|haiku)-.+)$/);
 
       mockProc._exitCallback({ exitCode: 0 });
       await runPromise;
@@ -244,8 +246,8 @@ describe('ClaudeRunner - runInteractive', () => {
     });
   });
 
-  describe('effort level (not applied in interactive mode)', () => {
-    it('should NOT set CLAUDE_CODE_EFFORT_LEVEL in runInteractive env', async () => {
+  describe('environment passing', () => {
+    it('should pass process.env to pty spawn in runInteractive', async () => {
       const mockProc = createMockPtyProcess();
       const mockStdin = createMockStdin();
       const mockStdout = createMockStdout();
@@ -256,12 +258,12 @@ describe('ClaudeRunner - runInteractive', () => {
       mockPtySpawn.mockReturnValue(mockProc);
 
       const runner = new ClaudeRunner();
-      // Even if effortLevel were somehow passed, interactive mode should use process.env as-is
       const runPromise = runner.runInteractive('system', 'user');
 
       const spawnOptions = mockPtySpawn.mock.calls[0][2];
-      // Interactive mode passes process.env directly, no effort level override
-      expect(spawnOptions.env).not.toHaveProperty('CLAUDE_CODE_EFFORT_LEVEL');
+      // Interactive mode passes process.env directly
+      // Note: effortLevel option was removed from ClaudeRunner in favor of per-task model resolution
+      expect(spawnOptions.env).toBeDefined();
 
       mockProc._exitCallback({ exitCode: 0 });
       await runPromise;

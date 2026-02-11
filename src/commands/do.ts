@@ -13,7 +13,8 @@ import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFro
 import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
-import { getConfig, getEffort, getWorktreeDefault, getModel, getModelShortName, resolveFullModelId, getSyncMainBranch } from '../utils/config.js';
+import { getConfig, getWorktreeDefault, getModel, getModelShortName, resolveFullModelId, getSyncMainBranch, resolveEffortToModel, applyModelCeiling } from '../utils/config.js';
+import type { PlanFrontmatter } from '../utils/frontmatter.js';
 import { getVersion } from '../utils/version.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
 import { createStatusLine } from '../utils/status-line.js';
@@ -63,6 +64,74 @@ import type { DoCommandOptions } from '../types/config.js';
  * - 'leave': do nothing, keep the branch as-is
  */
 export type PostExecutionAction = 'merge' | 'pr' | 'leave';
+
+/**
+ * Result of resolving a task's model from frontmatter.
+ */
+interface TaskModelResolution {
+  /** The resolved model (after ceiling is applied). */
+  model: string;
+  /** Whether a warning should be logged about missing frontmatter. */
+  missingFrontmatter: boolean;
+  /** Frontmatter parsing warnings to log. */
+  warnings: string[];
+}
+
+/**
+ * Resolve the execution model for a task from its frontmatter metadata.
+ *
+ * Resolution order:
+ * 1. Explicit `model` in frontmatter (subject to ceiling)
+ * 2. `effort` in frontmatter resolved via effortMapping (subject to ceiling)
+ * 3. Fallback to models.execute (the ceiling, with a warning)
+ *
+ * @param frontmatter - Parsed frontmatter from the plan file
+ * @param frontmatterWarnings - Warnings from frontmatter parsing
+ * @param ceilingModel - The ceiling model (usually models.execute from config)
+ * @param isRetry - Whether this is a retry attempt (escalates to ceiling)
+ */
+function resolveTaskModel(
+  frontmatter: PlanFrontmatter | undefined,
+  frontmatterWarnings: string[] | undefined,
+  ceilingModel: string,
+  isRetry: boolean,
+): TaskModelResolution {
+  const warnings = frontmatterWarnings ? [...frontmatterWarnings] : [];
+
+  // Retry escalation: always use the ceiling model on retry
+  if (isRetry) {
+    return { model: ceilingModel, missingFrontmatter: false, warnings };
+  }
+
+  // No frontmatter - fallback to ceiling with warning
+  if (!frontmatter) {
+    return {
+      model: ceilingModel,
+      missingFrontmatter: true,
+      warnings,
+    };
+  }
+
+  // Explicit model in frontmatter - apply ceiling
+  if (frontmatter.model) {
+    const model = applyModelCeiling(frontmatter.model, ceilingModel);
+    return { model, missingFrontmatter: false, warnings };
+  }
+
+  // Effort-based resolution - apply ceiling
+  if (frontmatter.effort) {
+    const mappedModel = resolveEffortToModel(frontmatter.effort);
+    const model = applyModelCeiling(mappedModel, ceilingModel);
+    return { model, missingFrontmatter: false, warnings };
+  }
+
+  // Frontmatter present but no effort or model - fallback to ceiling with warning
+  return {
+    model: ceilingModel,
+    missingFrontmatter: true,
+    warnings,
+  };
+}
 
 /**
  * Format failure history for console output.
@@ -735,11 +804,12 @@ async function executeSingleProject(
       : state.tasks.filter((t) => t.status !== 'completed').map((t) => t.id)
   );
 
-  // Set up shutdown handler
-  const claudeRunner = new ClaudeRunner({ model });
+  // Set up shutdown handler - we'll register runners dynamically per-task
   const projectManager = new ProjectManager();
   shutdownHandler.init();
-  shutdownHandler.registerClaudeRunner(claudeRunner);
+
+  // The ceiling model for all tasks (can be overridden per-task, subject to this ceiling)
+  const ceilingModel = model;
 
   // Initialize token tracker for usage reporting
   const tokenTracker = new TokenTracker();
@@ -751,9 +821,9 @@ async function executeSingleProject(
   // Start project timer
   const projectStartTime = Date.now();
 
-  // Resolve and display version + model info (before any tasks run)
-  const fullModelId = resolveFullModelId(model);
-  logger.dim(`RAF v${getVersion()} | Model: ${fullModelId}`);
+  // Resolve and display version + ceiling model info (before any tasks run)
+  const fullCeilingModelId = resolveFullModelId(ceilingModel);
+  logger.dim(`RAF v${getVersion()} | Ceiling: ${fullCeilingModelId}`);
 
   if (verbose) {
     logger.info(`Executing project: ${projectName}`);
@@ -947,16 +1017,45 @@ async function executeSingleProject(
     });
     timer.start();
 
+    // Log frontmatter warnings once before the retry loop
+    if (task.frontmatterWarnings && task.frontmatterWarnings.length > 0) {
+      for (const warning of task.frontmatterWarnings) {
+        logger.warn(`  Frontmatter warning: ${warning}`);
+      }
+    }
+
     while (!success && attempts < maxRetries) {
       attempts++;
+      const isRetry = attempts > 1;
 
-      if (verbose && attempts > 1) {
-        logger.info(`  Retry ${attempts}/${maxRetries} for task ${taskLabel}...`);
+      // Resolve the model for this attempt (escalates to ceiling on retry)
+      const modelResolution = resolveTaskModel(
+        task.frontmatter,
+        undefined, // warnings already logged above
+        ceilingModel,
+        isRetry,
+      );
+
+      // Log missing frontmatter warning on first attempt only
+      if (!isRetry && modelResolution.missingFrontmatter) {
+        logger.warn(`  No effort frontmatter found — using ceiling model`);
+      }
+
+      // Create a runner for this attempt's model
+      const taskRunner = new ClaudeRunner({ model: modelResolution.model });
+      shutdownHandler.registerClaudeRunner(taskRunner);
+
+      if (verbose && isRetry) {
+        const retryModel = resolveFullModelId(modelResolution.model);
+        logger.info(`  Retry ${attempts}/${maxRetries} for task ${taskLabel} (model: ${retryModel})...`);
+      } else if (verbose && !isRetry) {
+        const taskModel = resolveFullModelId(modelResolution.model);
+        logger.info(`  Model: ${taskModel}`);
       }
 
       // Build execution prompt (inside loop to include retry context on retries)
       // Check if previous outcome file exists for retry context
-      const previousOutcomeFileForRetry = attempts > 1 && fs.existsSync(outcomeFilePath)
+      const previousOutcomeFileForRetry = isRetry && fs.existsSync(outcomeFilePath)
         ? outcomeFilePath
         : undefined;
 
@@ -985,18 +1084,16 @@ async function executeSingleProject(
       } : undefined;
 
       // Run Claude (use worktree root as cwd if in worktree mode)
-      const executeEffort = getEffort('execute');
       const runnerOptions = {
         timeout,
         outcomeFilePath,
         commitContext,
         cwd: worktreeCwd,
-        effortLevel: executeEffort,
         verboseCheck: () => verboseToggle.isVerbose,
       };
       const result = verbose
-        ? await claudeRunner.runVerbose(prompt, runnerOptions)
-        : await claudeRunner.run(prompt, runnerOptions);
+        ? await taskRunner.runVerbose(prompt, runnerOptions)
+        : await taskRunner.run(prompt, runnerOptions);
 
       lastOutput = result.output;
       if (result.usageData) {

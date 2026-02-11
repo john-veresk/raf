@@ -59,12 +59,6 @@ export interface ClaudeRunnerOptions {
     outcomeFilePath: string;
   };
   /**
-   * Claude Code reasoning effort level.
-   * Sets CLAUDE_CODE_EFFORT_LEVEL env var for the spawned process.
-   * Only applied in non-interactive modes (run, runVerbose).
-   */
-  effortLevel?: 'low' | 'medium' | 'high';
-  /**
    * Dynamic verbose display callback. When provided, called for each stream event
    * to determine whether to write display output to stdout. Overrides the static
    * verbose parameter in _runStreamJson. Used by the runtime verbose toggle.
@@ -425,7 +419,7 @@ export class ClaudeRunner {
     options: ClaudeRunnerOptions,
     verbose: boolean,
   ): Promise<RunResult> {
-    const { timeout = 60, cwd = process.cwd(), outcomeFilePath, commitContext, effortLevel, verboseCheck } = options;
+    const { timeout = 60, cwd = process.cwd(), outcomeFilePath, commitContext, verboseCheck } = options;
     // Ensure timeout is a positive number, fallback to 60 minutes
     const validatedTimeout = Number(timeout) > 0 ? Number(timeout) : 60;
     const timeoutMs = validatedTimeout * 60 * 1000;
@@ -447,11 +441,6 @@ export class ClaudeRunner {
       logger.debug(`Prompt length: ${prompt.length}, timeout: ${timeoutMs}ms, cwd: ${cwd}`);
       logger.debug(`Claude path: ${claudePath}`);
 
-      // Build env, optionally injecting effort level
-      const env = effortLevel
-        ? { ...process.env, CLAUDE_CODE_EFFORT_LEVEL: effortLevel }
-        : process.env;
-
       logger.debug('Spawning process...');
       // Use --output-format stream-json --verbose to get real-time streaming events
       // including tool calls, file operations, and token usage in the result event.
@@ -470,7 +459,7 @@ export class ClaudeRunner {
         'Execute the task as described in the system prompt.',
       ], {
         cwd,
-        env,
+        env: process.env,
         stdio: ['ignore', 'pipe', 'pipe'], // no stdin needed
       });
 

@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { getPlansDir, getOutcomesDir, getInputPath, decodeBase26, TASK_ID_PATTERN } from '../utils/paths.js';
+import { parsePlanFrontmatter, type PlanFrontmatter } from '../utils/frontmatter.js';
 
 export type DerivedTaskStatus = 'pending' | 'completed' | 'failed' | 'blocked';
 
@@ -16,6 +17,10 @@ export interface DerivedTask {
   planFile: string;
   status: DerivedTaskStatus;
   dependencies: string[];
+  /** Frontmatter metadata parsed from the plan file. */
+  frontmatter?: PlanFrontmatter;
+  /** Warnings from frontmatter parsing. */
+  frontmatterWarnings?: string[];
 }
 
 export interface DerivedProjectState {
@@ -218,23 +223,34 @@ export function deriveProjectState(projectPath: string): DerivedProjectState {
     }
   }
 
-  // First pass: Match plan files to outcomes and parse dependencies
+  // First pass: Match plan files to outcomes and parse dependencies + frontmatter
   for (const planFile of planFiles) {
     const match = planFile.match(new RegExp(`^(${TASK_ID_PATTERN})-(.+)\\.md$`));
     if (match && match[1]) {
       const taskId = match[1];
       const status = outcomeStatuses.get(taskId) ?? 'pending';
 
-      // Read plan file to extract dependencies
+      // Read plan file to extract dependencies and frontmatter
       const planContent = fs.readFileSync(path.join(plansDir, planFile), 'utf-8');
       const dependencies = parseDependencies(planContent);
+      const frontmatterResult = parsePlanFrontmatter(planContent);
 
-      tasks.push({
+      const task: DerivedTask = {
         id: taskId,
         planFile: path.join('plans', planFile),
         status,
         dependencies,
-      });
+      };
+
+      // Only add frontmatter if valid metadata was found
+      if (frontmatterResult.hasFrontmatter) {
+        task.frontmatter = frontmatterResult.frontmatter;
+      }
+      if (frontmatterResult.warnings.length > 0) {
+        task.frontmatterWarnings = frontmatterResult.warnings;
+      }
+
+      tasks.push(task);
     }
   }
 

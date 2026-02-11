@@ -8,7 +8,10 @@ import {
   ConfigValidationError,
   resolveConfig,
   getModel,
-  getEffort,
+  getEffortMapping,
+  resolveEffortToModel,
+  getModelTier,
+  applyModelCeiling,
   getCommitFormat,
   getCommitPrefix,
   getTimeout,
@@ -91,7 +94,7 @@ describe('Config', () => {
     it('should accept a full valid config', () => {
       const config = {
         models: { plan: 'opus', execute: 'haiku' },
-        effort: { plan: 'high', execute: 'low' },
+        effortMapping: { low: 'haiku', medium: 'sonnet', high: 'opus' },
         timeout: 30,
         maxRetries: 5,
         autoCommit: false,
@@ -121,8 +124,8 @@ describe('Config', () => {
       expect(() => validateConfig({ models: { unknownScenario: 'opus' } })).toThrow('Unknown config key: models.unknownScenario');
     });
 
-    it('should reject unknown effort keys', () => {
-      expect(() => validateConfig({ effort: { unknownScenario: 'high' } })).toThrow('Unknown config key: effort.unknownScenario');
+    it('should reject unknown effortMapping keys', () => {
+      expect(() => validateConfig({ effortMapping: { unknownLevel: 'haiku' } })).toThrow('Unknown config key: effortMapping.unknownLevel');
     });
 
     it('should reject unknown commitFormat keys', () => {
@@ -155,9 +158,9 @@ describe('Config', () => {
       expect(() => validateConfig({ models: { plan: 123 } })).toThrow('models.plan must be');
     });
 
-    // Invalid effort values
-    it('should reject invalid effort levels', () => {
-      expect(() => validateConfig({ effort: { plan: 'ultra' } })).toThrow('effort.plan must be one of');
+    // Invalid effortMapping values
+    it('should reject invalid effortMapping model names', () => {
+      expect(() => validateConfig({ effortMapping: { low: 'invalid-model' } })).toThrow('effortMapping.low must be a short alias');
     });
 
     // Invalid types for nested objects
@@ -169,8 +172,8 @@ describe('Config', () => {
       expect(() => validateConfig({ models: ['opus'] })).toThrow('models must be an object');
     });
 
-    it('should reject non-object effort', () => {
-      expect(() => validateConfig({ effort: 'high' })).toThrow('effort must be an object');
+    it('should reject non-object effortMapping', () => {
+      expect(() => validateConfig({ effortMapping: 'high' })).toThrow('effortMapping must be an object');
     });
 
     it('should reject non-object commitFormat', () => {
@@ -268,13 +271,14 @@ describe('Config', () => {
       expect(config.models.failureAnalysis).toBe('haiku'); // default preserved
     });
 
-    it('should deep-merge partial effort override', () => {
+    it('should deep-merge partial effortMapping override', () => {
       const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, JSON.stringify({ effort: { execute: 'high' } }));
+      fs.writeFileSync(configPath, JSON.stringify({ effortMapping: { medium: 'opus' } }));
 
       const config = resolveConfig(configPath);
-      expect(config.effort.execute).toBe('high');
-      expect(config.effort.plan).toBe('high'); // default preserved
+      expect(config.effortMapping.medium).toBe('opus');
+      expect(config.effortMapping.low).toBe('haiku'); // default preserved
+      expect(config.effortMapping.high).toBe('opus'); // default preserved
     });
 
     it('should deep-merge partial commitFormat override', () => {
@@ -362,11 +366,12 @@ describe('Config', () => {
       expect(config.models.execute).toBe('opus');
     });
 
-    it('getEffort returns correct effort for scenario', () => {
+    it('effortMapping resolves correctly from config', () => {
       const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, JSON.stringify({ effort: { plan: 'low' } }));
+      fs.writeFileSync(configPath, JSON.stringify({ effortMapping: { high: 'sonnet' } }));
       const config = resolveConfig(configPath);
-      expect(config.effort.plan).toBe('low');
+      expect(config.effortMapping.high).toBe('sonnet');
+      expect(config.effortMapping.low).toBe('haiku'); // default preserved
     });
 
     it('getCommitFormat returns correct format', () => {
@@ -398,13 +403,10 @@ describe('Config', () => {
       expect(DEFAULT_CONFIG.models.config).toBe('sonnet');
     });
 
-    it('should have all effort scenarios defined', () => {
-      expect(DEFAULT_CONFIG.effort.plan).toBe('high');
-      expect(DEFAULT_CONFIG.effort.execute).toBe('medium');
-      expect(DEFAULT_CONFIG.effort.nameGeneration).toBe('low');
-      expect(DEFAULT_CONFIG.effort.failureAnalysis).toBe('low');
-      expect(DEFAULT_CONFIG.effort.prGeneration).toBe('medium');
-      expect(DEFAULT_CONFIG.effort.config).toBe('medium');
+    it('should have all effortMapping levels defined', () => {
+      expect(DEFAULT_CONFIG.effortMapping.low).toBe('haiku');
+      expect(DEFAULT_CONFIG.effortMapping.medium).toBe('sonnet');
+      expect(DEFAULT_CONFIG.effortMapping.high).toBe('opus');
     });
 
     it('should have all commit format fields defined', () => {
@@ -484,8 +486,10 @@ describe('Config', () => {
       expect(DEFAULT_CONFIG.models.prGeneration).toBe('sonnet');
     });
 
-    it('should default effort to match previous hardcoded values', () => {
-      expect(DEFAULT_CONFIG.effort.execute).toBe('medium');
+    it('should default effortMapping to haiku/sonnet/opus', () => {
+      expect(DEFAULT_CONFIG.effortMapping.low).toBe('haiku');
+      expect(DEFAULT_CONFIG.effortMapping.medium).toBe('sonnet');
+      expect(DEFAULT_CONFIG.effortMapping.high).toBe('opus');
     });
 
     it('should default timeout to 60', () => {
@@ -680,13 +684,14 @@ describe('Config', () => {
       expect(config.models.failureAnalysis).toBe('haiku');
     });
 
-    it('should use custom effort when configured', () => {
+    it('should use custom effortMapping when configured', () => {
       const configPath = path.join(tempDir, 'custom-effort.json');
-      saveConfig(configPath, { effort: { execute: 'high' } });
+      saveConfig(configPath, { effortMapping: { high: 'sonnet' } });
       const config = resolveConfig(configPath);
-      expect(config.effort.execute).toBe('high');
+      expect(config.effortMapping.high).toBe('sonnet');
       // Others should remain at defaults
-      expect(config.effort.plan).toBe('high');
+      expect(config.effortMapping.low).toBe('haiku');
+      expect(config.effortMapping.medium).toBe('sonnet');
     });
 
     it('should use custom commit format when configured', () => {
@@ -796,6 +801,97 @@ describe('Config', () => {
 
     it('should have default rateLimitWindow settings', () => {
       expect(DEFAULT_CONFIG.rateLimitWindow.sonnetTokenCap).toBe(88000);
+    });
+  });
+
+  describe('getModelTier', () => {
+    it('should return correct tier for short aliases', () => {
+      expect(getModelTier('haiku')).toBe(1);
+      expect(getModelTier('sonnet')).toBe(2);
+      expect(getModelTier('opus')).toBe(3);
+    });
+
+    it('should extract tier from full model IDs', () => {
+      expect(getModelTier('claude-haiku-4-5-20251001')).toBe(1);
+      expect(getModelTier('claude-sonnet-4-5-20250929')).toBe(2);
+      expect(getModelTier('claude-opus-4-6')).toBe(3);
+    });
+
+    it('should return highest tier for unknown models', () => {
+      expect(getModelTier('unknown-model')).toBe(3);
+      expect(getModelTier('claude-future-5-0')).toBe(3);
+      expect(getModelTier('')).toBe(3);
+    });
+  });
+
+  describe('applyModelCeiling', () => {
+    it('should return resolved model when below ceiling', () => {
+      expect(applyModelCeiling('haiku', 'sonnet')).toBe('haiku');
+      expect(applyModelCeiling('haiku', 'opus')).toBe('haiku');
+      expect(applyModelCeiling('sonnet', 'opus')).toBe('sonnet');
+    });
+
+    it('should return ceiling model when above ceiling', () => {
+      expect(applyModelCeiling('opus', 'sonnet')).toBe('sonnet');
+      expect(applyModelCeiling('opus', 'haiku')).toBe('haiku');
+      expect(applyModelCeiling('sonnet', 'haiku')).toBe('haiku');
+    });
+
+    it('should return resolved model when at ceiling', () => {
+      expect(applyModelCeiling('sonnet', 'sonnet')).toBe('sonnet');
+      expect(applyModelCeiling('opus', 'opus')).toBe('opus');
+    });
+
+    it('should work with full model IDs', () => {
+      expect(applyModelCeiling('claude-opus-4-6', 'sonnet')).toBe('sonnet');
+      expect(applyModelCeiling('claude-haiku-4-5-20251001', 'claude-opus-4-6')).toBe('claude-haiku-4-5-20251001');
+    });
+  });
+
+  describe('resolveEffortToModel', () => {
+    it('should resolve effort levels to default models', () => {
+      const configPath = path.join(tempDir, 'default.json');
+      // Use default config
+      const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
+      expect(config.effortMapping.low).toBe('haiku');
+      expect(config.effortMapping.medium).toBe('sonnet');
+      expect(config.effortMapping.high).toBe('opus');
+    });
+  });
+
+  describe('validateConfig - effortMapping', () => {
+    it('should accept valid effortMapping config', () => {
+      expect(() => validateConfig({
+        effortMapping: {
+          low: 'haiku',
+          medium: 'sonnet',
+          high: 'opus',
+        },
+      })).not.toThrow();
+    });
+
+    it('should accept partial effortMapping override', () => {
+      expect(() => validateConfig({
+        effortMapping: { high: 'sonnet' },
+      })).not.toThrow();
+    });
+
+    it('should accept full model IDs in effortMapping', () => {
+      expect(() => validateConfig({
+        effortMapping: { low: 'claude-haiku-4-5-20251001' },
+      })).not.toThrow();
+    });
+
+    it('should reject invalid model names in effortMapping', () => {
+      expect(() => validateConfig({
+        effortMapping: { low: 'gpt-4' },
+      })).toThrow('effortMapping.low must be a short alias');
+    });
+
+    it('should reject unknown keys in effortMapping', () => {
+      expect(() => validateConfig({
+        effortMapping: { extra: 'haiku' },
+      })).toThrow('Unknown config key: effortMapping.extra');
     });
   });
 });
