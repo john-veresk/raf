@@ -170,7 +170,7 @@ npm run lint       # Type check without emit
 
 ### Per-Task Model Resolution
 - Plan files contain `effort` frontmatter that determines which model executes the task
-- `effortMapping` config maps effort labels to models: `{ low: "sonnet", medium: "sonnet", high: "opus" }`
+- `effortMapping` config maps effort labels to models: `{ low: "sonnet", medium: "opus", high: "opus" }`
 - `models.execute` acts as a ceiling — tasks can't exceed this model tier
 - On retry, tasks escalate to the ceiling model for a better chance of success
 - If a plan has no effort frontmatter, `models.execute` is used as a fallback (with a warning)

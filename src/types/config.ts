@@ -70,7 +70,7 @@ export const DEFAULT_CONFIG: RafConfig = {
   },
   effortMapping: {
     low: 'sonnet',
-    medium: 'sonnet',
+    medium: 'opus',
     high: 'opus',
   },
   timeout: 60,

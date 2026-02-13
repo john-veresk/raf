@@ -77,7 +77,7 @@ describe('Config Command', () => {
     });
 
     it('should accept valid config with effortMapping override', () => {
-      const config = { effortMapping: { low: 'sonnet', medium: 'sonnet' } };
+      const config = { effortMapping: { low: 'sonnet', medium: 'opus' } };
       expect(() => validateConfig(config)).not.toThrow();
     });
 
@@ -204,7 +204,7 @@ describe('Config Command', () => {
       // These are the values that runConfigSession uses when config loading fails
       expect(DEFAULT_CONFIG.models.config).toBe('sonnet');
       // effortMapping defaults used for per-task model resolution
-      expect(DEFAULT_CONFIG.effortMapping.medium).toBe('sonnet');
+      expect(DEFAULT_CONFIG.effortMapping.medium).toBe('opus');
     });
 
     it('should be able to read raw file contents even when config is invalid JSON', () => {

@@ -91,7 +91,7 @@ describe('Config', () => {
     it('should accept a full valid config', () => {
       const config = {
         models: { plan: 'opus', execute: 'haiku' },
-        effortMapping: { low: 'sonnet', medium: 'sonnet', high: 'opus' },
+        effortMapping: { low: 'sonnet', medium: 'opus', high: 'opus' },
         timeout: 30,
         maxRetries: 5,
         autoCommit: false,
@@ -402,7 +402,7 @@ describe('Config', () => {
 
     it('should have all effortMapping levels defined', () => {
       expect(DEFAULT_CONFIG.effortMapping.low).toBe('sonnet');
-      expect(DEFAULT_CONFIG.effortMapping.medium).toBe('sonnet');
+      expect(DEFAULT_CONFIG.effortMapping.medium).toBe('opus');
       expect(DEFAULT_CONFIG.effortMapping.high).toBe('opus');
     });
 
@@ -483,9 +483,9 @@ describe('Config', () => {
       expect(DEFAULT_CONFIG.models.prGeneration).toBe('sonnet');
     });
 
-    it('should default effortMapping to sonnet/sonnet/opus', () => {
+    it('should default effortMapping to sonnet/opus/opus', () => {
       expect(DEFAULT_CONFIG.effortMapping.low).toBe('sonnet');
-      expect(DEFAULT_CONFIG.effortMapping.medium).toBe('sonnet');
+      expect(DEFAULT_CONFIG.effortMapping.medium).toBe('opus');
       expect(DEFAULT_CONFIG.effortMapping.high).toBe('opus');
     });
 
@@ -597,7 +597,7 @@ describe('Config', () => {
       expect(config.effortMapping.high).toBe('sonnet');
       // Others should remain at defaults
       expect(config.effortMapping.low).toBe('sonnet');
-      expect(config.effortMapping.medium).toBe('sonnet');
+      expect(config.effortMapping.medium).toBe('opus');
     });
 
     it('should use custom commit format when configured', () => {
@@ -712,7 +712,7 @@ describe('Config', () => {
       // Use default config
       const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
       expect(config.effortMapping.low).toBe('sonnet');
-      expect(config.effortMapping.medium).toBe('sonnet');
+      expect(config.effortMapping.medium).toBe('opus');
       expect(config.effortMapping.high).toBe('opus');
     });
   });
@@ -722,7 +722,7 @@ describe('Config', () => {
       expect(() => validateConfig({
         effortMapping: {
           low: 'sonnet',
-          medium: 'sonnet',
+          medium: 'opus',
           high: 'opus',
         },
       })).not.toThrow();

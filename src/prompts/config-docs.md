@@ -50,7 +50,7 @@ Maps task complexity labels (in plan frontmatter) to Claude models. When a plan 
 | Key | Default | Description |
 |-----|---------|-------------|
 | `effortMapping.low` | `"sonnet"` | Model for low-complexity tasks |
-| `effortMapping.medium` | `"sonnet"` | Model for medium-complexity tasks |
+| `effortMapping.medium` | `"opus"` | Model for medium-complexity tasks |
 | `effortMapping.high` | `"opus"` | Model for high-complexity tasks |
 
 Values must be a short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID.
@@ -61,11 +61,11 @@ Example:
 ```json
 {
   "models": { "execute": "sonnet" },
-  "effortMapping": { "low": "sonnet", "medium": "sonnet", "high": "opus" }
+  "effortMapping": { "low": "sonnet", "medium": "opus", "high": "opus" }
 }
 ```
 - Task with `effort: low` → sonnet (at ceiling)
-- Task with `effort: medium` → sonnet (at ceiling)
+- Task with `effort: medium` → sonnet (capped to ceiling, not opus)
 - Task with `effort: high` → sonnet (capped to ceiling, not opus)
 
 ### `timeout` — Task Timeout
@@ -218,7 +218,7 @@ Uses Sonnet for planning and caps task execution at Sonnet (tasks with `effort: 
   },
   "effortMapping": {
     "low": "sonnet",
-    "medium": "sonnet",
+    "medium": "opus",
     "high": "opus"
   },
   "timeout": 60,
