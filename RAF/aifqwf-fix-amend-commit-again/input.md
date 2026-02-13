@@ -1,0 +1,2 @@
+- [ ] make sonnet default for easy tasks and opus default for medium effort tasks
+- [ ] input and decision are not commited on plan amend finish
