@@ -227,6 +227,9 @@ export function isFileCommittedInHead(filePath: string): boolean {
  */
 export async function commitPlanningArtifacts(projectPath: string, options?: { cwd?: string; additionalFiles?: string[]; isAmend?: boolean }): Promise<void> {
   const execCwd = options?.cwd;
+  const execOpts = execCwd ? { cwd: execCwd } : {};
+
+  logger.debug(`commitPlanningArtifacts: projectPath=${projectPath}, cwd=${execCwd ?? 'process.cwd()'}, isAmend=${options?.isAmend ?? false}`);
 
   // Check if we're in a git repository
   if (!isGitRepo(execCwd)) {
@@ -268,6 +271,20 @@ export async function commitPlanningArtifacts(projectPath: string, options?: { c
     ? absoluteFiles.map(f => path.relative(execCwd, f))
     : absoluteFiles;
 
+  logger.debug(`commitPlanningArtifacts: staging files: ${filesToStage.join(', ')}`);
+
+  // Check git status before staging to understand the current state
+  try {
+    const preStatus = execSync('git status --porcelain', {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      ...execOpts,
+    }).trim();
+    logger.debug(`commitPlanningArtifacts: pre-stage git status:\n${preStatus || '(clean)'}`);
+  } catch {
+    logger.debug('commitPlanningArtifacts: could not get pre-stage git status');
+  }
+
   // Stage each file individually so one missing file doesn't block the others
   let stagedCount = 0;
   for (const file of filesToStage) {
@@ -275,7 +292,7 @@ export async function commitPlanningArtifacts(projectPath: string, options?: { c
       execSync(`git add -- "${file}"`, {
         encoding: 'utf-8',
         stdio: 'pipe',
-        ...(execCwd ? { cwd: execCwd } : {}),
+        ...execOpts,
       });
       stagedCount++;
     } catch (error) {
@@ -294,19 +311,21 @@ export async function commitPlanningArtifacts(projectPath: string, options?: { c
     const stagedStatus = execSync('git diff --cached --name-only', {
       encoding: 'utf-8',
       stdio: 'pipe',
-      ...(execCwd ? { cwd: execCwd } : {}),
+      ...execOpts,
     }).trim();
 
     if (!stagedStatus) {
-      logger.debug('No changes to planning artifacts to commit');
+      logger.debug('No changes to planning artifacts to commit (git add succeeded but nothing changed in index)');
       return;
     }
+
+    logger.debug(`commitPlanningArtifacts: staged files: ${stagedStatus}`);
 
     // Commit the staged files
     execSync(`git commit -m "${commitMessage.replace(/"/g, '\\"')}"`, {
       encoding: 'utf-8',
       stdio: 'pipe',
-      ...(execCwd ? { cwd: execCwd } : {}),
+      ...execOpts,
     });
 
     logger.debug(`Committed planning artifacts: ${commitMessage}`);

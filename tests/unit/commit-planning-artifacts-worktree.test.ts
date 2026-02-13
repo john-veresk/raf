@@ -179,6 +179,50 @@ describe('commitPlanningArtifacts - worktree integration', () => {
     expect(committedFiles).not.toContain(`RAF/${projectFolder}/plans/02-new-task.md`);
   });
 
+  it('should commit amend artifacts with plan files as additionalFiles in worktree', async () => {
+    const projectFolder = 'aatest-my-project';
+
+    // Create initial project and commit
+    createInitialProject(repoDir, projectFolder);
+    execSync('git add -A', { cwd: repoDir, stdio: 'pipe' });
+    execSync('git commit -m "Initial plan"', { cwd: repoDir, stdio: 'pipe' });
+
+    // Create worktree
+    worktreePath = createWorktreeForProject(repoDir, projectFolder);
+    const wtProjectPath = path.join(worktreePath, 'RAF', projectFolder);
+
+    // Simulate amend: update files and create new plan
+    fs.writeFileSync(
+      path.join(wtProjectPath, 'input.md'),
+      'original input\n\n---\n\nnew task description'
+    );
+    fs.writeFileSync(
+      path.join(wtProjectPath, 'decisions.md'),
+      '# Decisions\n\n## Q1?\nA1\n\n## Q2?\nA2'
+    );
+    fs.writeFileSync(
+      path.join(wtProjectPath, 'plans', '02-new-task.md'),
+      '# Task: New Task'
+    );
+
+    // Call commitPlanningArtifacts with plan files as additionalFiles (as plan.ts now does)
+    await commitPlanningArtifacts(wtProjectPath, {
+      cwd: worktreePath,
+      isAmend: true,
+      additionalFiles: [path.join(wtProjectPath, 'plans', '02-new-task.md')],
+    });
+
+    // Verify commit was made with Amend prefix
+    const lastMsg = getLastCommitMessage(worktreePath);
+    expect(lastMsg).toMatch(/RAF\[aatest\] Amend: my-project/);
+
+    // Verify all files are in the commit (input, decisions, AND plan files)
+    const committedFiles = getLastCommitFiles(worktreePath);
+    expect(committedFiles).toContain(`RAF/${projectFolder}/input.md`);
+    expect(committedFiles).toContain(`RAF/${projectFolder}/decisions.md`);
+    expect(committedFiles).toContain(`RAF/${projectFolder}/plans/02-new-task.md`);
+  });
+
   it('should commit after worktree recreation from branch', async () => {
     const projectFolder = 'aatest-my-project';
 
@@ -245,6 +289,75 @@ describe('commitPlanningArtifacts - worktree integration', () => {
     expect(committedFiles).toContain(`RAF/${projectFolder}/input.md`);
     expect(committedFiles).toContain(`RAF/${projectFolder}/decisions.md`);
     expect(committedFiles).not.toContain(`RAF/${projectFolder}/plans/02-new-task.md`);
+  });
+
+  it('should commit all artifacts after worktree recreation with additionalFiles', async () => {
+    const projectFolder = 'aatest-my-project';
+
+    // Create initial project, commit, and create initial worktree
+    createInitialProject(repoDir, projectFolder);
+    execSync('git add -A', { cwd: repoDir, stdio: 'pipe' });
+    execSync('git commit -m "Initial plan"', { cwd: repoDir, stdio: 'pipe' });
+
+    // Create worktree
+    const initialWtPath = createWorktreeForProject(repoDir, projectFolder);
+    const initialWtProjectPath = path.join(initialWtPath, 'RAF', projectFolder);
+
+    // Commit something on the worktree branch (simulating initial plan commit + task execution)
+    fs.writeFileSync(
+      path.join(initialWtProjectPath, 'decisions.md'),
+      '# Decisions\n\n## Q1?\nA1\n\n## Q2?\nA2'
+    );
+    execSync('git add -A', { cwd: initialWtPath, stdio: 'pipe' });
+    execSync('git commit -m "Plan commit on branch"', { cwd: initialWtPath, stdio: 'pipe' });
+
+    // Remove the worktree (simulating cleanup after execution)
+    execSync(`git worktree remove "${initialWtPath}" --force`, {
+      cwd: repoDir,
+      stdio: 'pipe',
+    });
+    worktreePaths.splice(worktreePaths.indexOf(initialWtPath), 1);
+
+    // Recreate worktree from existing branch (simulating amend --worktree)
+    const recreatedWtPath = path.join(makeTempDir('raf-wt-recreated-'), projectFolder);
+    execSync(`git worktree add "${recreatedWtPath}" "${projectFolder}"`, {
+      cwd: repoDir,
+      stdio: 'pipe',
+    });
+    worktreePaths.push(recreatedWtPath);
+
+    const recreatedProjectPath = path.join(recreatedWtPath, 'RAF', projectFolder);
+
+    // Simulate amend: update input.md, update decisions.md, create new plan
+    fs.writeFileSync(
+      path.join(recreatedProjectPath, 'input.md'),
+      'original input\n\n---\n\namend task description'
+    );
+    fs.writeFileSync(
+      path.join(recreatedProjectPath, 'decisions.md'),
+      '# Decisions\n\n## Q1?\nA1\n\n## Q2?\nA2\n\n## Q3?\nA3'
+    );
+    fs.writeFileSync(
+      path.join(recreatedProjectPath, 'plans', '02-new-task.md'),
+      '# Task: New Task'
+    );
+
+    // Call commitPlanningArtifacts with plan files as additionalFiles (as plan.ts now does)
+    await commitPlanningArtifacts(recreatedProjectPath, {
+      cwd: recreatedWtPath,
+      isAmend: true,
+      additionalFiles: [path.join(recreatedProjectPath, 'plans', '02-new-task.md')],
+    });
+
+    // Verify commit was made
+    const lastMsg = getLastCommitMessage(recreatedWtPath);
+    expect(lastMsg).toMatch(/RAF\[aatest\] Amend: my-project/);
+
+    // Verify all files are in the commit (including plan files)
+    const committedFiles = getLastCommitFiles(recreatedWtPath);
+    expect(committedFiles).toContain(`RAF/${projectFolder}/input.md`);
+    expect(committedFiles).toContain(`RAF/${projectFolder}/decisions.md`);
+    expect(committedFiles).toContain(`RAF/${projectFolder}/plans/02-new-task.md`);
   });
 
   it('should work when only some files have changed', async () => {

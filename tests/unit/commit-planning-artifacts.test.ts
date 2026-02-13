@@ -130,7 +130,7 @@ describe('commitPlanningArtifacts', () => {
 
     // Should log debug message and not throw
     expect(mockLogger.debug).toHaveBeenCalledWith(
-      'No changes to planning artifacts to commit'
+      'No changes to planning artifacts to commit (git add succeeded but nothing changed in index)'
     );
     expect(mockLogger.warn).not.toHaveBeenCalled();
   });

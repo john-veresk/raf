@@ -319,8 +319,12 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
         logger.info(`  - plans/${planFile}`);
       }
 
-      // Commit planning artifacts (input.md and decisions.md)
-      await commitPlanningArtifacts(projectPath, worktreePath ? { cwd: worktreePath } : undefined);
+      // Commit planning artifacts (input.md, decisions.md, and plan files)
+      const planAbsolutePaths = planFiles.map((f) => path.join(plansDir, f));
+      await commitPlanningArtifacts(projectPath, {
+        cwd: worktreePath ?? undefined,
+        additionalFiles: planAbsolutePaths,
+      });
 
       logger.newline();
       if (worktreeMode) {
@@ -633,10 +637,12 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
         logger.info(`  - plans/${planFile}`);
       }
 
-      // Commit planning artifacts (input.md, decisions.md only — plan files committed during execution)
+      // Commit planning artifacts (input.md, decisions.md, and new plan files)
+      const newPlanAbsolutePaths = newPlanFiles.map((f) => path.join(plansDir, f));
       await commitPlanningArtifacts(projectPath, {
         cwd: worktreePath ?? undefined,
         isAmend: true,
+        additionalFiles: newPlanAbsolutePaths,
       });
 
       logger.newline();
