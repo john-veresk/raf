@@ -13,4 +13,5 @@ Node.js CLI tool that orchestrates task planning and execution via Claude Code C
 ## Agent Notes
 
 - Some older tests may drift behind current CLI behavior, especially around removed `--worktree` command examples in planning prompts. Verify prompt expectations against the live command UX before trusting test names.
-- Tests that exercise default model/provider selection should avoid hardcoding Claude-specific assumptions; local config can route defaults through Codex unless the test explicitly mocks config resolution.
+- Tests that exercise default model/harness selection should avoid hardcoding Claude-specific assumptions; local config can route defaults through Codex unless the test explicitly mocks config resolution.
+- Planned-task instructions may point at a nested `RAF/...` folder that only contains plan artifacts. The actual source tree for this repo lives at the parent worktree root.

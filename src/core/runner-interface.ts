@@ -1,7 +1,7 @@
 import type { RunnerOptions, RunResult } from './runner-types.js';
 
 /**
- * Provider-agnostic CLI runner interface.
+ * Harness-agnostic CLI runner interface.
  * Both ClaudeRunner and CodexRunner implement this interface.
  */
 export interface ICliRunner {

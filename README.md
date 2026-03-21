@@ -49,13 +49,13 @@ That's it! RAF will guide you through breaking down your task and then execute i
 
 - Node.js 20+
 - Claude Code CLI installed and configured
-- Or: OpenAI Codex CLI installed and configured (set provider per-model in config)
+- Or: OpenAI Codex CLI installed and configured (set `harness` per model entry in config)
 
 ## Features
 
 - **Interactive Planning**: Interviews you to break down complex tasks into structured plans
 - **Smart Execution**: Automatic model selection, retry with escalation, and progress tracking
-- **Multi-Provider**: Use Claude Code CLI or OpenAI Codex CLI via per-model config
+- **Multi-Harness**: Use Claude Code CLI or OpenAI Codex CLI via per-model harness config
 - **Resume & Amend**: Continue interrupted sessions or extend existing projects
 - **Git Integration**: Automatic commits, worktree isolation, and PR generation
 - **Task Dependencies**: Dependency tracking with automatic blocking on failure
@@ -129,8 +129,8 @@ Example `~/.raf/raf.config.json`:
 ```json
 {
   "models": {
-    "execute": { "model": "sonnet", "provider": "claude" },
-    "nameGeneration": { "model": "haiku", "provider": "claude" }
+    "execute": { "model": "sonnet", "harness": "claude" },
+    "nameGeneration": { "model": "haiku", "harness": "claude" }
   },
   "worktree": true,
   "timeout": 45
@@ -139,19 +139,19 @@ Example `~/.raf/raf.config.json`:
 
 Run `raf config wizard` and ask what's available — the session has full knowledge of every configurable option.
 
-## Provider Configuration
+## Harness Configuration
 
-RAF supports multiple LLM providers per scenario. Each model entry in `models` and `effortMapping` specifies its own `provider`, so you can mix Claude and Codex freely:
+RAF supports multiple LLM harnesses per scenario. Each model entry in `models` and `effortMapping` specifies its own `harness`, so you can mix Claude and Codex freely:
 
 ```json
 {
   "models": {
-    "plan": { "model": "opus", "provider": "claude" },
-    "execute": { "model": "gpt-5.4", "provider": "codex" }
+    "plan": { "model": "opus", "harness": "claude" },
+    "execute": { "model": "gpt-5.4", "harness": "codex" }
   },
   "effortMapping": {
-    "low": { "model": "sonnet", "provider": "claude" },
-    "high": { "model": "gpt-5.4", "provider": "codex" }
+    "low": { "model": "sonnet", "harness": "claude" },
+    "high": { "model": "gpt-5.4", "harness": "codex" }
   }
 }
 ```

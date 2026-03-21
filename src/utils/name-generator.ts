@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { logger } from './logger.js';
 import { sanitizeProjectName } from './validation.js';
 import { getModel } from './config.js';
-import type { HarnessProvider } from '../types/config.js';
+import type { HarnessName } from '../types/config.js';
 
 const NAME_GENERATION_PROMPT = `Output ONLY the kebab-case name. No introduction, no explanation, no quotes.
 
@@ -30,8 +30,8 @@ Rules:
 
 Project description:`;
 
-function buildNameGenerationArgs(provider: HarnessProvider, model: string, prompt: string): string[] {
-  if (provider === 'claude') {
+function buildNameGenerationArgs(harness: HarnessName, model: string, prompt: string): string[] {
+  if (harness === 'claude') {
     return [
       '--model', model,
       '--no-session-persistence',
@@ -56,9 +56,9 @@ function buildNameGenerationArgs(provider: HarnessProvider, model: string, promp
 function runNameGenerationPrint(prompt: string): Promise<string | null> {
   return new Promise((resolve) => {
     const entry = getModel('nameGeneration');
-    const args = buildNameGenerationArgs(entry.provider, entry.model, prompt);
+    const args = buildNameGenerationArgs(entry.harness, entry.model, prompt);
 
-    const proc = spawn(entry.provider, args, {
+    const proc = spawn(entry.harness, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 

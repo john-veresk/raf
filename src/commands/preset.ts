@@ -124,13 +124,13 @@ function listPresets(): void {
       // Build a brief summary from models
       const summary: string[] = [];
       if (config.models && typeof config.models === 'object') {
-        const models = config.models as Record<string, { model?: string; provider?: string }>;
-        const providers = new Set<string>();
+        const models = config.models as Record<string, { model?: string; harness?: string }>;
+        const harnesses = new Set<string>();
         for (const entry of Object.values(models)) {
-          if (entry?.provider) providers.add(entry.provider);
+          if (entry?.harness) harnesses.add(entry.harness);
         }
-        if (providers.size > 0) {
-          summary.push(`providers: ${[...providers].join(', ')}`);
+        if (harnesses.size > 0) {
+          summary.push(`harnesses: ${[...harnesses].join(', ')}`);
         }
         if (models.execute?.model) {
           summary.push(`execute: ${models.execute.model}`);

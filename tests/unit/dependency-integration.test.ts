@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -13,7 +14,25 @@ import {
   type DerivedTask,
 } from '../../src/core/state-derivation.js';
 import { getOutcomeFilePath, extractTaskNameFromPlanFile } from '../../src/utils/paths.js';
-import { getExecutionPrompt } from '../../src/prompts/execution.js';
+
+const suiteHomeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-dependency-home-'));
+let mockHomeDir = suiteHomeDir;
+
+jest.unstable_mockModule('node:os', () => ({
+  homedir: () => mockHomeDir,
+  tmpdir: () => os.tmpdir(),
+}));
+
+jest.unstable_mockModule('../../src/utils/config.js', () => ({
+  getCommitFormat: () => '{prefix}[{projectName}:{taskId}] {description}',
+  getCommitPrefix: () => 'RAF',
+  renderCommitMessage: (template: string, variables: Record<string, string>) =>
+    template.replace(/\{(\w+)\}/g, (match, key: string) => variables[key] ?? match),
+  resetConfigCache: jest.fn(),
+}));
+
+const { getExecutionPrompt } = await import('../../src/prompts/execution.js');
+const { resetConfigCache } = await import('../../src/utils/config.js');
 
 /**
  * Integration tests for the complete dependency blocking flow.
@@ -25,6 +44,8 @@ describe('Dependency Integration Flow', () => {
   let projectPath: string;
 
   beforeEach(() => {
+    fs.rmSync(path.join(mockHomeDir, '.raf'), { recursive: true, force: true });
+    resetConfigCache();
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-dep-integration-'));
     projectPath = path.join(tempDir, '1-test-project');
     fs.mkdirSync(projectPath, { recursive: true });
@@ -34,7 +55,12 @@ describe('Dependency Integration Flow', () => {
   });
 
   afterEach(() => {
+    resetConfigCache();
     fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  afterAll(() => {
+    fs.rmSync(suiteHomeDir, { recursive: true, force: true });
   });
 
   describe('Complete dependency chain simulation', () => {

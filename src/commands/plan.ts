@@ -268,7 +268,7 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
   }
 
   // Set up shutdown handler
-  const claudeRunner = createRunner({ model: modelEntry?.model, provider: modelEntry?.provider, reasoningEffort: modelEntry?.reasoningEffort, fast: modelEntry?.fast });
+  const claudeRunner = createRunner({ model: modelEntry?.model, harness: modelEntry?.harness, reasoningEffort: modelEntry?.reasoningEffort, fast: modelEntry?.fast });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
@@ -297,7 +297,7 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
   logger.info('Starting planning session...');
   logger.info('The planner will interview you about each task.');
   if (modelEntry) {
-    logger.info(`Using model: ${modelEntry.model} (${modelEntry.provider})`);
+    logger.info(`Using model: ${modelEntry.model} (${modelEntry.harness})`);
   }
   if (autoMode) {
     logger.warn('Auto mode enabled: permission prompts will be skipped.');
@@ -512,7 +512,7 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry, auto
   fs.writeFileSync(inputPath, updatedInput);
 
   // Set up shutdown handler
-  const claudeRunner = createRunner({ model: modelEntry?.model, provider: modelEntry?.provider, reasoningEffort: modelEntry?.reasoningEffort, fast: modelEntry?.fast });
+  const claudeRunner = createRunner({ model: modelEntry?.model, harness: modelEntry?.harness, reasoningEffort: modelEntry?.reasoningEffort, fast: modelEntry?.fast });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
@@ -520,7 +520,7 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry, auto
   logger.info('Starting amendment session...');
   logger.info('The planner will interview you about each new task.');
   if (modelEntry) {
-    logger.info(`Using model: ${modelEntry.model} (${modelEntry.provider})`);
+    logger.info(`Using model: ${modelEntry.model} (${modelEntry.harness})`);
   }
   if (autoMode) {
     logger.warn('Auto mode enabled: permission prompts will be skipped.');
@@ -685,12 +685,12 @@ async function runResumeCommand(identifier: string, modelEntry?: ModelEntry): Pr
 
   logger.info(`Project: ${folderName}`);
   if (modelEntry) {
-    logger.info(`Model: ${modelEntry.model} (${modelEntry.provider})`);
+    logger.info(`Model: ${modelEntry.model} (${modelEntry.harness})`);
   }
   logger.newline();
 
   // Set up shutdown handler
-  const claudeRunner = createRunner({ model: modelEntry?.model, provider: modelEntry?.provider, reasoningEffort: modelEntry?.reasoningEffort, fast: modelEntry?.fast });
+  const claudeRunner = createRunner({ model: modelEntry?.model, harness: modelEntry?.harness, reasoningEffort: modelEntry?.reasoningEffort, fast: modelEntry?.fast });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 

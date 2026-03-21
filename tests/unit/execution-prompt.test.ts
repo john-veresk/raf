@@ -1,6 +1,34 @@
-import { getExecutionPrompt, ExecutionPromptParams, summarizeOutcome } from '../../src/prompts/execution.js';
+import { jest } from '@jest/globals';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import type { ExecutionPromptParams } from '../../src/prompts/execution.js';
+
+const suiteHomeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-execution-prompt-home-'));
+let mockHomeDir = suiteHomeDir;
+
+jest.unstable_mockModule('node:os', () => ({
+  homedir: () => mockHomeDir,
+  tmpdir: () => os.tmpdir(),
+}));
+
+const { getExecutionPrompt, summarizeOutcome } = await import('../../src/prompts/execution.js');
+const { resetConfigCache } = await import('../../src/utils/config.js');
 
 describe('Execution Prompt', () => {
+  beforeEach(() => {
+    fs.rmSync(path.join(mockHomeDir, '.raf'), { recursive: true, force: true });
+    resetConfigCache();
+  });
+
+  afterEach(() => {
+    resetConfigCache();
+  });
+
+  afterAll(() => {
+    fs.rmSync(suiteHomeDir, { recursive: true, force: true });
+  });
+
   const baseParams: ExecutionPromptParams = {
     projectPath: '/Users/test/RAF/42-task-naming-improvements',
     planPath: '/Users/test/RAF/42-task-naming-improvements/plans/1-enhance-identifier-resolution.md',

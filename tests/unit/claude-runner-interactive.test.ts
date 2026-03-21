@@ -1,5 +1,16 @@
 import { jest } from '@jest/globals';
 import { EventEmitter } from 'events';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+
+const suiteHomeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-claude-home-'));
+let mockHomeDir = suiteHomeDir;
+
+jest.unstable_mockModule('node:os', () => ({
+  homedir: () => mockHomeDir,
+  tmpdir: () => os.tmpdir(),
+}));
 
 // Create mock pty spawn before importing ClaudeRunner
 const mockPtySpawn = jest.fn();
@@ -16,7 +27,7 @@ jest.unstable_mockModule('node:child_process', () => ({
 
 // Import after mocking
 const { ClaudeRunner } = await import('../../src/core/claude-runner.js');
-const { getModel } = await import('../../src/utils/config.js');
+const { getModel, resetConfigCache } = await import('../../src/utils/config.js');
 
 describe('ClaudeRunner - runInteractive', () => {
   // Save original stdin/stdout for restoration
@@ -25,13 +36,20 @@ describe('ClaudeRunner - runInteractive', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    fs.rmSync(path.join(mockHomeDir, '.raf'), { recursive: true, force: true });
+    resetConfigCache();
     mockExecSync.mockReturnValue('/usr/local/bin/claude\n');
   });
 
   afterEach(() => {
+    resetConfigCache();
     // Restore stdin/stdout
     Object.defineProperty(process, 'stdin', { value: originalStdin });
     Object.defineProperty(process, 'stdout', { value: originalStdout });
+  });
+
+  afterAll(() => {
+    fs.rmSync(suiteHomeDir, { recursive: true, force: true });
   });
 
   /**

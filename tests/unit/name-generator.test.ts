@@ -1,10 +1,10 @@
 import { jest } from '@jest/globals';
 import { EventEmitter } from 'node:events';
-import type { HarnessProvider } from '../../src/types/config.js';
+import type { HarnessName } from '../../src/types/config.js';
 
 let currentNameGenerationModel = {
   model: 'sonnet',
-  provider: 'claude' as HarnessProvider,
+  harness: 'claude' as HarnessName,
 };
 
 // Helper to create a mock spawn that returns a fake ChildProcess
@@ -48,7 +48,7 @@ describe('Name Generator', () => {
     jest.clearAllMocks();
     currentNameGenerationModel = {
       model: 'sonnet',
-      provider: 'claude',
+      harness: 'claude',
     };
   });
 
@@ -61,7 +61,7 @@ describe('Name Generator', () => {
       expect(result).toBe('user-auth-system');
       expect(mockSpawn).toHaveBeenCalledTimes(1);
       expect(mockSpawn).toHaveBeenCalledWith(
-        currentNameGenerationModel.provider,
+        currentNameGenerationModel.harness,
         expect.arrayContaining(['--model', currentNameGenerationModel.model, '--no-session-persistence', '-p']),
         expect.any(Object)
       );
@@ -289,7 +289,7 @@ describe('Name Generator', () => {
     it('should fall back when codex returns no usable suggestions after sanitization', async () => {
       currentNameGenerationModel = {
         model: 'gpt-5.4',
-        provider: 'codex',
+        harness: 'codex',
       };
       mockSpawn.mockReturnValue(createMockSpawn('a\n!\n'));
 
@@ -298,8 +298,8 @@ describe('Name Generator', () => {
       expect(result).toEqual(['build-something-awesome']);
     });
 
-    it('should no longer accept a provider parameter (config-driven)', async () => {
-      // Provider is now embedded in the config, not passed as a parameter
+    it('should no longer accept a harness argument (config-driven)', async () => {
+      // The harness is embedded in the config, not passed as a parameter
       // This test verifies that generateProjectNames has a single-parameter signature
       mockSpawn.mockReturnValue(
         createMockSpawn('phoenix\nturbo-boost\ncatalyst\n')
@@ -309,7 +309,7 @@ describe('Name Generator', () => {
 
       expect(result).toEqual(['phoenix', 'turbo-boost', 'catalyst']);
       expect(mockSpawn).toHaveBeenCalledWith(
-        currentNameGenerationModel.provider,
+        currentNameGenerationModel.harness,
         expect.arrayContaining(['--model', currentNameGenerationModel.model]),
         expect.any(Object)
       );
@@ -318,7 +318,7 @@ describe('Name Generator', () => {
     it('should use codex exec invocation for name generation when configured', async () => {
       currentNameGenerationModel = {
         model: 'gpt-5.4',
-        provider: 'codex',
+        harness: 'codex',
       };
       mockSpawn.mockReturnValue(createMockSpawn('phoenix-rise\nturbo-boost\nbug-squasher\n'));
 

@@ -1,4 +1,15 @@
 import { jest } from '@jest/globals';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+
+const suiteHomeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-commit-home-'));
+let mockHomeDir = suiteHomeDir;
+
+jest.unstable_mockModule('node:os', () => ({
+  homedir: () => mockHomeDir,
+  tmpdir: () => os.tmpdir(),
+}));
 
 // Mock execSync before importing the module
 const mockExecSync = jest.fn();
@@ -18,10 +29,21 @@ jest.unstable_mockModule('../../src/utils/logger.js', () => ({
 
 // Import after mocking
 const { commitPlanningArtifacts } = await import('../../src/core/git.js');
+const { resetConfigCache } = await import('../../src/utils/config.js');
 
 describe('commitPlanningArtifacts', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    fs.rmSync(path.join(mockHomeDir, '.raf'), { recursive: true, force: true });
+    resetConfigCache();
+  });
+
+  afterEach(() => {
+    resetConfigCache();
+  });
+
+  afterAll(() => {
+    fs.rmSync(suiteHomeDir, { recursive: true, force: true });
   });
 
   it('should commit input.md and decisions.md with correct message format', async () => {

@@ -18,12 +18,12 @@ export function validateEnvironment(): ValidationResult {
     errors: [],
   };
 
-  // Check CLI provider is installed
+  // Check that at least one supported CLI harness is installed
   try {
-    execSync('which claude', { encoding: 'utf-8', stdio: 'pipe' });
+    execSync('which claude || which codex', { encoding: 'utf-8', stdio: 'pipe' });
   } catch {
     result.valid = false;
-    result.errors.push('CLI provider not found. Please install Claude CLI or Codex CLI first.');
+    result.errors.push('CLI harness not found. Please install Claude CLI or Codex CLI first.');
   }
 
   // Check for git repo (warning only)

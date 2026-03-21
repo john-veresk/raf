@@ -115,7 +115,7 @@ function resolveTaskModel(
     const parsed = parseModelSpec(frontmatter.model);
     const fmEntry: ModelEntry = {
       model: parsed.model,
-      provider: parsed.provider,
+      harness: parsed.harness,
     };
     const result = applyModelCeiling(fmEntry, ceilingEntry);
     return { entry: result, missingFrontmatter: false, warnings };
@@ -629,7 +629,7 @@ async function executeSingleProject(
 
   // Resolve and display version + ceiling model info (before any tasks run)
   const fullCeilingModelId = resolveFullModelId(ceilingEntry.model);
-  logger.dim(`RAF v${getVersion()} | Ceiling: ${fullCeilingModelId} (${ceilingEntry.provider})`);
+  logger.dim(`RAF v${getVersion()} | Ceiling: ${fullCeilingModelId} (${ceilingEntry.harness})`);
 
   if (verbose) {
     logger.info(`Executing project: ${projectName}`);
@@ -861,7 +861,7 @@ async function executeSingleProject(
       }
 
       // Create a runner for this attempt's model
-      const taskRunner = createRunner({ model: modelResolution.entry.model, provider: modelResolution.entry.provider, reasoningEffort: modelResolution.entry.reasoningEffort, fast: modelResolution.entry.fast });
+      const taskRunner = createRunner({ model: modelResolution.entry.model, harness: modelResolution.entry.harness, reasoningEffort: modelResolution.entry.reasoningEffort, fast: modelResolution.entry.fast });
       shutdownHandler.registerClaudeRunner(taskRunner);
 
       if (verbose && isRetry) {

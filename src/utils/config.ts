@@ -8,7 +8,7 @@ import {
   UserConfig,
   VALID_MODEL_ALIASES,
   VALID_CODEX_MODEL_ALIASES,
-  VALID_HARNESS_PROVIDERS,
+  VALID_HARNESSES,
   FULL_MODEL_ID_PATTERN,
   TaskEffortLevel,
   ModelScenario,
@@ -16,7 +16,7 @@ import {
   CommitFormatType,
   DisplayConfig,
   EffortMappingConfig,
-  HarnessProvider,
+  HarnessName,
 } from '../types/config.js';
 
 const CONFIG_DIR = path.join(os.homedir(), '.raf');
@@ -43,9 +43,9 @@ const VALID_TOP_LEVEL_KEYS = new Set<string>([
 
 /** Keys that were removed in the schema migration. Rejected with a helpful error. */
 const REMOVED_KEYS: Record<string, string> = {
-  provider: 'Top-level "provider" has been removed. Set provider per-entry in "models" and "effortMapping" instead.',
-  codexModels: '"codexModels" has been removed. Use "models" with provider-aware entries (e.g. { "model": "gpt-5.4", "provider": "codex" }) instead.',
-  codexEffortMapping: '"codexEffortMapping" has been removed. Use "effortMapping" with provider-aware entries instead.',
+  provider: 'Top-level "provider" has been removed. Use "harness" inside each "models" and "effortMapping" entry instead.',
+  codexModels: '"codexModels" has been removed. Use "models" with harness-aware entries (e.g. { "model": "gpt-5.4", "harness": "codex" }) instead.',
+  codexEffortMapping: '"codexEffortMapping" has been removed. Use "effortMapping" with harness-aware entries instead.',
 };
 
 const VALID_MODEL_KEYS = new Set<string>([
@@ -58,7 +58,7 @@ const VALID_COMMIT_FORMAT_KEYS = new Set<string>(['task', 'plan', 'amend', 'pref
 
 const VALID_DISPLAY_KEYS = new Set<string>(['showCacheTokens']);
 
-const VALID_MODEL_ENTRY_KEYS = new Set<string>(['model', 'provider', 'reasoningEffort', 'fast']);
+const VALID_MODEL_ENTRY_KEYS = new Set<string>(['model', 'harness', 'reasoningEffort', 'fast']);
 
 const VALID_REASONING_EFFORTS = new Set<string>(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 
@@ -90,14 +90,14 @@ const CODEX_MODEL_ID_PATTERN = /^gpt-\d+\.\d+(-.+)*$/;
  * - Harness-prefixed format: claude/opus, codex/gpt-5.4
  */
 export function isValidModelName(value: string): boolean {
-  // Harness-prefixed format: provider/model
+  // Harness-prefixed format: harness/model
   const prefixMatch = value.match(/^(claude|codex)\/(.+)$/);
   if (prefixMatch) {
-    const [, provider, model] = prefixMatch;
-    if (provider === 'claude') {
+    const [, harness, model] = prefixMatch;
+    if (harness === 'claude') {
       return (VALID_MODEL_ALIASES as readonly string[]).includes(model!) || FULL_MODEL_ID_PATTERN.test(model!);
     }
-    if (provider === 'codex') {
+    if (harness === 'codex') {
       return (VALID_CODEX_MODEL_ALIASES as readonly string[]).includes(model!) || CODEX_MODEL_ID_PATTERN.test(model!);
     }
   }
@@ -116,33 +116,33 @@ export function isValidModelName(value: string): boolean {
 }
 
 /**
- * Parse a model spec string into its provider and model components.
- * - `codex/gpt-5.4` -> { provider: 'codex', model: 'gpt-5.4' }
- * - `claude/opus` -> { provider: 'claude', model: 'opus' }
- * - `opus` -> { provider: 'claude', model: 'opus' } (defaults to claude)
- * - `gpt-5.4` -> { provider: 'codex', model: 'gpt-5.4' } (inferred from model format)
+ * Parse a model spec string into its harness and model components.
+ * - `codex/gpt-5.4` -> { harness: 'codex', model: 'gpt-5.4' }
+ * - `claude/opus` -> { harness: 'claude', model: 'opus' }
+ * - `opus` -> { harness: 'claude', model: 'opus' } (defaults to claude)
+ * - `gpt-5.4` -> { harness: 'codex', model: 'gpt-5.4' } (inferred from model format)
  */
-export function parseModelSpec(modelSpec: string): { provider: HarnessProvider; model: string } {
+export function parseModelSpec(modelSpec: string): { harness: HarnessName; model: string } {
   const prefixMatch = modelSpec.match(/^(claude|codex)\/(.+)$/);
   if (prefixMatch) {
-    return { provider: prefixMatch[1] as HarnessProvider, model: prefixMatch[2]! };
+    return { harness: prefixMatch[1] as HarnessName, model: prefixMatch[2]! };
   }
 
-  // Infer provider from model format
+  // Infer harness from model format
   if ((VALID_CODEX_MODEL_ALIASES as readonly string[]).includes(modelSpec) || CODEX_MODEL_ID_PATTERN.test(modelSpec)) {
-    return { provider: 'codex', model: modelSpec };
+    return { harness: 'codex', model: modelSpec };
   }
 
   // Default to claude
-  return { provider: 'claude', model: modelSpec };
+  return { harness: 'claude', model: modelSpec };
 }
 
 /**
- * Validate a model entry object: { model, provider, reasoningEffort? }
+ * Validate a model entry object: { model, harness, reasoningEffort? }
  */
 function validateModelEntry(obj: unknown, prefix: string): void {
   if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
-    throw new ConfigValidationError(`${prefix} must be a model entry object (e.g. { "model": "opus", "provider": "claude" })`);
+    throw new ConfigValidationError(`${prefix} must be a model entry object (e.g. { "model": "opus", "harness": "claude" })`);
   }
   const entry = obj as Record<string, unknown>;
   checkUnknownKeys(entry, VALID_MODEL_ENTRY_KEYS, prefix);
@@ -156,11 +156,11 @@ function validateModelEntry(obj: unknown, prefix: string): void {
     );
   }
 
-  if (entry.provider === undefined) {
-    throw new ConfigValidationError(`${prefix}.provider is required`);
+  if (entry.harness === undefined) {
+    throw new ConfigValidationError(`${prefix}.harness is required`);
   }
-  if (typeof entry.provider !== 'string' || !(VALID_HARNESS_PROVIDERS as readonly string[]).includes(entry.provider)) {
-    throw new ConfigValidationError(`${prefix}.provider must be one of: ${VALID_HARNESS_PROVIDERS.join(', ')}`);
+  if (typeof entry.harness !== 'string' || !(VALID_HARNESSES as readonly string[]).includes(entry.harness)) {
+    throw new ConfigValidationError(`${prefix}.harness must be one of: ${VALID_HARNESSES.join(', ')}`);
   }
 
   if (entry.reasoningEffort !== undefined) {
@@ -290,7 +290,7 @@ function mergeModelEntry(defaultEntry: ModelEntry, override: unknown): ModelEntr
     const o = override as Record<string, unknown>;
     return {
       model: typeof o.model === 'string' ? o.model : defaultEntry.model,
-      provider: typeof o.provider === 'string' ? (o.provider as HarnessProvider) : defaultEntry.provider,
+      harness: typeof o.harness === 'string' ? (o.harness as HarnessName) : defaultEntry.harness,
       ...(o.reasoningEffort !== undefined
         ? { reasoningEffort: o.reasoningEffort as ModelEntry['reasoningEffort'] }
         : defaultEntry.reasoningEffort !== undefined
@@ -491,7 +491,7 @@ export function getModelTier(modelName: string): number {
 /**
  * Apply ceiling to a model entry based on the configured models.execute ceiling.
  * Returns the lower-tier entry between the input and the ceiling.
- * When the input exceeds the ceiling, the ceiling entry is returned (including its provider).
+ * When the input exceeds the ceiling, the ceiling entry is returned (including its harness).
  */
 export function applyModelCeiling(resolved: ModelEntry, ceiling?: ModelEntry): ModelEntry {
   const ceilingEntry = ceiling ?? getModel('execute');

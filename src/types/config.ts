@@ -1,5 +1,5 @@
-/** CLI harness provider */
-export type HarnessProvider = 'claude' | 'codex';
+/** CLI harness name */
+export type HarnessName = 'claude' | 'codex';
 
 /** Short alias for a Claude model family */
 export type ClaudeModelAlias = 'sonnet' | 'haiku' | 'opus';
@@ -7,7 +7,7 @@ export type ClaudeModelAlias = 'sonnet' | 'haiku' | 'opus';
 /** Short alias for a Codex model family */
 export type CodexModelAlias = 'spark' | 'codex' | 'gpt54';
 
-/** Provider-agnostic model alias (union of all provider aliases) */
+/** Harness-agnostic model alias (union of all harness aliases) */
 export type ModelAlias = ClaudeModelAlias | CodexModelAlias;
 
 /**
@@ -17,7 +17,7 @@ export type ModelAlias = ClaudeModelAlias | CodexModelAlias;
  */
 export type ClaudeModelName = ClaudeModelAlias | (string & { __brand?: 'FullModelId' });
 
-/** Provider-agnostic model name — accepts any alias, full ID, or harness-prefixed format */
+/** Harness-agnostic model name — accepts any alias, full ID, or harness-prefixed format */
 export type ModelName = string & { __brand?: 'ModelName' };
 
 /** Task complexity label for per-task effort frontmatter. Maps to models via effortMapping. */
@@ -27,14 +27,14 @@ export type ModelScenario = 'plan' | 'execute' | 'nameGeneration' | 'failureAnal
 export type CommitFormatType = 'task' | 'plan' | 'amend';
 
 /**
- * A provider-aware model configuration entry.
- * Stores model, provider, and optional reasoning effort together.
+ * A harness-aware model configuration entry.
+ * Stores model, harness, and optional reasoning effort together.
  */
 export interface ModelEntry {
   /** Model name: short alias (opus, sonnet, gpt-5.4) or full ID */
   model: string;
-  /** Which CLI provider to use for this entry */
-  provider: HarnessProvider;
+  /** Which CLI harness to use for this entry */
+  harness: HarnessName;
   /** Optional reasoning effort hint. Codex accepts: "none", "minimal", "low", "medium", "high", "xhigh" */
   reasoningEffort?: string;
   /** Enable fast mode for faster output (Claude only). Default: false/omitted. */
@@ -51,7 +51,7 @@ export interface ModelsConfig {
 }
 
 /**
- * Maps task complexity labels to provider-aware model entries.
+ * Maps task complexity labels to harness-aware model entries.
  * Used to resolve per-task effort frontmatter to a model.
  */
 export interface EffortMappingConfig {
@@ -89,17 +89,17 @@ export interface RafConfig {
 
 export const DEFAULT_CONFIG: RafConfig = {
   models: {
-    plan: { model: 'opus', provider: 'claude' },
-    execute: { model: 'opus', provider: 'claude' },
-    nameGeneration: { model: 'sonnet', provider: 'claude' },
-    failureAnalysis: { model: 'haiku', provider: 'claude' },
-    prGeneration: { model: 'sonnet', provider: 'claude' },
-    config: { model: 'sonnet', provider: 'claude' },
+    plan: { model: 'opus', harness: 'claude' },
+    execute: { model: 'opus', harness: 'claude' },
+    nameGeneration: { model: 'sonnet', harness: 'claude' },
+    failureAnalysis: { model: 'haiku', harness: 'claude' },
+    prGeneration: { model: 'sonnet', harness: 'claude' },
+    config: { model: 'sonnet', harness: 'claude' },
   },
   effortMapping: {
-    low: { model: 'sonnet', provider: 'claude' },
-    medium: { model: 'opus', provider: 'claude' },
-    high: { model: 'opus', provider: 'claude' },
+    low: { model: 'sonnet', harness: 'claude' },
+    medium: { model: 'opus', harness: 'claude' },
+    high: { model: 'opus', harness: 'claude' },
   },
   timeout: 60,
   maxRetries: 3,
@@ -128,7 +128,7 @@ export const VALID_MODEL_ALIASES: readonly ClaudeModelAlias[] = ['sonnet', 'haik
 
 export const VALID_CODEX_MODEL_ALIASES: readonly CodexModelAlias[] = ['spark', 'codex', 'gpt54'];
 
-export const VALID_HARNESS_PROVIDERS: readonly HarnessProvider[] = ['claude', 'codex'];
+export const VALID_HARNESSES: readonly HarnessName[] = ['claude', 'codex'];
 
 /**
  * Regex for full Claude model IDs (e.g., `claude-sonnet-4-5-20250929`, `claude-opus-4-5-20251101`).

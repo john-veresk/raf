@@ -150,7 +150,7 @@ describe('Config Command', () => {
 
     it('prints a resolved dot-notation value', async () => {
       fs.mkdirSync(path.dirname(configPath()), { recursive: true });
-      fs.writeFileSync(configPath(), JSON.stringify({ models: { plan: { model: 'haiku', provider: 'claude' } } }, null, 2));
+      fs.writeFileSync(configPath(), JSON.stringify({ models: { plan: { model: 'haiku', harness: 'claude' } } }, null, 2));
 
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
@@ -249,7 +249,7 @@ describe('Config Command', () => {
       fs.mkdirSync(path.dirname(configPath()), { recursive: true });
       fs.writeFileSync(
         configPath(),
-        JSON.stringify({ timeout: 45, models: { execute: { model: 'sonnet', provider: 'claude' } } }, null, 2)
+        JSON.stringify({ timeout: 45, models: { execute: { model: 'sonnet', harness: 'claude' } } }, null, 2)
       );
 
       await parseConfigCommand(['preset', 'save', 'team-default']);
@@ -293,14 +293,14 @@ describe('Config Command', () => {
 
   describe('Validation helpers used by config flows', () => {
     it('accepts valid partial configs', () => {
-      expect(() => validateConfig({ models: { execute: { model: 'sonnet', provider: 'claude' } } })).not.toThrow();
-      expect(() => validateConfig({ effortMapping: { low: { model: 'sonnet', provider: 'claude' } } })).not.toThrow();
+      expect(() => validateConfig({ models: { execute: { model: 'sonnet', harness: 'claude' } } })).not.toThrow();
+      expect(() => validateConfig({ effortMapping: { low: { model: 'sonnet', harness: 'claude' } } })).not.toThrow();
       expect(() => validateConfig({ timeout: 120 })).not.toThrow();
     });
 
     it('rejects invalid configs', () => {
       expect(() => validateConfig({ unknownKey: true })).toThrow(ConfigValidationError);
-      expect(() => validateConfig({ models: { execute: { model: 'gpt-4', provider: 'codex' } } })).toThrow(ConfigValidationError);
+      expect(() => validateConfig({ models: { execute: { model: 'gpt-4', harness: 'codex' } } })).toThrow(ConfigValidationError);
       expect(() => validateConfig('string')).toThrow(ConfigValidationError);
     });
   });

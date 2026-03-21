@@ -13,7 +13,7 @@ The config file is a JSON object. All keys are optional at every level. User val
 ```json
 {
   "models": {
-    "plan": { "model": "sonnet", "provider": "claude" }
+    "plan": { "model": "sonnet", "harness": "claude" }
   }
 }
 ```
@@ -24,16 +24,16 @@ The above only changes `models.plan` — all other model settings keep their def
 
 ### `models` — Model Selection
 
-Controls which model and provider is used for each scenario. Each entry is a `ModelEntry` object with the following shape:
+Controls which model and harness is used for each scenario. Each entry is a `ModelEntry` object with the following shape:
 
 ```json
-{ "model": "<model-name>", "provider": "<provider>", "reasoningEffort": "<effort>", "fast": true }
+{ "model": "<model-name>", "harness": "<harness>", "reasoningEffort": "<effort>", "fast": true }
 ```
 
 - **`model`** (required): A short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID (e.g., `"claude-opus-4-6"`, `"gpt-5.4"`, `"o3"`).
-- **`provider`** (required): The LLM provider — `"claude"` or `"codex"`.
+- **`harness`** (required): The CLI harness — `"claude"` or `"codex"`.
 - **`fast`** (optional): Enable fast mode for faster output. Claude only — uses the same model with ~2.5x faster responses at higher per-token cost. Default: `false`/omitted. Codex does not support fast mode.
-- **`reasoningEffort`** (optional): Controls reasoning depth. Accepted values differ by provider:
+- **`reasoningEffort`** (optional): Controls reasoning depth. Accepted values differ by harness:
   - **Claude** (`output_config.effort`): `"low"`, `"medium"`, `"high"` (default), `"max"` (Opus 4.6 only). Supported on Opus 4.5+, Sonnet 4.6+. Haiku does not support reasoning.
   - **Codex** (`model_reasoning_effort`): `"none"`, `"minimal"`, `"low"`, `"medium"` (default), `"high"`, `"xhigh"`.
 
@@ -42,19 +42,19 @@ Controls which model and provider is used for each scenario. Each entry is a `Mo
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `models.plan` | `{ "model": "opus", "provider": "claude" }` | Model used for planning sessions (`raf plan`) |
-| `models.execute` | `{ "model": "opus", "provider": "claude" }` | Ceiling model for task execution (`raf do`). Per-task models from effort frontmatter are capped to this tier. Also used as the fallback when a plan has no effort frontmatter. |
-| `models.nameGeneration` | `{ "model": "sonnet", "provider": "claude" }` | Model used for generating project names |
-| `models.failureAnalysis` | `{ "model": "haiku", "provider": "claude" }` | Model used for analyzing task failures |
-| `models.prGeneration` | `{ "model": "sonnet", "provider": "claude" }` | Model used for generating PR titles and descriptions |
-| `models.config` | `{ "model": "sonnet", "provider": "claude" }` | Model used for the interactive config editor (`raf config wizard`) |
+| `models.plan` | `{ "model": "opus", "harness": "claude" }` | Model used for planning sessions (`raf plan`) |
+| `models.execute` | `{ "model": "opus", "harness": "claude" }` | Ceiling model for task execution (`raf do`). Per-task models from effort frontmatter are capped to this tier. Also used as the fallback when a plan has no effort frontmatter. |
+| `models.nameGeneration` | `{ "model": "sonnet", "harness": "claude" }` | Model used for generating project names |
+| `models.failureAnalysis` | `{ "model": "haiku", "harness": "claude" }` | Model used for analyzing task failures |
+| `models.prGeneration` | `{ "model": "sonnet", "harness": "claude" }` | Model used for generating PR titles and descriptions |
+| `models.config` | `{ "model": "sonnet", "harness": "claude" }` | Model used for the interactive config editor (`raf config wizard`) |
 
-**Partial overrides**: When deep-merging, you can override just the `model` or `provider` within an entry:
+**Partial overrides**: When deep-merging, you can override just the `model` or `harness` within an entry:
 
 ```json
 {
   "models": {
-    "execute": { "model": "gpt-5.4", "provider": "codex" }
+    "execute": { "model": "gpt-5.4", "harness": "codex" }
   }
 }
 ```
@@ -65,9 +65,9 @@ Maps task complexity labels (in plan frontmatter) to `ModelEntry` objects. When 
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `effortMapping.low` | `{ "model": "sonnet", "provider": "claude" }` | Model for low-complexity tasks |
-| `effortMapping.medium` | `{ "model": "opus", "provider": "claude" }` | Model for medium-complexity tasks |
-| `effortMapping.high` | `{ "model": "opus", "provider": "claude" }` | Model for high-complexity tasks |
+| `effortMapping.low` | `{ "model": "sonnet", "harness": "claude" }` | Model for low-complexity tasks |
+| `effortMapping.medium` | `{ "model": "opus", "harness": "claude" }` | Model for medium-complexity tasks |
+| `effortMapping.high` | `{ "model": "opus", "harness": "claude" }` | Model for high-complexity tasks |
 
 Each value is a `ModelEntry` object (same shape as `models.*` entries).
 
@@ -76,11 +76,11 @@ Each value is a `ModelEntry` object (same shape as `models.*` entries).
 Example:
 ```json
 {
-  "models": { "execute": { "model": "sonnet", "provider": "claude" } },
+  "models": { "execute": { "model": "sonnet", "harness": "claude" } },
   "effortMapping": {
-    "low": { "model": "sonnet", "provider": "claude" },
-    "medium": { "model": "opus", "provider": "claude" },
-    "high": { "model": "opus", "provider": "claude" }
+    "low": { "model": "sonnet", "harness": "claude" },
+    "medium": { "model": "opus", "harness": "claude" },
+    "high": { "model": "opus", "harness": "claude" }
   }
 }
 ```
@@ -88,12 +88,12 @@ Example:
 - Task with `effort: medium` → sonnet (capped to ceiling, not opus)
 - Task with `effort: high` → sonnet (capped to ceiling, not opus)
 
-**Mixed providers**: You can mix Claude and Codex models freely:
+**Mixed harnesses**: You can mix Claude and Codex models freely:
 ```json
 {
   "effortMapping": {
-    "low": { "model": "sonnet", "provider": "claude" },
-    "high": { "model": "gpt-5.4", "provider": "codex" }
+    "low": { "model": "sonnet", "harness": "claude" },
+    "high": { "model": "gpt-5.4", "harness": "codex" }
   }
 }
 ```
@@ -190,7 +190,7 @@ Example:
 
 When configuring models, use one of the known names below. Aliases automatically resolve to the latest version.
 
-### Claude Models (provider: `"claude"`)
+### Claude Models (harness: `"claude"`)
 
 | Alias | Resolves To | Notes |
 |-------|------------|-------|
@@ -205,7 +205,7 @@ You can also use full model IDs directly for version pinning:
 
 Any string matching the pattern `claude-<family>-*` is accepted as a valid Claude model ID.
 
-### Codex Models (provider: `"codex"`)
+### Codex Models (harness: `"codex"`)
 
 | Alias | Resolves To | Notes |
 |-------|------------|-------|
@@ -222,7 +222,7 @@ Any string matching the pattern `gpt-<version>` or containing a dot-separated ve
 
 ### Prefixed Format
 
-You can also use `provider/model` format: `"claude/opus"`, `"codex/gpt-5.4"`. The provider prefix is stripped and used to set the provider field.
+You can also use `harness/model` format: `"claude/opus"`, `"codex/gpt-5.4"`. The harness prefix is stripped and used to set the harness field.
 
 ## Reasoning Effort
 
@@ -246,7 +246,7 @@ Reasoning effort controls how much thinking the model does before responding. Hi
 - **Default effort** (medium/high): Good for most tasks. Balanced cost and quality.
 - **Higher effort** (max/xhigh): Complex architectural decisions, subtle bugs, or security-sensitive code.
 
-Reasoning effort is optional — omit it to use the provider's default.
+Reasoning effort is optional — omit it to use the harness's default.
 
 ## Fast Mode
 
@@ -261,8 +261,8 @@ Example — fast planning, standard execution:
 ```json
 {
   "models": {
-    "plan": { "model": "opus", "provider": "claude", "fast": true },
-    "execute": { "model": "opus", "provider": "claude" }
+    "plan": { "model": "opus", "harness": "claude", "fast": true },
+    "execute": { "model": "opus", "harness": "claude" }
   }
 }
 ```
@@ -273,7 +273,7 @@ The config is validated when loaded. Invalid configs cause an error with a descr
 
 - **Unknown keys are rejected** at every nesting level. Typos like `"model"` instead of `"models"` will be caught.
 - **Removed legacy keys** (`provider`, `codexModels`, `codexEffortMapping`) are rejected with helpful migration messages.
-- **Model entries** (`models.*`, `effortMapping.*`) must be `ModelEntry` objects with required `model` and `provider` fields. Plain strings (e.g., `"sonnet"`) are not accepted — use `{ "model": "sonnet", "provider": "claude" }` instead.
+- **Model entries** (`models.*`, `effortMapping.*`) must be `ModelEntry` objects with required `model` and `harness` fields. Plain strings (e.g., `"sonnet"`) are not accepted — use `{ "model": "sonnet", "harness": "claude" }` instead.
 - **`effortMapping` keys** must be `"low"`, `"medium"`, or `"high"`.
 - **`timeout`** must be a positive finite number.
 - **`maxRetries`** must be a non-negative integer.
@@ -284,7 +284,7 @@ The config is validated when loaded. Invalid configs cause an error with a descr
 
 ## Precedence
 
-The provider for each model is set via the `provider` field in each ModelEntry in the config. There is no CLI flag to override providers at runtime.
+The harness for each model is set via the `harness` field in each `ModelEntry` in the config. There is no CLI flag to override harnesses at runtime.
 
 The precedence order is: **config file > default value**.
 
@@ -295,7 +295,7 @@ The precedence order is: **config file > default value**.
 ```json
 {
   "models": {
-    "execute": { "model": "sonnet", "provider": "claude" }
+    "execute": { "model": "sonnet", "harness": "claude" }
   }
 }
 ```
@@ -307,8 +307,8 @@ Uses Sonnet instead of Opus for task execution. Everything else stays at default
 ```json
 {
   "models": {
-    "plan": { "model": "sonnet", "provider": "claude" },
-    "execute": { "model": "sonnet", "provider": "claude" }
+    "plan": { "model": "sonnet", "harness": "claude" },
+    "execute": { "model": "sonnet", "harness": "claude" }
   },
   "worktree": true
 }
@@ -316,17 +316,17 @@ Uses Sonnet instead of Opus for task execution. Everything else stays at default
 
 Uses Sonnet for planning and caps task execution at Sonnet (tasks with `effort: high` will use Sonnet instead of Opus). Defaults to worktree mode.
 
-### Mixed Providers — Claude Planning, Codex Execution
+### Mixed Harnesses — Claude Planning, Codex Execution
 
 ```json
 {
   "models": {
-    "plan": { "model": "opus", "provider": "claude" },
-    "execute": { "model": "gpt-5.4", "provider": "codex" }
+    "plan": { "model": "opus", "harness": "claude" },
+    "execute": { "model": "gpt-5.4", "harness": "codex" }
   },
   "effortMapping": {
-    "low": { "model": "sonnet", "provider": "claude" },
-    "high": { "model": "gpt-5.4", "provider": "codex" }
+    "low": { "model": "sonnet", "harness": "claude" },
+    "high": { "model": "gpt-5.4", "harness": "codex" }
   }
 }
 ```
@@ -338,17 +338,17 @@ Uses Claude Opus for planning but Codex for execution. Low-effort tasks use Clau
 ```json
 {
   "models": {
-    "plan": { "model": "opus", "provider": "claude" },
-    "execute": { "model": "opus", "provider": "claude" },
-    "nameGeneration": { "model": "sonnet", "provider": "claude" },
-    "failureAnalysis": { "model": "haiku", "provider": "claude" },
-    "prGeneration": { "model": "sonnet", "provider": "claude" },
-    "config": { "model": "sonnet", "provider": "claude" }
+    "plan": { "model": "opus", "harness": "claude" },
+    "execute": { "model": "opus", "harness": "claude" },
+    "nameGeneration": { "model": "sonnet", "harness": "claude" },
+    "failureAnalysis": { "model": "haiku", "harness": "claude" },
+    "prGeneration": { "model": "sonnet", "harness": "claude" },
+    "config": { "model": "sonnet", "harness": "claude" }
   },
   "effortMapping": {
-    "low": { "model": "sonnet", "provider": "claude" },
-    "medium": { "model": "opus", "provider": "claude" },
-    "high": { "model": "opus", "provider": "claude" }
+    "low": { "model": "sonnet", "harness": "claude" },
+    "medium": { "model": "opus", "harness": "claude" },
+    "high": { "model": "opus", "harness": "claude" }
   },
   "timeout": 60,
   "maxRetries": 3,
@@ -374,8 +374,8 @@ This is equivalent to having no config file at all — all values match the defa
 ```json
 {
   "models": {
-    "plan": { "model": "claude-opus-4-5-20251101", "provider": "claude" },
-    "execute": { "model": "claude-sonnet-4-5-20250929", "provider": "claude" }
+    "plan": { "model": "claude-opus-4-5-20251101", "harness": "claude" },
+    "execute": { "model": "claude-sonnet-4-5-20250929", "harness": "claude" }
   }
 }
 ```
@@ -434,7 +434,7 @@ You are helping the user view and edit their RAF configuration. Be helpful, expl
 
 After making a change, briefly confirm what was changed and what the effective value is. For example:
 
-> Set `models.execute` to `{ "model": "sonnet", "provider": "claude" }`. Task execution will now use the Sonnet model instead of Opus.
+> Set `models.execute` to `{ "model": "sonnet", "harness": "claude" }`. Task execution will now use the Sonnet model instead of Opus.
 
 ### Showing Current Config
 
@@ -452,7 +452,7 @@ When the user specifies a model name, check it against the "Valid Model Names" s
 2. **Unknown model name** — Warn the user that the name isn't in the known list. Suggest they double-check the name. If you have web search capabilities (WebSearch tool), offer to search for the model name to verify it exists. If web search is not available, tell the user to verify the name themselves before saving.
 3. **Common mistakes** — Watch for typos like `"claude-sonnet"` (missing version), `"gpt5.4"` (missing hyphen), or `"Opus"` (capitalized). Suggest the correct form.
 
-When configuring reasoning effort, validate that the value is appropriate for the provider:
+When configuring reasoning effort, validate that the value is appropriate for the harness:
 - Claude: `"low"`, `"medium"`, `"high"`, `"max"`
 - Codex: `"none"`, `"minimal"`, `"low"`, `"medium"`, `"high"`, `"xhigh"`
 
@@ -461,7 +461,7 @@ If the user sets reasoning effort on a model that may not support it (e.g., Haik
 ### Common User Requests
 
 - **"Show my config"** — Read and display the config file, noting defaults
-- **"Use sonnet for everything"** — Set all `models.*` entries to `{ "model": "sonnet", "provider": "claude" }`
+- **"Use sonnet for everything"** — Set all `models.*` entries to `{ "model": "sonnet", "harness": "claude" }`
 - **"Reset to defaults"** — Delete the config file (confirm with user first)
 - **"What does X do?"** — Explain the setting using the reference above
 - **"Set timeout to 90"** — Update `timeout` to `90` in the config file

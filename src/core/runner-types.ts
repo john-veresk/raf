@@ -1,4 +1,4 @@
-import type { UsageData, HarnessProvider } from '../types/config.js';
+import type { UsageData, HarnessName } from '../types/config.js';
 
 /**
  * Options for a single runner execution (run, runVerbose, runInteractive, etc.).
@@ -52,14 +52,14 @@ export interface RunnerOptions {
 export interface RunnerConfig {
   /**
    * Model to use (e.g., opus, sonnet, haiku, gpt-5.4).
-   * Default: provider-specific default.
+   * Default: harness-specific default.
    */
   model?: string;
   /**
-   * CLI provider to use.
+   * CLI harness to use.
    * Default: 'claude'.
    */
-  provider?: HarnessProvider;
+  harness?: HarnessName;
   /**
    * Reasoning effort level to pass to the CLI.
    * Claude CLI: --effort <level>

@@ -1,7 +1,16 @@
+import { jest } from '@jest/globals';
 import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+
+const suiteHomeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-commit-wt-home-'));
+let mockHomeDir = suiteHomeDir;
+
+jest.unstable_mockModule('node:os', () => ({
+  homedir: () => mockHomeDir,
+  tmpdir: () => os.tmpdir(),
+}));
 
 /**
  * Integration tests for commitPlanningArtifacts in worktree scenarios.
@@ -10,6 +19,7 @@ import * as path from 'node:path';
 
 // Import the actual module (no mocking)
 const { commitPlanningArtifacts } = await import('../../src/core/git.js');
+const { resetConfigCache } = await import('../../src/utils/config.js');
 
 /**
  * Helper: create a temp directory for testing.
@@ -56,11 +66,14 @@ describe('commitPlanningArtifacts - worktree integration', () => {
   const worktreePaths: string[] = [];
 
   beforeEach(() => {
+    fs.rmSync(path.join(mockHomeDir, '.raf'), { recursive: true, force: true });
+    resetConfigCache();
     repoDir = makeTempDir('raf-commit-wt-');
     initGitRepo(repoDir);
   });
 
   afterEach(() => {
+    resetConfigCache();
     // Clean up worktrees first (before removing repo)
     for (const wt of worktreePaths) {
       try {
@@ -77,6 +90,10 @@ describe('commitPlanningArtifacts - worktree integration', () => {
     } catch {
       // Ignore cleanup errors
     }
+  });
+
+  afterAll(() => {
+    fs.rmSync(suiteHomeDir, { recursive: true, force: true });
   });
 
   function createInitialProject(dir: string, projectFolder: string): string {
