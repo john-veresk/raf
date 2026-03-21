@@ -1,0 +1,2 @@
+- [ ] in task status during 'raf do' is says: gpt54. i would like it to look like this "gpt-5.4", take model string from other place. same in "Generating project name suggestions with gpt54" in plan.
+- [ ] in config rename provider to harness. no migration needed
