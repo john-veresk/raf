@@ -86,7 +86,7 @@ export function parseDependencies(content: string): string[] {
     return [];
   }
 
-  // Parse comma-separated task IDs (2-char base36)
+  // Parse comma-separated numeric task IDs
   const taskIdRegex = new RegExp(`^${TASK_ID_PATTERN}$`);
   return dependenciesLine
     .split(',')
@@ -181,7 +181,7 @@ export function deriveProjectStatus(
 /**
  * Derive project state from the folder structure.
  * Scans plans/ for plan files and outcomes/ for outcome files.
- * Matches them by task ID (2-char base36 prefix for tasks) and determines status.
+ * Matches them by task ID (numeric prefix for tasks) and determines status.
  * Also parses dependencies and derives blocked status.
  */
 export function deriveProjectState(projectPath: string): DerivedProjectState {

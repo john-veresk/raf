@@ -85,8 +85,8 @@ ${previousOutcomes.map((o) => `### Task ${o.taskId}\n${o.content}`).join('\n\n')
 `;
   }
 
-  // Encode task number to 2-char base36
-  const paddedTaskNumber = taskNumber.toString(36).padStart(2, '0');
+  // Encode task number to plain numeric string
+  const paddedTaskNumber = taskNumber.toString();
 
   // Build example commit message from config template
   const commitTemplate = getCommitFormat('task');

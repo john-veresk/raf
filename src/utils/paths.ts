@@ -7,39 +7,30 @@ export const RAF_DIR = 'RAF';
 /** Regex pattern matching a numeric project folder: digits followed by hyphen and name */
 const PROJECT_FOLDER_PATTERN = /^(\d+)-(.+)$/;
 
-/** Task ID width: 2 characters, zero-padded base36 */
-const TASK_ID_WIDTH = 2;
-
-/** Regex pattern for matching base36 task IDs (2-char: 00-zz) */
-export const TASK_ID_PATTERN = '[0-9a-z]{2}';
+/** Regex pattern for matching numeric task IDs (1, 2, 12, etc.) */
+export const TASK_ID_PATTERN = '\\d+';
 
 /**
- * Encode a task number (0-based or 1-based) to a 2-character zero-padded base36 string.
- * E.g., 1 -> "01", 10 -> "0a", 36 -> "10", 1295 -> "zz"
+ * Encode a task number to its string representation.
+ * E.g., 1 -> "1", 5 -> "5", 12 -> "12"
  */
 export function encodeTaskId(num: number): string {
   if (num < 0) {
     throw new Error(`encodeTaskId only accepts non-negative integers, got ${num}`);
   }
-  if (num > 36 * 36 - 1) {
-    throw new Error(`encodeTaskId: value ${num} exceeds max 2-char base36 (1295)`);
-  }
-  return num.toString(36).padStart(TASK_ID_WIDTH, '0');
+  return num.toString();
 }
 
 /**
- * Decode a 2-character base36 task ID string back to a number.
- * E.g., "01" -> 1, "0a" -> 10, "10" -> 36
+ * Decode a numeric task ID string back to a number.
+ * E.g., "1" -> 1, "12" -> 12
  * Returns null if invalid format.
  */
 export function decodeTaskId(str: string): number | null {
-  if (str.length !== TASK_ID_WIDTH) {
+  if (!/^\d+$/.test(str)) {
     return null;
   }
-  if (!/^[0-9a-z]{2}$/.test(str.toLowerCase())) {
-    return null;
-  }
-  return parseInt(str.toLowerCase(), 36);
+  return parseInt(str, 10);
 }
 
 export function getRafDir(): string {
@@ -195,7 +186,7 @@ export function extractProjectName(projectPath: string): string | null {
  */
 export function extractTaskNameFromPlanFile(planFilename: string): string | null {
   const basename = path.basename(planFilename, '.md');
-  const match = basename.match(/^[0-9a-z]{2}-(.+)$/);
+  const match = basename.match(/^\d+-(.+)$/);
   return match && match[1] ? match[1] : null;
 }
 

@@ -76,8 +76,8 @@ This file serves as documentation of design choices made during planning. Append
 ### Step 3: Create Plan Files
 
 After interviewing the user about all tasks, create plan files in the plans folder:
-- ${projectPath}/plans/01-task-name.md
-- ${projectPath}/plans/02-task-name.md
+- ${projectPath}/plans/1-task-name.md
+- ${projectPath}/plans/2-task-name.md
 - etc.
 
 Each plan file MUST have Obsidian-style frontmatter at the top, before the \`# Task:\` heading. The frontmatter uses standard YAML format with opening and closing \`---\` delimiters:
@@ -96,7 +96,7 @@ effort: medium
 
 ## Dependencies
 [Optional section - omit if task has no dependencies]
-[Comma-separated list of task IDs this task depends on, e.g., "01, 02"]
+[Comma-separated list of task IDs this task depends on, e.g., "1, 2"]
 [If a dependency fails, this task will be automatically blocked]
 
 ## Requirements
@@ -151,12 +151,12 @@ For each task, analyze which other tasks must complete successfully before it ca
 **Dependency format examples:**
 \`\`\`markdown
 ## Dependencies
-01
+1
 \`\`\`
 or for multiple dependencies:
 \`\`\`markdown
 ## Dependencies
-01, 02
+1, 2
 \`\`\`
 
 **Rules for dependencies:**
@@ -169,9 +169,9 @@ or for multiple dependencies:
 
 After creating all plan files:
 1. Provide a summary of the tasks you've created, including the effort level for each task. Example:
-   - Task 01: setup-database (effort: low)
-   - Task 02: implement-auth (effort: medium)
-   - Task 03: refactor-api (effort: high)
+   - Task 1: setup-database (effort: low)
+   - Task 2: implement-auth (effort: medium)
+   - Task 3: refactor-api (effort: high)
 2. Display this exit message to the user:
 
 \`\`\`
@@ -183,7 +183,7 @@ Planning complete! To exit this session and run your tasks:
 ## Important Rules
 
 1. ALWAYS interview the user before creating plans
-2. Create plans in numbered order (01, 02, 03, etc.) reflecting logical execution order
+2. Create plans in numbered order (1, 2, 3, etc.) reflecting logical execution order
 3. Use descriptive, kebab-case names for plan files
 4. Each plan should be self-contained with all context needed
 5. Infer dependencies automatically - analyze task relationships, don't ask the user about dependencies

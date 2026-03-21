@@ -76,8 +76,8 @@ describe('Planning Prompt', () => {
 
       const { systemPrompt } = getPlanningPrompt(params);
 
-      expect(systemPrompt).toContain('/test/project/plans/01-task-name.md');
-      expect(systemPrompt).toContain('/test/project/plans/02-task-name.md');
+      expect(systemPrompt).toContain('/test/project/plans/1-task-name.md');
+      expect(systemPrompt).toContain('/test/project/plans/2-task-name.md');
     });
 
     it('should include task guidelines in system prompt', () => {
@@ -117,7 +117,7 @@ describe('Planning Prompt', () => {
       const { systemPrompt } = getPlanningPrompt(params);
 
       expect(systemPrompt).toContain('ALWAYS interview the user before creating plans');
-      expect(systemPrompt).toContain('numbered order (01, 02, 03');
+      expect(systemPrompt).toContain('numbered order (1, 2, 3');
       expect(systemPrompt).toContain('kebab-case names');
     });
 

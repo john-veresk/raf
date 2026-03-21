@@ -154,14 +154,15 @@ describe('Paths', () => {
   });
 
   describe('extractTaskNameFromPlanFile', () => {
-    it('should extract task name from 2-char base36 plan file', () => {
-      expect(extractTaskNameFromPlanFile('01-fix-login-bug.md')).toBe('fix-login-bug');
-      expect(extractTaskNameFromPlanFile('0a-add-feature.md')).toBe('add-feature');
+    it('should extract task name from numeric plan file', () => {
+      expect(extractTaskNameFromPlanFile('1-fix-login-bug.md')).toBe('fix-login-bug');
+      expect(extractTaskNameFromPlanFile('10-add-feature.md')).toBe('add-feature');
     });
 
-    it('should extract task name from various base36 plan files', () => {
-      expect(extractTaskNameFromPlanFile('01-first-task.md')).toBe('first-task');
+    it('should extract task name from various numeric plan files', () => {
+      expect(extractTaskNameFromPlanFile('1-first-task.md')).toBe('first-task');
       expect(extractTaskNameFromPlanFile('99-last-task.md')).toBe('last-task');
+      expect(extractTaskNameFromPlanFile('100-big-task.md')).toBe('big-task');
     });
 
     it('should return null for invalid filenames', () => {
@@ -171,24 +172,24 @@ describe('Paths', () => {
     });
 
     it('should handle task names with hyphens', () => {
-      expect(extractTaskNameFromPlanFile('01-my-complex-task-name.md')).toBe('my-complex-task-name');
+      expect(extractTaskNameFromPlanFile('1-my-complex-task-name.md')).toBe('my-complex-task-name');
     });
 
     it('should handle task names with numbers', () => {
-      expect(extractTaskNameFromPlanFile('01-task-v2.md')).toBe('task-v2');
-      expect(extractTaskNameFromPlanFile('01-123-test.md')).toBe('123-test');
+      expect(extractTaskNameFromPlanFile('1-task-v2.md')).toBe('task-v2');
+      expect(extractTaskNameFromPlanFile('1-123-test.md')).toBe('123-test');
     });
 
     it('should handle full paths', () => {
-      expect(extractTaskNameFromPlanFile('/path/to/plans/02-fix-login-bug.md')).toBe('fix-login-bug');
+      expect(extractTaskNameFromPlanFile('/path/to/plans/2-fix-login-bug.md')).toBe('fix-login-bug');
     });
 
     it('should handle files without .md extension', () => {
-      expect(extractTaskNameFromPlanFile('01-task-name')).toBe('task-name');
+      expect(extractTaskNameFromPlanFile('1-task-name')).toBe('task-name');
     });
 
-    it('should return null for single-character task ID', () => {
-      expect(extractTaskNameFromPlanFile('1-task.md')).toBeNull();
+    it('should handle single-digit task IDs', () => {
+      expect(extractTaskNameFromPlanFile('1-task.md')).toBe('task');
     });
   });
 

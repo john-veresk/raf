@@ -518,7 +518,7 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
     }
   );
 
-  // Calculate next task number (decode base36 task IDs)
+  // Calculate next task number (numeric task IDs)
   const maxTaskNumber = Math.max(
     ...projectState.tasks.map((t) => decodeTaskId(t.id) ?? 0)
   );

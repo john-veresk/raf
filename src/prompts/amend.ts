@@ -153,7 +153,7 @@ effort: medium
 
 ## Dependencies
 [Optional section - omit if task has no dependencies]
-[Comma-separated list of task IDs this task depends on, e.g., "01, 02"]
+[Comma-separated list of task IDs this task depends on, e.g., "1, 2"]
 [If a dependency fails, this task will be automatically blocked]
 
 ## Requirements
@@ -201,8 +201,8 @@ This is rarely needed — prefer using the \`effort\` label so the user's config
 After creating all new plan files:
 1. Provide a summary of:
    - The new tasks you've created, including the effort level for each task. Example format:
-     - Task 02: add-caching (effort: medium)
-     - Task 03: update-docs (effort: low)
+     - Task 2: add-caching (effort: medium)
+     - Task 3: update-docs (effort: low)
    - How they relate to existing tasks
    - Total task count in the project
 2. Display this exit message to the user:
@@ -221,7 +221,7 @@ Planning complete! To exit this session and run your tasks:
 4. New tasks start from number ${encodeTaskId(nextTaskNumber)}
 5. Use descriptive, kebab-case names for plan files
 6. Each plan should be self-contained with all context needed
-7. Specify task dependencies using the ## Dependencies section with task IDs only (e.g., "01, 02")
+7. Specify task dependencies using the ## Dependencies section with task IDs only (e.g., "1, 2")
 8. Tasks without dependencies should omit the Dependencies section entirely
 9. Be specific - vague plans lead to poor execution
 10. ALWAYS include the \`effort\` frontmatter field in every plan file — assess each task's complexity

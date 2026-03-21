@@ -452,10 +452,10 @@ describe('Config', () => {
       const result = renderCommitMessage(DEFAULT_CONFIG.commitFormat.task, {
         prefix: 'RAF',
         projectId: '001',
-        taskId: '0a',
+        taskId: '10',
         description: 'Fix bug',
       });
-      expect(result).toBe('RAF[001:0a] Fix bug');
+      expect(result).toBe('RAF[001:10] Fix bug');
     });
 
     it('should handle empty variables gracefully', () => {

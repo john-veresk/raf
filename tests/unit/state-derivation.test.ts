@@ -109,33 +109,33 @@ Later it was blocked...
       const content = `# Task
 
 ## Dependencies
-01
+1
 
 ## Requirements
 `;
-      expect(parseDependencies(content)).toEqual(['01']);
+      expect(parseDependencies(content)).toEqual(['1']);
     });
 
     it('should parse multiple comma-separated dependencies', () => {
       const content = `# Task
 
 ## Dependencies
-01, 02, 03
+1, 2, 3
 
 ## Requirements
 `;
-      expect(parseDependencies(content)).toEqual(['01', '02', '03']);
+      expect(parseDependencies(content)).toEqual(['1', '2', '3']);
     });
 
     it('should handle extra whitespace around dependencies', () => {
       const content = `# Task
 
 ## Dependencies
-  01 ,  02  ,03
+  1 ,  2  ,3
 
 ## Requirements
 `;
-      expect(parseDependencies(content)).toEqual(['01', '02', '03']);
+      expect(parseDependencies(content)).toEqual(['1', '2', '3']);
     });
 
     it('should return empty array when no Dependencies section', () => {
@@ -161,22 +161,22 @@ Later it was blocked...
       const content = `# Task
 
 ## Dependencies
-01, invalid, 02, 1, 001, abcd
+1, invalid, 2, abcd
 
 ## Requirements
 `;
-      expect(parseDependencies(content)).toEqual(['01', '02']);
+      expect(parseDependencies(content)).toEqual(['1', '2']);
     });
 
-    it('should handle base36 task IDs', () => {
+    it('should handle multi-digit numeric task IDs', () => {
       const content = `# Task
 
 ## Dependencies
-0z, 10, zz
+10, 100, 999
 
 ## Requirements
 `;
-      expect(parseDependencies(content)).toEqual(['0z', '10', 'zz']);
+      expect(parseDependencies(content)).toEqual(['10', '100', '999']);
     });
   });
 
@@ -237,8 +237,8 @@ Later it was blocked...
 
     it('should return ready when all tasks are pending', () => {
       const tasks = [
-        { id: '01', planFile: 'plans/01.md', status: 'pending' as const, dependencies: [] },
-        { id: '02', planFile: 'plans/02.md', status: 'pending' as const, dependencies: [] },
+        { id: '1', planFile: 'plans/1.md', status: 'pending' as const, dependencies: [] },
+        { id: '2', planFile: 'plans/2.md', status: 'pending' as const, dependencies: [] },
       ];
       const status = deriveProjectStatus(projectPath, tasks);
       expect(status).toBe('ready');
@@ -246,8 +246,8 @@ Later it was blocked...
 
     it('should return executing when some tasks are completed', () => {
       const tasks = [
-        { id: '01', planFile: 'plans/01.md', status: 'completed' as const, dependencies: [] },
-        { id: '02', planFile: 'plans/02.md', status: 'pending' as const, dependencies: [] },
+        { id: '1', planFile: 'plans/1.md', status: 'completed' as const, dependencies: [] },
+        { id: '2', planFile: 'plans/2.md', status: 'pending' as const, dependencies: [] },
       ];
       const status = deriveProjectStatus(projectPath, tasks);
       expect(status).toBe('executing');
@@ -255,8 +255,8 @@ Later it was blocked...
 
     it('should return completed when all tasks are completed', () => {
       const tasks = [
-        { id: '01', planFile: 'plans/01.md', status: 'completed' as const, dependencies: [] },
-        { id: '02', planFile: 'plans/02.md', status: 'completed' as const, dependencies: [] },
+        { id: '1', planFile: 'plans/1.md', status: 'completed' as const, dependencies: [] },
+        { id: '2', planFile: 'plans/2.md', status: 'completed' as const, dependencies: [] },
       ];
       const status = deriveProjectStatus(projectPath, tasks);
       expect(status).toBe('completed');
@@ -264,9 +264,9 @@ Later it was blocked...
 
     it('should return failed when any task has failed', () => {
       const tasks = [
-        { id: '01', planFile: 'plans/01.md', status: 'completed' as const, dependencies: [] },
-        { id: '02', planFile: 'plans/02.md', status: 'failed' as const, dependencies: [] },
-        { id: '03', planFile: 'plans/03.md', status: 'pending' as const, dependencies: [] },
+        { id: '1', planFile: 'plans/1.md', status: 'completed' as const, dependencies: [] },
+        { id: '2', planFile: 'plans/2.md', status: 'failed' as const, dependencies: [] },
+        { id: '3', planFile: 'plans/3.md', status: 'pending' as const, dependencies: [] },
       ];
       const status = deriveProjectStatus(projectPath, tasks);
       expect(status).toBe('failed');
@@ -281,32 +281,32 @@ Later it was blocked...
     });
 
     it('should derive tasks from plan files with ready status', () => {
-      fs.writeFileSync(path.join(projectPath, 'plans', '01-first-task.md'), '# Task 1');
-      fs.writeFileSync(path.join(projectPath, 'plans', '02-second-task.md'), '# Task 2');
+      fs.writeFileSync(path.join(projectPath, 'plans', '1-first-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '2-second-task.md'), '# Task 2');
 
       const state = deriveProjectState(projectPath);
       expect(state.tasks).toHaveLength(2);
-      expect(state.tasks[0]?.id).toBe('01');
-      expect(state.tasks[0]?.planFile).toBe('plans/01-first-task.md');
+      expect(state.tasks[0]?.id).toBe('1');
+      expect(state.tasks[0]?.planFile).toBe('plans/1-first-task.md');
       expect(state.tasks[0]?.status).toBe('pending');
-      expect(state.tasks[1]?.id).toBe('02');
+      expect(state.tasks[1]?.id).toBe('2');
       expect(state.status).toBe('ready');
     });
 
     it('should match outcome statuses to tasks and derive failed status', () => {
       // Create plan files
-      fs.writeFileSync(path.join(projectPath, 'plans', '01-task.md'), '# Task 1');
-      fs.writeFileSync(path.join(projectPath, 'plans', '02-task.md'), '# Task 2');
-      fs.writeFileSync(path.join(projectPath, 'plans', '03-task.md'), '# Task 3');
+      fs.writeFileSync(path.join(projectPath, 'plans', '1-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '2-task.md'), '# Task 2');
+      fs.writeFileSync(path.join(projectPath, 'plans', '3-task.md'), '# Task 3');
 
       // Create outcome files with promise markers
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '01-task.md'),
-        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
+        path.join(projectPath, 'outcomes', '1-task.md'),
+        '# Task 1 - Completed\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '02-task.md'),
-        '# Task 002 - Failed\n\n<promise>FAILED</promise>'
+        path.join(projectPath, 'outcomes', '2-task.md'),
+        '# Task 2 - Failed\n\n<promise>FAILED</promise>'
       );
 
       const state = deriveProjectState(projectPath);
@@ -318,15 +318,15 @@ Later it was blocked...
     });
 
     it('should derive completed status when all tasks completed', () => {
-      fs.writeFileSync(path.join(projectPath, 'plans', '01-task.md'), '# Task 1');
-      fs.writeFileSync(path.join(projectPath, 'plans', '02-task.md'), '# Task 2');
+      fs.writeFileSync(path.join(projectPath, 'plans', '1-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '2-task.md'), '# Task 2');
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '01-task.md'),
-        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
+        path.join(projectPath, 'outcomes', '1-task.md'),
+        '# Task 1 - Completed\n\n<promise>COMPLETE</promise>'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '02-task.md'),
-        '# Task 002 - Completed\n\n<promise>COMPLETE</promise>'
+        path.join(projectPath, 'outcomes', '2-task.md'),
+        '# Task 2 - Completed\n\n<promise>COMPLETE</promise>'
       );
 
       const state = deriveProjectState(projectPath);
@@ -334,11 +334,11 @@ Later it was blocked...
     });
 
     it('should derive executing status when some tasks completed', () => {
-      fs.writeFileSync(path.join(projectPath, 'plans', '01-task.md'), '# Task 1');
-      fs.writeFileSync(path.join(projectPath, 'plans', '02-task.md'), '# Task 2');
+      fs.writeFileSync(path.join(projectPath, 'plans', '1-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '2-task.md'), '# Task 2');
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '01-task.md'),
-        '# Task 001 - Completed\n\n<promise>COMPLETE</promise>'
+        path.join(projectPath, 'outcomes', '1-task.md'),
+        '# Task 1 - Completed\n\n<promise>COMPLETE</promise>'
       );
 
       const state = deriveProjectState(projectPath);
@@ -346,10 +346,10 @@ Later it was blocked...
     });
 
     it('should ignore outcome files without promise marker', () => {
-      fs.writeFileSync(path.join(projectPath, 'plans', '01-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '1-task.md'), '# Task 1');
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '01-task.md'),
-        '# Task 001 - Completed (no promise marker)'
+        path.join(projectPath, 'outcomes', '1-task.md'),
+        '# Task 1 - Completed (no promise marker)'
       );
 
       const state = deriveProjectState(projectPath);
@@ -357,7 +357,7 @@ Later it was blocked...
     });
 
     it('should ignore SUMMARY.md in outcomes', () => {
-      fs.writeFileSync(path.join(projectPath, 'plans', '01-task.md'), '# Task 1');
+      fs.writeFileSync(path.join(projectPath, 'plans', '1-task.md'), '# Task 1');
       fs.writeFileSync(path.join(projectPath, 'outcomes', 'SUMMARY.md'), '# Summary');
 
       const state = deriveProjectState(projectPath);
@@ -374,38 +374,38 @@ Later it was blocked...
 
     it('should parse dependencies from plan files', () => {
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '01-task.md'),
+        path.join(projectPath, 'plans', '1-task.md'),
         '# Task 1\n\n## Dependencies\n\n## Requirements\n'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '02-task.md'),
-        '# Task 2\n\n## Dependencies\n01\n\n## Requirements\n'
+        path.join(projectPath, 'plans', '2-task.md'),
+        '# Task 2\n\n## Dependencies\n1\n\n## Requirements\n'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '03-task.md'),
-        '# Task 3\n\n## Dependencies\n01, 02\n\n## Requirements\n'
+        path.join(projectPath, 'plans', '3-task.md'),
+        '# Task 3\n\n## Dependencies\n1, 2\n\n## Requirements\n'
       );
 
       const state = deriveProjectState(projectPath);
       expect(state.tasks[0]?.dependencies).toEqual([]);
-      expect(state.tasks[1]?.dependencies).toEqual(['01']);
-      expect(state.tasks[2]?.dependencies).toEqual(['01', '02']);
+      expect(state.tasks[1]?.dependencies).toEqual(['1']);
+      expect(state.tasks[2]?.dependencies).toEqual(['1', '2']);
     });
 
     it('should derive blocked status when dependency fails', () => {
-      // Task 01 has no dependencies
+      // Task 1 has no dependencies
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '01-task.md'),
+        path.join(projectPath, 'plans', '1-task.md'),
         '# Task 1\n\n## Requirements\n'
       );
-      // Task 02 depends on 01
+      // Task 2 depends on 1
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '02-task.md'),
-        '# Task 2\n\n## Dependencies\n01\n\n## Requirements\n'
+        path.join(projectPath, 'plans', '2-task.md'),
+        '# Task 2\n\n## Dependencies\n1\n\n## Requirements\n'
       );
-      // Task 01 failed
+      // Task 1 failed
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '01-task.md'),
+        path.join(projectPath, 'outcomes', '1-task.md'),
         '<promise>FAILED</promise>'
       );
 
@@ -415,24 +415,24 @@ Later it was blocked...
     });
 
     it('should derive transitive blocked status', () => {
-      // Task 01 has no dependencies
+      // Task 1 has no dependencies
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '01-task.md'),
+        path.join(projectPath, 'plans', '1-task.md'),
         '# Task 1\n\n## Requirements\n'
       );
-      // Task 02 depends on 01
+      // Task 2 depends on 1
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '02-task.md'),
-        '# Task 2\n\n## Dependencies\n01\n\n## Requirements\n'
+        path.join(projectPath, 'plans', '2-task.md'),
+        '# Task 2\n\n## Dependencies\n1\n\n## Requirements\n'
       );
-      // Task 03 depends on 02
+      // Task 3 depends on 2
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '03-task.md'),
-        '# Task 3\n\n## Dependencies\n02\n\n## Requirements\n'
+        path.join(projectPath, 'plans', '3-task.md'),
+        '# Task 3\n\n## Dependencies\n2\n\n## Requirements\n'
       );
-      // Task 01 failed
+      // Task 1 failed
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '01-task.md'),
+        path.join(projectPath, 'outcomes', '1-task.md'),
         '<promise>FAILED</promise>'
       );
 
@@ -444,15 +444,15 @@ Later it was blocked...
 
     it('should not block when all dependencies are completed', () => {
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '01-task.md'),
+        path.join(projectPath, 'plans', '1-task.md'),
         '# Task 1\n\n## Requirements\n'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '02-task.md'),
-        '# Task 2\n\n## Dependencies\n01\n\n## Requirements\n'
+        path.join(projectPath, 'plans', '2-task.md'),
+        '# Task 2\n\n## Dependencies\n1\n\n## Requirements\n'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '01-task.md'),
+        path.join(projectPath, 'outcomes', '1-task.md'),
         '<promise>COMPLETE</promise>'
       );
 
@@ -462,21 +462,21 @@ Later it was blocked...
     });
 
     it('should block when any dependency is blocked', () => {
-      // 01 fails, 02 depends on 01 (blocked), 03 depends on 02 (blocked)
+      // 1 fails, 2 depends on 1 (blocked), 3 depends on 2 (blocked)
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '01-task.md'),
+        path.join(projectPath, 'plans', '1-task.md'),
         '# Task 1\n\n## Requirements\n'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '02-task.md'),
-        '# Task 2\n\n## Dependencies\n01\n\n## Requirements\n'
+        path.join(projectPath, 'plans', '2-task.md'),
+        '# Task 2\n\n## Dependencies\n1\n\n## Requirements\n'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '03-task.md'),
-        '# Task 3\n\n## Dependencies\n02\n\n## Requirements\n'
+        path.join(projectPath, 'plans', '3-task.md'),
+        '# Task 3\n\n## Dependencies\n2\n\n## Requirements\n'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '01-task.md'),
+        path.join(projectPath, 'outcomes', '1-task.md'),
         '<promise>FAILED</promise>'
       );
 
@@ -486,11 +486,11 @@ Later it was blocked...
 
     it('should recognize BLOCKED marker in outcome file', () => {
       fs.writeFileSync(
-        path.join(projectPath, 'plans', '01-task.md'),
+        path.join(projectPath, 'plans', '1-task.md'),
         '# Task 1\n\n## Requirements\n'
       );
       fs.writeFileSync(
-        path.join(projectPath, 'outcomes', '01-task.md'),
+        path.join(projectPath, 'outcomes', '1-task.md'),
         '<promise>BLOCKED</promise>'
       );
 
@@ -504,21 +504,21 @@ Later it was blocked...
       const state = {
         status: 'executing' as DerivedProjectStatus,
         tasks: [
-          { id: '01', planFile: 'plans/01.md', status: 'completed' as const, dependencies: [] },
-          { id: '02', planFile: 'plans/02.md', status: 'pending' as const, dependencies: [] },
-          { id: '03', planFile: 'plans/03.md', status: 'pending' as const, dependencies: [] },
+          { id: '1', planFile: 'plans/1.md', status: 'completed' as const, dependencies: [] },
+          { id: '2', planFile: 'plans/2.md', status: 'pending' as const, dependencies: [] },
+          { id: '3', planFile: 'plans/3.md', status: 'pending' as const, dependencies: [] },
         ],
       };
       const task = getNextPendingTask(state);
-      expect(task?.id).toBe('02');
+      expect(task?.id).toBe('2');
     });
 
     it('should return null when no pending tasks', () => {
       const state = {
         status: 'failed' as DerivedProjectStatus,
         tasks: [
-          { id: '01', planFile: 'plans/01.md', status: 'completed' as const, dependencies: [] },
-          { id: '02', planFile: 'plans/02.md', status: 'failed' as const, dependencies: [] },
+          { id: '1', planFile: 'plans/1.md', status: 'completed' as const, dependencies: [] },
+          { id: '2', planFile: 'plans/2.md', status: 'failed' as const, dependencies: [] },
         ],
       };
       const task = getNextPendingTask(state);
@@ -529,13 +529,13 @@ Later it was blocked...
       const state = {
         status: 'failed' as DerivedProjectStatus,
         tasks: [
-          { id: '01', planFile: 'plans/01.md', status: 'failed' as const, dependencies: [] },
-          { id: '02', planFile: 'plans/02.md', status: 'blocked' as const, dependencies: ['01'] },
-          { id: '03', planFile: 'plans/03.md', status: 'pending' as const, dependencies: [] },
+          { id: '1', planFile: 'plans/1.md', status: 'failed' as const, dependencies: [] },
+          { id: '2', planFile: 'plans/2.md', status: 'blocked' as const, dependencies: ['1'] },
+          { id: '3', planFile: 'plans/3.md', status: 'pending' as const, dependencies: [] },
         ],
       };
       const task = getNextPendingTask(state);
-      expect(task?.id).toBe('03');
+      expect(task?.id).toBe('3');
     });
   });
 
@@ -544,45 +544,45 @@ Later it was blocked...
       const state = {
         status: 'failed' as DerivedProjectStatus,
         tasks: [
-          { id: '01', planFile: 'plans/01.md', status: 'failed' as const, dependencies: [] },
-          { id: '02', planFile: 'plans/02.md', status: 'pending' as const, dependencies: [] },
+          { id: '1', planFile: 'plans/1.md', status: 'failed' as const, dependencies: [] },
+          { id: '2', planFile: 'plans/2.md', status: 'pending' as const, dependencies: [] },
         ],
       };
       const task = getNextExecutableTask(state);
-      expect(task?.id).toBe('02');
+      expect(task?.id).toBe('2');
     });
 
     it('should return failed task when no pending', () => {
       const state = {
         status: 'failed' as DerivedProjectStatus,
         tasks: [
-          { id: '01', planFile: 'plans/01.md', status: 'completed' as const, dependencies: [] },
-          { id: '02', planFile: 'plans/02.md', status: 'failed' as const, dependencies: [] },
+          { id: '1', planFile: 'plans/1.md', status: 'completed' as const, dependencies: [] },
+          { id: '2', planFile: 'plans/2.md', status: 'failed' as const, dependencies: [] },
         ],
       };
       const task = getNextExecutableTask(state);
-      expect(task?.id).toBe('02');
+      expect(task?.id).toBe('2');
     });
 
     it('should skip blocked tasks when looking for pending', () => {
       const state = {
         status: 'failed' as DerivedProjectStatus,
         tasks: [
-          { id: '01', planFile: 'plans/01.md', status: 'failed' as const, dependencies: [] },
-          { id: '02', planFile: 'plans/02.md', status: 'blocked' as const, dependencies: ['01'] },
-          { id: '03', planFile: 'plans/03.md', status: 'pending' as const, dependencies: [] },
+          { id: '1', planFile: 'plans/1.md', status: 'failed' as const, dependencies: [] },
+          { id: '2', planFile: 'plans/2.md', status: 'blocked' as const, dependencies: ['1'] },
+          { id: '3', planFile: 'plans/3.md', status: 'pending' as const, dependencies: [] },
         ],
       };
       const task = getNextExecutableTask(state);
-      expect(task?.id).toBe('03');
+      expect(task?.id).toBe('3');
     });
 
     it('should return null when only blocked tasks remain', () => {
       const state = {
         status: 'failed' as DerivedProjectStatus,
         tasks: [
-          { id: '01', planFile: 'plans/01.md', status: 'completed' as const, dependencies: [] },
-          { id: '02', planFile: 'plans/02.md', status: 'blocked' as const, dependencies: ['03'] },
+          { id: '1', planFile: 'plans/1.md', status: 'completed' as const, dependencies: [] },
+          { id: '2', planFile: 'plans/2.md', status: 'blocked' as const, dependencies: ['3'] },
         ],
       };
       const task = getNextExecutableTask(state);
@@ -595,10 +595,10 @@ Later it was blocked...
       const state = {
         status: 'failed' as DerivedProjectStatus,
         tasks: [
-          { id: '01', planFile: 'plans/01.md', status: 'completed' as const, dependencies: [] },
-          { id: '02', planFile: 'plans/02.md', status: 'failed' as const, dependencies: [] },
-          { id: '03', planFile: 'plans/03.md', status: 'pending' as const, dependencies: [] },
-          { id: '04', planFile: 'plans/04.md', status: 'pending' as const, dependencies: [] },
+          { id: '1', planFile: 'plans/1.md', status: 'completed' as const, dependencies: [] },
+          { id: '2', planFile: 'plans/2.md', status: 'failed' as const, dependencies: [] },
+          { id: '3', planFile: 'plans/3.md', status: 'pending' as const, dependencies: [] },
+          { id: '4', planFile: 'plans/4.md', status: 'pending' as const, dependencies: [] },
         ],
       };
       const stats = getDerivedStats(state);
@@ -613,10 +613,10 @@ Later it was blocked...
       const state = {
         status: 'failed' as DerivedProjectStatus,
         tasks: [
-          { id: '01', planFile: 'plans/01.md', status: 'failed' as const, dependencies: [] },
-          { id: '02', planFile: 'plans/02.md', status: 'blocked' as const, dependencies: ['01'] },
-          { id: '03', planFile: 'plans/03.md', status: 'blocked' as const, dependencies: ['02'] },
-          { id: '04', planFile: 'plans/04.md', status: 'pending' as const, dependencies: [] },
+          { id: '1', planFile: 'plans/1.md', status: 'failed' as const, dependencies: [] },
+          { id: '2', planFile: 'plans/2.md', status: 'blocked' as const, dependencies: ['1'] },
+          { id: '3', planFile: 'plans/3.md', status: 'blocked' as const, dependencies: ['2'] },
+          { id: '4', planFile: 'plans/4.md', status: 'pending' as const, dependencies: [] },
         ],
       };
       const stats = getDerivedStats(state);
@@ -633,13 +633,13 @@ Later it was blocked...
       const state = {
         status: 'executing' as DerivedProjectStatus,
         tasks: [
-          { id: '01', planFile: 'plans/01.md', status: 'completed' as const, dependencies: [] },
-          { id: '02', planFile: 'plans/02.md', status: 'failed' as const, dependencies: [] },
-          { id: '03', planFile: 'plans/03.md', status: 'pending' as const, dependencies: [] },
-          { id: '04', planFile: 'plans/04.md', status: 'blocked' as const, dependencies: ['02'] },
+          { id: '1', planFile: 'plans/1.md', status: 'completed' as const, dependencies: [] },
+          { id: '2', planFile: 'plans/2.md', status: 'failed' as const, dependencies: [] },
+          { id: '3', planFile: 'plans/3.md', status: 'pending' as const, dependencies: [] },
+          { id: '4', planFile: 'plans/4.md', status: 'blocked' as const, dependencies: ['2'] },
         ],
       };
-      const stats = getDerivedStatsForTasks(state, ['01', '03', '04']);
+      const stats = getDerivedStatsForTasks(state, ['1', '3', '4']);
       expect(stats.completed).toBe(1);
       expect(stats.failed).toBe(0);
       expect(stats.pending).toBe(1);
@@ -651,11 +651,11 @@ Later it was blocked...
       const state = {
         status: 'executing' as DerivedProjectStatus,
         tasks: [
-          { id: '01', planFile: 'plans/01.md', status: 'completed' as const, dependencies: [] },
-          { id: '02', planFile: 'plans/02.md', status: 'failed' as const, dependencies: [] },
+          { id: '1', planFile: 'plans/1.md', status: 'completed' as const, dependencies: [] },
+          { id: '2', planFile: 'plans/2.md', status: 'failed' as const, dependencies: [] },
         ],
       };
-      const stats = getDerivedStatsForTasks(state, ['zz']);
+      const stats = getDerivedStatsForTasks(state, ['999']);
       expect(stats.completed).toBe(0);
       expect(stats.failed).toBe(0);
       expect(stats.pending).toBe(0);
@@ -669,8 +669,8 @@ Later it was blocked...
       const state = {
         status: 'completed' as DerivedProjectStatus,
         tasks: [
-          { id: '01', planFile: 'plans/01.md', status: 'completed' as const, dependencies: [] },
-          { id: '02', planFile: 'plans/02.md', status: 'completed' as const, dependencies: [] },
+          { id: '1', planFile: 'plans/1.md', status: 'completed' as const, dependencies: [] },
+          { id: '2', planFile: 'plans/2.md', status: 'completed' as const, dependencies: [] },
         ],
       };
       expect(isProjectComplete(state)).toBe(true);
@@ -680,8 +680,8 @@ Later it was blocked...
       const state = {
         status: 'executing' as DerivedProjectStatus,
         tasks: [
-          { id: '01', planFile: 'plans/01.md', status: 'completed' as const, dependencies: [] },
-          { id: '02', planFile: 'plans/02.md', status: 'pending' as const, dependencies: [] },
+          { id: '1', planFile: 'plans/1.md', status: 'completed' as const, dependencies: [] },
+          { id: '2', planFile: 'plans/2.md', status: 'pending' as const, dependencies: [] },
         ],
       };
       expect(isProjectComplete(state)).toBe(false);
@@ -691,8 +691,8 @@ Later it was blocked...
       const state = {
         status: 'failed' as DerivedProjectStatus,
         tasks: [
-          { id: '01', planFile: 'plans/01.md', status: 'completed' as const, dependencies: [] },
-          { id: '02', planFile: 'plans/02.md', status: 'failed' as const, dependencies: [] },
+          { id: '1', planFile: 'plans/1.md', status: 'completed' as const, dependencies: [] },
+          { id: '2', planFile: 'plans/2.md', status: 'failed' as const, dependencies: [] },
         ],
       };
       expect(isProjectComplete(state)).toBe(false);
@@ -702,8 +702,8 @@ Later it was blocked...
       const state = {
         status: 'failed' as DerivedProjectStatus,
         tasks: [
-          { id: '01', planFile: 'plans/01.md', status: 'completed' as const, dependencies: [] },
-          { id: '02', planFile: 'plans/02.md', status: 'blocked' as const, dependencies: ['03'] },
+          { id: '1', planFile: 'plans/1.md', status: 'completed' as const, dependencies: [] },
+          { id: '2', planFile: 'plans/2.md', status: 'blocked' as const, dependencies: ['3'] },
         ],
       };
       expect(isProjectComplete(state)).toBe(false);
@@ -720,8 +720,8 @@ Later it was blocked...
       const state = {
         status: 'failed' as DerivedProjectStatus,
         tasks: [
-          { id: '01', planFile: 'plans/01.md', status: 'completed' as const, dependencies: [] },
-          { id: '02', planFile: 'plans/02.md', status: 'failed' as const, dependencies: [] },
+          { id: '1', planFile: 'plans/1.md', status: 'completed' as const, dependencies: [] },
+          { id: '2', planFile: 'plans/2.md', status: 'failed' as const, dependencies: [] },
         ],
       };
       expect(hasProjectFailed(state)).toBe(true);
@@ -731,8 +731,8 @@ Later it was blocked...
       const state = {
         status: 'executing' as DerivedProjectStatus,
         tasks: [
-          { id: '01', planFile: 'plans/01.md', status: 'completed' as const, dependencies: [] },
-          { id: '02', planFile: 'plans/02.md', status: 'pending' as const, dependencies: [] },
+          { id: '1', planFile: 'plans/1.md', status: 'completed' as const, dependencies: [] },
+          { id: '2', planFile: 'plans/2.md', status: 'pending' as const, dependencies: [] },
         ],
       };
       expect(hasProjectFailed(state)).toBe(false);
@@ -742,8 +742,8 @@ Later it was blocked...
       const state = {
         status: 'failed' as DerivedProjectStatus,
         tasks: [
-          { id: '01', planFile: 'plans/01.md', status: 'completed' as const, dependencies: [] },
-          { id: '02', planFile: 'plans/02.md', status: 'blocked' as const, dependencies: ['03'] },
+          { id: '1', planFile: 'plans/1.md', status: 'completed' as const, dependencies: [] },
+          { id: '2', planFile: 'plans/2.md', status: 'blocked' as const, dependencies: ['3'] },
         ],
       };
       expect(hasProjectFailed(state)).toBe(false);
