@@ -271,6 +271,36 @@ describe('Name Generator', () => {
 
       expect(result).toEqual(['some-project']);
     });
+
+    it('should use codex binary and model when provider is codex', async () => {
+      mockSpawn.mockReturnValue(
+        createMockSpawn('phoenix\nturbo-boost\ncatalyst\n')
+      );
+
+      const result = await generateProjectNames('Build something', 'codex');
+
+      expect(result).toEqual(['phoenix', 'turbo-boost', 'catalyst']);
+      expect(mockSpawn).toHaveBeenCalledTimes(1);
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'codex',
+        expect.arrayContaining(['--model', 'gpt-5.3-codex', '--no-session-persistence', '-p']),
+        expect.any(Object)
+      );
+    });
+
+    it('should use claude binary when provider is claude', async () => {
+      mockSpawn.mockReturnValue(
+        createMockSpawn('phoenix\nturbo-boost\ncatalyst\n')
+      );
+
+      await generateProjectNames('Build something', 'claude');
+
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'claude',
+        expect.arrayContaining(['--model']),
+        expect.any(Object)
+      );
+    });
   });
 
   describe('sanitizeGeneratedName', () => {

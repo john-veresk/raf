@@ -2,6 +2,8 @@ import { spawn } from 'node:child_process';
 import { logger } from './logger.js';
 import { sanitizeProjectName } from './validation.js';
 import { getModel } from './config.js';
+import { getProviderBinaryName } from '../core/runner-factory.js';
+import type { HarnessProvider } from '../types/config.js';
 
 const NAME_GENERATION_PROMPT = `Output ONLY the kebab-case name. No introduction, no explanation, no quotes.
 
@@ -33,11 +35,12 @@ Project description:`;
  * Run the CLI with the given prompt and return stdout.
  * Uses spawn with --no-session-persistence to avoid cluttering session history.
  */
-function runClaudePrint(prompt: string): Promise<string | null> {
+function runClaudePrint(prompt: string, provider?: HarnessProvider): Promise<string | null> {
   return new Promise((resolve) => {
-    const model = getModel('nameGeneration');
+    const model = getModel('nameGeneration', provider);
+    const binary = getProviderBinaryName(provider ?? 'claude');
 
-    const proc = spawn('claude', [
+    const proc = spawn(binary, [
       '--model', model,
       '--no-session-persistence',
       '-p',
@@ -85,9 +88,9 @@ function runClaudePrint(prompt: string): Promise<string | null> {
  * Generate a single project name using the LLM.
  * Falls back to extracting words from the description if the API call fails.
  */
-export async function generateProjectName(description: string): Promise<string> {
+export async function generateProjectName(description: string, provider?: HarnessProvider): Promise<string> {
   try {
-    const name = await callSonnetForName(description);
+    const name = await callSonnetForName(description, provider);
     if (name) {
       const sanitized = sanitizeGeneratedName(name);
       if (sanitized) {
@@ -107,9 +110,9 @@ export async function generateProjectName(description: string): Promise<string> 
  * Generate multiple project name suggestions using the LLM.
  * Returns 3-5 unique names with varied styles.
  */
-export async function generateProjectNames(description: string): Promise<string[]> {
+export async function generateProjectNames(description: string, provider?: HarnessProvider): Promise<string[]> {
   try {
-    const names = await callSonnetForMultipleNames(description);
+    const names = await callSonnetForMultipleNames(description, provider);
     if (names.length >= 3) {
       logger.debug(`Generated ${names.length} project names`);
       return names;
@@ -127,17 +130,17 @@ export async function generateProjectNames(description: string): Promise<string[
 /**
  * Call the LLM to generate a single project name.
  */
-async function callSonnetForName(description: string): Promise<string | null> {
+async function callSonnetForName(description: string, provider?: HarnessProvider): Promise<string | null> {
   const fullPrompt = `${NAME_GENERATION_PROMPT}\n${description}`;
-  return runClaudePrint(fullPrompt);
+  return runClaudePrint(fullPrompt, provider);
 }
 
 /**
  * Call the LLM to generate multiple project names.
  */
-async function callSonnetForMultipleNames(description: string): Promise<string[]> {
+async function callSonnetForMultipleNames(description: string, provider?: HarnessProvider): Promise<string[]> {
   const fullPrompt = `${MULTI_NAME_GENERATION_PROMPT}\n${description}`;
-  const result = await runClaudePrint(fullPrompt);
+  const result = await runClaudePrint(fullPrompt, provider);
 
   if (!result) {
     return [];

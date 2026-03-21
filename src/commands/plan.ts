@@ -197,9 +197,9 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
   // Get or generate project name
   let finalProjectName = projectName;
   if (!finalProjectName) {
-    const nameModel = getModelShortName(getModel('nameGeneration'));
+    const nameModel = getModelShortName(getModel('nameGeneration', provider));
     logger.info(`Generating project name suggestions with ${nameModel}...`);
-    const suggestedNames = await generateProjectNames(cleanInput);
+    const suggestedNames = await generateProjectNames(cleanInput, provider);
     logger.newline();
 
     if (autoMode) {
