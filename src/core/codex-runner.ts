@@ -39,7 +39,7 @@ export class CodexRunner implements ICliRunner {
   private reasoningEffort?: string;
 
   constructor(config: RunnerConfig = {}) {
-    this.model = config.model ?? getModel('execute', 'codex').model;
+    this.model = config.model ?? getModel('execute').model;
     this.reasoningEffort = config.reasoningEffort;
   }
 

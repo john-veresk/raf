@@ -150,7 +150,6 @@ export const DEFAULT_RAF_CONFIG = {
 
 export interface PlanCommandOptions {
   projectName?: string;
-  provider?: HarnessProvider;
 }
 
 export interface DoCommandOptions {
@@ -158,7 +157,6 @@ export interface DoCommandOptions {
   verbose?: boolean;
   debug?: boolean;
   force?: boolean;
-  provider?: HarnessProvider;
 }
 
 export interface StatusCommandOptions {

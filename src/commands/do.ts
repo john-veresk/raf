@@ -52,7 +52,7 @@ import {
   rebaseOntoMain,
 } from '../core/worktree.js';
 import { createPullRequest, prPreflight } from '../core/pull-request.js';
-import type { DoCommandOptions, HarnessProvider, ModelEntry } from '../types/config.js';
+import type { DoCommandOptions, ModelEntry } from '../types/config.js';
 
 /**
  * Post-execution action chosen by the user before task execution begins.
@@ -86,14 +86,12 @@ interface TaskModelResolution {
  * @param frontmatterWarnings - Warnings from frontmatter parsing
  * @param ceilingEntry - The ceiling model entry (usually models.execute from config)
  * @param isRetry - Whether this is a retry attempt (escalates to ceiling)
- * @param providerOverride - CLI --provider override
  */
 function resolveTaskModel(
   frontmatter: PlanFrontmatter | undefined,
   frontmatterWarnings: string[] | undefined,
   ceilingEntry: ModelEntry,
   isRetry: boolean,
-  providerOverride?: HarnessProvider,
 ): TaskModelResolution {
   const warnings = frontmatterWarnings ? [...frontmatterWarnings] : [];
 
@@ -116,7 +114,7 @@ function resolveTaskModel(
     const parsed = parseModelSpec(frontmatter.model);
     const fmEntry: ModelEntry = {
       model: parsed.model,
-      provider: providerOverride ?? parsed.provider,
+      provider: parsed.provider,
     };
     const result = applyModelCeiling(fmEntry, ceilingEntry);
     return { entry: result, missingFrontmatter: false, warnings };
@@ -124,7 +122,7 @@ function resolveTaskModel(
 
   // Effort-based resolution - apply ceiling
   if (frontmatter.effort) {
-    const mappedEntry = resolveEffortToModel(frontmatter.effort, providerOverride);
+    const mappedEntry = resolveEffortToModel(frontmatter.effort);
     const result = applyModelCeiling(mappedEntry, ceilingEntry);
     return { entry: result, missingFrontmatter: false, warnings };
   }
@@ -201,7 +199,6 @@ export function createDoCommand(): Command {
     .option('-v, --verbose', 'Show full LLM output')
     .option('-d, --debug', 'Save all logs and show debug output')
     .option('-f, --force', 'Re-run all tasks regardless of status')
-    .option('-p, --provider <provider>', 'CLI provider to use (claude, codex)')
     .action(async (project: string | undefined, options: DoCommandOptions) => {
       await runDoCommand(project, options);
     });
@@ -212,8 +209,7 @@ export function createDoCommand(): Command {
 async function runDoCommand(projectIdentifierArg: string | undefined, options: DoCommandOptions): Promise<void> {
   const rafDir = getRafDir();
   let projectIdentifier = projectIdentifierArg;
-  const provider = options.provider as HarnessProvider | undefined;
-  const executeEntry = getModel('execute', provider);
+  const executeEntry = getModel('execute');
 
   // Variables for worktree context (derived from where the project is found)
   let worktreeRoot: string | undefined;
@@ -397,7 +393,6 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
         maxRetries,
         autoCommit,
         executeEntry,
-        providerOverride: provider,
         worktreeCwd: worktreeRoot,
       }
     );
@@ -558,8 +553,6 @@ interface SingleProjectOptions {
   autoCommit: boolean;
   /** The resolved execute model entry (acts as ceiling for per-task resolution). */
   executeEntry: ModelEntry;
-  /** CLI --provider override. */
-  providerOverride?: HarnessProvider;
   /** Worktree root directory. When set, the runner uses cwd in the worktree. */
   worktreeCwd?: string;
 }
@@ -569,7 +562,7 @@ async function executeSingleProject(
   projectName: string,
   options: SingleProjectOptions
 ): Promise<ProjectExecutionResult> {
-  const { timeout, verbose, debug, force, maxRetries, autoCommit, executeEntry, providerOverride, worktreeCwd } = options;
+  const { timeout, verbose, debug, force, maxRetries, autoCommit, executeEntry, worktreeCwd } = options;
 
   if (!validatePlansExist(projectPath)) {
     return {
@@ -842,7 +835,6 @@ async function executeSingleProject(
         undefined, // warnings already logged above
         ceilingEntry,
         isRetry,
-        providerOverride,
       );
 
       // Update current model for timer callback display
@@ -1050,7 +1042,7 @@ Task completed. No detailed report provided.
 
       if (verbose) {
         logger.error(`  Task ${taskLabel} failed: ${failureReason} (${elapsedFormatted})`);
-        const analysisEntry = getModel('failureAnalysis', providerOverride);
+        const analysisEntry = getModel('failureAnalysis');
         const analysisModel = getModelShortName(analysisEntry.model);
         logger.info(`  Analyzing failure with ${analysisModel}...`);
       } else {

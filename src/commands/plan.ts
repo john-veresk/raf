@@ -16,7 +16,7 @@ import {
 } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
 import { getWorktreeDefault, getModel, getModelShortName, getSyncMainBranch } from '../utils/config.js';
-import type { HarnessProvider, ModelEntry } from '../types/config.js';
+import type { ModelEntry } from '../types/config.js';
 import { generateProjectNames } from '../utils/name-generator.js';
 import { pickProjectName } from '../ui/name-picker.js';
 import {
@@ -55,7 +55,6 @@ interface PlanCommandOptions {
   auto?: boolean;
   worktree?: boolean;
   resume?: string;
-  provider?: string;
 }
 
 export function createPlanCommand(): Command {
@@ -68,10 +67,8 @@ export function createPlanCommand(): Command {
     )
     .option('-y, --auto', 'Skip permission prompts for file operations')
     .option('-r, --resume <identifier>', 'Resume a planning session for an existing project')
-    .option('-p, --provider <provider>', 'CLI provider to use (claude, codex)')
     .action(async (projectName: string | undefined, options: PlanCommandOptions) => {
-      const provider = options.provider as HarnessProvider | undefined;
-      const modelEntry = getModel('plan', provider);
+      const modelEntry = getModel('plan');
 
       const autoMode = options.auto ?? false;
       const worktreeMode = options.worktree ?? getWorktreeDefault();
@@ -183,7 +180,7 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
   // Get or generate project name
   let finalProjectName = projectName;
   if (!finalProjectName) {
-    const nameEntry = getModel('nameGeneration', modelEntry?.provider);
+    const nameEntry = getModel('nameGeneration');
     const nameModel = getModelShortName(nameEntry.model);
     logger.info(`Generating project name suggestions with ${nameModel}...`);
     const suggestedNames = await generateProjectNames(cleanInput);

@@ -404,42 +404,26 @@ export function resetConfigCache(): void {
 
 /**
  * Get the model entry for a scenario.
- * When providerOverride is given, the returned entry's provider is replaced.
  */
-export function getModel(scenario: ModelScenario, providerOverride?: HarnessProvider): ModelEntry {
+export function getModel(scenario: ModelScenario): ModelEntry {
   const config = getResolvedConfig();
-  const entry = config.models[scenario];
-  if (providerOverride) {
-    return { ...entry, provider: providerOverride };
-  }
-  return entry;
+  return config.models[scenario];
 }
 
 /**
  * Get the full effort mapping config.
  */
-export function getEffortMapping(providerOverride?: HarnessProvider): EffortMappingConfig {
+export function getEffortMapping(): EffortMappingConfig {
   const config = getResolvedConfig();
-  if (providerOverride) {
-    return {
-      low: { ...config.effortMapping.low, provider: providerOverride },
-      medium: { ...config.effortMapping.medium, provider: providerOverride },
-      high: { ...config.effortMapping.high, provider: providerOverride },
-    };
-  }
   return config.effortMapping;
 }
 
 /**
  * Resolve a task effort level to a model entry using the effort mapping config.
  */
-export function resolveEffortToModel(effort: TaskEffortLevel, providerOverride?: HarnessProvider): ModelEntry {
+export function resolveEffortToModel(effort: TaskEffortLevel): ModelEntry {
   const config = getResolvedConfig();
-  const entry = config.effortMapping[effort];
-  if (providerOverride) {
-    return { ...entry, provider: providerOverride };
-  }
-  return entry;
+  return config.effortMapping[effort];
 }
 
 /**

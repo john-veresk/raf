@@ -200,14 +200,11 @@ The config is validated when loaded. Invalid configs cause an error with a descr
 - **`display` values** (`showCacheTokens`) must be booleans.
 - The config file must be valid JSON containing an object (not an array or primitive).
 
-## CLI Precedence
+## Precedence
 
-CLI flags always override config values. For example:
+The provider for each model is set via the `provider` field in each ModelEntry in the config. There is no CLI flag to override providers at runtime.
 
-- `raf do --provider codex` overrides the provider in all resolved model entries for that invocation
-- `raf plan --provider codex` uses Codex binary and models regardless of config providers
-
-The precedence order is: **CLI flag > config file > default value**.
+The precedence order is: **config file > default value**.
 
 ## Example Configs
 

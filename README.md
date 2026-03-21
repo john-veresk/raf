@@ -48,14 +48,14 @@ That's it! RAF will guide you through breaking down your task and then execute i
 ## Requirements
 
 - Node.js 20+
-- Claude Code CLI installed and configured (default provider)
-- Or: OpenAI Codex CLI installed and configured (for `--provider codex`)
+- Claude Code CLI installed and configured
+- Or: OpenAI Codex CLI installed and configured (set provider per-model in config)
 
 ## Features
 
 - **Interactive Planning**: Interviews you to break down complex tasks into structured plans
 - **Smart Execution**: Automatic model selection, retry with escalation, and progress tracking
-- **Multi-Provider**: Use Claude Code CLI or OpenAI Codex CLI via `--provider`
+- **Multi-Provider**: Use Claude Code CLI or OpenAI Codex CLI via per-model config
 - **Resume & Amend**: Continue interrupted sessions or extend existing projects
 - **Git Integration**: Automatic commits, worktree isolation, and PR generation
 - **Task Dependencies**: Dependency tracking with automatic blocking on failure
@@ -144,13 +144,6 @@ RAF supports multiple LLM providers per scenario. Each model entry in `models` a
 }
 ```
 
-The `--provider` CLI flag overrides the provider for a single invocation:
-
-```bash
-raf plan --provider codex   # Plan using Codex binary (overrides config provider)
-raf do --provider codex     # Execute using Codex binary
-```
-
 **Codex limitations:**
 - `--resume` is not supported (Codex CLI has no session resume)
 - System prompt is prepended to the user message rather than passed separately
@@ -234,7 +227,6 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 |--------|-------------|
 | `--amend <id>` | Add tasks to existing project |
 | `-y, --auto` | Skip permission prompts (runs in dangerous mode) |
-| `-p, --provider <name>` | LLM provider to use (`claude`, `codex`) |
 
 ### `raf do [project]`
 
@@ -243,7 +235,6 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 | `-t, --timeout <min>` | Timeout per task (default: 60) |
 | `-f, --force` | Re-run all tasks regardless of status |
 | `-d, --debug` | Save all logs and show debug output |
-| `-p, --provider <name>` | LLM provider to use (`claude`, `codex`) |
 
 Alias: `raf act`
 

@@ -52,15 +52,12 @@ describe('Plan Command - Auto Flag', () => {
       expect(amendOption).toBeDefined();
     });
 
-    it('should allow --auto with --provider', () => {
+    it('should not have --provider flag (removed)', () => {
       const command = createPlanCommand();
       const options = command.options;
 
-      const autoOption = options.find((opt) => opt.long === '--auto');
       const providerOption = options.find((opt) => opt.long === '--provider');
-
-      expect(autoOption).toBeDefined();
-      expect(providerOption).toBeDefined();
+      expect(providerOption).toBeUndefined();
     });
 
     it('should not have removed --model or --sonnet flags', () => {
