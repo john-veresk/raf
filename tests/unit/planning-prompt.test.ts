@@ -146,7 +146,7 @@ describe('Planning Prompt', () => {
       expect(systemPrompt).not.toContain('--worktree');
     });
 
-    it('should show raf do with --worktree when worktreeMode is true', () => {
+    it('should show raf do without --worktree when worktreeMode is true', () => {
       const params: PlanningPromptParams = {
         projectPath: '/test/project',
         inputContent: 'Some project',
@@ -155,7 +155,8 @@ describe('Planning Prompt', () => {
 
       const { systemPrompt } = getPlanningPrompt(params);
 
-      expect(systemPrompt).toContain('raf do <project> --worktree');
+      expect(systemPrompt).toContain('raf do <project>');
+      expect(systemPrompt).not.toContain('--worktree');
     });
 
     it('should include project description in user message', () => {

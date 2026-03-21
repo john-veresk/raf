@@ -31,6 +31,8 @@ jest.unstable_mockModule('node:child_process', () => ({
 // Import after mocking
 const { generateProjectName, generateProjectNames, sanitizeGeneratedName } =
   await import('../../src/utils/name-generator.js');
+const { getModel } = await import('../../src/utils/config.js');
+const { getProviderBinaryName } = await import('../../src/core/runner-factory.js');
 
 describe('Name Generator', () => {
   beforeEach(() => {
@@ -42,13 +44,13 @@ describe('Name Generator', () => {
       mockSpawn.mockReturnValue(createMockSpawn('user-auth-system\n'));
 
       const result = await generateProjectName('Build a user authentication system');
+      const nameGenerationModel = getModel('nameGeneration');
 
       expect(result).toBe('user-auth-system');
       expect(mockSpawn).toHaveBeenCalledTimes(1);
-      // Should use the default config: claude binary with sonnet model
       expect(mockSpawn).toHaveBeenCalledWith(
-        'claude',
-        expect.arrayContaining(['--model', 'sonnet', '--no-session-persistence', '-p']),
+        getProviderBinaryName(nameGenerationModel.provider),
+        expect.arrayContaining(['--model', nameGenerationModel.model, '--no-session-persistence', '-p']),
         expect.any(Object)
       );
     });
@@ -281,12 +283,12 @@ describe('Name Generator', () => {
       );
 
       const result = await generateProjectNames('Build something');
+      const nameGenerationModel = getModel('nameGeneration');
 
       expect(result).toEqual(['phoenix', 'turbo-boost', 'catalyst']);
-      // Default config uses claude binary
       expect(mockSpawn).toHaveBeenCalledWith(
-        'claude',
-        expect.arrayContaining(['--model', 'sonnet']),
+        getProviderBinaryName(nameGenerationModel.provider),
+        expect.arrayContaining(['--model', nameGenerationModel.model]),
         expect.any(Object)
       );
     });

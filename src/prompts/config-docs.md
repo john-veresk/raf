@@ -47,7 +47,7 @@ Controls which model and provider is used for each scenario. Each entry is a `Mo
 | `models.nameGeneration` | `{ "model": "sonnet", "provider": "claude" }` | Model used for generating project names |
 | `models.failureAnalysis` | `{ "model": "haiku", "provider": "claude" }` | Model used for analyzing task failures |
 | `models.prGeneration` | `{ "model": "sonnet", "provider": "claude" }` | Model used for generating PR titles and descriptions |
-| `models.config` | `{ "model": "sonnet", "provider": "claude" }` | Model used for the interactive config editor (`raf config`) |
+| `models.config` | `{ "model": "sonnet", "provider": "claude" }` | Model used for the interactive config editor (`raf config wizard`) |
 
 **Partial overrides**: When deep-merging, you can override just the `model` or `provider` within an entry:
 
@@ -408,7 +408,7 @@ To reset a single setting, remove its key from the config file. Any key not pres
 
 ## Config Editing Session Instructions
 
-This section contains instructions for the LLM when operating as the interactive config editor during `raf config` sessions.
+This section contains instructions for the LLM when operating as the interactive config editor during `raf config wizard` sessions.
 
 ### Your Role
 

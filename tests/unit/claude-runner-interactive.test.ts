@@ -16,6 +16,7 @@ jest.unstable_mockModule('node:child_process', () => ({
 
 // Import after mocking
 const { ClaudeRunner } = await import('../../src/core/claude-runner.js');
+const { getModel } = await import('../../src/utils/config.js');
 
 describe('ClaudeRunner - runInteractive', () => {
   // Save original stdin/stdout for restoration
@@ -129,7 +130,7 @@ describe('ClaudeRunner - runInteractive', () => {
       await runPromise;
     });
 
-    it('should use opus as default model', async () => {
+    it('should use the configured execute model by default', async () => {
       const mockProc = createMockPtyProcess();
       const mockStdin = createMockStdin();
       const mockStdout = createMockStdout();
@@ -144,9 +145,8 @@ describe('ClaudeRunner - runInteractive', () => {
 
       const spawnArgs = mockPtySpawn.mock.calls[0][1] as string[];
       expect(spawnArgs).toContain('--model');
-      // Default model comes from config, could be short alias or full model ID
       const modelArgIndex = spawnArgs.indexOf('--model');
-      expect(spawnArgs[modelArgIndex + 1]).toMatch(/^(opus|sonnet|haiku|claude-(opus|sonnet|haiku)-.+)$/);
+      expect(spawnArgs[modelArgIndex + 1]).toBe(getModel('execute').model);
 
       mockProc._exitCallback({ exitCode: 0 });
       await runPromise;

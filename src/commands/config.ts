@@ -19,12 +19,6 @@ import {
 import { DEFAULT_CONFIG } from '../types/config.js';
 import type { UserConfig } from '../types/config.js';
 
-interface ConfigCommandOptions {
-  reset?: boolean;
-  get?: true | string;  // true when --get with no key, string when --get <key>
-  set?: string[];       // [key, value]
-}
-
 /**
  * Load the config documentation markdown from src/prompts/config-docs.md.
  * Resolved relative to this file's location in the dist/ tree.
@@ -92,10 +86,10 @@ function postSessionValidation(configPath: string): void {
   } catch (error) {
     if (error instanceof ConfigValidationError) {
       logger.warn(`Config validation warning: ${error.message}`);
-      logger.warn('The file was not deleted — you can fix it manually or run `raf config` again.');
+      logger.warn('The file was not deleted — you can fix it manually or run `raf config wizard` again.');
     } else if (error instanceof SyntaxError) {
       logger.warn('Config file contains invalid JSON.');
-      logger.warn('The file was not deleted — you can fix it manually or run `raf config` again.');
+      logger.warn('The file was not deleted — you can fix it manually or run `raf config wizard` again.');
     } else {
       logger.warn(`Could not validate config: ${error}`);
     }
@@ -242,18 +236,16 @@ function formatValue(value: unknown): string {
 // ---- Config get/set handlers ----
 
 /**
- * Handle --get flag: print config value(s).
+ * Print config value(s).
  */
-function handleGet(key: true | string): void {
+function handleGet(key?: string): void {
   const config = resolveConfig();
 
-  if (key === true) {
-    // No key specified: print full config
+  if (key === undefined) {
     console.log(JSON.stringify(config, null, 2));
     return;
   }
 
-  // Specific key requested
   const value = getNestedValue(config, key);
 
   if (value === undefined) {
@@ -265,15 +257,9 @@ function handleGet(key: true | string): void {
 }
 
 /**
- * Handle --set flag: update config file with a new value.
+ * Update config file with a new value.
  */
-function handleSet(args: string[]): void {
-  if (args.length !== 2) {
-    logger.error('--set requires exactly 2 arguments: key and value');
-    process.exit(1);
-  }
-
-  const [key, rawValue] = args as [string, string];
+function handleSet(key: string, rawValue: string): void {
   const value = parseValue(rawValue);
   const configPath = getConfigPath();
 
@@ -336,40 +322,45 @@ function handleSet(args: string[]): void {
 
 export function createConfigCommand(): Command {
   const command = new Command('config')
-    .description('View and edit RAF configuration interactively')
-    .argument('[prompt...]', 'Optional initial prompt for the config session')
-    .option('--reset', 'Delete config file and restore all defaults')
-    .option('--get [key]', 'Show config value (all config if no key, or specific dot-notation key)')
-    .option('--set <items...>', 'Set a config value using dot-notation key and value')
-    .action(async (promptParts: string[], options: ConfigCommandOptions) => {
-      // --reset takes precedence
-      if (options.reset) {
-        await handleReset();
-        return;
-      }
-
-      // --get and --set are mutually exclusive
-      if (options.get !== undefined && options.set !== undefined) {
-        logger.error('Cannot use --get and --set together');
-        process.exit(1);
-      }
-
-      // Handle --get
-      if (options.get !== undefined) {
-        handleGet(options.get);
-        return;
-      }
-
-      // Handle --set
-      if (options.set !== undefined) {
-        handleSet(options.set);
-        return;
-      }
-
-      // Default: run interactive session
-      const initialPrompt = promptParts.length > 0 ? promptParts.join(' ') : undefined;
-      await runConfigSession(initialPrompt);
+    .description('Read, write, reset, and edit RAF configuration')
+    .action(function(this: Command) {
+      this.outputHelp();
     });
+
+  command
+    .addCommand(
+      new Command('get')
+        .description('Show resolved config values')
+        .argument('[key]', 'Optional dot-notation key to read')
+        .action((key?: string) => {
+          handleGet(key);
+        })
+    )
+    .addCommand(
+      new Command('set')
+        .description('Set a config value using a dot-notation key')
+        .argument('<key>', 'Dot-notation key to write')
+        .argument('<value>', 'Value to write; parsed as JSON when possible')
+        .action((key: string, value: string) => {
+          handleSet(key, value);
+        })
+    )
+    .addCommand(
+      new Command('reset')
+        .description('Delete the config file and restore all defaults')
+        .action(async () => {
+          await handleReset();
+        })
+    )
+    .addCommand(
+      new Command('wizard')
+        .description('Launch the interactive config editor')
+        .argument('[prompt...]', 'Optional initial prompt for the config session')
+        .action(async (promptParts: string[]) => {
+          const initialPrompt = promptParts.length > 0 ? promptParts.join(' ') : undefined;
+          await runConfigSession(initialPrompt);
+        })
+    );
 
   return command;
 }
@@ -399,7 +390,7 @@ async function runConfigSession(initialPrompt?: string): Promise<void> {
   const configPath = getConfigPath();
 
   // Try to load config, but fall back to defaults if it's broken
-  // This allows raf config to be used to fix a broken config file
+  // This allows raf config wizard to be used to fix a broken config file
   let modelEntry: import('../types/config.js').ModelEntry;
   let configError: Error | null = null;
 
@@ -416,7 +407,7 @@ async function runConfigSession(initialPrompt?: string): Promise<void> {
   // Warn user if config has errors, before starting the session
   if (configError) {
     logger.warn(`Config file has errors, using defaults: ${configError.message}`);
-    logger.warn('Fix the config in this session or run `raf config --reset` to start fresh.');
+    logger.warn('Fix the config in this session or run `raf config reset` to start fresh.');
     logger.newline();
   }
 

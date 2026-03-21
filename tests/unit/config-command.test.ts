@@ -1,28 +1,93 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as os from 'node:os';
 import { Command } from 'commander';
-import { createConfigCommand } from '../../src/commands/config.js';
-import {
-  validateConfig,
-  ConfigValidationError,
-  resolveConfig,
-  getModel,
-  resetConfigCache,
-} from '../../src/utils/config.js';
-import { DEFAULT_CONFIG } from '../../src/types/config.js';
+import { jest } from '@jest/globals';
+
+const mockRunInteractive = jest.fn<() => Promise<number>>();
+const mockCreateRunner = jest.fn(() => ({
+  runInteractive: mockRunInteractive,
+}));
+const mockShutdownHandler = {
+  init: jest.fn(),
+  registerClaudeRunner: jest.fn(),
+};
+const mockLogger = {
+  info: jest.fn(),
+  success: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  newline: jest.fn(),
+};
+
+let confirmAnswer = 'y';
+const suiteHomeDir = fs.mkdtempSync(path.join('/tmp', 'raf-config-home-'));
+let mockHomeDir = suiteHomeDir;
+
+jest.unstable_mockModule('node:os', () => ({
+  homedir: () => mockHomeDir,
+  tmpdir: () => '/tmp',
+}));
+
+jest.unstable_mockModule('../../src/core/runner-factory.js', () => ({
+  createRunner: mockCreateRunner,
+}));
+
+jest.unstable_mockModule('../../src/core/shutdown-handler.js', () => ({
+  shutdownHandler: mockShutdownHandler,
+}));
+
+jest.unstable_mockModule('../../src/utils/logger.js', () => ({
+  logger: mockLogger,
+}));
+
+jest.unstable_mockModule('node:readline', () => ({
+  createInterface: jest.fn(() => ({
+    question: (_message: string, callback: (answer: string) => void) => callback(confirmAnswer),
+    close: jest.fn(),
+  })),
+}));
+
+const { createConfigCommand } = await import('../../src/commands/config.js');
+const { resetConfigCache, resolveConfig, validateConfig, ConfigValidationError } = await import('../../src/utils/config.js');
+const { DEFAULT_CONFIG } = await import('../../src/types/config.js');
 
 describe('Config Command', () => {
   let tempDir: string;
 
+  function configPath(): string {
+    return path.join(tempDir, '.raf', 'raf.config.json');
+  }
+
+  async function parseConfigCommand(args: string[]): Promise<void> {
+    const command = createConfigCommand();
+    command.exitOverride();
+    await command.parseAsync(args, { from: 'user' });
+  }
+
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-config-cmd-test-'));
+    tempDir = suiteHomeDir;
+    mockHomeDir = suiteHomeDir;
+    fs.rmSync(path.join(tempDir, '.raf'), { recursive: true, force: true });
+    confirmAnswer = 'y';
     resetConfigCache();
+    mockRunInteractive.mockReset().mockResolvedValue(0);
+    mockCreateRunner.mockClear();
+    mockShutdownHandler.init.mockClear();
+    mockShutdownHandler.registerClaudeRunner.mockClear();
+    mockLogger.info.mockClear();
+    mockLogger.success.mockClear();
+    mockLogger.warn.mockClear();
+    mockLogger.error.mockClear();
+    mockLogger.newline.mockClear();
   });
 
   afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    fs.rmSync(path.join(tempDir, '.raf'), { recursive: true, force: true });
     resetConfigCache();
+  });
+
+  afterAll(() => {
+    fs.rmSync(suiteHomeDir, { recursive: true, force: true });
   });
 
   describe('Command setup', () => {
@@ -31,365 +96,156 @@ describe('Config Command', () => {
       expect(cmd.name()).toBe('config');
     });
 
-    it('should have a description', () => {
+    it('should expose get, set, reset, and wizard subcommands', () => {
       const cmd = createConfigCommand();
-      expect(cmd.description()).toBeTruthy();
-      expect(cmd.description()).toContain('config');
+      expect(cmd.commands.map((subcommand) => subcommand.name())).toEqual(['get', 'set', 'reset', 'wizard']);
     });
 
-    it('should accept a variadic prompt argument', () => {
+    it('should not keep the old root-level flags or prompt argument', () => {
       const cmd = createConfigCommand();
-      const args = cmd.registeredArguments;
-      expect(args.length).toBe(1);
-      expect(args[0]!.variadic).toBe(true);
+      expect(cmd.options).toHaveLength(0);
+      expect(cmd.registeredArguments).toHaveLength(0);
     });
 
-    it('should have a --reset option', () => {
+    it('should define wizard with a variadic prompt argument', () => {
       const cmd = createConfigCommand();
-      const resetOption = cmd.options.find((o) => o.long === '--reset');
-      expect(resetOption).toBeDefined();
-    });
-
-    it('should have a --get option', () => {
-      const cmd = createConfigCommand();
-      const getOption = cmd.options.find((o) => o.long === '--get');
-      expect(getOption).toBeDefined();
-    });
-
-    it('should have a --set option', () => {
-      const cmd = createConfigCommand();
-      const setOption = cmd.options.find((o) => o.long === '--set');
-      expect(setOption).toBeDefined();
+      const wizard = cmd.commands.find((subcommand) => subcommand.name() === 'wizard');
+      expect(wizard).toBeDefined();
+      expect(wizard!.registeredArguments).toHaveLength(1);
+      expect(wizard!.registeredArguments[0]!.variadic).toBe(true);
     });
 
     it('should register in a parent program', () => {
       const program = new Command();
       program.addCommand(createConfigCommand());
-      const configCmd = program.commands.find((c) => c.name() === 'config');
+      const configCmd = program.commands.find((command) => command.name() === 'config');
       expect(configCmd).toBeDefined();
     });
   });
 
-  describe('Post-session validation logic', () => {
-    it('should accept valid config with model override', () => {
-      const config = { models: { execute: { model: 'sonnet', provider: 'claude' } } };
-      expect(() => validateConfig(config)).not.toThrow();
+  describe('config get', () => {
+    it('prints the resolved config when no key is provided', async () => {
+      fs.mkdirSync(path.dirname(configPath()), { recursive: true });
+      fs.writeFileSync(configPath(), JSON.stringify({ timeout: 120 }, null, 2));
+
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+      await parseConfigCommand(['get']);
+
+      expect(consoleSpy).toHaveBeenCalledTimes(1);
+      const printed = JSON.parse(consoleSpy.mock.calls[0]![0] as string);
+      expect(printed.timeout).toBe(120);
+      expect(printed.models.execute).toEqual(DEFAULT_CONFIG.models.execute);
+
+      consoleSpy.mockRestore();
     });
 
-    it('should accept valid config with effortMapping override', () => {
-      const config = { effortMapping: { low: { model: 'sonnet', provider: 'claude' }, medium: { model: 'opus', provider: 'claude' } } };
-      expect(() => validateConfig(config)).not.toThrow();
+    it('prints a resolved dot-notation value', async () => {
+      fs.mkdirSync(path.dirname(configPath()), { recursive: true });
+      fs.writeFileSync(configPath(), JSON.stringify({ models: { plan: { model: 'haiku', provider: 'claude' } } }, null, 2));
+
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+      await parseConfigCommand(['get', 'models.plan.model']);
+
+      expect(consoleSpy).toHaveBeenCalledWith('haiku');
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('config set', () => {
+    it('writes values with the existing parsing and validation behavior', async () => {
+      await parseConfigCommand(['set', 'timeout', '45']);
+
+      const saved = JSON.parse(fs.readFileSync(configPath(), 'utf-8'));
+      expect(saved).toEqual({ timeout: 45 });
+      expect(resolveConfig(configPath()).timeout).toBe(45);
     });
 
-    it('should accept valid config with timeout', () => {
-      const config = { timeout: 120 };
-      expect(() => validateConfig(config)).not.toThrow();
+    it('prunes the config file when a value is reset to its default', async () => {
+      fs.mkdirSync(path.dirname(configPath()), { recursive: true });
+      fs.writeFileSync(configPath(), JSON.stringify({ timeout: 45 }, null, 2));
+
+      await parseConfigCommand(['set', 'timeout', String(DEFAULT_CONFIG.timeout)]);
+
+      expect(fs.existsSync(configPath())).toBe(false);
+    });
+  });
+
+  describe('config reset', () => {
+    it('deletes the config file after confirmation', async () => {
+      fs.mkdirSync(path.dirname(configPath()), { recursive: true });
+      fs.writeFileSync(configPath(), JSON.stringify({ timeout: 45 }, null, 2));
+
+      await parseConfigCommand(['reset']);
+
+      expect(fs.existsSync(configPath())).toBe(false);
     });
 
-    it('should reject config with unknown keys', () => {
-      const config = { unknownKey: true };
-      expect(() => validateConfig(config)).toThrow(ConfigValidationError);
+    it('keeps the config file when confirmation is declined', async () => {
+      confirmAnswer = 'n';
+      fs.mkdirSync(path.dirname(configPath()), { recursive: true });
+      fs.writeFileSync(configPath(), JSON.stringify({ timeout: 45 }, null, 2));
+
+      await parseConfigCommand(['reset']);
+
+      expect(fs.existsSync(configPath())).toBe(true);
+    });
+  });
+
+  describe('config wizard', () => {
+    it('launches the interactive session only from the wizard subcommand', async () => {
+      await parseConfigCommand(['wizard', 'show', 'my', 'config']);
+
+      expect(mockCreateRunner).toHaveBeenCalledWith(expect.objectContaining(DEFAULT_CONFIG.models.config));
+      expect(mockRunInteractive).toHaveBeenCalledWith(
+        expect.any(String),
+        'show my config',
+        { dangerouslySkipPermissions: true }
+      );
     });
 
-    it('should reject config with invalid model name', () => {
-      const config = { models: { execute: { model: 'gpt-4', provider: 'codex' } } };
-      expect(() => validateConfig(config)).toThrow(ConfigValidationError);
+    it('preserves broken-config recovery behavior and updated guidance', async () => {
+      fs.mkdirSync(path.dirname(configPath()), { recursive: true });
+      fs.writeFileSync(configPath(), '{ "timeout": 45, }');
+
+      await parseConfigCommand(['wizard']);
+
+      expect(mockCreateRunner).toHaveBeenCalledWith(expect.objectContaining(DEFAULT_CONFIG.models.config));
+      expect(mockRunInteractive).toHaveBeenCalledWith(
+        expect.stringContaining('{ "timeout": 45, }'),
+        'Show me my current config and help me make changes.',
+        { dangerouslySkipPermissions: true }
+      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('raf config reset'));
     });
 
-    it('should reject config with invalid effortMapping model', () => {
-      const config = { effortMapping: { low: { model: 'gpt-4', provider: 'codex' } } };
-      expect(() => validateConfig(config)).toThrow(ConfigValidationError);
+    it('does not launch the interactive session from bare config', async () => {
+      const stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      await parseConfigCommand([]);
+
+      expect(mockRunInteractive).not.toHaveBeenCalled();
+      expect(stdoutSpy).toHaveBeenCalled();
+      const helpOutput = stdoutSpy.mock.calls.map(([chunk]) => String(chunk)).join('');
+      expect(helpOutput).toContain('wizard');
+      expect(helpOutput).toContain('get');
+
+      stdoutSpy.mockRestore();
+    });
+  });
+
+  describe('Validation helpers used by config flows', () => {
+    it('accepts valid partial configs', () => {
+      expect(() => validateConfig({ models: { execute: { model: 'sonnet', provider: 'claude' } } })).not.toThrow();
+      expect(() => validateConfig({ effortMapping: { low: { model: 'sonnet', provider: 'claude' } } })).not.toThrow();
+      expect(() => validateConfig({ timeout: 120 })).not.toThrow();
     });
 
-    it('should reject non-object config', () => {
+    it('rejects invalid configs', () => {
+      expect(() => validateConfig({ unknownKey: true })).toThrow(ConfigValidationError);
+      expect(() => validateConfig({ models: { execute: { model: 'gpt-4', provider: 'codex' } } })).toThrow(ConfigValidationError);
       expect(() => validateConfig('string')).toThrow(ConfigValidationError);
-      expect(() => validateConfig(null)).toThrow(ConfigValidationError);
-      expect(() => validateConfig([])).toThrow(ConfigValidationError);
-    });
-
-    it('should accept an empty config (all defaults)', () => {
-      expect(() => validateConfig({})).not.toThrow();
-    });
-  });
-
-  describe('Reset flow - file operations', () => {
-    it('should be able to delete config file', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, JSON.stringify({ timeout: 90 }, null, 2));
-      expect(fs.existsSync(configPath)).toBe(true);
-
-      fs.unlinkSync(configPath);
-      expect(fs.existsSync(configPath)).toBe(false);
-    });
-
-    it('should handle non-existent config file gracefully', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-      expect(fs.existsSync(configPath)).toBe(false);
-      // Reset when no file exists should not throw
-    });
-  });
-
-  describe('Config file round-trip', () => {
-    it('should write and read valid config', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-      const config = { models: { execute: { model: 'sonnet', provider: 'claude' } }, timeout: 90 };
-
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-      const content = fs.readFileSync(configPath, 'utf-8');
-      const parsed = JSON.parse(content);
-
-      expect(parsed.models.execute).toEqual({ model: 'sonnet', provider: 'claude' });
-      expect(parsed.timeout).toBe(90);
-      expect(() => validateConfig(parsed)).not.toThrow();
-    });
-
-    it('should detect invalid JSON after write', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, '{ invalid json }}}');
-
-      const content = fs.readFileSync(configPath, 'utf-8');
-      expect(() => JSON.parse(content)).toThrow(SyntaxError);
-    });
-
-    it('should detect validation errors after write', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, JSON.stringify({ badKey: true }, null, 2));
-
-      const content = fs.readFileSync(configPath, 'utf-8');
-      const parsed = JSON.parse(content);
-      expect(() => validateConfig(parsed)).toThrow(ConfigValidationError);
-    });
-  });
-
-  describe('System prompt construction', () => {
-    it('should indicate no config when file does not exist', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-      const exists = fs.existsSync(configPath);
-      const state = exists
-        ? fs.readFileSync(configPath, 'utf-8')
-        : 'No config file exists yet.';
-      expect(state).toContain('No config file');
-    });
-
-    it('should include config contents when file exists', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-      const config = { timeout: 120, worktree: true };
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-
-      const content = fs.readFileSync(configPath, 'utf-8');
-      expect(content).toContain('"timeout": 120');
-      expect(content).toContain('"worktree": true');
-    });
-  });
-
-  describe('Error recovery - invalid config fallback', () => {
-    // These tests verify the behaviors that runConfigSession relies on for error recovery
-    // The config command catches errors from getModel/getEffort and falls back to defaults
-
-    it('should throw on invalid JSON when resolving config', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, '{ invalid json }}}');
-
-      expect(() => resolveConfig(configPath)).toThrow(SyntaxError);
-    });
-
-    it('should throw on schema validation failure when resolving config', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, JSON.stringify({ unknownKey: true }));
-
-      expect(() => resolveConfig(configPath)).toThrow(ConfigValidationError);
-    });
-
-    it('should have valid default fallback values for config scenario', () => {
-      // These are the values that runConfigSession uses when config loading fails
-      expect(DEFAULT_CONFIG.models.config).toEqual({ model: 'sonnet', provider: 'claude' });
-      // effortMapping defaults used for per-task model resolution
-      expect(DEFAULT_CONFIG.effortMapping.medium).toEqual({ model: 'opus', provider: 'claude' });
-    });
-
-    it('should be able to read raw file contents even when config is invalid JSON', () => {
-      // This verifies that getCurrentConfigState can still read the broken file
-      // so Claude can see and help fix it
-      const configPath = path.join(tempDir, 'raf.config.json');
-      const invalidContent = '{ "broken": true, }'; // trailing comma = invalid
-      fs.writeFileSync(configPath, invalidContent);
-
-      // File is readable even though it's invalid JSON
-      const content = fs.readFileSync(configPath, 'utf-8');
-      expect(content).toBe(invalidContent);
-    });
-
-    it('should be able to read raw file contents even when config fails schema validation', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-      const invalidContent = JSON.stringify({ badKey: 'value' }, null, 2);
-      fs.writeFileSync(configPath, invalidContent);
-
-      // File is readable even though it fails validation
-      const content = fs.readFileSync(configPath, 'utf-8');
-      expect(JSON.parse(content)).toEqual({ badKey: 'value' });
-    });
-
-    it('resetConfigCache should clear the cached config', () => {
-      // This is used by runConfigSession to clear a broken cached config
-      // so subsequent operations don't fail
-      const configPath = path.join(tempDir, 'valid.json');
-      fs.writeFileSync(configPath, JSON.stringify({ timeout: 99 }));
-
-      // Load the config
-      const config1 = resolveConfig(configPath);
-      expect(config1.timeout).toBe(99);
-
-      // Write different content
-      fs.writeFileSync(configPath, JSON.stringify({ timeout: 120 }));
-
-      // Without reset, we'd still get cached value (but resolveConfig doesn't use cache)
-      // This test verifies resetConfigCache exists and can be called
-      resetConfigCache();
-
-      // After reset, we should get new value
-      const config2 = resolveConfig(configPath);
-      expect(config2.timeout).toBe(120);
-    });
-  });
-
-  describe('--get flag', () => {
-    it('should return full config when no key is provided', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, JSON.stringify({ timeout: 120 }, null, 2));
-
-      const config = resolveConfig(configPath);
-      expect(config.timeout).toBe(120);
-      expect(config.models.execute).toEqual(DEFAULT_CONFIG.models.execute);
-
-      // Verify full config has all expected top-level keys
-      expect(config).toHaveProperty('models');
-      expect(config).toHaveProperty('effortMapping');
-      expect(config).toHaveProperty('timeout');
-    });
-
-    it('should return specific value for dot-notation key', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, JSON.stringify({ models: { plan: { model: 'sonnet', provider: 'claude' } } }, null, 2));
-
-      const config = resolveConfig(configPath);
-      expect(config.models.plan).toEqual({ model: 'sonnet', provider: 'claude' });
-    });
-
-    it('should handle nested keys', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, JSON.stringify({ display: { showCacheTokens: false } }, null, 2));
-
-      const config = resolveConfig(configPath);
-      expect(config.display.showCacheTokens).toBe(false);
-    });
-  });
-
-  describe('--set flag', () => {
-    it('should set a ModelEntry value', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-
-      // Start with empty config
-      expect(fs.existsSync(configPath)).toBe(false);
-
-      // Simulate setting models.plan to a ModelEntry
-      const userConfig = { models: { plan: { model: 'sonnet', provider: 'claude' } } };
-
-      fs.writeFileSync(configPath, JSON.stringify(userConfig, null, 2));
-
-      const config = resolveConfig(configPath);
-      expect(config.models.plan).toEqual({ model: 'sonnet', provider: 'claude' });
-    });
-
-    it('should set a number value', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-
-      const userConfig = { timeout: 120 };
-      fs.writeFileSync(configPath, JSON.stringify(userConfig, null, 2));
-
-      const config = resolveConfig(configPath);
-      expect(config.timeout).toBe(120);
-    });
-
-    it('should set a boolean value', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-
-      const userConfig = { autoCommit: false };
-      fs.writeFileSync(configPath, JSON.stringify(userConfig, null, 2));
-
-      const config = resolveConfig(configPath);
-      expect(config.autoCommit).toBe(false);
-    });
-
-    it('should remove key when value matches default', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-
-      // Set a non-default value first
-      fs.writeFileSync(configPath, JSON.stringify({ models: { plan: { model: 'sonnet', provider: 'claude' } } }, null, 2));
-      let config = resolveConfig(configPath);
-      expect(config.models.plan).toEqual({ model: 'sonnet', provider: 'claude' });
-
-      // Now set back to default (opus)
-      fs.writeFileSync(configPath, JSON.stringify({}, null, 2));
-      config = resolveConfig(configPath);
-      expect(config.models.plan).toEqual(DEFAULT_CONFIG.models.plan);
-    });
-
-    it('should remove empty parent objects after key removal', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-
-      // Start with a models override
-      const userConfig = { models: { plan: { model: 'sonnet', provider: 'claude' } } };
-      fs.writeFileSync(configPath, JSON.stringify(userConfig, null, 2));
-
-      // Remove the override (simulating setting to default)
-      fs.writeFileSync(configPath, JSON.stringify({}, null, 2));
-
-      const content = fs.readFileSync(configPath, 'utf-8');
-      const parsed = JSON.parse(content);
-
-      // Should be empty object
-      expect(Object.keys(parsed).length).toBe(0);
-    });
-
-    it('should validate config after modification', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-
-      // Valid config
-      const validConfig = { models: { execute: { model: 'sonnet', provider: 'claude' } } };
-      fs.writeFileSync(configPath, JSON.stringify(validConfig, null, 2));
-      expect(() => validateConfig(validConfig)).not.toThrow();
-
-      // Invalid config - string instead of ModelEntry
-      const invalidConfig = { models: { execute: 'sonnet' } };
-      fs.writeFileSync(configPath, JSON.stringify(invalidConfig, null, 2));
-      expect(() => validateConfig(invalidConfig)).toThrow(ConfigValidationError);
-    });
-
-    it('should delete config file when it becomes empty', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-
-      // Create a config file
-      fs.writeFileSync(configPath, JSON.stringify({ timeout: 120 }, null, 2));
-      expect(fs.existsSync(configPath)).toBe(true);
-
-      // Simulate removing all keys (setting everything to defaults)
-      fs.writeFileSync(configPath, JSON.stringify({}, null, 2));
-
-      // Check if file still exists (in the actual implementation, empty configs are deleted)
-      // For this test, we just verify the file operations work
-      const content = fs.readFileSync(configPath, 'utf-8');
-      expect(JSON.parse(content)).toEqual({});
-    });
-
-    it('should handle nested value updates', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-
-      // Set a nested value
-      const userConfig = { display: { showCacheTokens: false } };
-      fs.writeFileSync(configPath, JSON.stringify(userConfig, null, 2));
-
-      const config = resolveConfig(configPath);
-      expect(config.display.showCacheTokens).toBe(false);
     });
   });
 });

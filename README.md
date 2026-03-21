@@ -113,12 +113,16 @@ raf preset delete claude-setup  # Remove a preset
 
 ### `raf config`
 
-View and edit RAF configuration through an interactive Claude session. Configuration is stored at `~/.raf/raf.config.json`. All settings are optional — only set what you want to change.
+Read, write, reset, and edit RAF configuration. Configuration is stored at `~/.raf/raf.config.json`. All settings are optional — only set what you want to change.
 
 ```bash
-raf config               # Interactive config editor
-raf config "use haiku for name generation"  # Start with a specific request
-raf config --reset       # Reset config to defaults
+raf config                         # Show config subcommands
+raf config get                     # Print resolved config
+raf config get models.execute      # Print one resolved value
+raf config set timeout 45          # Write a value
+raf config reset                   # Reset config to defaults
+raf config wizard                  # Interactive config editor
+raf config wizard "use haiku for name generation"  # Start with a specific request
 ```
 
 **Precedence**: CLI flags > config file > built-in defaults
@@ -136,7 +140,7 @@ Example `~/.raf/raf.config.json`:
 }
 ```
 
-Run `raf config` without arguments and ask what's available — the session has full knowledge of every configurable option.
+Run `raf config wizard` and ask what's available — the session has full knowledge of every configurable option.
 
 ## Provider Configuration
 
@@ -251,11 +255,14 @@ Alias: `raf act`
 
 > **Note:** `raf do` and `raf plan -y` run the CLI with skip-permissions flags for fully automated execution without interactive prompts.
 
-### `raf config [prompt]`
+### `raf config`
 
-| Option | Description |
-|--------|-------------|
-| `--reset` | Reset config file to defaults |
+| Subcommand | Description |
+|------------|-------------|
+| `get [key]` | Show the resolved config or one resolved dot-notation value |
+| `set <key> <value>` | Write a config value using a dot-notation key |
+| `reset` | Delete the config file and restore defaults after confirmation |
+| `wizard [prompt]` | Launch the interactive config editor |
 
 ### `raf preset <subcommand> [name]`
 

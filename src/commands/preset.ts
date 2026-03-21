@@ -34,7 +34,7 @@ function savePreset(name: string): void {
 
   const configPath = getConfigPath();
   if (!fs.existsSync(configPath)) {
-    logger.error('No config file found. Run `raf config` to create one first.');
+    logger.error('No config file found. Run `raf config wizard` or `raf config set <key> <value>` to create one first.');
     process.exit(1);
   }
 

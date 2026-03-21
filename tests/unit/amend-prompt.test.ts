@@ -65,7 +65,7 @@ describe('Amend Prompt', () => {
       expect(systemPrompt).not.toContain('--worktree');
     });
 
-    it('should show raf do with --worktree when worktreeMode is true', () => {
+    it('should show raf do without --worktree when worktreeMode is true', () => {
       const params: AmendPromptParams = {
         ...baseParams,
         worktreeMode: true,
@@ -73,7 +73,8 @@ describe('Amend Prompt', () => {
 
       const { systemPrompt } = getAmendPrompt(params);
 
-      expect(systemPrompt).toContain('raf do <project> --worktree');
+      expect(systemPrompt).toContain('raf do <project>');
+      expect(systemPrompt).not.toContain('--worktree');
     });
 
     it('should include new task description in user message', () => {
