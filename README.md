@@ -100,6 +100,17 @@ raf status            # List all projects (includes worktree projects that diffe
 raf status abcdef     # Show details for a project (shows both main and worktree if they differ)
 ```
 
+### `raf preset`
+
+Save, load, list, and delete named config presets. Presets are complete copies of your config stored in `~/.raf/presets/`.
+
+```bash
+raf preset save claude-setup    # Save current config as "claude-setup"
+raf preset load claude-setup    # Restore "claude-setup" (overwrites current config)
+raf preset list                 # Show all saved presets
+raf preset delete claude-setup  # Remove a preset
+```
+
 ### `raf config`
 
 View and edit RAF configuration through an interactive Claude session. Configuration is stored at `~/.raf/raf.config.json`. All settings are optional — only set what you want to change.
@@ -245,6 +256,15 @@ Alias: `raf act`
 | Option | Description |
 |--------|-------------|
 | `--reset` | Reset config file to defaults |
+
+### `raf preset <subcommand> [name]`
+
+| Subcommand | Description |
+|------------|-------------|
+| `save <name>` | Save current config as a named preset |
+| `load <name>` | Load a preset (overwrites current config) |
+| `list` | List all saved presets |
+| `delete <name>` | Delete a preset |
 
 ### `raf status [identifier]`
 
