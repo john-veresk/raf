@@ -32,6 +32,7 @@ import {
   decodeTaskId,
   encodeTaskId,
   TASK_ID_PATTERN,
+  numericFileSort,
 } from '../utils/paths.js';
 import { sanitizeProjectName } from '../utils/validation.js';
 import {
@@ -339,7 +340,7 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
     // Check for created plan files
     const plansDir = getPlansDir(projectPath);
     const planFiles = fs.existsSync(plansDir)
-      ? fs.readdirSync(plansDir).filter((f) => f.endsWith('.md')).sort()
+      ? fs.readdirSync(plansDir).filter((f) => f.endsWith('.md')).sort(numericFileSort)
       : [];
 
     if (planFiles.length === 0) {
@@ -562,7 +563,7 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
 
     // Check for new plan files
     const allPlanFiles = fs.existsSync(plansDir)
-      ? fs.readdirSync(plansDir).filter((f) => f.endsWith('.md')).sort()
+      ? fs.readdirSync(plansDir).filter((f) => f.endsWith('.md')).sort(numericFileSort)
       : [];
 
     const newPlanFiles = allPlanFiles.filter((f) => {
@@ -723,7 +724,7 @@ async function runResumeCommand(identifier: string, model?: string, provider?: i
     // Check for created/updated plan files after resume session
     const plansDir = getPlansDir(projectPath);
     const planFiles = fs.existsSync(plansDir)
-      ? fs.readdirSync(plansDir).filter((f) => f.endsWith('.md')).sort()
+      ? fs.readdirSync(plansDir).filter((f) => f.endsWith('.md')).sort(numericFileSort)
       : [];
 
     if (planFiles.length > 0) {

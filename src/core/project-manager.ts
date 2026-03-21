@@ -12,6 +12,7 @@ import {
   getInputPath,
   listProjects,
   TASK_ID_PATTERN,
+  numericFileSort,
 } from '../utils/paths.js';
 import { sanitizeProjectName } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
@@ -143,7 +144,7 @@ export class ProjectManager {
     }
 
     const outcomes: Array<{ taskId: string; content: string }> = [];
-    const files = fs.readdirSync(outcomesDir).filter((f) => f.endsWith('.md')).sort();
+    const files = fs.readdirSync(outcomesDir).filter((f) => f.endsWith('.md')).sort(numericFileSort);
 
     for (const file of files) {
       const match = file.match(new RegExp(`^(${TASK_ID_PATTERN})-`));

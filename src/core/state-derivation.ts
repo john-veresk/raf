@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { getPlansDir, getOutcomesDir, getInputPath, TASK_ID_PATTERN } from '../utils/paths.js';
+import { getPlansDir, getOutcomesDir, getInputPath, TASK_ID_PATTERN, numericFileSort } from '../utils/paths.js';
 import { parsePlanFrontmatter, type PlanFrontmatter } from '../utils/frontmatter.js';
 
 export type DerivedTaskStatus = 'pending' | 'completed' | 'failed' | 'blocked';
@@ -198,14 +198,14 @@ export function deriveProjectState(projectPath: string): DerivedProjectState {
 
   const planFiles = fs.readdirSync(plansDir)
     .filter((f) => f.endsWith('.md'))
-    .sort();
+    .sort(numericFileSort);
 
   // Build a map of outcome statuses
   const outcomeStatuses = new Map<string, DerivedTaskStatus>();
   if (fs.existsSync(outcomesDir)) {
     const outcomeFiles = fs.readdirSync(outcomesDir)
       .filter((f) => f.endsWith('.md'))
-      .sort();
+      .sort(numericFileSort);
 
     for (const outcomeFile of outcomeFiles) {
       const match = outcomeFile.match(new RegExp(`^(${TASK_ID_PATTERN})-`));

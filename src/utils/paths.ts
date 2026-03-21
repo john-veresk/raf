@@ -214,6 +214,16 @@ export function listProjects(rafDir: string): Array<{ number: number; name: stri
   return projects.sort((a, b) => a.number - b.number);
 }
 
+/**
+ * Numeric comparator for filenames with a leading integer prefix (e.g. "10-task.md").
+ * Ensures files sort as 1, 2, 3, ..., 10, ... instead of 1, 10, 2, ...
+ */
+export function numericFileSort(a: string, b: string): number {
+  const numA = parseInt(a, 10);
+  const numB = parseInt(b, 10);
+  return numA - numB;
+}
+
 export function getPlansDir(projectPath: string): string {
   return path.join(projectPath, 'plans');
 }

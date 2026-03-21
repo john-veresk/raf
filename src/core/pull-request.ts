@@ -4,7 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { logger } from '../utils/logger.js';
 import { getModel, getModelShortName } from '../utils/config.js';
-import { extractProjectName, getInputPath, getDecisionsPath, getOutcomesDir, TASK_ID_PATTERN } from '../utils/paths.js';
+import { extractProjectName, getInputPath, getDecisionsPath, getOutcomesDir, TASK_ID_PATTERN, numericFileSort } from '../utils/paths.js';
 
 export interface PrCreateResult {
   success: boolean;
@@ -208,7 +208,7 @@ export function readProjectContext(projectPath: string): {
 
   const outcomesDir = getOutcomesDir(projectPath);
   if (fs.existsSync(outcomesDir)) {
-    const files = fs.readdirSync(outcomesDir).filter(f => f.endsWith('.md')).sort();
+    const files = fs.readdirSync(outcomesDir).filter(f => f.endsWith('.md')).sort(numericFileSort);
     const taskIdPattern = new RegExp(`^(${TASK_ID_PATTERN})-`);
     for (const file of files) {
       const match = file.match(taskIdPattern);
