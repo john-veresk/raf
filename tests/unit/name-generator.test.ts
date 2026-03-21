@@ -1,5 +1,11 @@
 import { jest } from '@jest/globals';
 import { EventEmitter } from 'node:events';
+import type { HarnessProvider } from '../../src/types/config.js';
+
+let currentNameGenerationModel = {
+  model: 'sonnet',
+  provider: 'claude' as HarnessProvider,
+};
 
 // Helper to create a mock spawn that returns a fake ChildProcess
 function createMockSpawn(stdoutData: string | null, exitCode: number = 0) {
@@ -28,15 +34,22 @@ jest.unstable_mockModule('node:child_process', () => ({
   execSync: jest.fn(), // keep available for transitive imports
 }));
 
+jest.unstable_mockModule('../../src/utils/config.js', () => ({
+  getModel: jest.fn(() => currentNameGenerationModel),
+  isValidModelName: jest.fn(() => true),
+}));
+
 // Import after mocking
 const { generateProjectName, generateProjectNames, sanitizeGeneratedName } =
   await import('../../src/utils/name-generator.js');
-const { getModel } = await import('../../src/utils/config.js');
-const { getProviderBinaryName } = await import('../../src/core/runner-factory.js');
 
 describe('Name Generator', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    currentNameGenerationModel = {
+      model: 'sonnet',
+      provider: 'claude',
+    };
   });
 
   describe('generateProjectName', () => {
@@ -44,13 +57,12 @@ describe('Name Generator', () => {
       mockSpawn.mockReturnValue(createMockSpawn('user-auth-system\n'));
 
       const result = await generateProjectName('Build a user authentication system');
-      const nameGenerationModel = getModel('nameGeneration');
 
       expect(result).toBe('user-auth-system');
       expect(mockSpawn).toHaveBeenCalledTimes(1);
       expect(mockSpawn).toHaveBeenCalledWith(
-        getProviderBinaryName(nameGenerationModel.provider),
-        expect.arrayContaining(['--model', nameGenerationModel.model, '--no-session-persistence', '-p']),
+        currentNameGenerationModel.provider,
+        expect.arrayContaining(['--model', currentNameGenerationModel.model, '--no-session-persistence', '-p']),
         expect.any(Object)
       );
     });
@@ -238,13 +250,12 @@ describe('Name Generator', () => {
       expect(result).toEqual(['build-user-authentication']);
     });
 
-    it('should fall back to single name when too few names returned', async () => {
+    it('should keep 1-2 valid names instead of falling back', async () => {
       mockSpawn.mockReturnValue(createMockSpawn('phoenix\nturbo\n'));
 
       const result = await generateProjectNames('Build something awesome');
 
-      // Only 2 names returned, so fallback kicks in
-      expect(result).toEqual(['build-something-awesome']);
+      expect(result).toEqual(['phoenix', 'turbo']);
     });
 
     it('should filter out invalid/short names', async () => {
@@ -275,6 +286,18 @@ describe('Name Generator', () => {
       expect(result).toEqual(['some-project']);
     });
 
+    it('should fall back when codex returns no usable suggestions after sanitization', async () => {
+      currentNameGenerationModel = {
+        model: 'gpt-5.4',
+        provider: 'codex',
+      };
+      mockSpawn.mockReturnValue(createMockSpawn('a\n!\n'));
+
+      const result = await generateProjectNames('Build something awesome');
+
+      expect(result).toEqual(['build-something-awesome']);
+    });
+
     it('should no longer accept a provider parameter (config-driven)', async () => {
       // Provider is now embedded in the config, not passed as a parameter
       // This test verifies that generateProjectNames has a single-parameter signature
@@ -283,14 +306,40 @@ describe('Name Generator', () => {
       );
 
       const result = await generateProjectNames('Build something');
-      const nameGenerationModel = getModel('nameGeneration');
 
       expect(result).toEqual(['phoenix', 'turbo-boost', 'catalyst']);
       expect(mockSpawn).toHaveBeenCalledWith(
-        getProviderBinaryName(nameGenerationModel.provider),
-        expect.arrayContaining(['--model', nameGenerationModel.model]),
+        currentNameGenerationModel.provider,
+        expect.arrayContaining(['--model', currentNameGenerationModel.model]),
         expect.any(Object)
       );
+    });
+
+    it('should use codex exec invocation for name generation when configured', async () => {
+      currentNameGenerationModel = {
+        model: 'gpt-5.4',
+        provider: 'codex',
+      };
+      mockSpawn.mockReturnValue(createMockSpawn('phoenix-rise\nturbo-boost\nbug-squasher\n'));
+
+      const result = await generateProjectNames('Build something');
+
+      expect(result).toEqual(['phoenix-rise', 'turbo-boost', 'bug-squasher']);
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'codex',
+        expect.arrayContaining([
+          'exec',
+          '--skip-git-repo-check',
+          '--ephemeral',
+          '--color',
+          'never',
+          '-m',
+          'gpt-5.4',
+        ]),
+        expect.any(Object)
+      );
+      const promptArg = (mockSpawn.mock.calls[0][1] as string[]).at(-1);
+      expect(promptArg).toContain('Output EXACTLY 5 project names');
     });
   });
 

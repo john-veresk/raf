@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { logger } from './logger.js';
 import { sanitizeProjectName } from './validation.js';
 import { getModel } from './config.js';
-import { getProviderBinaryName } from '../core/runner-factory.js';
+import type { HarnessProvider } from '../types/config.js';
 
 const NAME_GENERATION_PROMPT = `Output ONLY the kebab-case name. No introduction, no explanation, no quotes.
 
@@ -30,21 +30,35 @@ Rules:
 
 Project description:`;
 
-/**
- * Run the CLI with the given prompt and return stdout.
- * Uses spawn with --no-session-persistence to avoid cluttering session history.
- */
-function runClaudePrint(prompt: string): Promise<string | null> {
-  return new Promise((resolve) => {
-    const entry = getModel('nameGeneration');
-    const binary = getProviderBinaryName(entry.provider);
-
-    const proc = spawn(binary, [
-      '--model', entry.model,
+function buildNameGenerationArgs(provider: HarnessProvider, model: string, prompt: string): string[] {
+  if (provider === 'claude') {
+    return [
+      '--model', model,
       '--no-session-persistence',
       '-p',
       prompt,
-    ], {
+    ];
+  }
+
+  return [
+    'exec',
+    '--skip-git-repo-check',
+    '--ephemeral',
+    '--color', 'never',
+    '-m', model,
+    prompt,
+  ];
+}
+
+/**
+ * Run the configured name-generation CLI with the given prompt and return stdout.
+ */
+function runNameGenerationPrint(prompt: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const entry = getModel('nameGeneration');
+    const args = buildNameGenerationArgs(entry.provider, entry.model, prompt);
+
+    const proc = spawn(entry.provider, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
@@ -112,7 +126,7 @@ export async function generateProjectName(description: string): Promise<string> 
 export async function generateProjectNames(description: string): Promise<string[]> {
   try {
     const names = await callSonnetForMultipleNames(description);
-    if (names.length >= 3) {
+    if (names.length > 0) {
       logger.debug(`Generated ${names.length} project names`);
       return names;
     }
@@ -131,7 +145,7 @@ export async function generateProjectNames(description: string): Promise<string[
  */
 async function callSonnetForName(description: string): Promise<string | null> {
   const fullPrompt = `${NAME_GENERATION_PROMPT}\n${description}`;
-  return runClaudePrint(fullPrompt);
+  return runNameGenerationPrint(fullPrompt);
 }
 
 /**
@@ -139,7 +153,7 @@ async function callSonnetForName(description: string): Promise<string | null> {
  */
 async function callSonnetForMultipleNames(description: string): Promise<string[]> {
   const fullPrompt = `${MULTI_NAME_GENERATION_PROMPT}\n${description}`;
-  const result = await runClaudePrint(fullPrompt);
+  const result = await runNameGenerationPrint(fullPrompt);
 
   if (!result) {
     return [];
