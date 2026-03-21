@@ -1,0 +1,4 @@
+- [ ] if plan amend has no new plans but decisions, input and plans are update(or any of those) - commit amended changes.
+- [ ] if command is like "raf plan project-name" - make sure to check if project with exact name exist (in main or worktree) and prompt to user whether he wants to amend (probably forgot to put --amend flag)
+- [ ] switch project ids to numbers starting with single numbers (1-foo, 2-bar, ..., 10-buz, 101-bar). don't rely that id is uniq, but make mechanism to not create duplicate ids even if project created in workspace (search all worktrees + main and increment largest id), not alpha chars in id, only numbers
+- [ ] switch task ids to numeric like(1-foo, 2-bar, ..., 10-buz, 101-bar)
