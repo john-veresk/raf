@@ -59,6 +59,7 @@ interface PlanCommandOptions {
   auto?: boolean;
   worktree?: boolean;
   resume?: string;
+  provider?: string;
 }
 
 export function createPlanCommand(): Command {
@@ -75,6 +76,7 @@ export function createPlanCommand(): Command {
     .option('-w, --worktree', 'Create a git worktree for isolated planning')
     .option('--no-worktree', 'Disable worktree mode (overrides config)')
     .option('-r, --resume <identifier>', 'Resume a planning session for an existing project')
+    .option('-p, --provider <provider>', 'CLI provider to use (claude, codex)')
     .action(async (projectName: string | undefined, options: PlanCommandOptions) => {
       // Validate and resolve model option
       let model: string;

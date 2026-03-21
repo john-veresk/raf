@@ -203,6 +203,7 @@ export function createDoCommand(): Command {
     .option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')
     .option('-w, --worktree', 'Execute tasks in a git worktree')
     .option('--no-worktree', 'Disable worktree mode (overrides config)')
+    .option('-p, --provider <provider>', 'CLI provider to use (claude, codex)')
     .action(async (project: string | undefined, options: DoCommandOptions) => {
       await runDoCommand(project, options);
     });

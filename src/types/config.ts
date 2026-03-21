@@ -1,11 +1,24 @@
+/** CLI harness provider */
+export type HarnessProvider = 'claude' | 'codex';
+
 /** Short alias for a Claude model family */
 export type ClaudeModelAlias = 'sonnet' | 'haiku' | 'opus';
+
+/** Short alias for a Codex model family */
+export type CodexModelAlias = 'spark' | 'codex' | 'gpt54';
+
+/** Provider-agnostic model alias (union of all provider aliases) */
+export type ModelAlias = ClaudeModelAlias | CodexModelAlias;
 
 /**
  * Accepts short aliases (`sonnet`, `haiku`, `opus`) or full model IDs
  * matching the pattern `claude-{family}-{version}` (e.g., `claude-opus-4-5-20251101`).
+ * Also accepts harness-prefixed format: `claude/opus`, `codex/gpt-5.4`.
  */
 export type ClaudeModelName = ClaudeModelAlias | (string & { __brand?: 'FullModelId' });
+
+/** Provider-agnostic model name — accepts any alias, full ID, or harness-prefixed format */
+export type ModelName = string & { __brand?: 'ModelName' };
 
 /** Task complexity label for per-task effort frontmatter. Maps to models via effortMapping. */
 export type TaskEffortLevel = 'low' | 'medium' | 'high';
@@ -46,9 +59,15 @@ export interface DisplayConfig {
 }
 
 export interface RafConfig {
+  /** CLI harness provider. Default: 'claude' */
+  provider: HarnessProvider;
   models: ModelsConfig;
   /** Maps task complexity labels (low/medium/high) to models. Used for per-task effort frontmatter. */
   effortMapping: EffortMappingConfig;
+  /** Codex model assignments per scenario */
+  codexModels: ModelsConfig;
+  /** Maps task complexity labels to Codex models */
+  codexEffortMapping: EffortMappingConfig;
   timeout: number;
   maxRetries: number;
   autoCommit: boolean;
@@ -60,6 +79,7 @@ export interface RafConfig {
 }
 
 export const DEFAULT_CONFIG: RafConfig = {
+  provider: 'claude',
   models: {
     plan: 'opus',
     execute: 'opus',
@@ -72,6 +92,19 @@ export const DEFAULT_CONFIG: RafConfig = {
     low: 'sonnet',
     medium: 'opus',
     high: 'opus',
+  },
+  codexModels: {
+    plan: 'gpt-5.3-codex',
+    execute: 'gpt-5.4',
+    nameGeneration: 'gpt-5.3-codex-spark',
+    failureAnalysis: 'gpt-5.3-codex-spark',
+    prGeneration: 'gpt-5.3-codex',
+    config: 'gpt-5.3-codex',
+  },
+  codexEffortMapping: {
+    low: 'gpt-5.3-codex-spark',
+    medium: 'gpt-5.3-codex',
+    high: 'gpt-5.4',
   },
   timeout: 60,
   maxRetries: 3,
@@ -98,6 +131,10 @@ export type UserConfig = DeepPartial<RafConfig>;
 
 export const VALID_MODEL_ALIASES: readonly ClaudeModelAlias[] = ['sonnet', 'haiku', 'opus'];
 
+export const VALID_CODEX_MODEL_ALIASES: readonly CodexModelAlias[] = ['spark', 'codex', 'gpt54'];
+
+export const VALID_HARNESS_PROVIDERS: readonly HarnessProvider[] = ['claude', 'codex'];
+
 /**
  * Regex for full Claude model IDs (e.g., `claude-sonnet-4-5-20250929`, `claude-opus-4-5-20251101`).
  * Pattern: claude-{family}-{major}(-{minor})?(-{date})?
@@ -122,6 +159,7 @@ export interface PlanCommandOptions {
   projectName?: string;
   model?: ClaudeModelName;
   sonnet?: boolean;
+  provider?: HarnessProvider;
 }
 
 export interface DoCommandOptions {
@@ -132,6 +170,7 @@ export interface DoCommandOptions {
   model?: ClaudeModelName;
   sonnet?: boolean;
   worktree?: boolean;
+  provider?: HarnessProvider;
 }
 
 export interface StatusCommandOptions {

@@ -3,8 +3,8 @@ import * as path from 'node:path';
 import { execSync } from 'node:child_process';
 import { logger } from './logger.js';
 import type { ClaudeModelName, ModelScenario } from '../types/config.js';
-import { VALID_MODEL_ALIASES, FULL_MODEL_ID_PATTERN } from '../types/config.js';
-import { getModel } from './config.js';
+import { VALID_MODEL_ALIASES } from '../types/config.js';
+import { getModel, isValidModelName } from './config.js';
 
 export interface ValidationResult {
   valid: boolean;
@@ -96,10 +96,7 @@ export type ValidModelName = ClaudeModelName;
 
 export function validateModelName(model: string): ClaudeModelName | null {
   const normalized = model.toLowerCase();
-  if ((VALID_MODEL_ALIASES as readonly string[]).includes(normalized)) {
-    return normalized as ClaudeModelName;
-  }
-  if (FULL_MODEL_ID_PATTERN.test(normalized)) {
+  if (isValidModelName(normalized)) {
     return normalized as ClaudeModelName;
   }
   return null;
@@ -120,7 +117,7 @@ export function resolveModelOption(model?: string, sonnet?: boolean, scenario: M
   if (model) {
     const validated = validateModelName(model);
     if (!validated) {
-      throw new Error(`Invalid model name: "${model}". Valid options: ${VALID_MODEL_ALIASES.join(', ')} or a full model ID (e.g., claude-sonnet-4-5-20250929)`);
+      throw new Error(`Invalid model name: "${model}". Valid options: ${VALID_MODEL_ALIASES.join(', ')} or a full model ID (e.g., claude-sonnet-4-5-20250929), or harness-prefixed (e.g., codex/gpt-5.4)`);
     }
     return validated;
   }
