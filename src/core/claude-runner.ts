@@ -32,9 +32,11 @@ export class ClaudeRunner implements ICliRunner {
   private activeProcess: pty.IPty | null = null;
   private killed = false;
   private model: string;
+  private reasoningEffort?: string;
 
   constructor(config: RunnerConfig = {}) {
     this.model = config.model ?? getModel('execute').model;
+    this.reasoningEffort = config.reasoningEffort;
   }
 
   /**
@@ -54,6 +56,11 @@ export class ClaudeRunner implements ICliRunner {
 
     return new Promise((resolve) => {
       const args = ['--model', this.model];
+
+      // Add reasoning effort flag when configured
+      if (this.reasoningEffort) {
+        args.push('--effort', this.reasoningEffort);
+      }
 
       // Add --dangerously-skip-permissions if requested (for --auto mode)
       if (dangerouslySkipPermissions) {
@@ -146,6 +153,11 @@ export class ClaudeRunner implements ICliRunner {
 
     return new Promise((resolve) => {
       const args = ['--resume', '--model', this.model];
+
+      // Add reasoning effort flag when configured
+      if (this.reasoningEffort) {
+        args.push('--effort', this.reasoningEffort);
+      }
 
       logger.debug(`Starting session resume picker with model: ${this.model}`);
 
@@ -272,10 +284,18 @@ export class ClaudeRunner implements ICliRunner {
       // including tool calls, file operations, and token usage in the result event.
       // --dangerously-skip-permissions bypasses interactive prompts
       // -p enables print mode (non-interactive)
-      const proc = spawn(claudePath, [
+      const execArgs = [
         '--dangerously-skip-permissions',
         '--model',
         this.model,
+      ];
+
+      // Add reasoning effort flag when configured
+      if (this.reasoningEffort) {
+        execArgs.push('--effort', this.reasoningEffort);
+      }
+
+      execArgs.push(
         '--append-system-prompt',
         prompt,
         '--output-format',
@@ -283,7 +303,9 @@ export class ClaudeRunner implements ICliRunner {
         '--verbose',
         '-p',
         'Execute the task as described in the system prompt.',
-      ], {
+      );
+
+      const proc = spawn(claudePath, execArgs, {
         cwd,
         env: process.env,
         stdio: ['ignore', 'pipe', 'pipe'], // no stdin needed

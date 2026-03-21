@@ -60,6 +60,13 @@ export interface RunnerConfig {
    * Default: 'claude'.
    */
   provider?: HarnessProvider;
+  /**
+   * Reasoning effort level to pass to the CLI.
+   * Claude CLI: --effort <level>
+   * Codex CLI: -c model_reasoning_effort="<level>"
+   * Only included when explicitly set.
+   */
+  reasoningEffort?: string;
 }
 
 /**

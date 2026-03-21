@@ -438,7 +438,7 @@ async function runConfigSession(initialPrompt?: string): Promise<void> {
     ?? 'Show me my current config and help me make changes.';
 
   // Set up runner
-  const claudeRunner = createRunner({ model: modelEntry.model, provider: modelEntry.provider });
+  const claudeRunner = createRunner({ model: modelEntry.model, provider: modelEntry.provider, reasoningEffort: modelEntry.reasoningEffort });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 

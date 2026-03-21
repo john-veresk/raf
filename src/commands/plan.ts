@@ -271,7 +271,7 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
   }
 
   // Set up shutdown handler
-  const claudeRunner = createRunner({ model: modelEntry?.model, provider: modelEntry?.provider });
+  const claudeRunner = createRunner({ model: modelEntry?.model, provider: modelEntry?.provider, reasoningEffort: modelEntry?.reasoningEffort });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
@@ -515,7 +515,7 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry, auto
   fs.writeFileSync(inputPath, updatedInput);
 
   // Set up shutdown handler
-  const claudeRunner = createRunner({ model: modelEntry?.model, provider: modelEntry?.provider });
+  const claudeRunner = createRunner({ model: modelEntry?.model, provider: modelEntry?.provider, reasoningEffort: modelEntry?.reasoningEffort });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
@@ -693,7 +693,7 @@ async function runResumeCommand(identifier: string, modelEntry?: ModelEntry): Pr
   logger.newline();
 
   // Set up shutdown handler
-  const claudeRunner = createRunner({ model: modelEntry?.model, provider: modelEntry?.provider });
+  const claudeRunner = createRunner({ model: modelEntry?.model, provider: modelEntry?.provider, reasoningEffort: modelEntry?.reasoningEffort });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 

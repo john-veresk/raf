@@ -36,9 +36,11 @@ export class CodexRunner implements ICliRunner {
   private activeProcess: pty.IPty | null = null;
   private killed = false;
   private model: string;
+  private reasoningEffort?: string;
 
   constructor(config: RunnerConfig = {}) {
     this.model = config.model ?? getModel('execute', 'codex').model;
+    this.reasoningEffort = config.reasoningEffort;
   }
 
   /**
@@ -54,7 +56,14 @@ export class CodexRunner implements ICliRunner {
 
     return new Promise((resolve) => {
       const combinedPrompt = buildCombinedPrompt(systemPrompt, userMessage);
-      const args = ['-m', this.model, combinedPrompt];
+      const args = ['-m', this.model];
+
+      // Add reasoning effort via config override when configured
+      if (this.reasoningEffort) {
+        args.push('-c', `model_reasoning_effort="${this.reasoningEffort}"`);
+      }
+
+      args.push(combinedPrompt);
 
       logger.debug(`Starting interactive Codex session with model: ${this.model}`);
 
@@ -175,15 +184,23 @@ export class CodexRunner implements ICliRunner {
       logger.debug(`Codex path: ${codexPath}`);
 
       logger.debug('Spawning process...');
-      const proc = spawn(codexPath, [
+      const execArgs = [
         'exec',
         '--full-auto',
         '--json',
         '--ephemeral',
         '-m',
         this.model,
-        prompt,
-      ], {
+      ];
+
+      // Add reasoning effort via config override when configured
+      if (this.reasoningEffort) {
+        execArgs.push('-c', `model_reasoning_effort="${this.reasoningEffort}"`);
+      }
+
+      execArgs.push(prompt);
+
+      const proc = spawn(codexPath, execArgs, {
         cwd,
         env: process.env,
         stdio: ['ignore', 'pipe', 'pipe'],
