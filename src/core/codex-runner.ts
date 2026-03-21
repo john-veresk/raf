@@ -38,7 +38,7 @@ export class CodexRunner implements ICliRunner {
   private model: string;
 
   constructor(config: RunnerConfig = {}) {
-    this.model = config.model ?? getModel('execute', 'codex');
+    this.model = config.model ?? getModel('execute', 'codex').model;
   }
 
   /**

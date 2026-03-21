@@ -10,7 +10,6 @@ import {
   VALID_CODEX_MODEL_ALIASES,
   VALID_HARNESS_PROVIDERS,
   FULL_MODEL_ID_PATTERN,
-  ClaudeModelName,
   TaskEffortLevel,
   ModelScenario,
   ModelEntry,

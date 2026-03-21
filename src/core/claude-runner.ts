@@ -34,7 +34,7 @@ export class ClaudeRunner implements ICliRunner {
   private model: string;
 
   constructor(config: RunnerConfig = {}) {
-    this.model = config.model ?? getModel('execute');
+    this.model = config.model ?? getModel('execute').model;
   }
 
   /**
