@@ -168,6 +168,20 @@ Controls the format of git commit messages. Templates use `{placeholder}` syntax
 
 Unknown placeholders are left as-is in the output.
 
+### `presets` — Named Config Snapshots
+
+Presets are named copies of your full config that you can save, load, and switch between.
+
+- **Storage**: `~/.raf/presets/<name>.json` — same format as `~/.raf/raf.config.json`
+- **CLI commands**:
+  - `raf config preset save <name>` — save current config as a preset
+  - `raf config preset load <name>` — load a preset into the active config
+  - `raf config preset list` — list all saved presets
+  - `raf config preset delete <name>` — delete a preset
+- **Name rules**: alphanumeric characters, hyphens, and underscores only (`^[a-zA-Z0-9_-]+$`)
+
+Preset files are full config snapshots. They follow the same validation rules as the main config. Any key valid in `raf.config.json` is valid in a preset.
+
 ## Valid Model Names
 
 When configuring models, use one of the known names below. Aliases automatically resolve to the latest version.
@@ -435,6 +449,17 @@ When configuring reasoning effort, validate that the value is appropriate for th
 
 If the user sets reasoning effort on a model that may not support it (e.g., Haiku), warn them.
 
+### Managing Presets
+
+You can directly manage preset files without running CLI commands. Presets are stored at `~/.raf/presets/<name>.json`.
+
+- **Save a preset**: Read `~/.raf/raf.config.json`, validate it, then write it to `~/.raf/presets/<name>.json`. Create the `~/.raf/presets/` directory if it doesn't exist.
+- **Load a preset**: Read `~/.raf/presets/<name>.json`, validate it, then write it to `~/.raf/raf.config.json`.
+- **List presets**: Read the `~/.raf/presets/` directory and list all `.json` files (strip the `.json` extension to show the preset name).
+- **Delete a preset**: Confirm with the user, then delete `~/.raf/presets/<name>.json`.
+
+Validate preset names against `^[a-zA-Z0-9_-]+$` before saving. Apply the same validation rules to preset content as to the main config.
+
 ### Common User Requests
 
 - **"Show my config"** — Read and display the config file, noting defaults
@@ -442,3 +467,6 @@ If the user sets reasoning effort on a model that may not support it (e.g., Haik
 - **"Reset to defaults"** — Delete the config file (confirm with user first)
 - **"What does X do?"** — Explain the setting using the reference above
 - **"Set timeout to 90"** — Update `timeout` to `90` in the config file
+- **"Save this as a preset"** — Ask for a name, then save the current config to `~/.raf/presets/<name>.json`
+- **"Load preset X"** — Read `~/.raf/presets/X.json` and write it to the active config
+- **"Show my presets"** — List all `.json` files in `~/.raf/presets/`
