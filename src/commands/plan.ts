@@ -636,15 +636,18 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
       for (const planFile of newPlanFiles) {
         logger.info(`  - plans/${planFile}`);
       }
+    }
 
-      // Commit planning artifacts (input.md, decisions.md, and new plan files)
-      const newPlanAbsolutePaths = newPlanFiles.map((f) => path.join(plansDir, f));
-      await commitPlanningArtifacts(projectPath, {
-        cwd: worktreePath ?? undefined,
-        isAmend: true,
-        additionalFiles: newPlanAbsolutePaths,
-      });
+    // Commit planning artifacts (input.md, decisions.md, and all plan files)
+    // Always attempt commit — even without new plans, existing files may have been updated
+    const allPlanAbsolutePaths = allPlanFiles.map((f) => path.join(plansDir, f));
+    await commitPlanningArtifacts(projectPath, {
+      cwd: worktreePath ?? undefined,
+      isAmend: true,
+      additionalFiles: allPlanAbsolutePaths,
+    });
 
+    if (newPlanFiles.length > 0) {
       logger.newline();
       logger.info(`Total tasks: ${allPlanFiles.length}`);
       if (worktreeMode) {
