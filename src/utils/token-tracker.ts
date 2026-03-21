@@ -36,16 +36,12 @@ export function mergeUsageData(existing: UsageData | undefined, incoming: UsageD
     return {
       inputTokens: incoming.inputTokens ?? 0,
       outputTokens: incoming.outputTokens ?? 0,
-      cacheReadInputTokens: incoming.cacheReadInputTokens ?? 0,
-      cacheCreationInputTokens: incoming.cacheCreationInputTokens ?? 0,
       modelUsage: Object.fromEntries(
         Object.entries(incoming.modelUsage ?? {}).map(([modelId, usage]) => [
           modelId,
           {
             inputTokens: usage.inputTokens ?? 0,
             outputTokens: usage.outputTokens ?? 0,
-            cacheReadInputTokens: usage.cacheReadInputTokens ?? 0,
-            cacheCreationInputTokens: usage.cacheCreationInputTokens ?? 0,
             costUsd: usage.costUsd ?? null,
           },
         ]),
@@ -57,8 +53,6 @@ export function mergeUsageData(existing: UsageData | undefined, incoming: UsageD
   const merged: UsageData = {
     inputTokens: (existing.inputTokens ?? 0) + (incoming.inputTokens ?? 0),
     outputTokens: (existing.outputTokens ?? 0) + (incoming.outputTokens ?? 0),
-    cacheReadInputTokens: (existing.cacheReadInputTokens ?? 0) + (incoming.cacheReadInputTokens ?? 0),
-    cacheCreationInputTokens: (existing.cacheCreationInputTokens ?? 0) + (incoming.cacheCreationInputTokens ?? 0),
     modelUsage: {},
     totalCostUsd: mergeCostUsd(existing.totalCostUsd, incoming.totalCostUsd),
   };
@@ -74,8 +68,6 @@ export function mergeUsageData(existing: UsageData | undefined, incoming: UsageD
     merged.modelUsage[modelId] = {
       inputTokens: (existingModel?.inputTokens ?? 0) + (incomingModel?.inputTokens ?? 0),
       outputTokens: (existingModel?.outputTokens ?? 0) + (incomingModel?.outputTokens ?? 0),
-      cacheReadInputTokens: (existingModel?.cacheReadInputTokens ?? 0) + (incomingModel?.cacheReadInputTokens ?? 0),
-      cacheCreationInputTokens: (existingModel?.cacheCreationInputTokens ?? 0) + (incomingModel?.cacheCreationInputTokens ?? 0),
       costUsd: mergeCostUsd(existingModel?.costUsd, incomingModel?.costUsd),
     };
   }
@@ -110,8 +102,6 @@ export function accumulateUsage(attempts: UsageData[]): UsageData {
   return result ?? {
     inputTokens: 0,
     outputTokens: 0,
-    cacheReadInputTokens: 0,
-    cacheCreationInputTokens: 0,
     modelUsage: {},
     totalCostUsd: 0,
   };
@@ -173,8 +163,6 @@ export class TokenTracker {
       usage: totalUsage ?? {
         inputTokens: 0,
         outputTokens: 0,
-        cacheReadInputTokens: 0,
-        cacheCreationInputTokens: 0,
         modelUsage: {},
         totalCostUsd: 0,
       },

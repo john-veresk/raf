@@ -14,7 +14,6 @@ import {
   ModelScenario,
   ModelEntry,
   CommitFormatType,
-  DisplayConfig,
   EffortMappingConfig,
   HarnessName,
 } from '../types/config.js';
@@ -39,7 +38,7 @@ export function getClaudeSettingsPath(): string {
 const VALID_TOP_LEVEL_KEYS = new Set<string>([
   'models', 'effortMapping',
   'timeout', 'maxRetries', 'autoCommit',
-  'worktree', 'syncMainBranch', 'commitFormat', 'display',
+  'worktree', 'syncMainBranch', 'commitFormat',
 ]);
 
 /** Keys that were removed in the schema migration. Rejected with a helpful error. */
@@ -56,8 +55,6 @@ const VALID_MODEL_KEYS = new Set<string>([
 const VALID_EFFORT_MAPPING_KEYS = new Set<string>(['low', 'medium', 'high']);
 
 const VALID_COMMIT_FORMAT_KEYS = new Set<string>(['task', 'plan', 'amend', 'prefix']);
-
-const VALID_DISPLAY_KEYS = new Set<string>(['showCacheTokens']);
 
 const VALID_MODEL_ENTRY_KEYS = new Set<string>(['model', 'harness', 'reasoningEffort', 'fast']);
 
@@ -299,20 +296,6 @@ export function validateConfig(config: unknown): UserConfig {
     }
   }
 
-  // display
-  if (obj.display !== undefined) {
-    if (typeof obj.display !== 'object' || obj.display === null || Array.isArray(obj.display)) {
-      throw new ConfigValidationError('display must be an object');
-    }
-    const display = obj.display as Record<string, unknown>;
-    checkUnknownKeys(display, VALID_DISPLAY_KEYS, 'display');
-    for (const [key, val] of Object.entries(display)) {
-      if (typeof val !== 'boolean') {
-        throw new ConfigValidationError(`display.${key} must be a boolean`);
-      }
-    }
-  }
-
   return config as UserConfig;
 }
 
@@ -373,9 +356,6 @@ function deepMerge(defaults: RafConfig, overrides: UserConfig): RafConfig {
   if (overrides.commitFormat) {
     result.commitFormat = { ...defaults.commitFormat, ...overrides.commitFormat };
   }
-  if (overrides.display) {
-    result.display = { ...defaults.display, ...overrides.display };
-  }
   if (overrides.timeout !== undefined) result.timeout = overrides.timeout;
   if (overrides.maxRetries !== undefined) result.maxRetries = overrides.maxRetries;
   if (overrides.autoCommit !== undefined) result.autoCommit = overrides.autoCommit;
@@ -411,7 +391,6 @@ export function resolveConfig(configPath?: string): RafConfig {
         high: { ...DEFAULT_CONFIG.effortMapping.high },
       },
       commitFormat: { ...DEFAULT_CONFIG.commitFormat },
-      display: { ...DEFAULT_CONFIG.display },
     };
   }
 
@@ -691,20 +670,6 @@ export function resolveFullModelId(modelName: string): string {
   }
   // Already a full ID or unknown, return as-is
   return modelName;
-}
-
-/**
- * Get the full display config.
- */
-export function getDisplayConfig(): DisplayConfig {
-  return getResolvedConfig().display;
-}
-
-/**
- * Get whether to show cache tokens in summaries.
- */
-export function getShowCacheTokens(): boolean {
-  return getResolvedConfig().display.showCacheTokens;
 }
 
 /**

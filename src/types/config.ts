@@ -67,12 +67,6 @@ export interface CommitFormatConfig {
   prefix: string;
 }
 
-/** Display options for token usage summaries. */
-export interface DisplayConfig {
-  /** Show cache token counts in summaries. Default: true */
-  showCacheTokens: boolean;
-}
-
 export interface RafConfig {
   models: ModelsConfig;
   /** Maps task complexity labels (low/medium/high) to model entries. Used for per-task effort frontmatter. */
@@ -84,7 +78,6 @@ export interface RafConfig {
   /** Sync main branch with remote before worktree/PR operations. Default: true */
   syncMainBranch: boolean;
   commitFormat: CommitFormatConfig;
-  display: DisplayConfig;
 }
 
 export const DEFAULT_CONFIG: RafConfig = {
@@ -111,9 +104,6 @@ export const DEFAULT_CONFIG: RafConfig = {
     plan: '{prefix}[{projectName}] Plan: {description}',
     amend: '{prefix}[{projectName}] Amend: {description}',
     prefix: 'RAF',
-  },
-  display: {
-    showCacheTokens: true,
   },
 };
 
@@ -169,8 +159,6 @@ export interface StatusCommandOptions {
 export interface ModelTokenUsage {
   inputTokens: number;
   outputTokens: number;
-  cacheReadInputTokens: number;
-  cacheCreationInputTokens: number;
   /** Cost in USD for this model's usage (provided by Claude CLI). */
   costUsd?: number | null;
 }
@@ -180,8 +168,6 @@ export interface UsageData {
   /** Aggregate token counts across all models. */
   inputTokens: number;
   outputTokens: number;
-  cacheReadInputTokens: number;
-  cacheCreationInputTokens: number;
   /** Per-model breakdown (e.g., { "claude-opus-4-6": { ... } }). */
   modelUsage: Record<string, ModelTokenUsage>;
   /** Total cost in USD for this usage (provided by Claude CLI). */

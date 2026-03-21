@@ -7,12 +7,6 @@ import { formatElapsedTime } from './timer.js';
 import type { UsageData } from '../types/config.js';
 import type { CostBreakdown, TaskUsageEntry } from './token-tracker.js';
 
-/** Options for token summary formatting. */
-export interface TokenSummaryOptions {
-  /** Whether to show cache token counts. Default: true */
-  showCacheTokens?: boolean;
-}
-
 function hasExactCost(cost: number | null): cost is number {
   return cost !== null;
 }
@@ -199,25 +193,10 @@ function formatTokenLine(
   costValue: number | null,
   prefix: string = '',
   indent: string = '  ',
-  options: TokenSummaryOptions = {}
 ): string {
-  const { showCacheTokens = true } = options;
   const parts: string[] = [];
   const tokenPart = `${formatNumber(usage.inputTokens)} in / ${formatNumber(usage.outputTokens)} out`;
   parts.push(prefix ? `${prefix}: ${tokenPart}` : `Tokens: ${tokenPart}`);
-
-  if (showCacheTokens) {
-    const cacheTotal = usage.cacheReadInputTokens + usage.cacheCreationInputTokens;
-    if (cacheTotal > 0) {
-      if (usage.cacheReadInputTokens > 0 && usage.cacheCreationInputTokens > 0) {
-        parts.push(`Cache: ${formatNumber(usage.cacheReadInputTokens)} read / ${formatNumber(usage.cacheCreationInputTokens)} created`);
-      } else if (usage.cacheReadInputTokens > 0) {
-        parts.push(`Cache: ${formatNumber(usage.cacheReadInputTokens)} read`);
-      } else {
-        parts.push(`Cache: ${formatNumber(usage.cacheCreationInputTokens)} created`);
-      }
-    }
-  }
 
   if (hasExactCost(costValue)) {
     parts.push(`Cost: ${formatCost(costValue)}`);
@@ -228,28 +207,24 @@ function formatTokenLine(
 
 /**
  * Formats a per-task token usage summary.
- * For single-attempt tasks: "  Tokens: 5,234 in / 1,023 out | Cache: 18,500 read | Cost: $0.42"
+ * For single-attempt tasks: "  Tokens: 5,234 in / 1,023 out | Cost: $0.42"
  * For multi-attempt tasks: shows per-attempt breakdown plus total.
  *
  * @param entry - The TaskUsageEntry containing accumulated usage, cost, and attempts array
- * @param options - Display options for showing cache tokens
  */
-export function formatTaskTokenSummary(
-  entry: TaskUsageEntry,
-  options: TokenSummaryOptions = {}
-): string {
+export function formatTaskTokenSummary(entry: TaskUsageEntry): string {
   // Single-attempt: render exactly as before (no per-attempt breakdown)
   if (entry.attempts.length <= 1) {
-    return formatTokenLine(entry.usage, entry.cost.totalCost, '', '  ', options);
+    return formatTokenLine(entry.usage, entry.cost.totalCost);
   }
 
   // Multi-attempt: show per-attempt lines plus total
   const lines: string[] = [];
   entry.attempts.forEach((attemptUsage, i) => {
     const attemptCost = attemptUsage.totalCostUsd;
-    lines.push(formatTokenLine(attemptUsage, attemptCost, `Attempt ${i + 1}`, '    ', options));
+    lines.push(formatTokenLine(attemptUsage, attemptCost, `Attempt ${i + 1}`, '    '));
   });
-  lines.push(formatTokenLine(entry.usage, entry.cost.totalCost, 'Total', '    ', options));
+  lines.push(formatTokenLine(entry.usage, entry.cost.totalCost, 'Total', '    '));
   return lines.join('\n');
 }
 
@@ -259,29 +234,15 @@ export function formatTaskTokenSummary(
  *
  * @param usage - Total usage data
  * @param cost - Total cost breakdown
- * @param options - Display options for cache tokens
  */
 export function formatTokenTotalSummary(
   usage: UsageData,
   cost: CostBreakdown,
-  options: TokenSummaryOptions = {}
 ): string {
-  const { showCacheTokens = true } = options;
   const lines: string[] = [];
   const divider = '── Token Usage Summary ──────────────────';
   lines.push(divider);
   lines.push(`Total tokens: ${formatNumber(usage.inputTokens)} in / ${formatNumber(usage.outputTokens)} out`);
-
-  if (showCacheTokens && (usage.cacheReadInputTokens > 0 || usage.cacheCreationInputTokens > 0)) {
-    const cacheParts: string[] = [];
-    if (usage.cacheReadInputTokens > 0) {
-      cacheParts.push(`${formatNumber(usage.cacheReadInputTokens)} read`);
-    }
-    if (usage.cacheCreationInputTokens > 0) {
-      cacheParts.push(`${formatNumber(usage.cacheCreationInputTokens)} created`);
-    }
-    lines.push(`Cache: ${cacheParts.join(' / ')}`);
-  }
 
   if (hasExactCost(cost.totalCost)) {
     lines.push(`Total cost: ${formatCost(cost.totalCost)}`);

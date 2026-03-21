@@ -168,24 +168,6 @@ Controls the format of git commit messages. Templates use `{placeholder}` syntax
 
 Unknown placeholders are left as-is in the output.
 
-### `display` — Token Summary Display Options
-
-Controls what information is shown in token usage summaries after tasks and in the grand total.
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `display.showCacheTokens` | `true` | Show cache read/create token counts in summaries |
-
-Example:
-
-```json
-{
-  "display": {
-    "showCacheTokens": true
-  }
-}
-```
-
 ## Valid Model Names
 
 When configuring models, use one of the known names below. Aliases automatically resolve to the latest version.
@@ -278,7 +260,6 @@ The config is validated when loaded. Invalid configs cause an error with a descr
 - **`maxRetries`** must be a non-negative integer.
 - **`autoCommit`**, **`worktree`**, and **`syncMainBranch`** must be booleans.
 - **`commitFormat` values** must be strings.
-- **`display` values** (`showCacheTokens`) must be booleans.
 - The config file must be valid JSON containing an object (not an array or primitive).
 
 ## Precedence
@@ -359,9 +340,6 @@ Uses Claude Opus for planning but Codex for execution. Low-effort tasks use Clau
     "plan": "{prefix}[{projectName}] Plan: {description}",
     "amend": "{prefix}[{projectName}] Amend: {description}",
     "prefix": "RAF"
-  },
-  "display": {
-    "showCacheTokens": true
   }
 }
 ```
