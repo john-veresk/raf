@@ -350,7 +350,7 @@ You are helping the user view and edit their RAF configuration. Be helpful, expl
 
 After making a change, briefly confirm what was changed and what the effective value is. For example:
 
-> Set `models.execute` to `"sonnet"`. Task execution will now use the Sonnet model instead of Opus.
+> Set `models.execute` to `{ "model": "sonnet", "provider": "claude" }`. Task execution will now use the Sonnet model instead of Opus.
 
 ### Showing Current Config
 
