@@ -4,6 +4,7 @@ import { execSync, spawn } from 'node:child_process';
 import { logger } from '../utils/logger.js';
 import { renderStreamEvent } from '../parsers/stream-renderer.js';
 import { getModel } from '../utils/config.js';
+import { mergeUsageData } from '../utils/token-tracker.js';
 import type { ICliRunner } from './runner-interface.js';
 import type { RunnerOptions, RunnerConfig, RunResult } from './runner-types.js';
 import { createCompletionDetector } from './completion-detector.js';
@@ -385,7 +386,7 @@ export class ClaudeRunner implements ICliRunner {
 
           // Capture usage data from result events
           if (rendered.usageData) {
-            usageData = rendered.usageData;
+            usageData = mergeUsageData(usageData, rendered.usageData);
           }
 
           if (shouldDisplay() && rendered.display) {
@@ -407,7 +408,7 @@ export class ClaudeRunner implements ICliRunner {
             output += rendered.textContent;
           }
           if (rendered.usageData) {
-            usageData = rendered.usageData;
+            usageData = mergeUsageData(usageData, rendered.usageData);
           }
           if (shouldDisplay() && rendered.display) {
             process.stdout.write(rendered.display);

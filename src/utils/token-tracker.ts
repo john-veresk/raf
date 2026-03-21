@@ -16,6 +16,73 @@ export interface TaskUsageEntry {
   attempts: UsageData[];
 }
 
+function mergeCostUsd(existing: number | null | undefined, incoming: number | null | undefined): number | null {
+  if (existing === null || incoming === null || existing === undefined || incoming === undefined) {
+    return null;
+  }
+  return existing + incoming;
+}
+
+/**
+ * Merge usage data into an accumulated snapshot.
+ * Handles undefined input for first-event initialization.
+ */
+export function mergeUsageData(existing: UsageData | undefined, incoming: UsageData | undefined): UsageData | undefined {
+  if (!incoming) {
+    return existing;
+  }
+
+  if (!existing) {
+    return {
+      inputTokens: incoming.inputTokens ?? 0,
+      outputTokens: incoming.outputTokens ?? 0,
+      cacheReadInputTokens: incoming.cacheReadInputTokens ?? 0,
+      cacheCreationInputTokens: incoming.cacheCreationInputTokens ?? 0,
+      modelUsage: Object.fromEntries(
+        Object.entries(incoming.modelUsage ?? {}).map(([modelId, usage]) => [
+          modelId,
+          {
+            inputTokens: usage.inputTokens ?? 0,
+            outputTokens: usage.outputTokens ?? 0,
+            cacheReadInputTokens: usage.cacheReadInputTokens ?? 0,
+            cacheCreationInputTokens: usage.cacheCreationInputTokens ?? 0,
+            costUsd: usage.costUsd ?? null,
+          },
+        ]),
+      ),
+      totalCostUsd: incoming.totalCostUsd ?? null,
+    };
+  }
+
+  const merged: UsageData = {
+    inputTokens: (existing.inputTokens ?? 0) + (incoming.inputTokens ?? 0),
+    outputTokens: (existing.outputTokens ?? 0) + (incoming.outputTokens ?? 0),
+    cacheReadInputTokens: (existing.cacheReadInputTokens ?? 0) + (incoming.cacheReadInputTokens ?? 0),
+    cacheCreationInputTokens: (existing.cacheCreationInputTokens ?? 0) + (incoming.cacheCreationInputTokens ?? 0),
+    modelUsage: {},
+    totalCostUsd: mergeCostUsd(existing.totalCostUsd, incoming.totalCostUsd),
+  };
+
+  const allModelIds = new Set([
+    ...Object.keys(existing.modelUsage ?? {}),
+    ...Object.keys(incoming.modelUsage ?? {}),
+  ]);
+
+  for (const modelId of allModelIds) {
+    const existingModel = existing.modelUsage?.[modelId];
+    const incomingModel = incoming.modelUsage?.[modelId];
+    merged.modelUsage[modelId] = {
+      inputTokens: (existingModel?.inputTokens ?? 0) + (incomingModel?.inputTokens ?? 0),
+      outputTokens: (existingModel?.outputTokens ?? 0) + (incomingModel?.outputTokens ?? 0),
+      cacheReadInputTokens: (existingModel?.cacheReadInputTokens ?? 0) + (incomingModel?.cacheReadInputTokens ?? 0),
+      cacheCreationInputTokens: (existingModel?.cacheCreationInputTokens ?? 0) + (incomingModel?.cacheCreationInputTokens ?? 0),
+      costUsd: mergeCostUsd(existingModel?.costUsd, incomingModel?.costUsd),
+    };
+  }
+
+  return merged;
+}
+
 /**
  * Sum multiple CostBreakdown objects into a single total.
  */
@@ -35,7 +102,12 @@ export function sumCostBreakdowns(costs: CostBreakdown[]): CostBreakdown {
  * Sums all token fields and merges modelUsage maps.
  */
 export function accumulateUsage(attempts: UsageData[]): UsageData {
-  const result: UsageData = {
+  let result: UsageData | undefined;
+  for (const attempt of attempts) {
+    result = mergeUsageData(result, attempt);
+  }
+
+  return result ?? {
     inputTokens: 0,
     outputTokens: 0,
     cacheReadInputTokens: 0,
@@ -43,41 +115,6 @@ export function accumulateUsage(attempts: UsageData[]): UsageData {
     modelUsage: {},
     totalCostUsd: 0,
   };
-
-  for (const attempt of attempts) {
-    result.inputTokens += attempt.inputTokens;
-    result.outputTokens += attempt.outputTokens;
-    result.cacheReadInputTokens += attempt.cacheReadInputTokens;
-    result.cacheCreationInputTokens += attempt.cacheCreationInputTokens;
-
-    // Merge per-model usage
-    for (const [modelId, modelUsage] of Object.entries(attempt.modelUsage)) {
-      const existing = result.modelUsage[modelId];
-      if (existing) {
-        existing.inputTokens += modelUsage.inputTokens;
-        existing.outputTokens += modelUsage.outputTokens;
-        existing.cacheReadInputTokens += modelUsage.cacheReadInputTokens;
-        existing.cacheCreationInputTokens += modelUsage.cacheCreationInputTokens;
-        if (existing.costUsd === null || modelUsage.costUsd === null || existing.costUsd === undefined || modelUsage.costUsd === undefined) {
-          existing.costUsd = null;
-        } else {
-          existing.costUsd += modelUsage.costUsd;
-        }
-      } else {
-        result.modelUsage[modelId] = { ...modelUsage };
-      }
-    }
-
-    if (result.totalCostUsd !== null) {
-      if (attempt.totalCostUsd === null) {
-        result.totalCostUsd = null;
-      } else {
-        result.totalCostUsd += attempt.totalCostUsd;
-      }
-    }
-  }
-
-  return result;
 }
 
 /**
@@ -115,48 +152,13 @@ export class TokenTracker {
    * Get accumulated totals across all tasks.
    */
   getTotals(): { usage: UsageData; cost: CostBreakdown } {
-    const totalUsage: UsageData = {
-      inputTokens: 0,
-      outputTokens: 0,
-      cacheReadInputTokens: 0,
-      cacheCreationInputTokens: 0,
-      modelUsage: {},
-      totalCostUsd: 0,
-    };
+    let totalUsage: UsageData | undefined;
     const totalCost: CostBreakdown = {
       totalCost: 0,
     };
 
     for (const entry of this.entries) {
-      totalUsage.inputTokens += entry.usage.inputTokens;
-      totalUsage.outputTokens += entry.usage.outputTokens;
-      totalUsage.cacheReadInputTokens += entry.usage.cacheReadInputTokens;
-      totalUsage.cacheCreationInputTokens += entry.usage.cacheCreationInputTokens;
-      if (totalUsage.totalCostUsd !== null) {
-        if (entry.usage.totalCostUsd === null) {
-          totalUsage.totalCostUsd = null;
-        } else {
-          totalUsage.totalCostUsd += entry.usage.totalCostUsd;
-        }
-      }
-
-      // Merge per-model usage
-      for (const [modelId, modelUsage] of Object.entries(entry.usage.modelUsage)) {
-        const existing = totalUsage.modelUsage[modelId];
-        if (existing) {
-          existing.inputTokens += modelUsage.inputTokens;
-          existing.outputTokens += modelUsage.outputTokens;
-          existing.cacheReadInputTokens += modelUsage.cacheReadInputTokens;
-          existing.cacheCreationInputTokens += modelUsage.cacheCreationInputTokens;
-          if (existing.costUsd === null || modelUsage.costUsd === null || existing.costUsd === undefined || modelUsage.costUsd === undefined) {
-            existing.costUsd = null;
-          } else {
-            existing.costUsd += modelUsage.costUsd;
-          }
-        } else {
-          totalUsage.modelUsage[modelId] = { ...modelUsage };
-        }
-      }
+      totalUsage = mergeUsageData(totalUsage, entry.usage);
 
       if (totalCost.totalCost !== null) {
         if (entry.cost.totalCost === null) {
@@ -167,7 +169,17 @@ export class TokenTracker {
       }
     }
 
-    return { usage: totalUsage, cost: totalCost };
+    return {
+      usage: totalUsage ?? {
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadInputTokens: 0,
+        cacheCreationInputTokens: 0,
+        modelUsage: {},
+        totalCostUsd: 0,
+      },
+      cost: totalCost,
+    };
   }
 
 }

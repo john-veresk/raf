@@ -4,6 +4,7 @@ import { execSync, spawn } from 'node:child_process';
 import { logger } from '../utils/logger.js';
 import { renderCodexStreamEvent } from '../parsers/codex-stream-renderer.js';
 import { getModel } from '../utils/config.js';
+import { mergeUsageData } from '../utils/token-tracker.js';
 import type { ICliRunner } from './runner-interface.js';
 import type { RunnerOptions, RunnerConfig, RunResult } from './runner-types.js';
 import { createCompletionDetector } from './completion-detector.js';
@@ -263,7 +264,7 @@ export class CodexRunner implements ICliRunner {
           }
 
           if (rendered.usageData) {
-            usageData = rendered.usageData;
+            usageData = mergeUsageData(usageData, rendered.usageData);
           }
 
           if (shouldDisplay() && rendered.display) {
@@ -285,7 +286,7 @@ export class CodexRunner implements ICliRunner {
             output += rendered.textContent;
           }
           if (rendered.usageData) {
-            usageData = rendered.usageData;
+            usageData = mergeUsageData(usageData, rendered.usageData);
           }
           if (shouldDisplay() && rendered.display) {
             process.stdout.write(rendered.display);

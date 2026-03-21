@@ -762,6 +762,45 @@ describe('ClaudeRunner', () => {
       expect(result.usageData!.outputTokens).toBe(800);
     });
 
+    it('should accumulate usageData across multiple result events', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', { timeout: 60 });
+
+      const firstResultEvent = JSON.stringify({
+        type: 'result',
+        usage: { input_tokens: 1000, output_tokens: 500, cache_read_input_tokens: 100, cache_creation_input_tokens: 50 },
+        modelUsage: { 'claude-opus-4-6': { inputTokens: 1000, outputTokens: 500, cacheReadInputTokens: 100, cacheCreationInputTokens: 50 } },
+        total_cost_usd: 2.5,
+      });
+      const secondResultEvent = JSON.stringify({
+        type: 'result',
+        usage: { input_tokens: 600, output_tokens: 300, cache_read_input_tokens: 40, cache_creation_input_tokens: 20 },
+        modelUsage: { 'claude-opus-4-6': { inputTokens: 600, outputTokens: 300, cacheReadInputTokens: 40, cacheCreationInputTokens: 20 } },
+        total_cost_usd: 1.5,
+      });
+
+      mockProc.stdout.emit('data', Buffer.from(firstResultEvent + '\n' + secondResultEvent + '\n'));
+      mockProc.emit('close', 0);
+
+      const result = await runPromise;
+      expect(result.usageData).toBeDefined();
+      expect(result.usageData!.inputTokens).toBe(1600);
+      expect(result.usageData!.outputTokens).toBe(800);
+      expect(result.usageData!.cacheReadInputTokens).toBe(140);
+      expect(result.usageData!.cacheCreationInputTokens).toBe(70);
+      expect(result.usageData!.totalCostUsd).toBe(4);
+      expect(result.usageData!.modelUsage['claude-opus-4-6']).toEqual({
+        inputTokens: 1600,
+        outputTokens: 800,
+        cacheReadInputTokens: 140,
+        cacheCreationInputTokens: 70,
+        costUsd: 0,
+      });
+    });
+
     it('should return undefined usageData when no result event', async () => {
       const mockProc = createMockProcess();
       mockSpawn.mockReturnValue(mockProc);

@@ -95,6 +95,52 @@ describe('CodexRunner', () => {
     });
   });
 
+  it('accumulates usageData across multiple turn.completed events', async () => {
+    const mockProc = createMockProcess();
+    mockSpawn.mockReturnValue(mockProc);
+
+    const runner = new CodexRunner({ model: 'gpt-5.4' });
+    const runPromise = runner.run('test prompt');
+
+    const firstTurn = JSON.stringify({
+      type: 'turn.completed',
+      model: 'gpt-5.4',
+      usage: {
+        input_tokens: 1000,
+        output_tokens: 250,
+      },
+    });
+    const secondTurn = JSON.stringify({
+      type: 'turn.completed',
+      model: 'gpt-5.4',
+      usage: {
+        input_tokens: 500,
+        output_tokens: 150,
+      },
+    });
+
+    mockProc.stdout.emit('data', Buffer.from(firstTurn + '\n' + secondTurn + '\n'));
+    mockProc.emit('close', 0);
+
+    const result = await runPromise;
+    expect(result.usageData).toEqual({
+      inputTokens: 1500,
+      outputTokens: 400,
+      cacheReadInputTokens: 0,
+      cacheCreationInputTokens: 0,
+      modelUsage: {
+        'gpt-5.4': {
+          inputTokens: 1500,
+          outputTokens: 400,
+          cacheReadInputTokens: 0,
+          cacheCreationInputTokens: 0,
+          costUsd: null,
+        },
+      },
+      totalCostUsd: null,
+    });
+  });
+
   it('returns undefined usageData when no turn.completed usage event is present', async () => {
     const mockProc = createMockProcess();
     mockSpawn.mockReturnValue(mockProc);

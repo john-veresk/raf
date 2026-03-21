@@ -1,4 +1,4 @@
-import { TokenTracker, CostBreakdown, accumulateUsage, sumCostBreakdowns } from '../../src/utils/token-tracker.js';
+import { TokenTracker, CostBreakdown, accumulateUsage, mergeUsageData, sumCostBreakdowns } from '../../src/utils/token-tracker.js';
 import { UsageData } from '../../src/types/config.js';
 
 function makeUsage(overrides: Partial<UsageData> = {}): UsageData {
@@ -493,6 +493,121 @@ describe('TokenTracker', () => {
       const result = accumulateUsage([attempt1, attempt2]);
       expect(result.inputTokens).toBe(300);
       expect(result.totalCostUsd).toBe(0.5);
+    });
+  });
+
+  describe('mergeUsageData', () => {
+    it('should initialize usage when existing is undefined', () => {
+      const incoming = makeUsage({
+        inputTokens: 10,
+        outputTokens: 5,
+        totalCostUsd: 0.25,
+        modelUsage: {
+          'claude-opus-4-6': {
+            inputTokens: 10,
+            outputTokens: 5,
+            cacheReadInputTokens: 0,
+            cacheCreationInputTokens: 0,
+            costUsd: 0.25,
+          },
+        },
+      });
+
+      const result = mergeUsageData(undefined, incoming);
+      expect(result).toEqual(incoming);
+    });
+
+    it('should return existing usage when incoming is undefined', () => {
+      const existing = makeUsage({
+        inputTokens: 10,
+        outputTokens: 5,
+      });
+
+      const result = mergeUsageData(existing, undefined);
+      expect(result).toEqual(existing);
+    });
+
+    it('should sum usage fields and model usage across both inputs', () => {
+      const existing = makeUsage({
+        inputTokens: 100,
+        outputTokens: 40,
+        cacheReadInputTokens: 10,
+        cacheCreationInputTokens: 5,
+        totalCostUsd: 1.0,
+        modelUsage: {
+          'claude-opus-4-6': {
+            inputTokens: 100,
+            outputTokens: 40,
+            cacheReadInputTokens: 10,
+            cacheCreationInputTokens: 5,
+            costUsd: 1.0,
+          },
+        },
+      });
+      const incoming = makeUsage({
+        inputTokens: 50,
+        outputTokens: 20,
+        cacheReadInputTokens: 4,
+        cacheCreationInputTokens: 2,
+        totalCostUsd: 0.5,
+        modelUsage: {
+          'claude-opus-4-6': {
+            inputTokens: 50,
+            outputTokens: 20,
+            cacheReadInputTokens: 4,
+            cacheCreationInputTokens: 2,
+            costUsd: 0.5,
+          },
+        },
+      });
+
+      const result = mergeUsageData(existing, incoming);
+      expect(result).toEqual({
+        inputTokens: 150,
+        outputTokens: 60,
+        cacheReadInputTokens: 14,
+        cacheCreationInputTokens: 7,
+        totalCostUsd: 1.5,
+        modelUsage: {
+          'claude-opus-4-6': {
+            inputTokens: 150,
+            outputTokens: 60,
+            cacheReadInputTokens: 14,
+            cacheCreationInputTokens: 7,
+            costUsd: 1.5,
+          },
+        },
+      });
+    });
+
+    it('should treat missing numeric fields as zero while merging', () => {
+      const existing = makeUsage({
+        inputTokens: 20,
+        outputTokens: 10,
+        totalCostUsd: null,
+      });
+      const incoming = {
+        inputTokens: 5,
+        modelUsage: {
+          codex: {
+            inputTokens: 5,
+          },
+        },
+      } as unknown as UsageData;
+
+      const result = mergeUsageData(existing, incoming);
+      expect(result!.inputTokens).toBe(25);
+      expect(result!.outputTokens).toBe(10);
+      expect(result!.cacheReadInputTokens).toBe(0);
+      expect(result!.cacheCreationInputTokens).toBe(0);
+      expect(result!.totalCostUsd).toBeNull();
+      expect(result!.modelUsage.codex).toEqual({
+        inputTokens: 5,
+        outputTokens: 0,
+        cacheReadInputTokens: 0,
+        cacheCreationInputTokens: 0,
+        costUsd: null,
+      });
     });
   });
 
