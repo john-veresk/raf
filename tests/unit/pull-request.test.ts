@@ -301,15 +301,15 @@ describe('pull-request utilities', () => {
 
   describe('generatePrTitle', () => {
     it('should convert project name to human-readable title', () => {
-      expect(generatePrTitle('/path/to/RAF/acbfhg-merge-guardian')).toBe('Merge guardian');
+      expect(generatePrTitle('/path/to/RAF/1-merge-guardian')).toBe('Merge guardian');
     });
 
     it('should capitalize first word only', () => {
-      expect(generatePrTitle('/path/to/RAF/aabcde-fix-login-bug')).toBe('Fix login bug');
+      expect(generatePrTitle('/path/to/RAF/2-fix-login-bug')).toBe('Fix login bug');
     });
 
     it('should handle single-word names', () => {
-      expect(generatePrTitle('/path/to/RAF/aabcde-refactoring')).toBe('Refactoring');
+      expect(generatePrTitle('/path/to/RAF/3-refactoring')).toBe('Refactoring');
     });
 
     it('should return fallback for invalid path', () => {

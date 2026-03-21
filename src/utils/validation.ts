@@ -61,7 +61,7 @@ export function validateProjectExists(rafDir: string, projectName: string): stri
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      const match = entry.name.match(/^[a-z]{6}-(.+)$/i);
+      const match = entry.name.match(/^\d+-(.+)$/);
       if (match && match[1] === projectName) {
         return path.join(rafDir, entry.name);
       }

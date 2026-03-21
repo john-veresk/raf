@@ -204,8 +204,8 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
       }
     }
 
-    // Compute project number from main repo's RAF directory
-    const projectNumber = getNextProjectNumber(rafDir);
+    // Compute project number from main repo's RAF directory (scan worktrees too)
+    const projectNumber = getNextProjectNumber(rafDir, repoBasename);
     const sanitizedName = sanitizeProjectName(finalProjectName);
     const folderName = `${formatProjectNumber(projectNumber)}-${sanitizedName}`;
 

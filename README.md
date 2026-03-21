@@ -140,17 +140,17 @@ Run `raf config` without arguments and ask what's available — the session has 
 
 ## Project Structure
 
-RAF creates a `./RAF/` folder with project directories identified by epoch-based base26 IDs (a-z only):
+RAF creates a `./RAF/` folder with project directories identified by sequential numeric IDs:
 
 ```
 ./RAF/
-├── abcdef-auth-system/
+├── 1-auth-system/
 │   ├── input.md           # Your original intent (raw prompt)
 │   ├── decisions.md       # Design decisions from planning
 │   ├── plans/             # Generated task plans
 │   ├── outcomes/          # Execution results
 │   └── logs/              # Debug logs (on failure)
-└── abaaba-dashboard/
+└── 2-dashboard/
     └── ...
 ```
 

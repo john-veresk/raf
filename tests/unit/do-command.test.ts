@@ -15,89 +15,89 @@ describe('Do Command - Identifier Support', () => {
   });
 
   describe('Single Project Full Folder Name Resolution', () => {
-    it('should resolve project by full 6-char prefix folder name: raf do aaaaab-fix-stuff', () => {
-      fs.mkdirSync(path.join(tempDir, 'aaaaab-fix-stuff'));
-      const result = resolveProjectIdentifier(tempDir, 'aaaaab-fix-stuff');
-      expect(result).toBe(path.join(tempDir, 'aaaaab-fix-stuff'));
+    it('should resolve project by full numeric prefix folder name: raf do 1-fix-stuff', () => {
+      fs.mkdirSync(path.join(tempDir, '1-fix-stuff'));
+      const result = resolveProjectIdentifier(tempDir, '1-fix-stuff');
+      expect(result).toBe(path.join(tempDir, '1-fix-stuff'));
     });
 
-    it('should resolve project by full base26 folder name: raf do abcdef-project', () => {
-      fs.mkdirSync(path.join(tempDir, 'abcdef-project'));
-      const result = resolveProjectIdentifier(tempDir, 'abcdef-project');
-      expect(result).toBe(path.join(tempDir, 'abcdef-project'));
+    it('should resolve project by full numeric folder name: raf do 7-project', () => {
+      fs.mkdirSync(path.join(tempDir, '7-project'));
+      const result = resolveProjectIdentifier(tempDir, '7-project');
+      expect(result).toBe(path.join(tempDir, '7-project'));
     });
 
-    it('should resolve full folder name with all-numeric prefix', () => {
-      fs.mkdirSync(path.join(tempDir, 'aaaadt-all-letters'));
-      const result = resolveProjectIdentifier(tempDir, 'aaaadt-all-letters');
-      expect(result).toBe(path.join(tempDir, 'aaaadt-all-letters'));
+    it('should resolve full folder name with multi-digit numeric prefix', () => {
+      fs.mkdirSync(path.join(tempDir, '42-all-letters'));
+      const result = resolveProjectIdentifier(tempDir, '42-all-letters');
+      expect(result).toBe(path.join(tempDir, '42-all-letters'));
     });
   });
 
   describe('Error Messages for Non-Matching Full Folder Names', () => {
     it('should return null for non-existent full folder name', () => {
-      fs.mkdirSync(path.join(tempDir, 'aaaaab-existing'));
-      const result = resolveProjectIdentifier(tempDir, 'aaaaac-non-existent');
+      fs.mkdirSync(path.join(tempDir, '1-existing'));
+      const result = resolveProjectIdentifier(tempDir, '2-non-existent');
       expect(result).toBeNull();
     });
 
     it('should return null when prefix exists but name differs', () => {
-      fs.mkdirSync(path.join(tempDir, 'aaaaab-actual-name'));
-      const result = resolveProjectIdentifier(tempDir, 'aaaaab-different-name');
+      fs.mkdirSync(path.join(tempDir, '1-actual-name'));
+      const result = resolveProjectIdentifier(tempDir, '1-different-name');
       expect(result).toBeNull();
     });
 
     it('should return null when name exists but prefix differs', () => {
-      fs.mkdirSync(path.join(tempDir, 'aaaaab-my-project'));
-      const result = resolveProjectIdentifier(tempDir, 'aaabmm-my-project');
+      fs.mkdirSync(path.join(tempDir, '1-my-project'));
+      const result = resolveProjectIdentifier(tempDir, '42-my-project');
       expect(result).toBeNull();
     });
 
     it('should return null for non-matching full folder name', () => {
-      fs.mkdirSync(path.join(tempDir, 'aaaaab-my-project'));
-      const result = resolveProjectIdentifier(tempDir, 'abcdef-my-project');
+      fs.mkdirSync(path.join(tempDir, '1-my-project'));
+      const result = resolveProjectIdentifier(tempDir, '7-my-project');
       expect(result).toBeNull();
     });
   });
 
   describe('Identifier Formats', () => {
     beforeEach(() => {
-      fs.mkdirSync(path.join(tempDir, 'aaaaab-my-project'));
-      fs.mkdirSync(path.join(tempDir, 'aaaaac-another-project'));
-      fs.mkdirSync(path.join(tempDir, 'ghijkl-alpha-project'));
+      fs.mkdirSync(path.join(tempDir, '1-my-project'));
+      fs.mkdirSync(path.join(tempDir, '2-another-project'));
+      fs.mkdirSync(path.join(tempDir, '3-alpha-project'));
     });
 
-    it('should resolve by 6-char base26 prefix', () => {
-      expect(resolveProjectIdentifier(tempDir, 'aaaaab')).toBe(path.join(tempDir, 'aaaaab-my-project'));
-      expect(resolveProjectIdentifier(tempDir, 'aaaaac')).toBe(path.join(tempDir, 'aaaaac-another-project'));
+    it('should resolve by numeric prefix', () => {
+      expect(resolveProjectIdentifier(tempDir, '1')).toBe(path.join(tempDir, '1-my-project'));
+      expect(resolveProjectIdentifier(tempDir, '2')).toBe(path.join(tempDir, '2-another-project'));
     });
 
-    it('should resolve by base26 prefix', () => {
-      expect(resolveProjectIdentifier(tempDir, 'ghijkl')).toBe(path.join(tempDir, 'ghijkl-alpha-project'));
+    it('should resolve by numeric prefix', () => {
+      expect(resolveProjectIdentifier(tempDir, '3')).toBe(path.join(tempDir, '3-alpha-project'));
     });
 
     it('should resolve by project name', () => {
-      expect(resolveProjectIdentifier(tempDir, 'my-project')).toBe(path.join(tempDir, 'aaaaab-my-project'));
-      expect(resolveProjectIdentifier(tempDir, 'another-project')).toBe(path.join(tempDir, 'aaaaac-another-project'));
-      expect(resolveProjectIdentifier(tempDir, 'alpha-project')).toBe(path.join(tempDir, 'ghijkl-alpha-project'));
+      expect(resolveProjectIdentifier(tempDir, 'my-project')).toBe(path.join(tempDir, '1-my-project'));
+      expect(resolveProjectIdentifier(tempDir, 'another-project')).toBe(path.join(tempDir, '2-another-project'));
+      expect(resolveProjectIdentifier(tempDir, 'alpha-project')).toBe(path.join(tempDir, '3-alpha-project'));
     });
   });
 
   describe('Project Name Extraction with Full Folder Names', () => {
-    it('should extract name from 6-char prefix folder path', () => {
-      const projectPath = path.join(tempDir, 'aaaaab-my-project');
+    it('should extract name from numeric prefix folder path', () => {
+      const projectPath = path.join(tempDir, '1-my-project');
       const name = extractProjectName(projectPath);
       expect(name).toBe('my-project');
     });
 
-    it('should extract name from base26 full folder path', () => {
-      const projectPath = path.join(tempDir, 'abcdef-my-project');
+    it('should extract name from numeric full folder path', () => {
+      const projectPath = path.join(tempDir, '7-my-project');
       const name = extractProjectName(projectPath);
       expect(name).toBe('my-project');
     });
 
     it('should handle multi-hyphen names', () => {
-      const projectPath = path.join(tempDir, 'aaaaab-my-cool-project-name');
+      const projectPath = path.join(tempDir, '1-my-cool-project-name');
       const name = extractProjectName(projectPath);
       expect(name).toBe('my-cool-project-name');
     });

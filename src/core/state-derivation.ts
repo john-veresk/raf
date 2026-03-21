@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { getPlansDir, getOutcomesDir, getInputPath, decodeBase26, TASK_ID_PATTERN } from '../utils/paths.js';
+import { getPlansDir, getOutcomesDir, getInputPath, TASK_ID_PATTERN } from '../utils/paths.js';
 import { parsePlanFrontmatter, type PlanFrontmatter } from '../utils/frontmatter.js';
 
 export type DerivedTaskStatus = 'pending' | 'completed' | 'failed' | 'blocked';
@@ -44,7 +44,7 @@ export interface DerivedStats {
 
 /**
  * Discover all projects in the RAF directory.
- * Projects are directories matching the pattern XXXXXX-project-name (6-char base26 prefix).
+ * Projects are directories matching the pattern N-project-name (numeric prefix).
  */
 export function discoverProjects(rafDir: string): DiscoveredProject[] {
   if (!fs.existsSync(rafDir)) {
@@ -56,16 +56,13 @@ export function discoverProjects(rafDir: string): DiscoveredProject[] {
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      const match = entry.name.match(/^([a-z]{6})-(.+)$/i);
+      const match = entry.name.match(/^(\d+)-(.+)$/);
       if (match && match[1] && match[2]) {
-        const decoded = decodeBase26(match[1].toLowerCase());
-        if (decoded !== null) {
-          projects.push({
-            number: decoded,
-            name: match[2],
-            path: path.join(rafDir, entry.name),
-          });
-        }
+        projects.push({
+          number: parseInt(match[1], 10),
+          name: match[2],
+          path: path.join(rafDir, entry.name),
+        });
       }
     }
   }

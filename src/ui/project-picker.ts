@@ -1,6 +1,7 @@
 import { select } from '@inquirer/prompts';
 import { discoverProjects, deriveProjectState, getDerivedStats } from '../core/state-derivation.js';
 import { extractProjectNumber, extractProjectName, parseProjectPrefix, formatProjectNumber } from '../utils/paths.js';
+
 import { listWorktreeProjects, computeWorktreePath } from '../core/worktree.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';

@@ -60,13 +60,13 @@ describe('Project Picker', () => {
 
     it('should filter out completed projects', () => {
       mockDiscoverProjects.mockReturnValue([
-        { number: 1, name: 'completed-project', path: path.join(testRafDir, 'aaaaab-completed-project') },
-        { number: 2, name: 'pending-project', path: path.join(testRafDir, 'aaaaac-pending-project') },
+        { number: 1, name: 'completed-project', path: path.join(testRafDir, '1-completed-project') },
+        { number: 2, name: 'pending-project', path: path.join(testRafDir, '2-pending-project') },
       ]);
 
       // First project is completed
       mockDeriveProjectState.mockImplementation((projectPath: string) => {
-        if (projectPath.includes('aaaaab-completed')) {
+        if (projectPath.includes('1-completed')) {
           return { tasks: [{ status: 'completed' }], status: 'completed' };
         }
         return { tasks: [{ status: 'pending' }, { status: 'completed' }], status: 'executing' };
@@ -87,7 +87,7 @@ describe('Project Picker', () => {
 
     it('should include projects with failed tasks', () => {
       mockDiscoverProjects.mockReturnValue([
-        { number: 1, name: 'failed-project', path: path.join(testRafDir, 'aaaaab-failed-project') },
+        { number: 1, name: 'failed-project', path: path.join(testRafDir, '1-failed-project') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -112,7 +112,7 @@ describe('Project Picker', () => {
 
     it('should include projects with pending tasks', () => {
       mockDiscoverProjects.mockReturnValue([
-        { number: 1, name: 'ready-project', path: path.join(testRafDir, 'aaaaab-ready-project') },
+        { number: 1, name: 'ready-project', path: path.join(testRafDir, '1-ready-project') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -136,9 +136,9 @@ describe('Project Picker', () => {
 
     it('should sort projects by number (oldest first)', () => {
       mockDiscoverProjects.mockReturnValue([
-        { number: 5, name: 'newer-project', path: path.join(testRafDir, 'aaaaaf-newer-project') },
-        { number: 2, name: 'older-project', path: path.join(testRafDir, 'aaaaac-older-project') },
-        { number: 10, name: 'newest-project', path: path.join(testRafDir, 'aaaaak-newest-project') },
+        { number: 5, name: 'newer-project', path: path.join(testRafDir, '5-newer-project') },
+        { number: 2, name: 'older-project', path: path.join(testRafDir, '2-older-project') },
+        { number: 10, name: 'newest-project', path: path.join(testRafDir, '10-newest-project') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -163,7 +163,7 @@ describe('Project Picker', () => {
 
     it('should include folder name in project info', () => {
       mockDiscoverProjects.mockReturnValue([
-        { number: 3, name: 'my-project', path: path.join(testRafDir, 'aaaaad-my-project') },
+        { number: 3, name: 'my-project', path: path.join(testRafDir, '3-my-project') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -180,12 +180,12 @@ describe('Project Picker', () => {
 
       const result = getPendingProjects(testRafDir);
 
-      expect(result[0]!.folder).toBe('aaaaad-my-project');
+      expect(result[0]!.folder).toBe('3-my-project');
     });
 
     it('should set source to local for all projects', () => {
       mockDiscoverProjects.mockReturnValue([
-        { number: 1, name: 'my-project', path: path.join(testRafDir, 'aaaaab-my-project') },
+        { number: 1, name: 'my-project', path: path.join(testRafDir, '1-my-project') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -210,10 +210,10 @@ describe('Project Picker', () => {
   describe('formatProjectChoice', () => {
     it('should format project with number, name, and task progress', () => {
       const project = {
-        folder: 'aaaaab-fix-auth-bug',
+        folder: '1-fix-auth-bug',
         number: 1,
         name: 'fix-auth-bug',
-        path: path.join(testRafDir, 'aaaaab-fix-auth-bug'),
+        path: path.join(testRafDir, '1-fix-auth-bug'),
         completedTasks: 2,
         totalTasks: 5,
         source: 'local' as const,
@@ -221,15 +221,15 @@ describe('Project Picker', () => {
 
       const result = formatProjectChoice(project);
 
-      expect(result).toBe('aaaaab fix-auth-bug (2/5 tasks)');
+      expect(result).toBe('1 fix-auth-bug (2/5 tasks)');
     });
 
     it('should format project with zero completed tasks', () => {
       const project = {
-        folder: 'aaaaad-new-feature',
+        folder: '3-new-feature',
         number: 3,
         name: 'new-feature',
-        path: path.join(testRafDir, 'aaaaad-new-feature'),
+        path: path.join(testRafDir, '3-new-feature'),
         completedTasks: 0,
         totalTasks: 3,
         source: 'local' as const,
@@ -237,15 +237,15 @@ describe('Project Picker', () => {
 
       const result = formatProjectChoice(project);
 
-      expect(result).toBe('aaaaad new-feature (0/3 tasks)');
+      expect(result).toBe('3 new-feature (0/3 tasks)');
     });
 
     it('should format project with single task', () => {
       const project = {
-        folder: 'aaaaak-quick-fix',
+        folder: '10-quick-fix',
         number: 10,
         name: 'quick-fix',
-        path: path.join(testRafDir, 'aaaaak-quick-fix'),
+        path: path.join(testRafDir, '10-quick-fix'),
         completedTasks: 0,
         totalTasks: 1,
         source: 'local' as const,
@@ -253,32 +253,32 @@ describe('Project Picker', () => {
 
       const result = formatProjectChoice(project);
 
-      expect(result).toBe('aaaaak quick-fix (0/1 tasks)');
+      expect(result).toBe('10 quick-fix (0/1 tasks)');
     });
 
     it('should append [worktree] suffix for worktree projects', () => {
       const project = {
-        folder: 'aaaaab-my-feature',
+        folder: '1-my-feature',
         number: 1,
         name: 'my-feature',
-        path: '/worktrees/myapp/aaaaab-my-feature/RAF/aaaaab-my-feature',
+        path: '/worktrees/myapp/1-my-feature/RAF/1-my-feature',
         completedTasks: 2,
         totalTasks: 5,
         source: 'worktree' as const,
-        worktreeRoot: '/worktrees/myapp/aaaaab-my-feature',
+        worktreeRoot: '/worktrees/myapp/1-my-feature',
       };
 
       const result = formatProjectChoice(project);
 
-      expect(result).toBe('aaaaab my-feature (2/5 tasks) [worktree]');
+      expect(result).toBe('1 my-feature (2/5 tasks) [worktree]');
     });
 
     it('should not append [worktree] suffix for local projects', () => {
       const project = {
-        folder: 'aaaaab-local-project',
+        folder: '1-local-project',
         number: 1,
         name: 'local-project',
-        path: path.join(testRafDir, 'aaaaab-local-project'),
+        path: path.join(testRafDir, '1-local-project'),
         completedTasks: 0,
         totalTasks: 3,
         source: 'local' as const,
@@ -300,8 +300,8 @@ describe('Project Picker', () => {
     });
 
     it('should return pending worktree projects with correct metadata', () => {
-      mockListWorktreeProjects.mockReturnValue(['aaaaab-my-feature']);
-      mockComputeWorktreePath.mockReturnValue('/worktrees/myapp/aaaaab-my-feature');
+      mockListWorktreeProjects.mockReturnValue(['1-my-feature']);
+      mockComputeWorktreePath.mockReturnValue('/worktrees/myapp/1-my-feature');
       mockExistsSync.mockReturnValue(true);
 
       mockDeriveProjectState.mockReturnValue({
@@ -319,17 +319,17 @@ describe('Project Picker', () => {
       const result = getPendingWorktreeProjects('myapp', 'RAF');
 
       expect(result).toHaveLength(1);
-      expect(result[0]!.folder).toBe('aaaaab-my-feature');
+      expect(result[0]!.folder).toBe('1-my-feature');
       expect(result[0]!.name).toBe('my-feature');
       expect(result[0]!.source).toBe('worktree');
-      expect(result[0]!.worktreeRoot).toBe('/worktrees/myapp/aaaaab-my-feature');
+      expect(result[0]!.worktreeRoot).toBe('/worktrees/myapp/1-my-feature');
       expect(result[0]!.completedTasks).toBe(1);
       expect(result[0]!.totalTasks).toBe(2);
     });
 
     it('should skip completed worktree projects', () => {
-      mockListWorktreeProjects.mockReturnValue(['aaaaab-done-project']);
-      mockComputeWorktreePath.mockReturnValue('/worktrees/myapp/aaaaab-done-project');
+      mockListWorktreeProjects.mockReturnValue(['1-done-project']);
+      mockComputeWorktreePath.mockReturnValue('/worktrees/myapp/1-done-project');
       mockExistsSync.mockReturnValue(true);
 
       mockDeriveProjectState.mockReturnValue({
@@ -358,8 +358,8 @@ describe('Project Picker', () => {
     });
 
     it('should skip worktree projects whose path does not exist', () => {
-      mockListWorktreeProjects.mockReturnValue(['aaaaab-missing-project']);
-      mockComputeWorktreePath.mockReturnValue('/worktrees/myapp/aaaaab-missing-project');
+      mockListWorktreeProjects.mockReturnValue(['1-missing-project']);
+      mockComputeWorktreePath.mockReturnValue('/worktrees/myapp/1-missing-project');
       mockExistsSync.mockReturnValue(false);
 
       const result = getPendingWorktreeProjects('myapp', 'RAF');
@@ -380,18 +380,18 @@ describe('Project Picker', () => {
 
     it('should display pending projects as choices and return PickerResult', async () => {
       const firstProject = {
-        folder: 'aaaaab-first-project',
+        folder: '1-first-project',
         number: 1,
         name: 'first-project',
-        path: path.join(testRafDir, 'aaaaab-first-project'),
+        path: path.join(testRafDir, '1-first-project'),
         completedTasks: 1,
         totalTasks: 2,
         source: 'local' as const,
       };
 
       mockDiscoverProjects.mockReturnValue([
-        { number: 1, name: 'first-project', path: path.join(testRafDir, 'aaaaab-first-project') },
-        { number: 2, name: 'second-project', path: path.join(testRafDir, 'aaaaac-second-project') },
+        { number: 1, name: 'first-project', path: path.join(testRafDir, '1-first-project') },
+        { number: 2, name: 'second-project', path: path.join(testRafDir, '2-second-project') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -411,7 +411,7 @@ describe('Project Picker', () => {
       const result = await pickPendingProject(testRafDir);
 
       expect(result).toEqual({
-        folder: 'aaaaab-first-project',
+        folder: '1-first-project',
         source: 'local',
         worktreeRoot: undefined,
       });
@@ -419,17 +419,17 @@ describe('Project Picker', () => {
 
     it('should return selected project folder name in result', async () => {
       const selectedProject = {
-        folder: 'aaaaaf-my-project',
+        folder: '5-my-project',
         number: 5,
         name: 'my-project',
-        path: path.join(testRafDir, 'aaaaaf-my-project'),
+        path: path.join(testRafDir, '5-my-project'),
         completedTasks: 0,
         totalTasks: 1,
         source: 'local' as const,
       };
 
       mockDiscoverProjects.mockReturnValue([
-        { number: 5, name: 'my-project', path: path.join(testRafDir, 'aaaaaf-my-project') },
+        { number: 5, name: 'my-project', path: path.join(testRafDir, '5-my-project') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -449,7 +449,7 @@ describe('Project Picker', () => {
       const result = await pickPendingProject(testRafDir);
 
       expect(result).toEqual({
-        folder: 'aaaaaf-my-project',
+        folder: '5-my-project',
         source: 'local',
         worktreeRoot: undefined,
       });
@@ -457,17 +457,17 @@ describe('Project Picker', () => {
 
     it('should format choices with task progress', async () => {
       const testProject = {
-        folder: 'aaaaab-test-project',
+        folder: '1-test-project',
         number: 1,
         name: 'test-project',
-        path: path.join(testRafDir, 'aaaaab-test-project'),
+        path: path.join(testRafDir, '1-test-project'),
         completedTasks: 1,
         totalTasks: 3,
         source: 'local' as const,
       };
 
       mockDiscoverProjects.mockReturnValue([
-        { number: 1, name: 'test-project', path: path.join(testRafDir, 'aaaaab-test-project') },
+        { number: 1, name: 'test-project', path: path.join(testRafDir, '1-test-project') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -490,7 +490,7 @@ describe('Project Picker', () => {
         message: 'Select a project to execute:',
         choices: [
           {
-            name: 'aaaaab test-project (1/3 tasks)',
+            name: '1 test-project (1/3 tasks)',
             value: testProject,
           },
         ],
@@ -499,17 +499,17 @@ describe('Project Picker', () => {
 
     it('should handle single pending project', async () => {
       const onlyProject = {
-        folder: 'aaaaah-only-project',
+        folder: '7-only-project',
         number: 7,
         name: 'only-project',
-        path: path.join(testRafDir, 'aaaaah-only-project'),
+        path: path.join(testRafDir, '7-only-project'),
         completedTasks: 0,
         totalTasks: 1,
         source: 'local' as const,
       };
 
       mockDiscoverProjects.mockReturnValue([
-        { number: 7, name: 'only-project', path: path.join(testRafDir, 'aaaaah-only-project') },
+        { number: 7, name: 'only-project', path: path.join(testRafDir, '7-only-project') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -529,7 +529,7 @@ describe('Project Picker', () => {
       const result = await pickPendingProject(testRafDir);
 
       expect(result).toEqual({
-        folder: 'aaaaah-only-project',
+        folder: '7-only-project',
         source: 'local',
         worktreeRoot: undefined,
       });
@@ -538,17 +538,17 @@ describe('Project Picker', () => {
 
     it('should merge worktree projects into picker choices', async () => {
       const localProject = {
-        folder: 'aaaaab-local-proj',
+        folder: '1-local-proj',
         number: 1,
         name: 'local-proj',
-        path: path.join(testRafDir, 'aaaaab-local-proj'),
+        path: path.join(testRafDir, '1-local-proj'),
         completedTasks: 0,
         totalTasks: 2,
         source: 'local' as const,
       };
 
       mockDiscoverProjects.mockReturnValue([
-        { number: 1, name: 'local-proj', path: path.join(testRafDir, 'aaaaab-local-proj') },
+        { number: 1, name: 'local-proj', path: path.join(testRafDir, '1-local-proj') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -564,14 +564,14 @@ describe('Project Picker', () => {
       });
 
       const worktreeProject = {
-        folder: 'aaaaac-wt-proj',
+        folder: '2-wt-proj',
         number: 2,
         name: 'wt-proj',
-        path: '/worktrees/myapp/aaaaac-wt-proj/RAF/aaaaac-wt-proj',
+        path: '/worktrees/myapp/2-wt-proj/RAF/2-wt-proj',
         completedTasks: 1,
         totalTasks: 3,
         source: 'worktree' as const,
-        worktreeRoot: '/worktrees/myapp/aaaaac-wt-proj',
+        worktreeRoot: '/worktrees/myapp/2-wt-proj',
       };
 
       mockSelect.mockResolvedValue(worktreeProject);
@@ -588,26 +588,26 @@ describe('Project Picker', () => {
       });
 
       expect(result).toEqual({
-        folder: 'aaaaac-wt-proj',
+        folder: '2-wt-proj',
         source: 'worktree',
-        worktreeRoot: '/worktrees/myapp/aaaaac-wt-proj',
+        worktreeRoot: '/worktrees/myapp/2-wt-proj',
       });
     });
 
     it('should deduplicate projects when same folder exists in local and worktree (prefer worktree)', async () => {
       const worktreeVersion = {
-        folder: 'aaaaab-shared-proj',
+        folder: '1-shared-proj',
         number: 1,
         name: 'shared-proj',
-        path: '/worktrees/myapp/aaaaab-shared-proj/RAF/aaaaab-shared-proj',
+        path: '/worktrees/myapp/1-shared-proj/RAF/1-shared-proj',
         completedTasks: 2,
         totalTasks: 3,
         source: 'worktree' as const,
-        worktreeRoot: '/worktrees/myapp/aaaaab-shared-proj',
+        worktreeRoot: '/worktrees/myapp/1-shared-proj',
       };
 
       mockDiscoverProjects.mockReturnValue([
-        { number: 1, name: 'shared-proj', path: path.join(testRafDir, 'aaaaab-shared-proj') },
+        { number: 1, name: 'shared-proj', path: path.join(testRafDir, '1-shared-proj') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -634,8 +634,8 @@ describe('Project Picker', () => {
 
     it('should sort mixed local and worktree projects chronologically', async () => {
       mockDiscoverProjects.mockReturnValue([
-        { number: 5, name: 'later-local', path: path.join(testRafDir, 'aaaaaf-later-local') },
-        { number: 1, name: 'early-local', path: path.join(testRafDir, 'aaaaab-early-local') },
+        { number: 5, name: 'later-local', path: path.join(testRafDir, '5-later-local') },
+        { number: 1, name: 'early-local', path: path.join(testRafDir, '1-early-local') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -651,21 +651,21 @@ describe('Project Picker', () => {
       });
 
       const worktreeProject = {
-        folder: 'aaaaad-mid-worktree',
+        folder: '3-mid-worktree',
         number: 3,
         name: 'mid-worktree',
-        path: '/worktrees/myapp/aaaaad-mid-worktree/RAF/aaaaad-mid-worktree',
+        path: '/worktrees/myapp/3-mid-worktree/RAF/3-mid-worktree',
         completedTasks: 0,
         totalTasks: 2,
         source: 'worktree' as const,
-        worktreeRoot: '/worktrees/myapp/aaaaad-mid-worktree',
+        worktreeRoot: '/worktrees/myapp/3-mid-worktree',
       };
 
       const earlyLocal = {
-        folder: 'aaaaab-early-local',
+        folder: '1-early-local',
         number: 1,
         name: 'early-local',
-        path: path.join(testRafDir, 'aaaaab-early-local'),
+        path: path.join(testRafDir, '1-early-local'),
         completedTasks: 0,
         totalTasks: 1,
         source: 'local' as const,
@@ -682,17 +682,17 @@ describe('Project Picker', () => {
 
     it('should work with no worktree projects (backwards compatible)', async () => {
       const localProject = {
-        folder: 'aaaaab-solo',
+        folder: '1-solo',
         number: 1,
         name: 'solo',
-        path: path.join(testRafDir, 'aaaaab-solo'),
+        path: path.join(testRafDir, '1-solo'),
         completedTasks: 0,
         totalTasks: 1,
         source: 'local' as const,
       };
 
       mockDiscoverProjects.mockReturnValue([
-        { number: 1, name: 'solo', path: path.join(testRafDir, 'aaaaab-solo') },
+        { number: 1, name: 'solo', path: path.join(testRafDir, '1-solo') },
       ]);
 
       mockDeriveProjectState.mockReturnValue({
@@ -712,7 +712,7 @@ describe('Project Picker', () => {
       const result = await pickPendingProject(testRafDir);
 
       expect(result).toEqual({
-        folder: 'aaaaab-solo',
+        folder: '1-solo',
         source: 'local',
         worktreeRoot: undefined,
       });

@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { logger } from '../utils/logger.js';
-import { extractProjectNumber, extractProjectName, isBase26Prefix, decodeBase26 } from '../utils/paths.js';
+import { extractProjectNumber, extractProjectName, parseProjectPrefix } from '../utils/paths.js';
 
 export interface WorktreeCreateResult {
   success: boolean;
@@ -368,7 +368,7 @@ export interface WorktreeProjectResolution {
  * Resolve a project identifier against worktree folder names.
  * Uses the same matching strategy as `resolveProjectIdentifierWithDetails`:
  * 1. Full folder name match (exact, case-insensitive)
- * 2. Base26 prefix match (6-char ID)
+ * 2. Numeric prefix match (e.g., "3" matches "3-auth-system")
  * 3. Project name match (the portion after the prefix)
  *
  * @param repoBasename - The basename of the current git repo
@@ -394,20 +394,18 @@ export function resolveWorktreeProjectByIdentifier(
     }
   }
 
-  // 2. Base26 prefix match
-  if (isBase26Prefix(identifier)) {
-    const targetNumber = decodeBase26(identifier);
-    if (targetNumber !== null) {
-      for (const dir of wtProjectDirs) {
-        const prefix = extractProjectNumber(dir);
-        if (prefix) {
-          const dirNumber = decodeBase26(prefix);
-          if (dirNumber === targetNumber) {
-            return {
-              folder: dir,
-              worktreeRoot: computeWorktreePath(repoBasename, dir),
-            };
-          }
+  // 2. Numeric prefix match
+  const targetNumber = parseProjectPrefix(identifier);
+  if (targetNumber !== null) {
+    for (const dir of wtProjectDirs) {
+      const prefix = extractProjectNumber(dir);
+      if (prefix) {
+        const dirNumber = parseProjectPrefix(prefix);
+        if (dirNumber === targetNumber) {
+          return {
+            folder: dir,
+            worktreeRoot: computeWorktreePath(repoBasename, dir),
+          };
         }
       }
     }

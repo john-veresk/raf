@@ -18,7 +18,7 @@ describe('do command rerun functionality', () => {
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-do-rerun-test-'));
-    projectPath = path.join(tempDir, 'aaaaab-test-project');
+    projectPath = path.join(tempDir, '1-test-project');
     fs.mkdirSync(projectPath, { recursive: true });
     fs.mkdirSync(path.join(projectPath, 'plans'), { recursive: true });
     fs.mkdirSync(path.join(projectPath, 'outcomes'), { recursive: true });

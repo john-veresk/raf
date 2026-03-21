@@ -509,29 +509,29 @@ describe('Config', () => {
       // The task format should produce the same output as the old hardcoded format
       const result = renderCommitMessage(DEFAULT_CONFIG.commitFormat.task, {
         prefix: DEFAULT_CONFIG.commitFormat.prefix,
-        projectId: 'abcdef',
+        projectId: '3',
         taskId: '01',
         description: 'Add feature',
       });
-      expect(result).toBe('RAF[abcdef:01] Add feature');
+      expect(result).toBe('RAF[3:01] Add feature');
     });
 
     it('should default plan commit format to match previous hardcoded format', () => {
       const result = renderCommitMessage(DEFAULT_CONFIG.commitFormat.plan, {
         prefix: DEFAULT_CONFIG.commitFormat.prefix,
-        projectId: 'abcdef',
+        projectId: '3',
         projectName: 'my-project',
       });
-      expect(result).toBe('RAF[abcdef] Plan: my-project');
+      expect(result).toBe('RAF[3] Plan: my-project');
     });
 
     it('should default amend commit format to match previous hardcoded format', () => {
       const result = renderCommitMessage(DEFAULT_CONFIG.commitFormat.amend, {
         prefix: DEFAULT_CONFIG.commitFormat.prefix,
-        projectId: 'abcdef',
+        projectId: '3',
         projectName: 'my-project',
       });
-      expect(result).toBe('RAF[abcdef] Amend: my-project');
+      expect(result).toBe('RAF[3] Amend: my-project');
     });
   });
 

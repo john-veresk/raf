@@ -115,23 +115,23 @@ describe('worktree utilities', () => {
     });
 
     it('should handle repo names with dots', () => {
-      const result = computeWorktreePath('my.app.v2', 'aaaaab-feature');
-      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'my.app.v2', 'aaaaab-feature'));
+      const result = computeWorktreePath('my.app.v2', '1-feature');
+      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'my.app.v2', '1-feature'));
     });
 
     it('should handle repo names with underscores', () => {
-      const result = computeWorktreePath('my_app', 'aaaaab-feature');
-      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'my_app', 'aaaaab-feature'));
+      const result = computeWorktreePath('my_app', '1-feature');
+      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'my_app', '1-feature'));
     });
 
     it('should handle repo names with hyphens', () => {
-      const result = computeWorktreePath('my-cool-app', 'abcdef-my-project');
-      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'my-cool-app', 'abcdef-my-project'));
+      const result = computeWorktreePath('my-cool-app', '3-my-project');
+      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'my-cool-app', '3-my-project'));
     });
 
-    it('should handle base26 project IDs', () => {
-      const result = computeWorktreePath('myapp', 'abcdef-my-project');
-      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'myapp', 'abcdef-my-project'));
+    it('should handle numeric project IDs', () => {
+      const result = computeWorktreePath('myapp', '12-my-project');
+      expect(result).toBe(path.join(HOME, '.raf', 'worktrees', 'myapp', '12-my-project'));
     });
   });
 
@@ -154,8 +154,8 @@ describe('worktree utilities', () => {
     });
 
     it('should handle nested relative paths', () => {
-      const result = getWorktreeProjectPath('/worktree/root', 'deep/nested/RAF/aaaaab-feature');
-      expect(result).toBe(path.join('/worktree/root', 'deep/nested/RAF/aaaaab-feature'));
+      const result = getWorktreeProjectPath('/worktree/root', 'deep/nested/RAF/1-feature');
+      expect(result).toBe(path.join('/worktree/root', 'deep/nested/RAF/1-feature'));
     });
   });
 
@@ -528,9 +528,9 @@ describe('worktree utilities', () => {
 
   describe('resolveWorktreeProjectByIdentifier', () => {
     const worktreeDirs = [
-      { name: 'ahrren-turbo-finder', isDirectory: () => true },
-      { name: 'abcdef-cool-feature', isDirectory: () => true },
-      { name: 'ghijkl-another-thing', isDirectory: () => true },
+      { name: '1-turbo-finder', isDirectory: () => true },
+      { name: '2-cool-feature', isDirectory: () => true },
+      { name: '3-another-thing', isDirectory: () => true },
     ];
 
     beforeEach(() => {
@@ -539,48 +539,48 @@ describe('worktree utilities', () => {
     });
 
     it('should resolve by full folder name (exact match)', () => {
-      const result = resolveWorktreeProjectByIdentifier('myapp', 'ahrren-turbo-finder');
+      const result = resolveWorktreeProjectByIdentifier('myapp', '1-turbo-finder');
 
       expect(result).not.toBeNull();
-      expect(result!.folder).toBe('ahrren-turbo-finder');
+      expect(result!.folder).toBe('1-turbo-finder');
       expect(result!.worktreeRoot).toBe(
-        path.join(HOME, '.raf', 'worktrees', 'myapp', 'ahrren-turbo-finder')
+        path.join(HOME, '.raf', 'worktrees', 'myapp', '1-turbo-finder')
       );
     });
 
     it('should resolve by full folder name case-insensitively', () => {
-      const result = resolveWorktreeProjectByIdentifier('myapp', 'Ahrren-Turbo-Finder');
+      const result = resolveWorktreeProjectByIdentifier('myapp', '1-Turbo-Finder');
 
       expect(result).not.toBeNull();
-      expect(result!.folder).toBe('ahrren-turbo-finder');
+      expect(result!.folder).toBe('1-turbo-finder');
     });
 
-    it('should resolve by base26 prefix (6-char ID)', () => {
-      const result = resolveWorktreeProjectByIdentifier('myapp', 'ahrren');
+    it('should resolve by numeric prefix', () => {
+      const result = resolveWorktreeProjectByIdentifier('myapp', '1');
 
       expect(result).not.toBeNull();
-      expect(result!.folder).toBe('ahrren-turbo-finder');
+      expect(result!.folder).toBe('1-turbo-finder');
     });
 
-    it('should resolve by base26 prefix for different project', () => {
-      const result = resolveWorktreeProjectByIdentifier('myapp', 'abcdef');
+    it('should resolve by numeric prefix for different project', () => {
+      const result = resolveWorktreeProjectByIdentifier('myapp', '2');
 
       expect(result).not.toBeNull();
-      expect(result!.folder).toBe('abcdef-cool-feature');
+      expect(result!.folder).toBe('2-cool-feature');
     });
 
     it('should resolve by project name', () => {
       const result = resolveWorktreeProjectByIdentifier('myapp', 'turbo-finder');
 
       expect(result).not.toBeNull();
-      expect(result!.folder).toBe('ahrren-turbo-finder');
+      expect(result!.folder).toBe('1-turbo-finder');
     });
 
     it('should resolve by project name case-insensitively', () => {
       const result = resolveWorktreeProjectByIdentifier('myapp', 'Turbo-Finder');
 
       expect(result).not.toBeNull();
-      expect(result!.folder).toBe('ahrren-turbo-finder');
+      expect(result!.folder).toBe('1-turbo-finder');
     });
 
     it('should return null when no match found', () => {
@@ -599,8 +599,8 @@ describe('worktree utilities', () => {
 
     it('should return null for ambiguous name match (multiple projects with same name)', () => {
       mockReaddirSync.mockReturnValue([
-        { name: 'ahrren-my-feature', isDirectory: () => true },
-        { name: 'abcdef-my-feature', isDirectory: () => true },
+        { name: '1-my-feature', isDirectory: () => true },
+        { name: '2-my-feature', isDirectory: () => true },
       ]);
 
       const result = resolveWorktreeProjectByIdentifier('myapp', 'my-feature');
@@ -610,11 +610,10 @@ describe('worktree utilities', () => {
     });
 
     it('should prefer full folder name match over name match', () => {
-      // "abcdef-cool-feature" could match as full folder name
-      const result = resolveWorktreeProjectByIdentifier('myapp', 'abcdef-cool-feature');
+      const result = resolveWorktreeProjectByIdentifier('myapp', '2-cool-feature');
 
       expect(result).not.toBeNull();
-      expect(result!.folder).toBe('abcdef-cool-feature');
+      expect(result!.folder).toBe('2-cool-feature');
     });
 
     it('should return correct worktreeRoot path', () => {
@@ -622,7 +621,7 @@ describe('worktree utilities', () => {
 
       expect(result).not.toBeNull();
       expect(result!.worktreeRoot).toBe(
-        path.join(HOME, '.raf', 'worktrees', 'myapp', 'ghijkl-another-thing')
+        path.join(HOME, '.raf', 'worktrees', 'myapp', '3-another-thing')
       );
     });
   });

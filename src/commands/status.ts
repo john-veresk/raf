@@ -26,7 +26,7 @@ const MAX_DISPLAYED_PROJECTS = 10;
 export function createStatusCommand(): Command {
   const command = new Command('status')
     .description('Show status of a project or list all projects')
-    .argument('[identifier]', 'Project identifier: ID (00j3k1), name (my-project), or folder (00j3k1-my-project)')
+    .argument('[identifier]', 'Project identifier: number (3), name (my-project), or folder (3-my-project)')
     .option('--json', 'Output as JSON')
     .action(async (identifier?: string, options?: StatusCommandOptions) => {
       await runStatusCommand(identifier, options);

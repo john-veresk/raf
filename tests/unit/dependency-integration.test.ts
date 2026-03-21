@@ -26,7 +26,7 @@ describe('Dependency Integration Flow', () => {
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-dep-integration-'));
-    projectPath = path.join(tempDir, 'aaaaab-test-project');
+    projectPath = path.join(tempDir, '1-test-project');
     fs.mkdirSync(projectPath, { recursive: true });
     fs.mkdirSync(path.join(projectPath, 'plans'), { recursive: true });
     fs.mkdirSync(path.join(projectPath, 'outcomes'), { recursive: true });
@@ -359,7 +359,7 @@ describe('Dependency Integration Flow', () => {
         totalTasks: 2,
         previousOutcomes: [{ taskId: '01', content: outcome001 }],
         autoCommit: true,
-        projectNumber: '001',
+        projectNumber: '1',
         outcomeFilePath: path.join(projectPath, 'outcomes', '02-build.md'),
         dependencyIds: ['01'],
         dependencyOutcomes: [{ taskId: '01', content: outcome001 }],
@@ -402,7 +402,7 @@ describe('Dependency Integration Flow', () => {
           { taskId: '02', content: outcome002 },
         ],
         autoCommit: true,
-        projectNumber: '001',
+        projectNumber: '1',
         outcomeFilePath: path.join(projectPath, 'outcomes', '03-api.md'),
         dependencyIds: ['01', '02'],
         dependencyOutcomes: [

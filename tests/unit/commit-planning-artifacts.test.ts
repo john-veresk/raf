@@ -34,7 +34,7 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/aaaaar-decision-vault/input.md\nRAF/aaaaar-decision-vault/decisions.md\n';
+        return 'RAF/3-decision-vault/input.md\nRAF/3-decision-vault/decisions.md\n';
       }
       if (cmdStr.includes('git commit')) {
         return '';
@@ -42,7 +42,7 @@ describe('commitPlanningArtifacts', () => {
       return '';
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/aaaaar-decision-vault');
+    await commitPlanningArtifacts('/Users/test/RAF/3-decision-vault');
 
     // Verify git add was called for both files (individual calls)
     const addCalls = mockExecSync.mock.calls.filter(
@@ -55,12 +55,12 @@ describe('commitPlanningArtifacts', () => {
 
     // Verify commit message format
     expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringMatching(/git commit -m "RAF\[aaaaar\] Plan: decision-vault"/),
+      expect.stringMatching(/git commit -m "RAF\[3\] Plan: decision-vault"/),
       expect.any(Object)
     );
   });
 
-  it('should handle base26 project numbers', async () => {
+  it('should handle numeric project numbers', async () => {
     mockExecSync.mockImplementation((cmd: unknown) => {
       const cmdStr = cmd as string;
       if (cmdStr.includes('rev-parse')) {
@@ -70,15 +70,15 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/abcdef-feature/input.md\n';
+        return 'RAF/12-feature/input.md\n';
       }
       return '';
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/abcdef-my-feature');
+    await commitPlanningArtifacts('/Users/test/RAF/12-my-feature');
 
     expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringMatching(/git commit -m "RAF\[abcdef\] Plan: my-feature"/),
+      expect.stringMatching(/git commit -m "RAF\[12\] Plan: my-feature"/),
       expect.any(Object)
     );
   });
@@ -88,7 +88,7 @@ describe('commitPlanningArtifacts', () => {
       throw new Error('not a git repository');
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/aaaaar-decision-vault');
+    await commitPlanningArtifacts('/Users/test/RAF/3-decision-vault');
 
     expect(mockLogger.warn).toHaveBeenCalledWith(
       'Not in a git repository, skipping planning artifacts commit'
@@ -126,7 +126,7 @@ describe('commitPlanningArtifacts', () => {
       return '';
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/aaaaar-decision-vault');
+    await commitPlanningArtifacts('/Users/test/RAF/3-decision-vault');
 
     // Should log debug message and not throw
     expect(mockLogger.debug).toHaveBeenCalledWith(
@@ -145,7 +145,7 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/aaaaar-decision-vault/input.md\n';
+        return 'RAF/3-decision-vault/input.md\n';
       }
       if (cmdStr.includes('git commit')) {
         throw new Error('nothing to commit, working tree clean');
@@ -153,7 +153,7 @@ describe('commitPlanningArtifacts', () => {
       return '';
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/aaaaar-decision-vault');
+    await commitPlanningArtifacts('/Users/test/RAF/3-decision-vault');
 
     // Should log debug message for "nothing to commit"
     expect(mockLogger.debug).toHaveBeenCalledWith(
@@ -172,7 +172,7 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/aaaaar-decision-vault/input.md\n';
+        return 'RAF/3-decision-vault/input.md\n';
       }
       if (cmdStr.includes('git commit')) {
         throw new Error('commit failed for unknown reason');
@@ -182,7 +182,7 @@ describe('commitPlanningArtifacts', () => {
 
     // Should not throw
     await expect(
-      commitPlanningArtifacts('/Users/test/RAF/aaaaar-decision-vault')
+      commitPlanningArtifacts('/Users/test/RAF/3-decision-vault')
     ).resolves.toBeUndefined();
 
     // Should log warning
@@ -201,7 +201,7 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/aaaaar-decision-vault/input.md\n';
+        return 'RAF/3-decision-vault/input.md\n';
       }
       if (cmdStr.includes('git commit')) {
         return '';
@@ -209,7 +209,7 @@ describe('commitPlanningArtifacts', () => {
       return '';
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/aaaaar-decision-vault');
+    await commitPlanningArtifacts('/Users/test/RAF/3-decision-vault');
 
     // Verify git add was called individually for each file
     const addCalls = mockExecSync.mock.calls.filter(
@@ -218,8 +218,8 @@ describe('commitPlanningArtifacts', () => {
     expect(addCalls.length).toBe(2);
 
     const addCmds = addCalls.map((c) => c[0] as string);
-    expect(addCmds[0]).toContain('/Users/test/RAF/aaaaar-decision-vault/input.md');
-    expect(addCmds[1]).toContain('/Users/test/RAF/aaaaar-decision-vault/decisions.md');
+    expect(addCmds[0]).toContain('/Users/test/RAF/3-decision-vault/input.md');
+    expect(addCmds[1]).toContain('/Users/test/RAF/3-decision-vault/decisions.md');
 
     // Individual calls should NOT use wildcards or add all
     for (const cmd of addCmds) {
@@ -239,15 +239,15 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/aaaaar-decision-vault/input.md\n';
+        return 'RAF/3-decision-vault/input.md\n';
       }
       return '';
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/aaaaar-decision-vault', { isAmend: true });
+    await commitPlanningArtifacts('/Users/test/RAF/3-decision-vault', { isAmend: true });
 
     expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringMatching(/git commit -m "RAF\[aaaaar\] Amend: decision-vault"/),
+      expect.stringMatching(/git commit -m "RAF\[3\] Amend: decision-vault"/),
       expect.any(Object)
     );
   });
@@ -262,12 +262,12 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/aaaaar-decision-vault/input.md\n';
+        return 'RAF/3-decision-vault/input.md\n';
       }
       return '';
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/aaaaar-decision-vault', {
+    await commitPlanningArtifacts('/Users/test/RAF/3-decision-vault', {
       isAmend: true,
     });
 
@@ -292,12 +292,12 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/aaaaar-decision-vault/input.md\n';
+        return 'RAF/3-decision-vault/input.md\n';
       }
       return '';
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/aaaaar-decision-vault', {
+    await commitPlanningArtifacts('/Users/test/RAF/3-decision-vault', {
       cwd: '/tmp/worktree',
     });
 
@@ -319,13 +319,13 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/aaaaar-decision-vault/input.md\n';
+        return 'RAF/3-decision-vault/input.md\n';
       }
       return '';
     });
 
-    const worktreePath = '/Users/test/.raf/worktrees/myapp/aaaaar-decision-vault';
-    const projectPath = `${worktreePath}/RAF/aaaaar-decision-vault`;
+    const worktreePath = '/Users/test/.raf/worktrees/myapp/3-decision-vault';
+    const projectPath = `${worktreePath}/RAF/3-decision-vault`;
 
     await commitPlanningArtifacts(projectPath, {
       cwd: worktreePath,
@@ -339,8 +339,8 @@ describe('commitPlanningArtifacts', () => {
 
     const addCmds = addCalls.map((c) => c[0] as string);
     // Paths should be relative to worktree root
-    expect(addCmds[0]).toContain('RAF/aaaaar-decision-vault/input.md');
-    expect(addCmds[1]).toContain('RAF/aaaaar-decision-vault/decisions.md');
+    expect(addCmds[0]).toContain('RAF/3-decision-vault/input.md');
+    expect(addCmds[1]).toContain('RAF/3-decision-vault/decisions.md');
     // Should NOT contain absolute worktree prefix
     expect(addCmds[0]).not.toContain(worktreePath);
     expect(addCmds[1]).not.toContain(worktreePath);
@@ -356,12 +356,12 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/aaaaar-decision-vault/input.md\n';
+        return 'RAF/3-decision-vault/input.md\n';
       }
       return '';
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/aaaaar-decision-vault');
+    await commitPlanningArtifacts('/Users/test/RAF/3-decision-vault');
 
     // Verify git add uses absolute paths
     const addCalls = mockExecSync.mock.calls.filter(
@@ -370,8 +370,8 @@ describe('commitPlanningArtifacts', () => {
     expect(addCalls.length).toBe(2);
 
     const addCmds = addCalls.map((c) => c[0] as string);
-    expect(addCmds[0]).toContain('/Users/test/RAF/aaaaar-decision-vault/input.md');
-    expect(addCmds[1]).toContain('/Users/test/RAF/aaaaar-decision-vault/decisions.md');
+    expect(addCmds[0]).toContain('/Users/test/RAF/3-decision-vault/input.md');
+    expect(addCmds[1]).toContain('/Users/test/RAF/3-decision-vault/decisions.md');
   });
 
   it('should continue staging other files when one file fails to stage', async () => {
@@ -390,7 +390,7 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/aaaaar-decision-vault/decisions.md\n';
+        return 'RAF/3-decision-vault/decisions.md\n';
       }
       if (cmdStr.includes('git commit')) {
         return '';
@@ -398,7 +398,7 @@ describe('commitPlanningArtifacts', () => {
       return '';
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/aaaaar-decision-vault');
+    await commitPlanningArtifacts('/Users/test/RAF/3-decision-vault');
 
     // Should have tried both files
     const addCalls = mockExecSync.mock.calls.filter(
@@ -430,7 +430,7 @@ describe('commitPlanningArtifacts', () => {
       return '';
     });
 
-    await commitPlanningArtifacts('/Users/test/RAF/aaaaar-decision-vault');
+    await commitPlanningArtifacts('/Users/test/RAF/3-decision-vault');
 
     // Should log debug about no files staged
     expect(mockLogger.debug).toHaveBeenCalledWith(
@@ -454,13 +454,13 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/aaaaar-decision-vault/plans/04-new-task.md\n';
+        return 'RAF/3-decision-vault/plans/04-new-task.md\n';
       }
       return '';
     });
 
-    const worktreePath = '/Users/test/.raf/worktrees/myapp/aaaaar-decision-vault';
-    const projectPath = `${worktreePath}/RAF/aaaaar-decision-vault`;
+    const worktreePath = '/Users/test/.raf/worktrees/myapp/3-decision-vault';
+    const projectPath = `${worktreePath}/RAF/3-decision-vault`;
     const additionalFiles = [
       `${projectPath}/plans/04-new-task.md`,
     ];
@@ -487,6 +487,6 @@ describe('commitPlanningArtifacts', () => {
       (call) => (call[0] as string).includes('04-new-task.md')
     );
     expect(planAddCall).toBeDefined();
-    expect((planAddCall![0] as string)).toContain('RAF/aaaaar-decision-vault/plans/04-new-task.md');
+    expect((planAddCall![0] as string)).toContain('RAF/3-decision-vault/plans/04-new-task.md');
   });
 });
