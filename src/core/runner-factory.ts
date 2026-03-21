@@ -2,6 +2,7 @@ import type { HarnessProvider } from '../types/config.js';
 import type { ICliRunner } from './runner-interface.js';
 import type { RunnerConfig } from './runner-types.js';
 import { ClaudeRunner } from './claude-runner.js';
+import { CodexRunner } from './codex-runner.js';
 
 /**
  * Create a CLI runner for the given provider configuration.
@@ -13,7 +14,7 @@ export function createRunner(config: RunnerConfig = {}): ICliRunner {
     case 'claude':
       return new ClaudeRunner(config);
     case 'codex':
-      throw new Error('Codex runner not yet implemented');
+      return new CodexRunner(config);
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }
