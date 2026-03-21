@@ -97,6 +97,7 @@ function resolveTaskModel(
   frontmatterWarnings: string[] | undefined,
   ceilingModel: string,
   isRetry: boolean,
+  provider?: import('../types/config.js').HarnessProvider,
 ): TaskModelResolution {
   const warnings = frontmatterWarnings ? [...frontmatterWarnings] : [];
 
@@ -122,7 +123,7 @@ function resolveTaskModel(
 
   // Effort-based resolution - apply ceiling
   if (frontmatter.effort) {
-    const mappedModel = resolveEffortToModel(frontmatter.effort);
+    const mappedModel = resolveEffortToModel(frontmatter.effort, provider);
     const model = applyModelCeiling(mappedModel, ceilingModel);
     return { model, missingFrontmatter: false, warnings };
   }
@@ -499,6 +500,7 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
         maxRetries,
         autoCommit,
         model,
+        provider: options.provider,
         worktreeCwd: worktreeRoot,
       }
     );
@@ -740,6 +742,8 @@ interface SingleProjectOptions {
   maxRetries: number;
   autoCommit: boolean;
   model: string;
+  /** CLI provider to use (claude, codex). */
+  provider?: import('../types/config.js').HarnessProvider;
   /** Worktree root directory. When set, the runner uses cwd in the worktree. */
   worktreeCwd?: string;
 }
@@ -749,7 +753,7 @@ async function executeSingleProject(
   projectName: string,
   options: SingleProjectOptions
 ): Promise<ProjectExecutionResult> {
-  const { timeout, verbose, debug, force, maxRetries, autoCommit, model, worktreeCwd } = options;
+  const { timeout, verbose, debug, force, maxRetries, autoCommit, model, provider, worktreeCwd } = options;
 
   if (!validatePlansExist(projectPath)) {
     return {
@@ -1022,6 +1026,7 @@ async function executeSingleProject(
         undefined, // warnings already logged above
         ceilingModel,
         isRetry,
+        provider,
       );
 
       // Update current model for timer callback display
@@ -1033,7 +1038,7 @@ async function executeSingleProject(
       }
 
       // Create a runner for this attempt's model
-      const taskRunner = createRunner({ model: modelResolution.model });
+      const taskRunner = createRunner({ model: modelResolution.model, provider });
       shutdownHandler.registerClaudeRunner(taskRunner);
 
       if (verbose && isRetry) {

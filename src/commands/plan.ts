@@ -90,8 +90,10 @@ export function createPlanCommand(): Command {
       const autoMode = options.auto ?? false;
       const worktreeMode = options.worktree ?? getWorktreeDefault();
 
+      const provider = options.provider as import('../types/config.js').HarnessProvider | undefined;
+
       if (options.resume) {
-        await runResumeCommand(options.resume, model);
+        await runResumeCommand(options.resume, model, provider);
       } else if (options.amend) {
         if (!projectName) {
           logger.error('--amend requires a project identifier');
@@ -99,16 +101,16 @@ export function createPlanCommand(): Command {
           logger.error('   or: raf plan --amend <project>');
           process.exit(1);
         }
-        await runAmendCommand(projectName, model, autoMode, worktreeMode);
+        await runAmendCommand(projectName, model, autoMode, worktreeMode, provider);
       } else {
-        await runPlanCommand(projectName, model, autoMode, worktreeMode);
+        await runPlanCommand(projectName, model, autoMode, worktreeMode, provider);
       }
     });
 
   return command;
 }
 
-async function runPlanCommand(projectName?: string, model?: string, autoMode: boolean = false, worktreeMode: boolean = false): Promise<void> {
+async function runPlanCommand(projectName?: string, model?: string, autoMode: boolean = false, worktreeMode: boolean = false, provider?: import('../types/config.js').HarnessProvider): Promise<void> {
   // Validate environment
   const validation = validateEnvironment();
   reportValidation(validation);
@@ -153,7 +155,7 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
       });
 
       if (answer === 'amend') {
-        await runAmendCommand(existingFolder, model, autoMode, existingWorktreeMode);
+        await runAmendCommand(existingFolder, model, autoMode, existingWorktreeMode, provider);
         return;
       } else if (answer === 'cancel') {
         logger.info('Aborted.');
@@ -286,7 +288,7 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
   }
 
   // Set up shutdown handler
-  const claudeRunner = createRunner({ model });
+  const claudeRunner = createRunner({ model, provider });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
@@ -397,7 +399,7 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
   }
 }
 
-async function runAmendCommand(identifier: string, model?: string, autoMode: boolean = false, worktreeMode: boolean = false): Promise<void> {
+async function runAmendCommand(identifier: string, model?: string, autoMode: boolean = false, worktreeMode: boolean = false, provider?: import('../types/config.js').HarnessProvider): Promise<void> {
   // Validate environment
   const validation = validateEnvironment();
   reportValidation(validation);
@@ -616,7 +618,7 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
   fs.writeFileSync(inputPath, updatedInput);
 
   // Set up shutdown handler
-  const claudeRunner = createRunner({ model });
+  const claudeRunner = createRunner({ model, provider });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
@@ -729,7 +731,7 @@ ${taskList}
 `;
 }
 
-async function runResumeCommand(identifier: string, model?: string): Promise<void> {
+async function runResumeCommand(identifier: string, model?: string, provider?: import('../types/config.js').HarnessProvider): Promise<void> {
   // Validate environment
   const validation = validateEnvironment();
   reportValidation(validation);
@@ -799,7 +801,7 @@ async function runResumeCommand(identifier: string, model?: string): Promise<voi
   logger.newline();
 
   // Set up shutdown handler
-  const claudeRunner = createRunner({ model });
+  const claudeRunner = createRunner({ model, provider });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
