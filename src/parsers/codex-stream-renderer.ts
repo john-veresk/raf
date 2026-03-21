@@ -13,17 +13,34 @@ import type { RenderResult } from './stream-renderer.js';
 
 export interface CodexEvent {
   type: string;
-  /** AgentMessage fields */
+  /** Claude flat-format fields (AgentMessage) */
   content?: string;
-  /** CommandExecution fields */
+  /** Claude flat-format fields (CommandExecution) */
   command?: string;
   exit_code?: number;
-  /** FileChange fields */
+  /** Claude flat-format fields (FileChange) */
   file_path?: string;
   change_kind?: string;
-  /** McpToolCall fields */
+  /** Claude flat-format fields (McpToolCall) */
   tool_name?: string;
   server_name?: string;
+  /** Real Codex nested item (for item.completed / item.started) */
+  item?: {
+    type: string;
+    text?: string;
+    command?: string;
+    exit_code?: number;
+    path?: string;
+    change_kind?: string;
+  };
+  /** Error message (for error / turn.failed events) */
+  message?: string;
+  /** Usage data (for turn.completed events) */
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    total_tokens?: number;
+  };
 }
 
 function truncate(text: string, maxLen: number): string {
@@ -65,6 +82,23 @@ export function renderCodexStreamEvent(line: string): RenderResult {
       // Skip todo list events - minimal noise
       return { display: '', textContent: '' };
 
+    // Real Codex CLI event types (nested format)
+    case 'item.completed':
+      return renderItemCompleted(event);
+
+    case 'item.started':
+      // Skip started events — we render on completion
+      return { display: '', textContent: '' };
+
+    case 'turn.completed':
+      return renderTurnCompleted(event);
+
+    case 'error':
+      return renderError(event);
+
+    case 'turn.failed':
+      return renderTurnFailed(event);
+
     default:
       // Skip unknown event types gracefully
       return { display: '', textContent: '' };
@@ -104,5 +138,73 @@ function renderMcpToolCall(event: CodexEvent): RenderResult {
   return {
     display: `  → MCP tool: ${tool}${server}\n`,
     textContent: '',
+  };
+}
+
+// --- Real Codex CLI event handlers (nested format) ---
+
+function renderItemCompleted(event: CodexEvent): RenderResult {
+  const item = event.item;
+  if (!item) return { display: '', textContent: '' };
+
+  switch (item.type) {
+    case 'agent_message': {
+      const text = item.text ?? '';
+      return {
+        display: text ? text + '\n' : '',
+        textContent: text,
+      };
+    }
+    case 'command_execution': {
+      const cmd = item.command ?? '';
+      const exitCode = item.exit_code ?? 0;
+      const status = exitCode === 0 ? '✓' : `✗ exit ${exitCode}`;
+      return {
+        display: `  → Running: ${truncate(cmd, 120)} [${status}]\n`,
+        textContent: '',
+      };
+    }
+    case 'file_change': {
+      const filePath = item.path ?? 'unknown';
+      const kind = item.change_kind ?? 'modified';
+      return {
+        display: `  → File ${kind}: ${filePath}\n`,
+        textContent: '',
+      };
+    }
+    default:
+      return { display: '', textContent: '' };
+  }
+}
+
+function renderTurnCompleted(event: CodexEvent): RenderResult {
+  if (event.usage) {
+    const { input_tokens, output_tokens } = event.usage;
+    const parts: string[] = [];
+    if (input_tokens) parts.push(`in: ${input_tokens}`);
+    if (output_tokens) parts.push(`out: ${output_tokens}`);
+    if (parts.length > 0) {
+      return {
+        display: `  → Usage: ${parts.join(', ')}\n`,
+        textContent: '',
+      };
+    }
+  }
+  return { display: '', textContent: '' };
+}
+
+function renderError(event: CodexEvent): RenderResult {
+  const msg = event.message ?? 'Unknown error';
+  return {
+    display: `  ✗ Error: ${msg}\n`,
+    textContent: msg,
+  };
+}
+
+function renderTurnFailed(event: CodexEvent): RenderResult {
+  const msg = event.message ?? 'Turn failed';
+  return {
+    display: `  ✗ Failed: ${msg}\n`,
+    textContent: msg,
   };
 }
