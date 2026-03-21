@@ -33,3 +33,12 @@ The existing project check is skipped in auto mode (`-y` flag). The condition `i
 
 ## Should `raf plan --amend` and auto-detect accept numeric project IDs?
 Yes. Both the explicit `--amend <id>` flow and the auto-detect prompt (`raf plan <identifier>`) should resolve numeric IDs (e.g., `raf plan --amend 38` or `raf plan 38`). Resolution should check both main-repo and worktree projects, consistent with name resolution.
+
+## What kind of Codex testing should be done?
+E2E only — actually run `raf plan` and `raf do` with `--provider codex` against a real dummy Node.js project. No unit tests for now.
+
+## What scenarios should Codex E2E testing cover?
+All scenarios: `raf plan --provider codex`, `raf do --provider codex`, config/model resolution, error handling, and edge cases. Sequential execution is fine (no need for parallel agents).
+
+## How should issues found during Codex testing be handled?
+Document only. List all issues in the outcome file. User decides what to fix after reviewing.
