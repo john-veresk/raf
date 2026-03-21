@@ -71,7 +71,6 @@ Opens your `$EDITOR` to write a project description, then Claude will interview 
 raf plan              # Create a new project
 raf plan my-feature   # Create with a specific name
 raf plan --amend abcdef  # Add tasks to existing project
-raf plan --worktree   # Plan in an isolated git worktree
 ```
 
 #### `--amend` vs `--resume`
@@ -203,8 +202,8 @@ Worktree mode runs planning and execution in an isolated git worktree, keeping y
 ### Basic workflow
 
 ```bash
-# Plan in a worktree (creates branch and worktree directory)
-raf plan my-feature --worktree
+# Plan in a worktree (enabled via config: "worktree": true)
+raf plan my-feature
 
 # Execute tasks in the worktree (auto-detected, no flag needed)
 raf do my-feature
@@ -234,13 +233,12 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 
 ### How it works
 
-- `--worktree` creates a git worktree at `~/.raf/worktrees/<repo>/<project>/` with a new branch named after the project folder (e.g., `abcdef-my-feature`)
+- When `worktree: true` is set in config, `raf plan` creates a git worktree at `~/.raf/worktrees/<repo>/<project>/` with a new branch named after the project folder (e.g., `abcdef-my-feature`)
 - All planning artifacts, code changes, and commits happen in the worktree branch
-- `raf do` auto-detects whether a project lives in a worktree — no `--worktree` flag needed
+- `raf do` auto-detects whether a project lives in a worktree — no flag needed
 - After successful post-actions (merge, PR, or leave), the worktree directory is cleaned up automatically — the git branch is preserved
 - On merge conflicts, the merge is aborted and you get instructions for manual resolution
 - If tasks fail, the worktree is kept for inspection
-- Use `--no-worktree` on `raf plan` to disable worktree mode for a single invocation (useful when `worktree: true` is set in config)
 
 ## Command Reference
 
@@ -252,8 +250,6 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 | `-y, --auto` | Skip permission prompts (runs in dangerous mode) |
 | `-p, --provider <name>` | LLM provider to use (`claude`, `codex`) |
 | `-m, --model <name>` | Model to use (e.g. `opus`, `codex/gpt54`) |
-| `-w, --worktree` | Create a git worktree for isolated planning |
-| `--no-worktree` | Disable worktree mode (overrides config) |
 
 ### `raf do [project]`
 
