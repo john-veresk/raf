@@ -64,15 +64,15 @@ interface PlanCommandOptions {
 
 export function createPlanCommand(): Command {
   const command = new Command('plan')
-    .description('Create a new project and interactively plan tasks with Claude')
+    .description('Create a new project and interactively plan tasks')
     .argument('[projectName]', 'Optional project name (will be prompted if not provided)')
     .option(
       '-a, --amend',
       'Add tasks to an existing project (requires project identifier as argument)'
     )
-    .option('-m, --model <name>', 'Claude model to use (sonnet, haiku, opus)')
+    .option('-m, --model <name>', 'Model to use (sonnet, haiku, opus)')
     .option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')
-    .option('-y, --auto', "Skip Claude's permission prompts for file operations")
+    .option('-y, --auto', 'Skip permission prompts for file operations')
     .option('-w, --worktree', 'Create a git worktree for isolated planning')
     .option('--no-worktree', 'Disable worktree mode (overrides config)')
     .option('-r, --resume <identifier>', 'Resume a planning session for an existing project')
@@ -311,8 +311,8 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
   });
 
   // Run planning session
-  logger.info('Starting planning session with Claude...');
-  logger.info('Claude will interview you about each task.');
+  logger.info('Starting planning session...');
+  logger.info('The planner will interview you about each task.');
   if (model) {
     logger.info(`Using model: ${model}`);
   }
@@ -330,12 +330,12 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
   try {
     const exitCode = await claudeRunner.runInteractive(systemPrompt, userMessage, {
       dangerouslySkipPermissions: autoMode,
-      // Run Claude session in the worktree root if in worktree mode
+      // Run session in the worktree root if in worktree mode
       cwd: worktreePath ?? undefined,
     });
 
     if (exitCode !== 0) {
-      logger.warn(`Claude exited with code ${exitCode}`);
+      logger.warn(`Process exited with code ${exitCode}`);
     }
 
     // Check for created plan files
@@ -620,8 +620,8 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
   // Run amend planning session
-  logger.info('Starting amendment session with Claude...');
-  logger.info('Claude will interview you about each new task.');
+  logger.info('Starting amendment session...');
+  logger.info('The planner will interview you about each new task.');
   if (model) {
     logger.info(`Using model: ${model}`);
   }
@@ -641,12 +641,12 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
   try {
     const exitCode = await claudeRunner.runInteractive(systemPrompt, userMessage, {
       dangerouslySkipPermissions: autoMode,
-      // Run Claude session in the worktree root if in worktree mode
+      // Run session in the worktree root if in worktree mode
       cwd: worktreePath ?? undefined,
     });
 
     if (exitCode !== 0) {
-      logger.warn(`Claude exited with code ${exitCode}`);
+      logger.warn(`Process exited with code ${exitCode}`);
     }
 
     // Check for new plan files
@@ -802,15 +802,15 @@ async function runResumeCommand(identifier: string, model?: string): Promise<voi
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
-  // Launch Claude's resume picker
-  logger.info('Starting Claude session resume picker...');
+  // Launch session resume picker
+  logger.info('Starting session resume picker...');
   logger.newline();
 
   try {
     const exitCode = await claudeRunner.runResume({ cwd: resumeCwd });
 
     if (exitCode !== 0) {
-      logger.warn(`Claude exited with code ${exitCode}`);
+      logger.warn(`Process exited with code ${exitCode}`);
     }
 
     // Check for created/updated plan files after resume session

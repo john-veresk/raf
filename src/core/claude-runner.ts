@@ -38,11 +38,11 @@ export class ClaudeRunner implements ICliRunner {
   }
 
   /**
-   * Run Claude interactively with stdin/stdout passthrough.
+   * Run interactively with stdin/stdout passthrough.
    * Used for planning phase where user interaction is needed.
    *
-   * @param systemPrompt - Instructions appended to Claude's system prompt via --append-system-prompt
-   * @param userMessage - User message passed as positional argument to trigger Claude to start
+   * @param systemPrompt - Instructions appended to the system prompt via --append-system-prompt
+   * @param userMessage - User message passed as positional argument to trigger the session
    * @param options - Runner options (cwd, dangerouslySkipPermissions)
    */
   async runInteractive(
@@ -63,10 +63,10 @@ export class ClaudeRunner implements ICliRunner {
       // System instructions via --append-system-prompt
       args.push('--append-system-prompt', systemPrompt);
 
-      // User message as positional argument - Claude starts immediately
+      // User message as positional argument - session starts immediately
       args.push(userMessage);
 
-      logger.debug(`Starting interactive Claude session with model: ${this.model}`);
+      logger.debug(`Starting interactive session with model: ${this.model}`);
 
       this.activeProcess = pty.spawn(getClaudePath(), args, {
         name: 'xterm-256color',
@@ -82,7 +82,7 @@ export class ClaudeRunner implements ICliRunner {
       }
       process.stdin.resume();
 
-      // Pipe input to Claude
+      // Pipe input to process
       const onData = (data: Buffer): void => {
         if (this.activeProcess && !this.killed) {
           this.activeProcess.write(data.toString());
@@ -135,8 +135,8 @@ export class ClaudeRunner implements ICliRunner {
   }
 
   /**
-   * Resume a Claude planning session using the interactive session picker.
-   * Launches `claude --resume` (or `claude -r`) to show available sessions for the CWD.
+   * Resume a planning session using the interactive session picker.
+   * Launches `claude --resume` to show available sessions for the CWD.
    * Minimal approach - no system prompt or user message injection.
    *
    * @param options - Runner options (cwd)
@@ -147,7 +147,7 @@ export class ClaudeRunner implements ICliRunner {
     return new Promise((resolve) => {
       const args = ['--resume', '--model', this.model];
 
-      logger.debug(`Starting Claude session resume picker with model: ${this.model}`);
+      logger.debug(`Starting session resume picker with model: ${this.model}`);
 
       this.activeProcess = pty.spawn(getClaudePath(), args, {
         name: 'xterm-256color',
@@ -163,7 +163,7 @@ export class ClaudeRunner implements ICliRunner {
       }
       process.stdin.resume();
 
-      // Pipe input to Claude
+      // Pipe input to process
       const onData = (data: Buffer): void => {
         if (this.activeProcess && !this.killed) {
           this.activeProcess.write(data.toString());
@@ -216,7 +216,7 @@ export class ClaudeRunner implements ICliRunner {
   }
 
   /**
-   * Run Claude non-interactively and collect output.
+   * Run non-interactively and collect output.
    * Uses stream-json format internally to capture token usage data.
    * Tool display is suppressed (non-verbose mode).
    */
@@ -225,7 +225,7 @@ export class ClaudeRunner implements ICliRunner {
   }
 
   /**
-   * Run Claude non-interactively with verbose output to stdout.
+   * Run non-interactively with verbose output to stdout.
    * Uses --output-format stream-json --verbose to get real-time streaming
    * of tool calls, file operations, and thinking steps.
    */
@@ -263,9 +263,9 @@ export class ClaudeRunner implements ICliRunner {
 
       const claudePath = getClaudePath();
 
-      logger.debug(`Starting Claude execution session (stream-json, verbose=${verbose}) with model: ${this.model}`);
+      logger.debug(`Starting execution session (stream-json, verbose=${verbose}) with model: ${this.model}`);
       logger.debug(`Prompt length: ${prompt.length}, timeout: ${timeoutMs}ms, cwd: ${cwd}`);
-      logger.debug(`Claude path: ${claudePath}`);
+      logger.debug(`CLI path: ${claudePath}`);
 
       logger.debug('Spawning process...');
       // Use --output-format stream-json --verbose to get real-time streaming events
@@ -296,7 +296,7 @@ export class ClaudeRunner implements ICliRunner {
       // Set up timeout
       const timeoutHandle = setTimeout(() => {
         timedOut = true;
-        logger.warn('Claude session timed out');
+        logger.warn('Session timed out');
         proc.kill('SIGTERM');
       }, timeoutMs);
 
@@ -378,10 +378,10 @@ export class ClaudeRunner implements ICliRunner {
         clearTimeout(timeoutHandle);
         completionDetector.cleanup();
         this.activeProcess = null;
-        logger.debug(`Claude exited with code ${exitCode}, output length: ${output.length}, timedOut: ${timedOut}, contextOverflow: ${contextOverflow}`);
+        logger.debug(`Process exited with code ${exitCode}, output length: ${output.length}, timedOut: ${timedOut}, contextOverflow: ${contextOverflow}`);
 
         if (stderr) {
-          logger.debug(`Claude stderr: ${stderr}`);
+          logger.debug(`Process stderr: ${stderr}`);
         }
 
         resolve({
@@ -396,7 +396,7 @@ export class ClaudeRunner implements ICliRunner {
   }
 
   /**
-   * Kill the active Claude process gracefully.
+   * Kill the active process gracefully.
    */
   kill(): void {
     if (this.activeProcess) {

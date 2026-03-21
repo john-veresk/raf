@@ -22,9 +22,9 @@ The above only changes `models.plan` — all other model settings keep their def
 
 ## Config Reference
 
-### `models` — Claude Model Selection
+### `models` — Model Selection
 
-Controls which Claude model is used for each scenario. Values can be a short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID.
+Controls which model is used for each scenario. Values can be a short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID.
 
 **Model ID format**: Full model IDs follow the pattern `claude-{family}-{version}`, for example:
 - `"claude-opus-4-5-20251101"` — Opus 4.5 from November 2025
@@ -45,7 +45,7 @@ Controls which Claude model is used for each scenario. Values can be a short ali
 
 ### `effortMapping` — Task Effort to Model Mapping
 
-Maps task complexity labels (in plan frontmatter) to Claude models. When a plan file has `effort: medium`, RAF resolves the execution model using this mapping.
+Maps task complexity labels (in plan frontmatter) to models. When a plan file has `effort: medium`, RAF resolves the execution model using this mapping.
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -84,7 +84,7 @@ Example:
 
 - **Type**: boolean
 - **Default**: `true`
-- **Description**: When `true`, Claude automatically commits changes after completing each task. When `false`, changes are left uncommitted.
+- **Description**: When `true`, RAF automatically commits changes after completing each task. When `false`, changes are left uncommitted.
 
 ### `worktree` — Default Worktree Mode
 
@@ -158,7 +158,7 @@ Example:
 The config is validated when loaded. Invalid configs cause an error with a descriptive message. The following rules are enforced:
 
 - **Unknown keys are rejected** at every nesting level. Typos like `"model"` instead of `"models"` will be caught.
-- **Model values** (`models.*`, `effortMapping.*`) must be a short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID matching the pattern `claude-{family}-{version}` (e.g., `"claude-sonnet-4-5-20250929"`).
+- **Model values** (`models.*`, `effortMapping.*`) must be a short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID (e.g., `"claude-sonnet-4-5-20250929"`, `"o3"`).
 - **`effortMapping` keys** must be `"low"`, `"medium"`, or `"high"`.
 - **`timeout`** must be a positive finite number.
 - **`maxRetries`** must be a non-negative integer.
@@ -277,9 +277,9 @@ To reset a single setting, remove its key from the config file. Any key not pres
 
 ---
 
-## For Claude — Config Editing Session Instructions
+## Config Editing Session Instructions
 
-This section contains instructions for Claude when operating as the interactive config editor during `raf config` sessions.
+This section contains instructions for the LLM when operating as the interactive config editor during `raf config` sessions.
 
 ### Your Role
 

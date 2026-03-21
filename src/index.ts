@@ -11,7 +11,7 @@ const program = new Command();
 
 program
   .name('raf')
-  .description('RAF - Automated Task Planning & Execution with Claude Code')
+  .description('RAF - Automated Task Planning & Execution')
   .version(getVersion());
 
 program.addCommand(createPlanCommand());

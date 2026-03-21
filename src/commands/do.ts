@@ -196,10 +196,10 @@ export function createDoCommand(): Command {
     .alias('act')
     .argument('[project]', 'Project identifier: ID (00j3k1), name (my-project), or folder (00j3k1-my-project)')
     .option('-t, --timeout <minutes>', 'Timeout per task in minutes', '60')
-    .option('-v, --verbose', 'Show full Claude output')
+    .option('-v, --verbose', 'Show full LLM output')
     .option('-d, --debug', 'Save all logs and show debug output')
     .option('-f, --force', 'Re-run all tasks regardless of status')
-    .option('-m, --model <name>', 'Claude model to use (sonnet, haiku, opus)')
+    .option('-m, --model <name>', 'Model to use (sonnet, haiku, opus)')
     .option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')
     .option('-w, --worktree', 'Execute tasks in a git worktree')
     .option('--no-worktree', 'Disable worktree mode (overrides config)')
@@ -775,7 +775,7 @@ interface SingleProjectOptions {
   maxRetries: number;
   autoCommit: boolean;
   model: string;
-  /** Worktree root directory. When set, Claude runs with cwd in the worktree. */
+  /** Worktree root directory. When set, the runner uses cwd in the worktree. */
   worktreeCwd?: string;
 }
 
@@ -954,7 +954,7 @@ async function executeSingleProject(
     const taskId = task.id;  // Capture for closure
     const taskLabel = displayName !== task.id ? `${task.id} (${displayName})` : task.id;
 
-    // Handle blocked tasks separately - skip Claude execution
+    // Handle blocked tasks separately - skip LLM execution
     if (task.status === 'blocked') {
       // Find which dependency caused the block for the message
       const failedOrBlockedDeps = task.dependencies.filter((depId) => {
@@ -1109,7 +1109,7 @@ async function executeSingleProject(
         outcomeFilePath,
       } : undefined;
 
-      // Run Claude (use worktree root as cwd if in worktree mode)
+      // Run task (use worktree root as cwd if in worktree mode)
       const runnerOptions = {
         timeout,
         outcomeFilePath,
@@ -1195,18 +1195,18 @@ async function executeSingleProject(
     }
 
     if (success) {
-      // Check if Claude wrote an outcome file with valid marker
+      // Check if the LLM wrote an outcome file with valid marker
       // If so, keep it as-is; otherwise create fallback
       // NOTE: Successful outcomes do NOT get ## Details section appended
       let outcomeContent: string;
-      const claudeWroteOutcome = fs.existsSync(outcomeFilePath);
+      const llmWroteOutcome = fs.existsSync(outcomeFilePath);
 
-      if (claudeWroteOutcome) {
+      if (llmWroteOutcome) {
         const existingContent = fs.readFileSync(outcomeFilePath, 'utf-8');
         const status = parseOutcomeStatus(existingContent);
 
         if (status === 'completed') {
-          // Claude wrote a valid outcome - keep it as-is (no metadata added)
+          // LLM wrote a valid outcome - keep it as-is (no metadata added)
           outcomeContent = existingContent;
         } else {
           // Outcome file exists but no valid COMPLETE marker - create fallback

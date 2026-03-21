@@ -19,7 +19,7 @@ const CONTEXT_OVERFLOW_PATTERNS = [
 ];
 
 /**
- * Parse Claude's output to determine task result.
+ * Parse the LLM's output to determine task result.
  */
 export function parseOutput(output: string): ParsedOutput {
   const result: ParsedOutput = {
@@ -120,7 +120,7 @@ export function isRetryableFailure(parsed: ParsedOutput): boolean {
 }
 
 /**
- * Extract a summary from Claude's output for the outcome file.
+ * Extract a summary from the LLM's output for the outcome file.
  */
 export function extractSummary(output: string): string {
   // Remove ANSI codes

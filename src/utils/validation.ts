@@ -19,12 +19,12 @@ export function validateEnvironment(): ValidationResult {
     errors: [],
   };
 
-  // Check Claude CLI is installed
+  // Check CLI provider is installed
   try {
     execSync('which claude', { encoding: 'utf-8', stdio: 'pipe' });
   } catch {
     result.valid = false;
-    result.errors.push('Claude CLI not found. Please install it first.');
+    result.errors.push('CLI provider not found. Please install Claude CLI or Codex CLI first.');
   }
 
   // Check for git repo (warning only)

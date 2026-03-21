@@ -17,7 +17,7 @@ export interface AmendPromptResult {
 /**
  * Generate a prompt for amending an existing project with new tasks.
  * - systemPrompt: Amendment mode conventions, existing tasks context (via --append-system-prompt)
- * - userMessage: Reference to input.md and new task description (via positional argument, triggers Claude to start)
+ * - userMessage: Reference to input.md and new task description (via positional argument, triggers the LLM to start)
  */
 export function getAmendPrompt(params: AmendPromptParams): AmendPromptResult {
   const {
@@ -180,7 +180,7 @@ effort: medium
 
 ### Frontmatter Requirements
 
-The \`effort\` field is REQUIRED in every plan file. It indicates task complexity and determines which Claude model will execute the task:
+The \`effort\` field is REQUIRED in every plan file. It indicates task complexity and determines which model will execute the task:
 - \`effort: low\` — Trivial/mechanical changes, simple one-file edits, config changes
 - \`effort: medium\` — Well-scoped feature work, bug fixes with clear plans, multi-file changes following existing patterns
 - \`effort: high\` — Architectural changes, complex logic, tasks requiring deep codebase understanding

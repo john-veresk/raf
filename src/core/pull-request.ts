@@ -223,8 +223,8 @@ export function readProjectContext(projectPath: string): {
 }
 
 /**
- * Generate a PR body by calling Claude to summarize project context.
- * Falls back to a simple body if Claude is unavailable.
+ * Generate a PR body by calling the LLM to summarize project context.
+ * Falls back to a simple body if the CLI is unavailable.
  */
 export async function generatePrBody(
   projectPath: string,
@@ -232,7 +232,7 @@ export async function generatePrBody(
 ): Promise<string> {
   const context = readProjectContext(projectPath);
 
-  // Build context for Claude
+  // Build context for LLM
   const parts: string[] = [];
 
   if (context.input) {
@@ -284,13 +284,13 @@ Respond with ONLY the PR body in this exact format (no extra text, no code fence
     const body = await callClaudeForPrBody(prompt, timeoutMs);
     return body;
   } catch (error) {
-    logger.debug(`PR body generation via Claude failed: ${error instanceof Error ? error.message : String(error)}`);
+    logger.debug(`PR body generation failed: ${error instanceof Error ? error.message : String(error)}`);
     return generateFallbackBody(projectPath);
   }
 }
 
 /**
- * Generate a simple fallback PR body when Claude is unavailable.
+ * Generate a simple fallback PR body when the CLI is unavailable.
  */
 function generateFallbackBody(projectPath: string): string {
   const context = readProjectContext(projectPath);
@@ -330,8 +330,8 @@ function generateFallbackBody(projectPath: string): string {
 }
 
 /**
- * Filter Claude CLI output to remove non-markdown log/warning lines.
- * Claude CLI stdout may include warning or progress lines mixed with the response.
+ * Filter CLI output to remove non-markdown log/warning lines.
+ * CLI stdout may include warning or progress lines mixed with the response.
  */
 export function filterClaudeOutput(output: string): string {
   const lines = output.split('\n');
@@ -351,14 +351,14 @@ export function filterClaudeOutput(output: string): string {
 }
 
 /**
- * Call Claude to generate a PR body.
+ * Call the LLM CLI to generate a PR body.
  */
 async function callClaudeForPrBody(prompt: string, timeoutMs: number): Promise<string> {
   let claudePath: string;
   try {
     claudePath = execSync('which claude', { encoding: 'utf-8', stdio: 'pipe' }).trim();
   } catch {
-    throw new Error('Claude CLI not found');
+    throw new Error('CLI not found');
   }
 
   return new Promise((resolve, reject) => {
@@ -394,13 +394,13 @@ async function callClaudeForPrBody(prompt: string, timeoutMs: number): Promise<s
       clearTimeout(timeout);
 
       if (exitCode !== 0) {
-        reject(new Error(`Claude exited with code ${exitCode}: ${stderr}`));
+        reject(new Error(`Process exited with code ${exitCode}: ${stderr}`));
         return;
       }
 
       const filtered = filterClaudeOutput(output);
       if (!filtered) {
-        reject(new Error('Claude returned empty output'));
+        reject(new Error('LLM returned empty output'));
         return;
       }
 

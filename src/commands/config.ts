@@ -53,7 +53,7 @@ function getCurrentConfigState(configPath: string): string {
 }
 
 /**
- * Build the system prompt for the config editing Claude session.
+ * Build the system prompt for the config editing session.
  */
 function buildConfigSystemPrompt(configDocs: string, configState: string): string {
   return [
@@ -69,7 +69,7 @@ function buildConfigSystemPrompt(configDocs: string, configState: string): strin
 }
 
 /**
- * Validate the config file after the Claude session ends and report results.
+ * Validate the config file after the editing session ends and report results.
  */
 function postSessionValidation(configPath: string): void {
   if (!fs.existsSync(configPath)) {
@@ -336,7 +336,7 @@ function handleSet(args: string[]): void {
 
 export function createConfigCommand(): Command {
   const command = new Command('config')
-    .description('View and edit RAF configuration with Claude')
+    .description('View and edit RAF configuration interactively')
     .argument('[prompt...]', 'Optional initial prompt for the config session')
     .option('--reset', 'Delete config file and restore all defaults')
     .option('--get [key]', 'Show config value (all config if no key, or specific dot-notation key)')
@@ -437,7 +437,7 @@ async function runConfigSession(initialPrompt?: string): Promise<void> {
   const userMessage = initialPrompt
     ?? 'Show me my current config and help me make changes.';
 
-  // Set up Claude runner
+  // Set up runner
   const claudeRunner = createRunner({ model });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
@@ -452,7 +452,7 @@ async function runConfigSession(initialPrompt?: string): Promise<void> {
     });
 
     if (exitCode !== 0) {
-      logger.warn(`Claude exited with code ${exitCode}`);
+      logger.warn(`Process exited with code ${exitCode}`);
     }
 
     // Post-session validation

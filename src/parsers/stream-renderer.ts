@@ -3,7 +3,7 @@
  *
  * Event types from `claude -p --output-format stream-json --verbose`:
  * - system (init): Session initialization info
- * - assistant: Claude's response with text or tool_use content blocks
+ * - assistant: LLM response with text or tool_use content blocks
  * - user: Tool results (tool_result content blocks)
  * - result: Final result with success/failure status and token usage
  */

@@ -110,7 +110,7 @@ export function generateProgrammaticReport(
 API error occurred during task execution.
 
 ## Analysis
-The Claude API returned an error response. This is typically a temporary issue with the API service.
+The API returned an error response. This is typically a temporary issue with the API service.
 
 ## Suggested Fix
 - Wait a few minutes and retry the task
@@ -150,13 +150,13 @@ Task execution timed out.
 ## Analysis
 The task took longer than the configured timeout to complete. This could indicate:
 - The task is too complex or large for a single execution
-- Claude is stuck or making slow progress
+- The LLM is stuck or making slow progress
 - Network issues causing delays
 
 ## Suggested Fix
 - Increase the timeout with \`--timeout <minutes>\`
 - Break the task into smaller subtasks
-- Check the logs for what Claude was doing before timeout
+- Check the logs for what the LLM was doing before timeout
 
 ## Relevant Output
 \`\`\`
@@ -170,14 +170,14 @@ ${relevantOutput}
 Context window exceeded during task execution.
 
 ## Analysis
-The conversation context grew too large for Claude to process. This typically happens when:
+The conversation context grew too large for the LLM to process. This typically happens when:
 - Too much code or output was included in the context
 - The task involves very large files
 - Multiple previous outcomes created a large context
 
 ## Suggested Fix
 - Break the task into smaller, independent subtasks
-- Reduce the amount of context passed to Claude
+- Reduce the amount of context passed to the LLM
 - Consider processing files in chunks
 
 ## Relevant Output
@@ -210,18 +210,18 @@ function extractRelevantOutput(output: string, maxLines: number): string {
 }
 
 /**
- * Get the path to Claude CLI.
+ * Get the path to the CLI binary.
  */
 function getClaudePath(): string {
   try {
     return execSync('which claude', { encoding: 'utf-8' }).trim();
   } catch {
-    throw new Error('Claude CLI not found. Please ensure it is installed and in your PATH.');
+    throw new Error('CLI not found. Please ensure it is installed and in your PATH.');
   }
 }
 
 /**
- * Analyze a failure using Claude (Sonnet/Haiku) and generate a structured report.
+ * Analyze a failure using the LLM and generate a structured report.
  * Uses a fast model for cost efficiency.
  */
 export async function analyzeFailure(
@@ -236,7 +236,7 @@ export async function analyzeFailure(
     return generateProgrammaticReport(programmaticType, failureReason, output);
   }
 
-  // For other failures, use Claude to analyze
+  // For other failures, use the LLM to analyze
   try {
     const analysisResult = await callClaudeForAnalysis(output, failureReason, taskId, timeoutMs);
     return analysisResult;
@@ -262,7 +262,7 @@ ${relevantOutput}
 }
 
 /**
- * Call Claude CLI to analyze the failure.
+ * Call the LLM CLI to analyze the failure.
  * Uses the print mode with a concise prompt.
  */
 async function callClaudeForAnalysis(

@@ -12,7 +12,7 @@ export interface PlanningPromptResult {
 /**
  * Generate the planning prompt with system instructions and user message separated.
  * - systemPrompt: RAF planning conventions, file structure, interview process (via --append-system-prompt)
- * - userMessage: Reference to input.md file (via positional argument, triggers Claude to start)
+ * - userMessage: Reference to input.md file (via positional argument, triggers the LLM to start)
  */
 export function getPlanningPrompt(params: PlanningPromptParams): PlanningPromptResult {
   const { projectPath, worktreeMode } = params;
@@ -37,7 +37,7 @@ Project folder: ${projectPath}
 Based on the project description, identify distinct tasks. Each task should:
 - Be independently completable
 - Have a clear outcome
-- Take roughly 10-30 minutes of work for Claude
+- Take roughly 10-30 minutes of work
 
 **CRITICAL: Order tasks by logical execution order.** Lower-numbered tasks should be completed before higher-numbered ones. Consider:
 - Setup/foundation tasks come first (e.g., defining schemas, creating interfaces)
@@ -122,7 +122,7 @@ effort: medium
 
 ### Frontmatter Requirements
 
-The \`effort\` field is REQUIRED in every plan file. It indicates task complexity and determines which Claude model will execute the task:
+The \`effort\` field is REQUIRED in every plan file. It indicates task complexity and determines which model will execute the task:
 - \`effort: low\` — Trivial/mechanical changes, simple one-file edits, config changes
 - \`effort: medium\` — Well-scoped feature work, bug fixes with clear plans, multi-file changes following existing patterns
 - \`effort: high\` — Architectural changes, complex logic, tasks requiring deep codebase understanding

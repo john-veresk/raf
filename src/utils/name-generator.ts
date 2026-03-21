@@ -30,7 +30,7 @@ Rules:
 Project description:`;
 
 /**
- * Run Claude CLI with the given prompt and return stdout.
+ * Run the CLI with the given prompt and return stdout.
  * Uses spawn with --no-session-persistence to avoid cluttering session history.
  */
 function runClaudePrint(prompt: string): Promise<string | null> {
@@ -65,7 +65,7 @@ function runClaudePrint(prompt: string): Promise<string | null> {
       clearTimeout(timeoutHandle);
       if (exitCode !== 0) {
         if (stderr) {
-          logger.debug(`Claude CLI stderr: ${stderr}`);
+          logger.debug(`CLI stderr: ${stderr}`);
         }
         resolve(null);
       } else {
@@ -75,14 +75,14 @@ function runClaudePrint(prompt: string): Promise<string | null> {
 
     proc.on('error', (error) => {
       clearTimeout(timeoutHandle);
-      logger.debug(`Claude CLI spawn error: ${error}`);
+      logger.debug(`CLI spawn error: ${error}`);
       resolve(null);
     });
   });
 }
 
 /**
- * Generate a single project name using Claude.
+ * Generate a single project name using the LLM.
  * Falls back to extracting words from the description if the API call fails.
  */
 export async function generateProjectName(description: string): Promise<string> {
@@ -96,7 +96,7 @@ export async function generateProjectName(description: string): Promise<string> 
       }
     }
   } catch (error) {
-    logger.debug(`Failed to generate name with Claude: ${error}`);
+    logger.debug(`Failed to generate name: ${error}`);
   }
 
   // Fallback to extracting words from description
@@ -104,7 +104,7 @@ export async function generateProjectName(description: string): Promise<string> 
 }
 
 /**
- * Generate multiple project name suggestions using Claude.
+ * Generate multiple project name suggestions using the LLM.
  * Returns 3-5 unique names with varied styles.
  */
 export async function generateProjectNames(description: string): Promise<string[]> {
@@ -115,7 +115,7 @@ export async function generateProjectNames(description: string): Promise<string[
       return names;
     }
   } catch (error) {
-    logger.debug(`Failed to generate names with Claude: ${error}`);
+    logger.debug(`Failed to generate names: ${error}`);
   }
 
   // Fallback: generate a single fallback name
@@ -125,7 +125,7 @@ export async function generateProjectNames(description: string): Promise<string[
 }
 
 /**
- * Call Claude to generate a single project name.
+ * Call the LLM to generate a single project name.
  */
 async function callSonnetForName(description: string): Promise<string | null> {
   const fullPrompt = `${NAME_GENERATION_PROMPT}\n${description}`;
@@ -133,7 +133,7 @@ async function callSonnetForName(description: string): Promise<string | null> {
 }
 
 /**
- * Call Claude to generate multiple project names.
+ * Call the LLM to generate multiple project names.
  */
 async function callSonnetForMultipleNames(description: string): Promise<string[]> {
   const fullPrompt = `${MULTI_NAME_GENERATION_PROMPT}\n${description}`;

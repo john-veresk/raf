@@ -69,23 +69,23 @@ export function accumulateUsage(attempts: UsageData[]): UsageData {
 }
 
 /**
- * Accumulates token usage across multiple task executions using Claude-provided cost data.
+ * Accumulates token usage across multiple task executions using CLI-provided cost data.
  */
 export class TokenTracker {
   private entries: TaskUsageEntry[] = [];
 
   constructor() {
-    // No pricing config needed - costs come from Claude
+    // No pricing config needed - costs come from the CLI
   }
 
   /**
    * Record usage data from a completed task.
    * Accepts an array of UsageData (one per attempt) and accumulates them.
-   * Costs are summed from Claude-provided totalCostUsd values.
+   * Costs are summed from CLI-provided totalCostUsd values.
    */
   addTask(taskId: string, attempts: UsageData[]): TaskUsageEntry {
     const usage = accumulateUsage(attempts);
-    // Sum costs from Claude-provided totalCostUsd
+    // Sum costs from CLI-provided totalCostUsd
     const totalCost = attempts.reduce((sum, attempt) => sum + attempt.totalCostUsd, 0);
     const cost: CostBreakdown = { totalCost };
     const entry: TaskUsageEntry = { taskId, usage, cost, attempts };
