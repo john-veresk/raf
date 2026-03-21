@@ -283,7 +283,7 @@ describe('Name Generator', () => {
       expect(mockSpawn).toHaveBeenCalledTimes(1);
       expect(mockSpawn).toHaveBeenCalledWith(
         'codex',
-        expect.arrayContaining(['--model', 'gpt-5.3-codex', '--no-session-persistence', '-p']),
+        expect.arrayContaining(['--model', 'gpt-5.4', '--no-session-persistence', '-p']),
         expect.any(Object)
       );
     });

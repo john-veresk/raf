@@ -120,7 +120,7 @@ describe('Validation', () => {
     it('should use codex defaults when provider is codex', () => {
       // Plan scenario with codex provider should return a codex model, not opus
       const planModel = resolveModelOption(undefined, undefined, 'plan', 'codex');
-      expect(planModel).toBe('gpt-5.3-codex');
+      expect(planModel).toBe('gpt-5.4');
 
       // Execute scenario with codex provider
       const executeModel = resolveModelOption(undefined, undefined, 'execute', 'codex');
@@ -128,7 +128,7 @@ describe('Validation', () => {
 
       // Failure analysis with codex provider
       const failureModel = resolveModelOption(undefined, undefined, 'failureAnalysis', 'codex');
-      expect(failureModel).toBe('gpt-5.3-codex');
+      expect(failureModel).toBe('gpt-5.4');
     });
 
     it('should use claude defaults when provider is claude or undefined', () => {
