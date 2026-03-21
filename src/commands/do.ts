@@ -811,7 +811,7 @@ async function executeSingleProject(
     const failureHistory: Array<{ attempt: number; reason: string }> = [];
     // Track current model for display in status line (updated in retry loop)
     let currentModel: string | undefined;
-    let currentModelReasoningEffort: string | undefined;
+    let currentEffort: string | undefined;
     let currentModelFast = false;
 
     // Set up timer for elapsed time tracking
@@ -825,7 +825,7 @@ async function executeSingleProject(
       // Show running status with task name and timer (updates in place)
       const modelShortName = currentModel ? formatModelDisplay(currentModel) : undefined;
       statusLine.update(formatTaskProgress(taskNumber, totalTasks, 'running', displayName, elapsed, taskId, modelShortName, {
-        effort: currentModelReasoningEffort,
+        effort: currentEffort,
         fast: currentModelFast,
       }));
     });
@@ -852,7 +852,7 @@ async function executeSingleProject(
 
       // Update current model for timer callback display
       currentModel = modelResolution.entry.model;
-      currentModelReasoningEffort = modelResolution.entry.reasoningEffort;
+      currentEffort = task.frontmatter?.effort;
       currentModelFast = modelResolution.entry.fast === true;
 
       // Log missing frontmatter warning on first attempt only
@@ -1032,7 +1032,7 @@ Task completed. No detailed report provided.
         // Minimal mode: show completed task line
         const modelShortName = currentModel ? formatModelDisplay(currentModel) : undefined;
         logger.info(formatTaskProgress(taskNumber, totalTasks, 'completed', displayName, elapsedMs, task.id, modelShortName, {
-          effort: currentModelReasoningEffort,
+          effort: currentEffort,
           fast: currentModelFast,
         }));
       }
@@ -1067,7 +1067,7 @@ Task completed. No detailed report provided.
         // Minimal mode: show failed task line
         const modelShortName = currentModel ? formatModelDisplay(currentModel) : undefined;
         logger.info(formatTaskProgress(taskNumber, totalTasks, 'failed', displayName, elapsedMs, task.id, modelShortName, {
-          effort: currentModelReasoningEffort,
+          effort: currentEffort,
           fast: currentModelFast,
         }));
       }
