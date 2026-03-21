@@ -1,0 +1,2 @@
+- [ ] add effort to status line in do for each task where we show model. also indicate if it's fast mode (nothing if fast mode disabled)
+- [ ] does codex have alternative to claude usage / price after execution? research first, create task if where is codex alternative
