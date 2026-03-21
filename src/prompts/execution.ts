@@ -171,20 +171,19 @@ ${depOutcomesFormatted}
 2. Execute the task according to the plan
 3. Verify all acceptance criteria are met
 4. Signal completion with the appropriate marker
-
-## Instructions
 ${retryContextSection}
+## Instructions
+
 ### Step 1: Read the Plan
 
-First, read the plan file to understand exactly what needs to be done.
+Read the plan file to understand exactly what needs to be done.
 
 ### Step 2: Execute the Task
 
-Follow the implementation steps in the plan. Key guidelines:
-- Write clean, maintainable code
-- Follow existing code patterns in the project
-- Add appropriate error handling
+Follow the implementation steps in the plan:
+- Write clean, maintainable code following existing patterns
 - Follow any CLAUDE.md instructions
+- If you encounter blockers, try to resolve them before giving up
 ${dependencyContextSection}${outcomesSection}
 ### Step 3: Verify Completion
 
@@ -195,47 +194,28 @@ Before marking the task complete:
 ${commitInstructions}
 ### Step 4: Write Outcome File
 
-**CRITICAL**: You MUST write an outcome file to document what was accomplished.
-
 **Outcome file path**: \`${outcomeFilePath}\`
 
-The outcome file should contain:
+The outcome file must contain:
 1. A summary of what was done
 2. Key changes made (files modified, features added, etc.)
 3. Any important notes or follow-up items
-4. The completion marker as the LAST line
+4. The completion marker as the LAST line (exactly one marker per file)
 
-**For code tasks**: Summarize what was changed and why
-**For documentation/report tasks**: The outcome IS the deliverable - include the full content
+**For documentation/report tasks**: The outcome IS the deliverable — include the full content.
 
-**CRITICAL**: The outcome file MUST end with one of these markers:
+The outcome file MUST end with one of these markers:
 
-If the task was completed successfully, end the file with:
+On success:
 \`\`\`
 <promise>COMPLETE</promise>
 \`\`\`
 
-If the task failed and cannot be completed, end the file with:
+On failure (do NOT commit — just write the outcome and stop):
 \`\`\`
 <promise>FAILED</promise>
 Reason: [explain why the task failed]
 \`\`\`
 
-## Important Rules
-
-1. ALWAYS read the plan file first
-2. Follow the plan precisely
-3. Do not skip any acceptance criteria
-4. If you encounter blockers, try to resolve them
-5. The outcome file MUST contain EXACTLY ONE completion marker
-6. The completion marker MUST be the LAST line in the outcome file
-7. On SUCCESS: Commit code changes AND outcome file together BEFORE you finish
-8. On FAILURE: Do NOT commit - just write the outcome file with FAILED marker
-
-## Error Handling
-
-If you encounter errors:
-- Try to fix them yourself first
-- If an error prevents completion, write the outcome file with FAILED status and a clear reason
-- Do not mark COMPLETE if there are failing tests or unmet criteria`;
+Do not mark COMPLETE if there are failing tests or unmet criteria.`;
 }

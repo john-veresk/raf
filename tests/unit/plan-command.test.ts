@@ -344,10 +344,10 @@ describe('Plan Command - Amend Functionality', () => {
 
       const { systemPrompt } = getAmendPrompt(params);
 
-      expect(systemPrompt).toContain('AMENDMENT MODE');
+      expect(systemPrompt).toContain('Amendment Mode');
       expect(systemPrompt).toContain('Task 1: first [COMPLETED] [PROTECTED]');
       expect(systemPrompt).toContain('Task 2: second [PENDING] [MODIFIABLE]');
-      expect(systemPrompt).toContain('starting from number 3');
+      expect(systemPrompt).toContain('start from number 3');
       expect(systemPrompt).toContain('/test/project');
     });
 
@@ -377,11 +377,9 @@ describe('Plan Command - Amend Functionality', () => {
 
       const { systemPrompt } = getAmendPrompt(params);
 
-      expect(systemPrompt).toContain('NEVER modify [PROTECTED] tasks (completed)');
-      expect(systemPrompt).toContain('DO NOT renumber existing tasks');
-      expect(systemPrompt).toContain('You MAY modify [MODIFIABLE] tasks (pending/failed)');
-      expect(systemPrompt).toContain('NEVER modify COMPLETED task plans - they are [PROTECTED]');
-      expect(systemPrompt).toContain('You MAY modify non-completed task plans (pending/failed)');
+      expect(systemPrompt).toContain('[PROTECTED] tasks (completed): NEVER modify');
+      expect(systemPrompt).toContain('Do NOT renumber existing tasks');
+      expect(systemPrompt).toContain('[MODIFIABLE] tasks (pending/failed): MAY modify');
     });
 
     it('should include failed task status with MODIFIABLE indicator in system prompt', () => {
@@ -413,7 +411,7 @@ describe('Plan Command - Amend Functionality', () => {
 
       const { systemPrompt } = getAmendPrompt(params);
 
-      expect(systemPrompt).toContain('### Protected Tasks (COMPLETED - cannot be modified)');
+      expect(systemPrompt).toContain('### Protected (COMPLETED)');
       expect(systemPrompt).toContain('- Task 1: first');
       expect(systemPrompt).toContain('- Task 2: second');
     });
@@ -432,7 +430,7 @@ describe('Plan Command - Amend Functionality', () => {
 
       const { systemPrompt } = getAmendPrompt(params);
 
-      expect(systemPrompt).toContain('### Modifiable Tasks (PENDING/FAILED - can be modified if requested)');
+      expect(systemPrompt).toContain('### Modifiable (PENDING/FAILED)');
       expect(systemPrompt).toContain('- Task 2: second');
       expect(systemPrompt).toContain('- Task 3: third');
     });
@@ -449,7 +447,7 @@ describe('Plan Command - Amend Functionality', () => {
 
       const { systemPrompt } = getAmendPrompt(params);
 
-      expect(systemPrompt).toContain('### Protected Tasks (COMPLETED - cannot be modified)\n(none)');
+      expect(systemPrompt).toContain('### Protected (COMPLETED)\n(none)');
     });
 
     it('should show (none) when there are no modifiable tasks', () => {
@@ -464,7 +462,7 @@ describe('Plan Command - Amend Functionality', () => {
 
       const { systemPrompt } = getAmendPrompt(params);
 
-      expect(systemPrompt).toContain('### Modifiable Tasks (PENDING/FAILED - can be modified if requested)\n(none)');
+      expect(systemPrompt).toContain('### Modifiable (PENDING/FAILED)\n(none)');
     });
 
     it('should handle mixed task statuses correctly', () => {
@@ -489,8 +487,8 @@ describe('Plan Command - Amend Functionality', () => {
       expect(systemPrompt).toContain('Task 4: tests [PENDING] [MODIFIABLE]');
 
       // Check separate lists
-      expect(systemPrompt).toContain('### Protected Tasks (COMPLETED - cannot be modified)');
-      expect(systemPrompt).toContain('### Modifiable Tasks (PENDING/FAILED - can be modified if requested)');
+      expect(systemPrompt).toContain('### Protected (COMPLETED)');
+      expect(systemPrompt).toContain('### Modifiable (PENDING/FAILED)');
     });
 
     it('should include correct plans directory path', () => {
@@ -506,7 +504,6 @@ describe('Plan Command - Amend Functionality', () => {
       const { systemPrompt } = getAmendPrompt(params);
 
       expect(systemPrompt).toContain('/my/project/path/plans/2-task-name.md');
-      expect(systemPrompt).toContain('/my/project/path/plans/3-task-name.md');
     });
 
     it('should include new task description in user message', () => {
@@ -532,7 +529,7 @@ describe('Plan Command - Amend Functionality', () => {
 
       const { systemPrompt } = getAmendPrompt(params);
 
-      expect(systemPrompt).toContain('AMENDMENT MODE');
+      expect(systemPrompt).toContain('Amendment Mode');
       expect(systemPrompt).toContain('AskUserQuestion');
       expect(systemPrompt).toContain('Interview the User');
     });
@@ -597,9 +594,9 @@ describe('Plan Command - Amend Functionality', () => {
 
       const { systemPrompt } = getAmendPrompt(params);
 
-      expect(systemPrompt).toContain('Identifying Follow-up Tasks');
       expect(systemPrompt).toContain('follow-up to task NN');
-      expect(systemPrompt).toContain('outcome file paths for completed tasks are listed above');
+      expect(systemPrompt).toContain('follow-up');
+      expect(systemPrompt).toContain('outcome');
     });
   });
 

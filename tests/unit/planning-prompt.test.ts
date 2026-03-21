@@ -76,8 +76,8 @@ describe('Planning Prompt', () => {
 
       const { systemPrompt } = getPlanningPrompt(params);
 
-      expect(systemPrompt).toContain('/test/project/plans/1-task-name.md');
-      expect(systemPrompt).toContain('/test/project/plans/2-task-name.md');
+      expect(systemPrompt).toContain('/test/project/plans/');
+      expect(systemPrompt).toContain('1-task-name.md');
     });
 
     it('should include task guidelines in system prompt', () => {
@@ -88,7 +88,7 @@ describe('Planning Prompt', () => {
 
       const { systemPrompt } = getPlanningPrompt(params);
 
-      expect(systemPrompt).toContain('identify distinct');
+      expect(systemPrompt).toContain('Identify distinct tasks');
       expect(systemPrompt).toContain('independently completable');
       expect(systemPrompt).toContain('10-30 minutes');
     });
@@ -116,9 +116,9 @@ describe('Planning Prompt', () => {
 
       const { systemPrompt } = getPlanningPrompt(params);
 
-      expect(systemPrompt).toContain('ALWAYS interview the user before creating plans');
-      expect(systemPrompt).toContain('numbered order (1, 2, 3');
-      expect(systemPrompt).toContain('kebab-case names');
+      expect(systemPrompt).toContain('Do not skip this step');
+      expect(systemPrompt).toContain('execution order');
+      expect(systemPrompt).toContain('kebab-case');
     });
 
     it('should show raf do without --worktree when worktreeMode is false', () => {

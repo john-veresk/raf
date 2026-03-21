@@ -95,7 +95,9 @@ describe('Execution Prompt', () => {
       const params = { ...baseParams, autoCommit: false };
       const prompt = getExecutionPrompt(params);
       expect(prompt).not.toContain('On Failure');
-      expect(prompt).not.toContain('do NOT commit');
+      // The general outcome section still mentions not committing on failure,
+      // but the git-specific instructions block should be absent
+      expect(prompt).not.toContain('Git Instructions');
     });
 
     it('should instruct not to add Co-Authored-By or other trailers', () => {
@@ -191,7 +193,7 @@ describe('Execution Prompt', () => {
 
     it('should include instructions for writing outcome file', () => {
       const prompt = getExecutionPrompt(baseParams);
-      expect(prompt).toContain('You MUST write an outcome file');
+      expect(prompt).toContain('Outcome file path');
       expect(prompt).toContain('summary of what was done');
     });
 
@@ -204,25 +206,25 @@ describe('Execution Prompt', () => {
 
     it('should distinguish between code tasks and documentation tasks', () => {
       const prompt = getExecutionPrompt(baseParams);
-      expect(prompt).toContain('For code tasks');
-      expect(prompt).toContain('For documentation/report tasks');
+      expect(prompt).toContain('documentation/report tasks');
     });
 
     it('should instruct that marker is last line in outcome file', () => {
       const prompt = getExecutionPrompt(baseParams);
-      expect(prompt).toContain('completion marker MUST be the LAST line in the outcome file');
+      expect(prompt).toContain('completion marker as the LAST line');
     });
   });
 
   describe('Commit Workflow Rules', () => {
-    it('should include rule to commit code and outcome together on success', () => {
+    it('should include commit instructions when autoCommit is true', () => {
       const prompt = getExecutionPrompt(baseParams);
-      expect(prompt).toContain('On SUCCESS: Commit code changes AND outcome file together');
+      expect(prompt).toContain('Git Instructions');
+      expect(prompt).toContain('git add');
     });
 
     it('should include rule not to commit on failure', () => {
       const prompt = getExecutionPrompt(baseParams);
-      expect(prompt).toContain('On FAILURE: Do NOT commit');
+      expect(prompt).toContain('do NOT commit');
     });
 
     it('should specify that changes are preserved for debugging on failure', () => {
