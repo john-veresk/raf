@@ -8,8 +8,8 @@ import { shutdownHandler } from '../core/shutdown-handler.js';
 import { logger } from '../utils/logger.js';
 import {
   getConfigPath,
+  formatModelDisplay,
   getModel,
-  getModelShortName,
   validateConfig,
   ConfigValidationError,
   resetConfigCache,
@@ -435,7 +435,7 @@ async function runConfigSession(initialPrompt?: string): Promise<void> {
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
-  const configModel = getModelShortName(modelEntry.model);
+  const configModel = formatModelDisplay(modelEntry.model);
   logger.info(`Starting config session with ${configModel}...`);
   logger.newline();
 

@@ -178,6 +178,11 @@ describe('Terminal Symbols', () => {
       expect(result).toBe('● 001-auth-login (sonnet) 1m 23s');
     });
 
+    it('should show normalized canonical model names in task progress', () => {
+      const result = formatTaskProgress(1, 5, 'running', 'auth-login', 83000, '001', 'gpt-5.4');
+      expect(result).toBe('● 001-auth-login (gpt-5.4) 1m 23s');
+    });
+
     it('should show model name for blocked task without time', () => {
       const result = formatTaskProgress(2, 5, 'blocked', 'depends-on-failed', undefined, undefined, 'sonnet');
       expect(result).toBe('⊘ depends-on-failed (sonnet) 2/5');

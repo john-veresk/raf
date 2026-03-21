@@ -73,6 +73,13 @@ describe('Command Output Integration', () => {
         expect(consoleLogSpy).toHaveBeenCalledWith('✓ setup-db 2m 3s');
       });
 
+      it('should show canonical model labels in task status output', () => {
+        const output = formatTaskProgress(1, 3, 'running', 'auth-login', 45000, '001', 'gpt-5.4');
+        logger.info(output);
+
+        expect(consoleLogSpy).toHaveBeenCalledWith('● 001-auth-login (gpt-5.4) 45s');
+      });
+
       it('should show failed task with elapsed time', () => {
         const output = formatTaskProgress(3, 3, 'failed', 'deploy', 300000);
         logger.info(output);

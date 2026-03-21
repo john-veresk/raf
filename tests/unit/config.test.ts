@@ -19,7 +19,9 @@ import {
   getAutoCommit,
   getWorktreeDefault,
   getSyncMainBranch,
+  getModelDisplayName,
   getModelShortName,
+  formatModelDisplay,
   resolveFullModelId,
   resetConfigCache,
   saveConfig,
@@ -603,6 +605,37 @@ describe('Config', () => {
       expect(getModelShortName('claude-unknown-3-0')).toBe('claude-unknown-3-0');
       expect(getModelShortName('')).toBe('');
       expect(getModelShortName('some-random-model')).toBe('some-random-model');
+    });
+  });
+
+  describe('getModelDisplayName', () => {
+    it('should preserve concise Claude aliases', () => {
+      expect(getModelDisplayName('opus')).toBe('opus');
+      expect(getModelDisplayName('claude-sonnet-4-5-20250929')).toBe('sonnet');
+      expect(getModelDisplayName('claude-haiku-4-5-20251001')).toBe('haiku');
+    });
+
+    it('should normalize compact Codex aliases to canonical display names', () => {
+      expect(getModelDisplayName('gpt54')).toBe('gpt-5.4');
+      expect(getModelDisplayName('gpt-5.4')).toBe('gpt-5.4');
+    });
+
+    it('should keep readable Codex aliases that are already concise labels', () => {
+      expect(getModelDisplayName('codex')).toBe('codex');
+      expect(getModelDisplayName('gpt-5.3-codex')).toBe('codex');
+      expect(getModelDisplayName('spark')).toBe('spark');
+    });
+  });
+
+  describe('formatModelDisplay', () => {
+    it('should include harness when requested', () => {
+      expect(formatModelDisplay('gpt54', 'codex', { includeHarness: true })).toBe('gpt-5.4 (codex)');
+      expect(formatModelDisplay('claude-sonnet-4-5-20250929', 'claude', { includeHarness: true })).toBe('sonnet (claude)');
+    });
+
+    it('should allow explicit full model ID display', () => {
+      expect(formatModelDisplay('gpt54', 'codex', { fullId: true })).toBe('gpt-5.4');
+      expect(formatModelDisplay('sonnet', 'claude', { fullId: true })).toBe('claude-sonnet-4-5-20250929');
     });
   });
 

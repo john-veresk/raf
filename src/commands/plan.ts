@@ -15,7 +15,7 @@ import {
   validateProjectName,
 } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
-import { getWorktreeDefault, getModel, getModelShortName, getSyncMainBranch } from '../utils/config.js';
+import { formatModelDisplay, getWorktreeDefault, getModel, getSyncMainBranch } from '../utils/config.js';
 import type { ModelEntry } from '../types/config.js';
 import { generateProjectNames } from '../utils/name-generator.js';
 import { pickProjectName } from '../ui/name-picker.js';
@@ -181,7 +181,7 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
   let finalProjectName = projectName;
   if (!finalProjectName) {
     const nameEntry = getModel('nameGeneration');
-    const nameModel = getModelShortName(nameEntry.model);
+    const nameModel = formatModelDisplay(nameEntry.model);
     logger.info(`Generating project name suggestions with ${nameModel}...`);
     const suggestedNames = await generateProjectNames(cleanInput);
     logger.newline();
@@ -297,7 +297,7 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
   logger.info('Starting planning session...');
   logger.info('The planner will interview you about each task.');
   if (modelEntry) {
-    logger.info(`Using model: ${modelEntry.model} (${modelEntry.harness})`);
+    logger.info(`Using model: ${formatModelDisplay(modelEntry.model, modelEntry.harness, { includeHarness: true })}`);
   }
   if (autoMode) {
     logger.warn('Auto mode enabled: permission prompts will be skipped.');
@@ -520,7 +520,7 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry, auto
   logger.info('Starting amendment session...');
   logger.info('The planner will interview you about each new task.');
   if (modelEntry) {
-    logger.info(`Using model: ${modelEntry.model} (${modelEntry.harness})`);
+    logger.info(`Using model: ${formatModelDisplay(modelEntry.model, modelEntry.harness, { includeHarness: true })}`);
   }
   if (autoMode) {
     logger.warn('Auto mode enabled: permission prompts will be skipped.');
@@ -685,7 +685,7 @@ async function runResumeCommand(identifier: string, modelEntry?: ModelEntry): Pr
 
   logger.info(`Project: ${folderName}`);
   if (modelEntry) {
-    logger.info(`Model: ${modelEntry.model} (${modelEntry.harness})`);
+    logger.info(`Model: ${formatModelDisplay(modelEntry.model, modelEntry.harness, { includeHarness: true })}`);
   }
   logger.newline();
 

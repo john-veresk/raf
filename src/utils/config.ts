@@ -562,6 +562,10 @@ export function getModelShortName(modelId: string): string {
   return modelId;
 }
 
+function normalizeModelAlias(value: string): string {
+  return value.toLowerCase().replace(/^gpt-/, 'gpt').replace(/[^a-z0-9]/g, '');
+}
+
 /**
  * Mapping of short model aliases to their current full model IDs.
  * These should match the latest Claude model versions.
@@ -574,6 +578,54 @@ const MODEL_ALIAS_TO_FULL_ID: Record<string, string> = {
   codex: 'gpt-5.3-codex',
   gpt54: 'gpt-5.4',
 };
+
+function getPreferredModelDisplayLabel(alias: string): string {
+  const fullId = MODEL_ALIAS_TO_FULL_ID[alias];
+  if (!fullId) {
+    return alias;
+  }
+
+  return normalizeModelAlias(alias) === normalizeModelAlias(fullId) ? fullId : alias;
+}
+
+/**
+ * Get the centralized user-facing display label for a model.
+ * Keeps concise Claude labels, while normalizing compact aliases like gpt54 -> gpt-5.4.
+ */
+export function getModelDisplayName(modelId: string): string {
+  const aliasedDisplay = getPreferredModelDisplayLabel(modelId);
+  if (aliasedDisplay !== modelId) {
+    return aliasedDisplay;
+  }
+
+  const matchingAliases = Object.entries(MODEL_ALIAS_TO_FULL_ID)
+    .filter(([, fullId]) => fullId === modelId)
+    .map(([alias]) => alias);
+  if (matchingAliases.length > 0) {
+    const preferredAlias = matchingAliases[matchingAliases.length - 1]!;
+    return getPreferredModelDisplayLabel(preferredAlias);
+  }
+
+  return getModelShortName(modelId);
+}
+
+interface ModelDisplayOptions {
+  includeHarness?: boolean;
+  fullId?: boolean;
+}
+
+/**
+ * Format a model label for user-facing logs.
+ * Defaults to the centralized display policy, or can opt into explicit full-ID display.
+ */
+export function formatModelDisplay(
+  model: string,
+  harness?: HarnessName,
+  options: ModelDisplayOptions = {},
+): string {
+  const label = options.fullId ? resolveFullModelId(model) : getModelDisplayName(model);
+  return options.includeHarness && harness ? `${label} (${harness})` : label;
+}
 
 /**
  * Resolve a model name to its full model ID.

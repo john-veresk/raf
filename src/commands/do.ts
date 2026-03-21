@@ -13,7 +13,7 @@ import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFro
 import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
-import { getConfig, getModel, getModelShortName, resolveFullModelId, getSyncMainBranch, resolveEffortToModel, applyModelCeiling, getShowCacheTokens, parseModelSpec } from '../utils/config.js';
+import { formatModelDisplay, getConfig, getModel, getSyncMainBranch, resolveEffortToModel, applyModelCeiling, getShowCacheTokens, parseModelSpec, resolveFullModelId } from '../utils/config.js';
 import type { PlanFrontmatter } from '../utils/frontmatter.js';
 import { getVersion } from '../utils/version.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
@@ -823,7 +823,7 @@ async function executeSingleProject(
         return;
       }
       // Show running status with task name and timer (updates in place)
-      const modelShortName = currentModel ? getModelShortName(currentModel) : undefined;
+      const modelShortName = currentModel ? formatModelDisplay(currentModel) : undefined;
       statusLine.update(formatTaskProgress(taskNumber, totalTasks, 'running', displayName, elapsed, taskId, modelShortName, {
         effort: currentModelReasoningEffort,
         fast: currentModelFast,
@@ -1030,7 +1030,7 @@ Task completed. No detailed report provided.
         logger.success(`  Task ${taskLabel} completed (${elapsedFormatted})`);
       } else {
         // Minimal mode: show completed task line
-        const modelShortName = currentModel ? getModelShortName(currentModel) : undefined;
+        const modelShortName = currentModel ? formatModelDisplay(currentModel) : undefined;
         logger.info(formatTaskProgress(taskNumber, totalTasks, 'completed', displayName, elapsedMs, task.id, modelShortName, {
           effort: currentModelReasoningEffort,
           fast: currentModelFast,
@@ -1061,11 +1061,11 @@ Task completed. No detailed report provided.
       if (verbose) {
         logger.error(`  Task ${taskLabel} failed: ${failureReason} (${elapsedFormatted})`);
         const analysisEntry = getModel('failureAnalysis');
-        const analysisModel = getModelShortName(analysisEntry.model);
+        const analysisModel = formatModelDisplay(analysisEntry.model);
         logger.info(`  Analyzing failure with ${analysisModel}...`);
       } else {
         // Minimal mode: show failed task line
-        const modelShortName = currentModel ? getModelShortName(currentModel) : undefined;
+        const modelShortName = currentModel ? formatModelDisplay(currentModel) : undefined;
         logger.info(formatTaskProgress(taskNumber, totalTasks, 'failed', displayName, elapsedMs, task.id, modelShortName, {
           effort: currentModelReasoningEffort,
           fast: currentModelFast,
