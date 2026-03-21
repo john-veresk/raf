@@ -117,8 +117,9 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
     process.exit(1);
   }
 
-  // Check if project name matches an existing project (skip in auto mode)
-  if (projectName && !autoMode) {
+  // Check if project name matches an existing project
+  // This runs even in auto mode — silently duplicating a project is worse than interrupting
+  if (projectName) {
     const rafDir = getRafDir();
     const mainResult = resolveProjectIdentifierWithDetails(rafDir, projectName);
 
