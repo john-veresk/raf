@@ -1,10 +1,10 @@
-# RAF - Automated Task Planning & Execution with Claude Code
+# RAF - Automated Task Planning & Execution
 
 [![npm version](https://img.shields.io/npm/v/raf.svg)](https://www.npmjs.com/package/raf)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org/)
 
-RAF is a CLI tool that orchestrates task planning and execution using Claude Code CLI.
+RAF is a CLI tool that orchestrates task planning and execution using Claude Code CLI or OpenAI Codex CLI.
 
 **GitHub:** [https://github.com/john-veresk/raf](https://github.com/john-veresk/raf)
 
@@ -20,7 +20,7 @@ Good software of the future will be built with good decisions by humans, not AI.
 
 **Structured decision-making** — The planning interview captures design decisions as reviewable artifacts (`decisions.md`). These persist alongside the code and give reviewers insight into the "why" behind changes.
 
-**Context isolation** — Each task executes with fresh context. No context rot, no degradation from long sessions. The plan provides all the context Claude needs.
+**Context isolation** — Each task executes with fresh context. No context rot, no degradation from long sessions. The plan provides all the context the model needs.
 
 **Token efficiency** — Focused, well-planned tasks avoid the back-and-forth debugging cycles that burn tokens. Planning overhead pays for itself.
 
@@ -48,12 +48,14 @@ That's it! RAF will guide you through breaking down your task and then execute i
 ## Requirements
 
 - Node.js 20+
-- Claude Code CLI installed and configured
+- Claude Code CLI installed and configured (default provider)
+- Or: OpenAI Codex CLI installed and configured (for `--provider codex`)
 
 ## Features
 
-- **Interactive Planning**: Claude interviews you to break down complex tasks into structured plans
+- **Interactive Planning**: Interviews you to break down complex tasks into structured plans
 - **Smart Execution**: Automatic model selection, retry with escalation, and progress tracking
+- **Multi-Provider**: Use Claude Code CLI or OpenAI Codex CLI via `--provider`
 - **Resume & Amend**: Continue interrupted sessions or extend existing projects
 - **Git Integration**: Automatic commits, worktree isolation, and PR generation
 - **Task Dependencies**: Dependency tracking with automatic blocking on failure
@@ -117,6 +119,7 @@ Example `~/.raf/raf.config.json`:
 
 ```json
 {
+  "provider": "claude",
   "models": {
     "execute": "sonnet",
     "nameGeneration": "haiku"
@@ -127,6 +130,47 @@ Example `~/.raf/raf.config.json`:
 ```
 
 Run `raf config` without arguments and ask what's available — the session has full knowledge of every configurable option.
+
+## Provider Configuration
+
+RAF supports multiple LLM providers. The default is `claude` (Claude Code CLI). To use OpenAI Codex CLI, set `provider: "codex"` in your config or pass `--provider codex` on the command line.
+
+```bash
+raf plan --provider codex   # Plan using Codex
+raf do --provider codex     # Execute using Codex
+```
+
+### Model spec format
+
+Models can be specified as plain aliases or with a provider prefix (`<provider>/<alias>`):
+
+```bash
+raf do -m opus              # Claude: resolves to claude-opus-4-6
+raf do -m claude/opus       # Same as above, explicit prefix
+raf do -m codex/gpt54       # Codex: resolves to gpt-5.4
+raf do -m codex/gpt-5.4     # Codex: raw model ID
+```
+
+### Codex config
+
+```json
+{
+  "provider": "codex",
+  "codexModels": {
+    "execute": "codex",
+    "plan": "gpt54"
+  },
+  "codexEffortMapping": {
+    "low": "spark",
+    "medium": "codex",
+    "high": "gpt54"
+  }
+}
+```
+
+**Codex limitations:**
+- `--resume` is not supported (Codex CLI has no session resume)
+- System prompt is prepended to the user message rather than passed separately
 
 ## Status Symbols
 
@@ -207,6 +251,8 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 |--------|-------------|
 | `--amend <id>` | Add tasks to existing project |
 | `-y, --auto` | Skip permission prompts (runs in dangerous mode) |
+| `-p, --provider <name>` | LLM provider to use (`claude`, `codex`) |
+| `-m, --model <name>` | Model to use (e.g. `opus`, `codex/gpt54`) |
 | `-w, --worktree` | Create a git worktree for isolated planning |
 | `--no-worktree` | Disable worktree mode (overrides config) |
 
@@ -217,14 +263,15 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 | `-t, --timeout <min>` | Timeout per task (default: 60) |
 | `-f, --force` | Re-run all tasks regardless of status |
 | `-d, --debug` | Save all logs and show debug output |
-| `-m, --model <name>` | Claude model (sonnet, haiku, opus) |
+| `-p, --provider <name>` | LLM provider to use (`claude`, `codex`) |
+| `-m, --model <name>` | Model to use (e.g. `sonnet`, `codex/gpt54`) |
 | `--sonnet` | Shorthand for `--model sonnet` |
 | `-w, --worktree` | Execute tasks in a git worktree |
 | `--no-worktree` | Disable worktree mode (overrides config) |
 
 Alias: `raf act`
 
-> **Note:** `raf do` and `raf plan -y` run Claude with `--dangerously-skip-permissions` for fully automated execution without interactive prompts.
+> **Note:** `raf do` and `raf plan -y` run the CLI with skip-permissions flags for fully automated execution without interactive prompts.
 
 ### `raf config [prompt]`
 
