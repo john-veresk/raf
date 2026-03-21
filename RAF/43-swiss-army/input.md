@@ -1,0 +1,7 @@
+- [ ] update commit message format. instead of project id it should put project name (every commit type change). also for plan it should follow with short plan description like "Plan: doing important stuff like this, this and this", for "Amend:" should also describe that was amended exactly but short. check if we can describe this format in our config. 
+- [ ] reasoningEffort isn't wired to the actual CLI invocation anyway - should be wired
+- [ ] add in src/prompts/config-docs.md and/or config wizard prompt so it validates exact model names and if reasoning effort available, it should search web for these cases.
+- [ ] get rid of --provider flag and relly on model object to always provide it, validate config so provider always either codex or claude
+- [ ] support config presets so i can easily switch between codex and claude configuration. like save user config presets as copy of config file and add preset command to switch
+- [ ] extend model config object with fast: true/false option, research web how to pass fast to claude and codex and wire in the code 
+- [ ] getting error in "raf config" after configuring to model objects:    Config validation warning: models.plan must be a short alias (sonnet, haiku, opus) or a full  model ID (e.g., claude-sonnet-4-5-20250929) <- this is not correct, now we support model objects only
