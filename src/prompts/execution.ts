@@ -1,4 +1,5 @@
 import { getCommitFormat, getCommitPrefix, renderCommitMessage } from '../utils/config.js';
+import { extractProjectName } from '../utils/paths.js';
 
 /**
  * Maximum characters for a dependency outcome summary.
@@ -91,9 +92,11 @@ ${previousOutcomes.map((o) => `### Task ${o.taskId}\n${o.content}`).join('\n\n')
   // Build example commit message from config template
   const commitTemplate = getCommitFormat('task');
   const commitPrefix = getCommitPrefix();
+  const projectName = extractProjectName(projectPath) ?? projectNumber;
   const exampleCommit = renderCommitMessage(commitTemplate, {
     prefix: commitPrefix,
-    projectId: projectNumber,
+    projectId: projectName,  // backwards compat: {projectId} resolves to projectName
+    projectName,
     taskId: paddedTaskNumber,
     description: '<description>',
   });

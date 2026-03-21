@@ -139,28 +139,31 @@ Controls the format of git commit messages. Templates use `{placeholder}` syntax
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `commitFormat.task` | `"{prefix}[{projectId}:{taskId}] {description}"` | Format for task completion commits |
-| `commitFormat.plan` | `"{prefix}[{projectId}] Plan: {projectName}"` | Format for plan creation commits |
-| `commitFormat.amend` | `"{prefix}[{projectId}] Amend: {projectName}"` | Format for plan amendment commits |
+| `commitFormat.task` | `"{prefix}[{projectName}:{taskId}] {description}"` | Format for task completion commits |
+| `commitFormat.plan` | `"{prefix}[{projectName}] Plan: {description}"` | Format for plan creation commits |
+| `commitFormat.amend` | `"{prefix}[{projectName}] Amend: {description}"` | Format for plan amendment commits |
 | `commitFormat.prefix` | `"RAF"` | Prefix string substituted into `{prefix}` placeholder |
 
 #### Template Variables
 
 **Task commits** (`commitFormat.task`):
 - `{prefix}` — The value of `commitFormat.prefix`
-- `{projectId}` — The 6-character project identifier (e.g., `abcdef`)
-- `{taskId}` — The 2-character task identifier (e.g., `01`, `0a`)
+- `{projectName}` — The project name extracted from the folder (e.g., `swiss-army` from `43-swiss-army`)
+- `{projectId}` — Backwards-compatible alias for `{projectName}`
+- `{taskId}` — The task number (e.g., `1`, `10`)
 - `{description}` — A concise description of what was accomplished
 
 **Plan commits** (`commitFormat.plan`):
 - `{prefix}` — The value of `commitFormat.prefix`
-- `{projectId}` — The 6-character project identifier
-- `{projectName}` — The human-readable project name (e.g., `fix-auth-bug`)
+- `{projectName}` — The project name extracted from the folder
+- `{projectId}` — Backwards-compatible alias for `{projectName}`
+- `{description}` — Auto-generated summary from input.md
 
 **Amend commits** (`commitFormat.amend`):
 - `{prefix}` — The value of `commitFormat.prefix`
-- `{projectId}` — The 6-character project identifier
-- `{projectName}` — The human-readable project name
+- `{projectName}` — The project name extracted from the folder
+- `{projectId}` — Backwards-compatible alias for `{projectName}`
+- `{description}` — Auto-generated description of what was amended
 
 Unknown placeholders are left as-is in the output.
 
@@ -274,9 +277,9 @@ Uses Claude Opus for planning but Codex for execution. Low-effort tasks use Clau
   "worktree": false,
   "syncMainBranch": true,
   "commitFormat": {
-    "task": "{prefix}[{projectId}:{taskId}] {description}",
-    "plan": "{prefix}[{projectId}] Plan: {projectName}",
-    "amend": "{prefix}[{projectId}] Amend: {projectName}",
+    "task": "{prefix}[{projectName}:{taskId}] {description}",
+    "plan": "{prefix}[{projectName}] Plan: {description}",
+    "amend": "{prefix}[{projectName}] Amend: {description}",
     "prefix": "RAF"
   },
   "display": {
@@ -310,7 +313,7 @@ Uses specific model versions for planning and execution. Useful for pinning to a
 }
 ```
 
-Commits will read `ACME[abcdef:01] Add login page` instead of `RAF[abcdef:01] Add login page`.
+Commits will read `ACME[my-project:1] Add login page` instead of `RAF[my-project:1] Add login page`.
 
 ## Resetting to Defaults
 

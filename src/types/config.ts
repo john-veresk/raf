@@ -105,9 +105,9 @@ export const DEFAULT_CONFIG: RafConfig = {
   worktree: false,
   syncMainBranch: true,
   commitFormat: {
-    task: '{prefix}[{projectId}:{taskId}] {description}',
-    plan: '{prefix}[{projectId}] Plan: {projectName}',
-    amend: '{prefix}[{projectId}] Amend: {projectName}',
+    task: '{prefix}[{projectName}:{taskId}] {description}',
+    plan: '{prefix}[{projectName}] Plan: {description}',
+    amend: '{prefix}[{projectName}] Amend: {description}',
     prefix: 'RAF',
   },
   display: {

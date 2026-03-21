@@ -53,9 +53,9 @@ describe('commitPlanningArtifacts', () => {
     expect(addCmds.some((cmd) => cmd.includes('input.md'))).toBe(true);
     expect(addCmds.some((cmd) => cmd.includes('decisions.md'))).toBe(true);
 
-    // Verify commit message format
+    // Verify commit message format: RAF[project-name] Plan: description
     expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringMatching(/git commit -m "RAF\[3\] Plan: decision-vault"/),
+      expect.stringMatching(/git commit -m "RAF\[decision-vault\] Plan: /),
       expect.any(Object)
     );
   });
@@ -78,7 +78,7 @@ describe('commitPlanningArtifacts', () => {
     await commitPlanningArtifacts('/Users/test/RAF/12-my-feature');
 
     expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringMatching(/git commit -m "RAF\[12\] Plan: my-feature"/),
+      expect.stringMatching(/git commit -m "RAF\[my-feature\] Plan: /),
       expect.any(Object)
     );
   });
@@ -247,7 +247,7 @@ describe('commitPlanningArtifacts', () => {
     await commitPlanningArtifacts('/Users/test/RAF/3-decision-vault', { isAmend: true });
 
     expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringMatching(/git commit -m "RAF\[3\] Amend: decision-vault"/),
+      expect.stringMatching(/git commit -m "RAF\[decision-vault\] Amend: updated plans"/),
       expect.any(Object)
     );
   });

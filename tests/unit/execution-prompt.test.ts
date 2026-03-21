@@ -16,7 +16,7 @@ describe('Execution Prompt', () => {
   describe('Commit Message Format', () => {
     it('should include RAF commit schema format with description placeholder in prompt', () => {
       const prompt = getExecutionPrompt(baseParams);
-      expect(prompt).toContain('RAF[42:1] <description>');
+      expect(prompt).toContain('RAF[task-naming-improvements:1] <description>');
     });
 
     it('should instruct to write meaningful description', () => {
@@ -28,25 +28,25 @@ describe('Execution Prompt', () => {
     it('should use plain numeric task IDs', () => {
       const params = { ...baseParams, taskNumber: 1 };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('RAF[42:1]');
+      expect(prompt).toContain('RAF[task-naming-improvements:1]');
     });
 
     it('should use numeric task IDs for double digits', () => {
       const params = { ...baseParams, taskNumber: 12 };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('RAF[42:12]');
+      expect(prompt).toContain('RAF[task-naming-improvements:12]');
     });
 
     it('should use numeric task IDs for large numbers', () => {
       const params = { ...baseParams, taskNumber: 123 };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('RAF[42:123]');
+      expect(prompt).toContain('RAF[task-naming-improvements:123]');
     });
 
-    it('should include project number from numeric prefix', () => {
-      const params = { ...baseParams, projectNumber: '7' };
+    it('should use project name from folder in commit format', () => {
+      const params = { ...baseParams, projectPath: '/Users/test/RAF/7-auth-fix', projectNumber: '7' };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('RAF[7:1]');
+      expect(prompt).toContain('RAF[auth-fix:1]');
     });
 
     it('should not include commit instructions when autoCommit is false', () => {
@@ -96,7 +96,7 @@ describe('Execution Prompt', () => {
         outcomeFilePath: '/Users/test/RAF/42-task-naming-improvements/outcomes/6-update-execution-prompt.md',
       };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('RAF[42:6] <description>');
+      expect(prompt).toContain('RAF[task-naming-improvements:6] <description>');
     });
 
     it('should generate correct commit message format for first task', () => {
@@ -112,7 +112,7 @@ describe('Execution Prompt', () => {
         outcomeFilePath: '/Users/test/RAF/1-fix-bug/outcomes/1-identify-issue.md',
       };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('RAF[1:1] <description>');
+      expect(prompt).toContain('RAF[fix-bug:1] <description>');
     });
 
     it('should generate correct commit message format for numeric project', () => {
@@ -128,7 +128,7 @@ describe('Execution Prompt', () => {
         outcomeFilePath: '/Users/test/RAF/7-feature-branch/outcomes/2-implement-feature.md',
       };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('RAF[7:2] <description>');
+      expect(prompt).toContain('RAF[feature-branch:2] <description>');
     });
   });
 

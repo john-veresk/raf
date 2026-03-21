@@ -128,7 +128,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
 
     // Verify commit was made
     const lastMsg = getLastCommitMessage(worktreePath);
-    expect(lastMsg).toMatch(/RAF\[1\] Plan: my-project/);
+    expect(lastMsg).toMatch(/RAF\[my-project\] Plan: /);
 
     // Verify both files are in the commit
     const committedFiles = getLastCommitFiles(worktreePath);
@@ -170,7 +170,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
 
     // Verify commit was made with Amend prefix
     const lastMsg = getLastCommitMessage(worktreePath);
-    expect(lastMsg).toMatch(/RAF\[1\] Amend: my-project/);
+    expect(lastMsg).toMatch(/RAF\[my-project\] Amend: /);
 
     // Verify only input.md and decisions.md are in the commit (not plan files)
     const committedFiles = getLastCommitFiles(worktreePath);
@@ -214,7 +214,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
 
     // Verify commit was made with Amend prefix
     const lastMsg = getLastCommitMessage(worktreePath);
-    expect(lastMsg).toMatch(/RAF\[1\] Amend: my-project/);
+    expect(lastMsg).toMatch(/RAF\[my-project\] Amend: /);
 
     // Verify all files are in the commit (input, decisions, AND plan files)
     const committedFiles = getLastCommitFiles(worktreePath);
@@ -282,7 +282,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
 
     // Verify commit was made
     const lastMsg = getLastCommitMessage(recreatedWtPath);
-    expect(lastMsg).toMatch(/RAF\[1\] Amend: my-project/);
+    expect(lastMsg).toMatch(/RAF\[my-project\] Amend: /);
 
     // Verify only input.md and decisions.md are in the commit (not plan files)
     const committedFiles = getLastCommitFiles(recreatedWtPath);
@@ -351,7 +351,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
 
     // Verify commit was made
     const lastMsg = getLastCommitMessage(recreatedWtPath);
-    expect(lastMsg).toMatch(/RAF\[1\] Amend: my-project/);
+    expect(lastMsg).toMatch(/RAF\[my-project\] Amend: /);
 
     // Verify all files are in the commit (including plan files)
     const committedFiles = getLastCommitFiles(recreatedWtPath);
@@ -384,7 +384,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
 
     // Verify commit was made
     const lastMsg = getLastCommitMessage(worktreePath);
-    expect(lastMsg).toMatch(/RAF\[1\] Plan: my-project/);
+    expect(lastMsg).toMatch(/RAF\[my-project\] Plan: /);
 
     // Only input.md should be in the commit (decisions.md unchanged)
     const committedFiles = getLastCommitFiles(worktreePath);
@@ -423,7 +423,7 @@ describe('commitPlanningArtifacts - worktree integration', () => {
 
     // Verify commit
     const lastMsg = getLastCommitMessage(repoDir);
-    expect(lastMsg).toMatch(/RAF\[1\] Plan: my-project/);
+    expect(lastMsg).toMatch(/RAF\[my-project\] Plan: /);
 
     const committedFiles = getLastCommitFiles(repoDir);
     expect(committedFiles).toContain(`RAF/${projectFolder}/input.md`);

@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { logger } from '../utils/logger.js';
 import { extractProjectNumber, extractProjectName } from '../utils/paths.js';
@@ -214,9 +215,55 @@ export function isFileCommittedInHead(filePath: string): boolean {
 }
 
 /**
+ * Extract a concise description from input.md for use in plan commit messages.
+ * Reads the first non-empty line and truncates to ~70 chars.
+ * Falls back to the project name if input.md can't be read.
+ */
+function extractPlanDescription(projectPath: string, fallback: string): string {
+  const inputPath = path.join(projectPath, 'input.md');
+  try {
+    const content = fs.readFileSync(inputPath, 'utf-8');
+    const firstLine = content.split('\n').find(line => line.trim().length > 0);
+    if (firstLine) {
+      // Strip leading markdown markers (-, *, [ ], [x], #, etc.)
+      let cleaned = firstLine.trim().replace(/^[-*#>\s]*(\[.\]\s*)?/, '').trim();
+      if (cleaned.length > 70) {
+        cleaned = cleaned.substring(0, 67) + '...';
+      }
+      if (cleaned.length > 0) {
+        return cleaned;
+      }
+    }
+  } catch {
+    // Can't read input.md, use fallback
+  }
+  return fallback;
+}
+
+/**
+ * Generate a description for amend commit messages.
+ * Uses the count and names of additional plan files if provided.
+ */
+function extractAmendDescription(additionalFiles?: string[]): string {
+  if (!additionalFiles || additionalFiles.length === 0) {
+    return 'updated plans';
+  }
+  // Extract task names from plan file paths (e.g., "plans/3-fix-bug.md" → "fix-bug")
+  const taskNames = additionalFiles
+    .map(f => path.basename(f, '.md'))
+    .map(name => name.replace(/^\d+-/, ''))
+    .filter(name => name.length > 0);
+
+  if (taskNames.length <= 3) {
+    return taskNames.join(', ');
+  }
+  return `${taskNames.length} tasks`;
+}
+
+/**
  * Commit planning artifacts (input.md and decisions.md) for a project.
- * Uses commit message format: RAF[NNN] Plan: project-name
- * For amendments: RAF[NNN] Amend: project-name
+ * Uses commit message format: RAF[project-name] Plan: description
+ * For amendments: RAF[project-name] Amend: description
  *
  * @param projectPath - Full path to the project folder (e.g., /path/to/RAF/017-decision-vault)
  * @param options - Optional settings
@@ -254,10 +301,17 @@ export async function commitPlanningArtifacts(projectPath: string, options?: { c
   const formatType = options?.isAmend ? 'amend' as const : 'plan' as const;
   const template = getCommitFormat(formatType);
   const commitPrefix = getCommitPrefix();
+
+  // Auto-generate description based on commit type
+  const description = options?.isAmend
+    ? extractAmendDescription(options?.additionalFiles)
+    : extractPlanDescription(projectPath, projectName);
+
   const commitMessage = renderCommitMessage(template, {
     prefix: commitPrefix,
-    projectId: projectNumber,
+    projectId: projectName,  // backwards compat: {projectId} resolves to projectName
     projectName,
+    description,
   });
 
   // Build list of files to stage (absolute paths)

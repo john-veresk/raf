@@ -461,7 +461,7 @@ describe('Config', () => {
 
     it('getCommitFormat returns correct format', () => {
       const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
-      expect(config.commitFormat.task).toBe('{prefix}[{projectId}:{taskId}] {description}');
+      expect(config.commitFormat.task).toBe('{prefix}[{projectName}:{taskId}] {description}');
     });
 
     it('getCommitPrefix returns prefix', () => {
@@ -527,29 +527,44 @@ describe('Config', () => {
     it('should handle plan commit format', () => {
       const result = renderCommitMessage(DEFAULT_CONFIG.commitFormat.plan, {
         prefix: 'RAF',
-        projectId: 'abc123',
+        projectId: 'my-project',
         projectName: 'my-project',
+        description: 'add auth system',
       });
-      expect(result).toBe('RAF[abc123] Plan: my-project');
+      expect(result).toBe('RAF[my-project] Plan: add auth system');
     });
 
     it('should handle amend commit format', () => {
       const result = renderCommitMessage(DEFAULT_CONFIG.commitFormat.amend, {
         prefix: 'RAF',
-        projectId: 'abc123',
+        projectId: 'my-project',
         projectName: 'my-project',
+        description: 'fix-login, add-tests',
       });
-      expect(result).toBe('RAF[abc123] Amend: my-project');
+      expect(result).toBe('RAF[my-project] Amend: fix-login, add-tests');
     });
 
     it('should handle task commit format', () => {
       const result = renderCommitMessage(DEFAULT_CONFIG.commitFormat.task, {
         prefix: 'RAF',
-        projectId: '001',
+        projectId: 'my-project',
+        projectName: 'my-project',
         taskId: '10',
         description: 'Fix bug',
       });
-      expect(result).toBe('RAF[001:10] Fix bug');
+      expect(result).toBe('RAF[my-project:10] Fix bug');
+    });
+
+    it('should support {projectId} as backwards compat alias for projectName', () => {
+      // Old-style template with {projectId} should still work
+      const result = renderCommitMessage('{prefix}[{projectId}:{taskId}] {description}', {
+        prefix: 'RAF',
+        projectId: 'my-project',
+        projectName: 'my-project',
+        taskId: '01',
+        description: 'Add feature',
+      });
+      expect(result).toBe('RAF[my-project:01] Add feature');
     });
 
     it('should handle empty variables gracefully', () => {
