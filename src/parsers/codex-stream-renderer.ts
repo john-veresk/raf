@@ -32,9 +32,12 @@ export interface CodexEvent {
     exit_code?: number;
     path?: string;
     change_kind?: string;
+    message?: string;
   };
   /** Error message (for error / turn.failed events) */
   message?: string;
+  /** Nested error object (for turn.failed events) */
+  error?: { message?: string };
   /** Usage data (for turn.completed events) */
   usage?: {
     input_tokens?: number;
@@ -172,6 +175,13 @@ function renderItemCompleted(event: CodexEvent): RenderResult {
         textContent: '',
       };
     }
+    case 'error': {
+      const msg = item.message ?? 'Unknown error';
+      return {
+        display: `  ✗ Error: ${msg}\n`,
+        textContent: msg,
+      };
+    }
     default:
       return { display: '', textContent: '' };
   }
@@ -202,7 +212,7 @@ function renderError(event: CodexEvent): RenderResult {
 }
 
 function renderTurnFailed(event: CodexEvent): RenderResult {
-  const msg = event.message ?? 'Turn failed';
+  const msg = event.error?.message ?? event.message ?? 'Turn failed';
   return {
     display: `  ✗ Failed: ${msg}\n`,
     textContent: msg,
