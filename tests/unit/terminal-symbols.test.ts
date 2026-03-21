@@ -1,5 +1,6 @@
 import {
   SYMBOLS,
+  formatModelMetadata,
   formatTaskProgress,
   formatProjectHeader,
   formatSummary,
@@ -15,6 +16,28 @@ import type { UsageData } from '../../src/types/config.js';
 import type { CostBreakdown, TaskUsageEntry } from '../../src/utils/token-tracker.js';
 
 describe('Terminal Symbols', () => {
+  describe('formatModelMetadata', () => {
+    it('should format model only when no metadata is present', () => {
+      expect(formatModelMetadata('sonnet')).toBe('sonnet');
+    });
+
+    it('should append effort when present', () => {
+      expect(formatModelMetadata('sonnet', { effort: 'low' })).toBe('sonnet, low');
+    });
+
+    it('should append fast when enabled', () => {
+      expect(formatModelMetadata('sonnet', { fast: true })).toBe('sonnet, fast');
+    });
+
+    it('should append effort and fast in order', () => {
+      expect(formatModelMetadata('sonnet', { effort: 'low', fast: true })).toBe('sonnet, low, fast');
+    });
+
+    it('should omit falsy fast values', () => {
+      expect(formatModelMetadata('sonnet', { effort: 'low', fast: false })).toBe('sonnet, low');
+    });
+  });
+
   describe('SYMBOLS', () => {
     it('should have all required symbols', () => {
       expect(SYMBOLS.running).toBe('●');
@@ -115,6 +138,11 @@ describe('Terminal Symbols', () => {
       expect(result).toBe('● auth-login (sonnet) 1m 23s');
     });
 
+    it('should show model metadata in parentheses for running task with time', () => {
+      const result = formatTaskProgress(1, 5, 'running', 'auth-login', 83000, undefined, 'sonnet', { effort: 'low', fast: true });
+      expect(result).toBe('● auth-login (sonnet, low, fast) 1m 23s');
+    });
+
     it('should show model name in parentheses for running task without time', () => {
       const result = formatTaskProgress(1, 5, 'running', 'auth-login', undefined, undefined, 'opus');
       expect(result).toBe('● auth-login (opus) 1/5');
@@ -122,6 +150,11 @@ describe('Terminal Symbols', () => {
 
     it('should show model name in parentheses for completed task with time', () => {
       const result = formatTaskProgress(3, 5, 'completed', 'setup-db', 154000, undefined, 'haiku');
+      expect(result).toBe('✓ setup-db (haiku) 2m 34s');
+    });
+
+    it('should omit effort when unavailable and omit falsy fast', () => {
+      const result = formatTaskProgress(3, 5, 'completed', 'setup-db', 154000, undefined, 'haiku', { fast: false });
       expect(result).toBe('✓ setup-db (haiku) 2m 34s');
     });
 
@@ -163,6 +196,14 @@ describe('Terminal Symbols', () => {
     it('should handle model name with task ID and time', () => {
       const result = formatTaskProgress(2, 5, 'completed', 'setup-db', 154000, '002', 'opus');
       expect(result).toBe('✓ 002-setup-db (opus) 2m 34s');
+    });
+
+    it('should keep truncation stable with model metadata', () => {
+      const longName = 'this-is-a-very-long-task-name-that-should-be-truncated-for-display';
+      const result = formatTaskProgress(1, 1, 'running', longName, 1000, '001', 'sonnet', { effort: 'low', fast: true });
+
+      expect(result).toContain('001-this-is-a-very-long-task-name-that-shou…');
+      expect(result).toContain('(sonnet, low, fast) 1s');
     });
   });
 

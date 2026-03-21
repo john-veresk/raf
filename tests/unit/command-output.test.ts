@@ -76,6 +76,13 @@ describe('Command Output Integration', () => {
         expect(consoleLogSpy).toHaveBeenCalledWith('✗ deploy 5m 0s');
       });
 
+      it('should show model metadata in the existing compact model slot', () => {
+        const output = formatTaskProgress(1, 3, 'running', 'auth-login', 45000, '01', 'sonnet', { effort: 'low', fast: true });
+        logger.info(output);
+
+        expect(consoleLogSpy).toHaveBeenCalledWith('● 01-auth-login (sonnet, low, fast) 45s');
+      });
+
       it('should show pending task with fraction', () => {
         const output = formatTaskProgress(2, 5, 'pending', 'cleanup');
         logger.info(output);
