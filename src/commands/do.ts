@@ -9,8 +9,8 @@ import { stashChanges, hasUncommittedChanges, isGitRepo, getHeadCommitHash } fro
 import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, isRetryableFailure } from '../parsers/output-parser.js';
 import { validatePlansExist, resolveModelOption } from '../utils/validation.js';
-import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFromPlanFile, resolveProjectIdentifierWithDetails, getOutcomeFilePath, parseProjectPrefix } from '../utils/paths.js';
-import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
+import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFromPlanFile, resolveProjectIdentifierWithDetails, getOutcomeFilePath } from '../utils/paths.js';
+import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects, formatProjectChoice } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
 import { getConfig, getWorktreeDefault, getModel, getModelShortName, resolveFullModelId, getSyncMainBranch, resolveEffortToModel, applyModelCeiling, getShowCacheTokens } from '../utils/config.js';
@@ -652,8 +652,9 @@ async function executePostAction(
 
 /**
  * Auto-discovery flow for `raf do --worktree` without a project identifier.
- * Lists worktree projects, finds latest completed main-tree project, filters,
- * and shows an interactive picker.
+ * Shows both worktree AND main-repo pending projects in an interactive picker.
+ * Worktree projects above a threshold filter are included; main-repo projects
+ * are always included. Duplicates are deduped with worktree taking precedence.
  *
  * @returns Selected project info or null if cancelled/no projects
  */
@@ -661,16 +662,11 @@ async function discoverAndPickWorktreeProject(
   repoBasename: string,
   rafDir: string,
   rafRelativePath: string,
-): Promise<{ worktreeRoot: string; projectFolder: string } | null> {
-  // List all worktree projects for this repo
-  const wtProjects = listWorktreeProjects(repoBasename);
+): Promise<{ worktreeRoot?: string; projectFolder: string } | null> {
+  // Get worktree pending projects (uses shared utility from project-picker)
+  const wtPendingProjects = getPendingWorktreeProjects(repoBasename, rafRelativePath);
 
-  if (wtProjects.length === 0) {
-    logger.error('No worktree projects found. Did you plan with --worktree?');
-    process.exit(1);
-  }
-
-  // Find the highest-numbered completed project in the MAIN tree
+  // Find the highest-numbered completed project in the MAIN tree for threshold filter
   const mainProjects = discoverProjects(rafDir);
   let highestCompletedNumber = 0;
 
@@ -686,71 +682,40 @@ async function discoverAndPickWorktreeProject(
   // Filter threshold: highest completed - 3 (or 0 if none completed)
   const threshold = highestCompletedNumber > 3 ? highestCompletedNumber - 3 : 0;
 
-  // Filter worktree projects by number threshold and completion status
-  const uncompletedProjects: Array<{
-    folder: string;
-    worktreeRoot: string;
-    projectPath: string;
-    completedTasks: number;
-    totalTasks: number;
-    projectNumber: number;
-  }> = [];
+  // Apply threshold filter to worktree projects only
+  const filteredWtProjects = wtPendingProjects.filter((p) => p.number >= threshold);
 
-  for (const wtProjectDir of wtProjects) {
-    // Extract project number from the worktree directory name
-    const numPrefix = extractProjectNumber(wtProjectDir);
-    if (!numPrefix) continue;
-    const projectNumber = parseProjectPrefix(numPrefix);
-    if (projectNumber === null) continue;
+  // Get main-repo pending projects (no threshold filter)
+  const mainPendingProjects = getPendingProjects(rafDir);
 
-    // Apply threshold filter
-    if (projectNumber < threshold) continue;
-
-    // Check if this worktree has a valid project
-    const wtPath = computeWorktreePath(repoBasename, wtProjectDir);
-    const wtProjectPath = path.join(wtPath, rafRelativePath, wtProjectDir);
-
-    if (!fs.existsSync(wtProjectPath)) continue;
-
-    // Derive project state from worktree
-    const state = deriveProjectState(wtProjectPath);
-    if (state.tasks.length === 0) continue;
-
-    // Keep only uncompleted projects
-    if (isProjectComplete(state)) continue;
-
-    const stats = getDerivedStats(state);
-    uncompletedProjects.push({
-      folder: wtProjectDir,
-      worktreeRoot: wtPath,
-      projectPath: wtProjectPath,
-      completedTasks: stats.completed,
-      totalTasks: stats.total,
-      projectNumber,
-    });
+  // Merge and deduplicate: worktree versions take precedence
+  const allProjects = [...mainPendingProjects, ...filteredWtProjects];
+  const seen = new Map<string, PendingProjectInfo>();
+  for (const project of allProjects) {
+    const existing = seen.get(project.folder);
+    if (!existing || project.source === 'worktree') {
+      seen.set(project.folder, project);
+    }
   }
+  const deduped = Array.from(seen.values());
 
-  if (uncompletedProjects.length === 0) {
-    logger.info('All worktree projects are completed.');
+  // Sort by project number
+  deduped.sort((a, b) => a.number - b.number);
+
+  if (deduped.length === 0) {
+    logger.info('No pending projects found.');
     return null;
   }
 
-  // Sort by project number
-  uncompletedProjects.sort((a, b) => a.projectNumber - b.projectNumber);
-
-  // Show interactive picker (even if only one project)
-  const choices = uncompletedProjects.map((p) => {
-    const name = extractProjectName(p.folder) ?? p.folder;
-    const numPrefix = extractProjectNumber(p.folder) ?? '';
-    return {
-      name: `${numPrefix} ${name} (${p.completedTasks}/${p.totalTasks} tasks)`,
-      value: p,
-    };
-  });
+  // Show interactive picker
+  const choices = deduped.map((p) => ({
+    name: formatProjectChoice(p),
+    value: p,
+  }));
 
   try {
     const selected = await select({
-      message: 'Select a worktree project to execute:',
+      message: 'Select a project to execute:',
       choices,
     });
 
