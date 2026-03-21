@@ -1,0 +1,3 @@
+- [ ] fix minor bugs
+- [ ] update cli help docs to reflect on removed --worktreee --no-worktree flags
+- [ ] Pass the provider option through to generateProjectNames() so it spawns the correct binary (codex or claude) instead of hardcoding claude. Update callSonnetForMultipleNames and runClaudePrint to  accept a provider parameter and use getProviderBinaryName(provider) for the spawn call.
