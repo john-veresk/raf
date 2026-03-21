@@ -185,6 +185,68 @@ Example:
 }
 ```
 
+## Valid Model Names
+
+When configuring models, use one of the known names below. Aliases automatically resolve to the latest version.
+
+### Claude Models (provider: `"claude"`)
+
+| Alias | Resolves To | Notes |
+|-------|------------|-------|
+| `"opus"` | `claude-opus-4-6` | Most capable, highest cost |
+| `"sonnet"` | `claude-sonnet-4-5-20250929` | Balanced capability and cost |
+| `"haiku"` | `claude-haiku-4-5-20251001` | Fastest, lowest cost |
+
+You can also use full model IDs directly for version pinning:
+- `"claude-opus-4-6"`, `"claude-opus-4-5-20251101"`
+- `"claude-sonnet-4-6"`, `"claude-sonnet-4-5-20250929"`
+- `"claude-haiku-4-5-20251001"`
+
+Any string matching the pattern `claude-<family>-*` is accepted as a valid Claude model ID.
+
+### Codex Models (provider: `"codex"`)
+
+| Alias | Resolves To | Notes |
+|-------|------------|-------|
+| `"spark"` | `gpt-5.3-codex` | Lightweight, fast |
+| `"codex"` | `gpt-5.3-codex` | Same as spark |
+| `"gpt54"` | `gpt-5.4` | Most capable Codex model |
+
+You can also use raw Codex model IDs directly:
+- `"gpt-5.4"`, `"gpt-5.4-2026-03-05"` (pinned), `"gpt-5.4-pro"`, `"gpt-5.4-mini"`, `"gpt-5.4-nano"`
+- `"gpt-5.3-codex"`
+- `"o3"`
+
+Any string matching the pattern `gpt-<version>` or containing a dot-separated version number is accepted as a valid Codex model ID.
+
+### Prefixed Format
+
+You can also use `provider/model` format: `"claude/opus"`, `"codex/gpt-5.4"`. The provider prefix is stripped and used to set the provider field.
+
+## Reasoning Effort
+
+Reasoning effort controls how much thinking the model does before responding. Higher values produce more thorough responses but cost more tokens.
+
+### Claude Reasoning Effort
+
+- **Valid values**: `"low"`, `"medium"`, `"high"` (default), `"max"`
+- **`"max"`** is only available on Opus 4.5+
+- Supported on Opus 4.5+ and Sonnet 4.6+. Haiku does not support reasoning effort.
+- Passed as the `--effort` flag to Claude CLI.
+
+### Codex Reasoning Effort
+
+- **Valid values**: `"none"`, `"minimal"`, `"low"`, `"medium"` (default), `"high"`, `"xhigh"`
+- Passed as `-c model_reasoning_effort="<level>"` to Codex CLI.
+
+### When to Adjust
+
+- **Lower effort** (low/minimal): Simple tasks like renaming, formatting, or config changes. Saves cost and time.
+- **Default effort** (medium/high): Good for most tasks. Balanced cost and quality.
+- **Higher effort** (max/xhigh): Complex architectural decisions, subtle bugs, or security-sensitive code.
+
+Reasoning effort is optional — omit it to use the provider's default.
+
 ## Validation Rules
 
 The config is validated when loaded. Invalid configs cause an error with a descriptive message. The following rules are enforced:
@@ -359,6 +421,20 @@ When the user asks to see their config, show:
 2. The effective resolved config (custom + defaults merged)
 
 Distinguish between user-set values and defaults so the user knows what they've customized.
+
+### Validating Model Names
+
+When the user specifies a model name, check it against the "Valid Model Names" section above:
+
+1. **Known alias or full ID** — Accept it and proceed.
+2. **Unknown model name** — Warn the user that the name isn't in the known list. Suggest they double-check the name. If you have web search capabilities (WebSearch tool), offer to search for the model name to verify it exists. If web search is not available, tell the user to verify the name themselves before saving.
+3. **Common mistakes** — Watch for typos like `"claude-sonnet"` (missing version), `"gpt5.4"` (missing hyphen), or `"Opus"` (capitalized). Suggest the correct form.
+
+When configuring reasoning effort, validate that the value is appropriate for the provider:
+- Claude: `"low"`, `"medium"`, `"high"`, `"max"`
+- Codex: `"none"`, `"minimal"`, `"low"`, `"medium"`, `"high"`, `"xhigh"`
+
+If the user sets reasoning effort on a model that may not support it (e.g., Haiku), warn them.
 
 ### Common User Requests
 
