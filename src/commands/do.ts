@@ -208,10 +208,11 @@ export function createDoCommand(): Command {
 async function runDoCommand(projectIdentifierArg: string | undefined, options: DoCommandOptions): Promise<void> {
   const rafDir = getRafDir();
   let projectIdentifier = projectIdentifierArg;
-  // Validate and resolve model option
+  // Validate and resolve model option (provider-aware)
+  const provider = options.provider as import('../types/config.js').HarnessProvider | undefined;
   let model: string;
   try {
-    model = resolveModelOption(options.model as string | undefined, options.sonnet, 'execute');
+    model = resolveModelOption(options.model as string | undefined, options.sonnet, 'execute', provider);
   } catch (error) {
     logger.error((error as Error).message);
     process.exit(1);
@@ -1051,7 +1052,7 @@ Task completed. No detailed report provided.
 
       if (verbose) {
         logger.error(`  Task ${taskLabel} failed: ${failureReason} (${elapsedFormatted})`);
-        const analysisModel = getModelShortName(getModel('failureAnalysis'));
+        const analysisModel = getModelShortName(getModel('failureAnalysis', provider));
         logger.info(`  Analyzing failure with ${analysisModel}...`);
       } else {
         // Minimal mode: show failed task line

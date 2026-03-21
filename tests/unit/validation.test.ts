@@ -116,5 +116,37 @@ describe('Validation', () => {
         'Invalid model name: "invalid". Valid options: sonnet, haiku, opus'
       );
     });
+
+    it('should use codex defaults when provider is codex', () => {
+      // Plan scenario with codex provider should return a codex model, not opus
+      const planModel = resolveModelOption(undefined, undefined, 'plan', 'codex');
+      expect(planModel).toBe('gpt-5.3-codex');
+
+      // Execute scenario with codex provider
+      const executeModel = resolveModelOption(undefined, undefined, 'execute', 'codex');
+      expect(executeModel).toBe('gpt-5.4');
+
+      // Failure analysis with codex provider
+      const failureModel = resolveModelOption(undefined, undefined, 'failureAnalysis', 'codex');
+      expect(failureModel).toBe('gpt-5.3-codex');
+    });
+
+    it('should use claude defaults when provider is claude or undefined', () => {
+      const planModel = resolveModelOption(undefined, undefined, 'plan', 'claude');
+      expect(planModel).toBe('opus');
+
+      const defaultModel = resolveModelOption(undefined, undefined, 'plan');
+      expect(defaultModel).toBe('opus');
+    });
+
+    it('should not resolve codex provider to opus', () => {
+      // Regression: --provider codex must never resolve to opus
+      const scenarios = ['plan', 'execute', 'nameGeneration', 'failureAnalysis', 'prGeneration', 'config'] as const;
+      for (const scenario of scenarios) {
+        const model = resolveModelOption(undefined, undefined, scenario, 'codex');
+        expect(model).not.toBe('opus');
+        expect(model).not.toMatch(/opus/);
+      }
+    });
   });
 });

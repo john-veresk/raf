@@ -129,7 +129,7 @@ Optionally, you can add an explicit \`model\` field to override the effort-based
 \`\`\`markdown
 ---
 effort: medium
-model: opus
+model: sonnet
 ---
 # Task: ...
 \`\`\`

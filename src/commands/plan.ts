@@ -77,9 +77,11 @@ export function createPlanCommand(): Command {
     .option('-p, --provider <provider>', 'CLI provider to use (claude, codex)')
     .action(async (projectName: string | undefined, options: PlanCommandOptions) => {
       // Validate and resolve model option
+      const provider = options.provider as import('../types/config.js').HarnessProvider | undefined;
+
       let model: string;
       try {
-        model = resolveModelOption(options.model, options.sonnet, 'plan');
+        model = resolveModelOption(options.model, options.sonnet, 'plan', provider);
       } catch (error) {
         logger.error((error as Error).message);
         process.exit(1);
@@ -87,8 +89,6 @@ export function createPlanCommand(): Command {
 
       const autoMode = options.auto ?? false;
       const worktreeMode = options.worktree ?? getWorktreeDefault();
-
-      const provider = options.provider as import('../types/config.js').HarnessProvider | undefined;
 
       if (options.resume) {
         await runResumeCommand(options.resume, model, provider);

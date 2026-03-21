@@ -102,7 +102,7 @@ export function validateModelName(model: string): ClaudeModelName | null {
   return null;
 }
 
-export function resolveModelOption(model?: string, sonnet?: boolean, scenario: ModelScenario = 'execute'): ClaudeModelName {
+export function resolveModelOption(model?: string, sonnet?: boolean, scenario: ModelScenario = 'execute', provider?: import('../types/config.js').HarnessProvider): ClaudeModelName {
   // Check for conflicting flags
   if (model && sonnet) {
     throw new Error('Cannot specify both --model and --sonnet flags');
@@ -122,6 +122,6 @@ export function resolveModelOption(model?: string, sonnet?: boolean, scenario: M
     return validated;
   }
 
-  // Default from config
-  return getModel(scenario);
+  // Default from config (provider-aware)
+  return getModel(scenario, provider);
 }
