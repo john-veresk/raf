@@ -58,7 +58,7 @@ const VALID_COMMIT_FORMAT_KEYS = new Set<string>(['task', 'plan', 'amend', 'pref
 
 const VALID_DISPLAY_KEYS = new Set<string>(['showCacheTokens']);
 
-const VALID_MODEL_ENTRY_KEYS = new Set<string>(['model', 'provider', 'reasoningEffort']);
+const VALID_MODEL_ENTRY_KEYS = new Set<string>(['model', 'provider', 'reasoningEffort', 'fast']);
 
 const VALID_REASONING_EFFORTS = new Set<string>(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 
@@ -166,6 +166,12 @@ function validateModelEntry(obj: unknown, prefix: string): void {
   if (entry.reasoningEffort !== undefined) {
     if (typeof entry.reasoningEffort !== 'string' || !VALID_REASONING_EFFORTS.has(entry.reasoningEffort)) {
       throw new ConfigValidationError(`${prefix}.reasoningEffort must be one of: none, minimal, low, medium, high, xhigh, max`);
+    }
+  }
+
+  if (entry.fast !== undefined) {
+    if (typeof entry.fast !== 'boolean') {
+      throw new ConfigValidationError(`${prefix}.fast must be a boolean`);
     }
   }
 }
@@ -289,6 +295,11 @@ function mergeModelEntry(defaultEntry: ModelEntry, override: unknown): ModelEntr
         ? { reasoningEffort: o.reasoningEffort as ModelEntry['reasoningEffort'] }
         : defaultEntry.reasoningEffort !== undefined
           ? { reasoningEffort: defaultEntry.reasoningEffort }
+          : {}),
+      ...(o.fast !== undefined
+        ? { fast: o.fast as boolean }
+        : defaultEntry.fast !== undefined
+          ? { fast: defaultEntry.fast }
           : {}),
     };
   }

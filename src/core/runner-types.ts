@@ -67,6 +67,12 @@ export interface RunnerConfig {
    * Only included when explicitly set.
    */
   reasoningEffort?: string;
+  /**
+   * Enable fast mode for faster output.
+   * Claude CLI: --settings '{"fastMode": true}'
+   * Only included when explicitly set to true.
+   */
+  fast?: boolean;
 }
 
 /**

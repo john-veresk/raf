@@ -37,6 +37,8 @@ export interface ModelEntry {
   provider: HarnessProvider;
   /** Optional reasoning effort hint. Codex accepts: "none", "minimal", "low", "medium", "high", "xhigh" */
   reasoningEffort?: string;
+  /** Enable fast mode for faster output (Claude only). Default: false/omitted. */
+  fast?: boolean;
 }
 
 export interface ModelsConfig {

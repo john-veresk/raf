@@ -846,7 +846,7 @@ async function executeSingleProject(
       }
 
       // Create a runner for this attempt's model
-      const taskRunner = createRunner({ model: modelResolution.entry.model, provider: modelResolution.entry.provider, reasoningEffort: modelResolution.entry.reasoningEffort });
+      const taskRunner = createRunner({ model: modelResolution.entry.model, provider: modelResolution.entry.provider, reasoningEffort: modelResolution.entry.reasoningEffort, fast: modelResolution.entry.fast });
       shutdownHandler.registerClaudeRunner(taskRunner);
 
       if (verbose && isRetry) {

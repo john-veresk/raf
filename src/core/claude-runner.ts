@@ -33,10 +33,12 @@ export class ClaudeRunner implements ICliRunner {
   private killed = false;
   private model: string;
   private reasoningEffort?: string;
+  private fast?: boolean;
 
   constructor(config: RunnerConfig = {}) {
     this.model = config.model ?? getModel('execute').model;
     this.reasoningEffort = config.reasoningEffort;
+    this.fast = config.fast;
   }
 
   /**
@@ -60,6 +62,11 @@ export class ClaudeRunner implements ICliRunner {
       // Add reasoning effort flag when configured
       if (this.reasoningEffort) {
         args.push('--effort', this.reasoningEffort);
+      }
+
+      // Add fast mode when configured
+      if (this.fast) {
+        args.push('--settings', '{"fastMode": true}');
       }
 
       // Add --dangerously-skip-permissions if requested (for --auto mode)
@@ -157,6 +164,11 @@ export class ClaudeRunner implements ICliRunner {
       // Add reasoning effort flag when configured
       if (this.reasoningEffort) {
         args.push('--effort', this.reasoningEffort);
+      }
+
+      // Add fast mode when configured
+      if (this.fast) {
+        args.push('--settings', '{"fastMode": true}');
       }
 
       logger.debug(`Starting session resume picker with model: ${this.model}`);
@@ -293,6 +305,11 @@ export class ClaudeRunner implements ICliRunner {
       // Add reasoning effort flag when configured
       if (this.reasoningEffort) {
         execArgs.push('--effort', this.reasoningEffort);
+      }
+
+      // Add fast mode when configured
+      if (this.fast) {
+        execArgs.push('--settings', '{"fastMode": true}');
       }
 
       execArgs.push(
