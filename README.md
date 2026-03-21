@@ -116,10 +116,9 @@ Example `~/.raf/raf.config.json`:
 
 ```json
 {
-  "provider": "claude",
   "models": {
-    "execute": "sonnet",
-    "nameGeneration": "haiku"
+    "execute": { "model": "sonnet", "provider": "claude" },
+    "nameGeneration": { "model": "haiku", "provider": "claude" }
   },
   "worktree": true,
   "timeout": 45
@@ -130,39 +129,26 @@ Run `raf config` without arguments and ask what's available — the session has 
 
 ## Provider Configuration
 
-RAF supports multiple LLM providers. The default is `claude` (Claude Code CLI). To use OpenAI Codex CLI, set `provider: "codex"` in your config or pass `--provider codex` on the command line.
-
-```bash
-raf plan --provider codex   # Plan using Codex
-raf do --provider codex     # Execute using Codex
-```
-
-### Model spec format
-
-Models can be specified as plain aliases or with a provider prefix (`<provider>/<alias>`):
-
-```bash
-raf do -m opus              # Claude: resolves to claude-opus-4-6
-raf do -m claude/opus       # Same as above, explicit prefix
-raf do -m codex/gpt54       # Codex: resolves to gpt-5.4
-raf do -m codex/gpt-5.4     # Codex: raw model ID
-```
-
-### Codex config
+RAF supports multiple LLM providers per scenario. Each model entry in `models` and `effortMapping` specifies its own `provider`, so you can mix Claude and Codex freely:
 
 ```json
 {
-  "provider": "codex",
-  "codexModels": {
-    "execute": "codex",
-    "plan": "gpt54"
+  "models": {
+    "plan": { "model": "opus", "provider": "claude" },
+    "execute": { "model": "gpt-5.4", "provider": "codex" }
   },
-  "codexEffortMapping": {
-    "low": "spark",
-    "medium": "codex",
-    "high": "gpt54"
+  "effortMapping": {
+    "low": { "model": "sonnet", "provider": "claude" },
+    "high": { "model": "gpt-5.4", "provider": "codex" }
   }
 }
+```
+
+The `--provider` CLI flag overrides the provider for a single invocation:
+
+```bash
+raf plan --provider codex   # Plan using Codex binary (overrides config provider)
+raf do --provider codex     # Execute using Codex binary
 ```
 
 **Codex limitations:**
@@ -249,7 +235,6 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 | `--amend <id>` | Add tasks to existing project |
 | `-y, --auto` | Skip permission prompts (runs in dangerous mode) |
 | `-p, --provider <name>` | LLM provider to use (`claude`, `codex`) |
-| `-m, --model <name>` | Model to use (e.g. `opus`, `codex/gpt54`) |
 
 ### `raf do [project]`
 
@@ -259,8 +244,6 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 | `-f, --force` | Re-run all tasks regardless of status |
 | `-d, --debug` | Save all logs and show debug output |
 | `-p, --provider <name>` | LLM provider to use (`claude`, `codex`) |
-| `-m, --model <name>` | Model to use (e.g. `sonnet`, `codex/gpt54`) |
-| `--sonnet` | Shorthand for `--model sonnet` |
 
 Alias: `raf act`
 

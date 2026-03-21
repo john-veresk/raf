@@ -52,26 +52,26 @@ describe('Plan Command - Auto Flag', () => {
       expect(amendOption).toBeDefined();
     });
 
-    it('should allow --auto with --model', () => {
+    it('should allow --auto with --provider', () => {
       const command = createPlanCommand();
       const options = command.options;
 
       const autoOption = options.find((opt) => opt.long === '--auto');
-      const modelOption = options.find((opt) => opt.long === '--model');
+      const providerOption = options.find((opt) => opt.long === '--provider');
 
       expect(autoOption).toBeDefined();
-      expect(modelOption).toBeDefined();
+      expect(providerOption).toBeDefined();
     });
 
-    it('should allow --auto with --sonnet', () => {
+    it('should not have removed --model or --sonnet flags', () => {
       const command = createPlanCommand();
       const options = command.options;
 
-      const autoOption = options.find((opt) => opt.long === '--auto');
+      const modelOption = options.find((opt) => opt.long === '--model');
       const sonnetOption = options.find((opt) => opt.long === '--sonnet');
 
-      expect(autoOption).toBeDefined();
-      expect(sonnetOption).toBeDefined();
+      expect(modelOption).toBeUndefined();
+      expect(sonnetOption).toBeUndefined();
     });
   });
 

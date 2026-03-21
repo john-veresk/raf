@@ -308,7 +308,8 @@ Respond with ONLY a markdown report in this exact format:
     const claudePath = getClaudePath();
 
     // Use configured model for failure analysis
-    const failureModel = getModel('failureAnalysis');
+    const failureEntry = getModel('failureAnalysis');
+    const failureModel = failureEntry.model;
     const proc = spawn(claudePath, [
       '--model', failureModel,
       '--no-session-persistence',

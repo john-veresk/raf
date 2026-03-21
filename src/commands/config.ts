@@ -400,15 +400,15 @@ async function runConfigSession(initialPrompt?: string): Promise<void> {
 
   // Try to load config, but fall back to defaults if it's broken
   // This allows raf config to be used to fix a broken config file
-  let model: string;
+  let modelEntry: import('../types/config.js').ModelEntry;
   let configError: Error | null = null;
 
   try {
-    model = getModel('config');
+    modelEntry = getModel('config');
   } catch (error) {
     // Config file has errors - fall back to defaults so the session can launch
     configError = error instanceof Error ? error : new Error(String(error));
-    model = DEFAULT_CONFIG.models.config;
+    modelEntry = DEFAULT_CONFIG.models.config;
     // Clear the cached config so subsequent calls don't use the broken cache
     resetConfigCache();
   }
@@ -438,11 +438,11 @@ async function runConfigSession(initialPrompt?: string): Promise<void> {
     ?? 'Show me my current config and help me make changes.';
 
   // Set up runner
-  const claudeRunner = createRunner({ model });
+  const claudeRunner = createRunner({ model: modelEntry.model, provider: modelEntry.provider });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
-  const configModel = getModelShortName(model);
+  const configModel = getModelShortName(modelEntry.model);
   logger.info(`Starting config session with ${configModel}...`);
   logger.newline();
 

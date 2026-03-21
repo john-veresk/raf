@@ -72,12 +72,12 @@ describe('Config Command', () => {
 
   describe('Post-session validation logic', () => {
     it('should accept valid config with model override', () => {
-      const config = { models: { execute: 'sonnet' } };
+      const config = { models: { execute: { model: 'sonnet', provider: 'claude' } } };
       expect(() => validateConfig(config)).not.toThrow();
     });
 
     it('should accept valid config with effortMapping override', () => {
-      const config = { effortMapping: { low: 'sonnet', medium: 'opus' } };
+      const config = { effortMapping: { low: { model: 'sonnet', provider: 'claude' }, medium: { model: 'opus', provider: 'claude' } } };
       expect(() => validateConfig(config)).not.toThrow();
     });
 
@@ -92,12 +92,12 @@ describe('Config Command', () => {
     });
 
     it('should reject config with invalid model name', () => {
-      const config = { models: { execute: 'gpt-4' } };
+      const config = { models: { execute: { model: 'gpt-4', provider: 'codex' } } };
       expect(() => validateConfig(config)).toThrow(ConfigValidationError);
     });
 
     it('should reject config with invalid effortMapping model', () => {
-      const config = { effortMapping: { low: 'gpt-4' } };
+      const config = { effortMapping: { low: { model: 'gpt-4', provider: 'codex' } } };
       expect(() => validateConfig(config)).toThrow(ConfigValidationError);
     });
 
@@ -132,13 +132,13 @@ describe('Config Command', () => {
   describe('Config file round-trip', () => {
     it('should write and read valid config', () => {
       const configPath = path.join(tempDir, 'raf.config.json');
-      const config = { models: { execute: 'sonnet' as const }, timeout: 90 };
+      const config = { models: { execute: { model: 'sonnet', provider: 'claude' } }, timeout: 90 };
 
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
       const content = fs.readFileSync(configPath, 'utf-8');
       const parsed = JSON.parse(content);
 
-      expect(parsed.models.execute).toBe('sonnet');
+      expect(parsed.models.execute).toEqual({ model: 'sonnet', provider: 'claude' });
       expect(parsed.timeout).toBe(90);
       expect(() => validateConfig(parsed)).not.toThrow();
     });
@@ -202,9 +202,9 @@ describe('Config Command', () => {
 
     it('should have valid default fallback values for config scenario', () => {
       // These are the values that runConfigSession uses when config loading fails
-      expect(DEFAULT_CONFIG.models.config).toBe('sonnet');
+      expect(DEFAULT_CONFIG.models.config).toEqual({ model: 'sonnet', provider: 'claude' });
       // effortMapping defaults used for per-task model resolution
-      expect(DEFAULT_CONFIG.effortMapping.medium).toBe('opus');
+      expect(DEFAULT_CONFIG.effortMapping.medium).toEqual({ model: 'opus', provider: 'claude' });
     });
 
     it('should be able to read raw file contents even when config is invalid JSON', () => {
@@ -259,7 +259,7 @@ describe('Config Command', () => {
 
       const config = resolveConfig(configPath);
       expect(config.timeout).toBe(120);
-      expect(config.models.execute).toBe(DEFAULT_CONFIG.models.execute);
+      expect(config.models.execute).toEqual(DEFAULT_CONFIG.models.execute);
 
       // Verify full config has all expected top-level keys
       expect(config).toHaveProperty('models');
@@ -269,10 +269,10 @@ describe('Config Command', () => {
 
     it('should return specific value for dot-notation key', () => {
       const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, JSON.stringify({ models: { plan: 'sonnet' } }, null, 2));
+      fs.writeFileSync(configPath, JSON.stringify({ models: { plan: { model: 'sonnet', provider: 'claude' } } }, null, 2));
 
       const config = resolveConfig(configPath);
-      expect(config.models.plan).toBe('sonnet');
+      expect(config.models.plan).toEqual({ model: 'sonnet', provider: 'claude' });
     });
 
     it('should handle nested keys', () => {
@@ -285,27 +285,19 @@ describe('Config Command', () => {
   });
 
   describe('--set flag', () => {
-    it('should set a string value', () => {
+    it('should set a ModelEntry value', () => {
       const configPath = path.join(tempDir, 'raf.config.json');
 
       // Start with empty config
       expect(fs.existsSync(configPath)).toBe(false);
 
-      // Simulate setting models.plan to sonnet
-      const userConfig: Record<string, unknown> = {};
-      const keys = 'models.plan'.split('.');
-      let current: Record<string, unknown> = userConfig;
-      for (let i = 0; i < keys.length - 1; i++) {
-        const key = keys[i]!;
-        current[key] = {};
-        current = current[key] as Record<string, unknown>;
-      }
-      current[keys[keys.length - 1]!] = 'sonnet';
+      // Simulate setting models.plan to a ModelEntry
+      const userConfig = { models: { plan: { model: 'sonnet', provider: 'claude' } } };
 
       fs.writeFileSync(configPath, JSON.stringify(userConfig, null, 2));
 
       const config = resolveConfig(configPath);
-      expect(config.models.plan).toBe('sonnet');
+      expect(config.models.plan).toEqual({ model: 'sonnet', provider: 'claude' });
     });
 
     it('should set a number value', () => {
@@ -332,21 +324,21 @@ describe('Config Command', () => {
       const configPath = path.join(tempDir, 'raf.config.json');
 
       // Set a non-default value first
-      fs.writeFileSync(configPath, JSON.stringify({ models: { plan: 'sonnet' } }, null, 2));
+      fs.writeFileSync(configPath, JSON.stringify({ models: { plan: { model: 'sonnet', provider: 'claude' } } }, null, 2));
       let config = resolveConfig(configPath);
-      expect(config.models.plan).toBe('sonnet');
+      expect(config.models.plan).toEqual({ model: 'sonnet', provider: 'claude' });
 
       // Now set back to default (opus)
       fs.writeFileSync(configPath, JSON.stringify({}, null, 2));
       config = resolveConfig(configPath);
-      expect(config.models.plan).toBe(DEFAULT_CONFIG.models.plan);
+      expect(config.models.plan).toEqual(DEFAULT_CONFIG.models.plan);
     });
 
     it('should remove empty parent objects after key removal', () => {
       const configPath = path.join(tempDir, 'raf.config.json');
 
       // Start with a models override
-      const userConfig = { models: { plan: 'sonnet' } };
+      const userConfig = { models: { plan: { model: 'sonnet', provider: 'claude' } } };
       fs.writeFileSync(configPath, JSON.stringify(userConfig, null, 2));
 
       // Remove the override (simulating setting to default)
@@ -363,12 +355,12 @@ describe('Config Command', () => {
       const configPath = path.join(tempDir, 'raf.config.json');
 
       // Valid config
-      const validConfig = { models: { execute: 'sonnet' } };
+      const validConfig = { models: { execute: { model: 'sonnet', provider: 'claude' } } };
       fs.writeFileSync(configPath, JSON.stringify(validConfig, null, 2));
       expect(() => validateConfig(validConfig)).not.toThrow();
 
-      // Invalid config
-      const invalidConfig = { models: { execute: 'invalid-model' } };
+      // Invalid config - string instead of ModelEntry
+      const invalidConfig = { models: { execute: 'sonnet' } };
       fs.writeFileSync(configPath, JSON.stringify(invalidConfig, null, 2));
       expect(() => validateConfig(invalidConfig)).toThrow(ConfigValidationError);
     });

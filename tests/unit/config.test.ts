@@ -88,15 +88,41 @@ describe('Config', () => {
       expect(() => validateConfig({})).not.toThrow();
     });
 
-    it('should accept a full valid config', () => {
+    it('should accept a full valid config with model entries', () => {
       const config = {
-        models: { plan: 'opus', execute: 'haiku' },
-        effortMapping: { low: 'sonnet', medium: 'opus', high: 'opus' },
+        models: {
+          plan: { model: 'opus', provider: 'claude' },
+          execute: { model: 'haiku', provider: 'claude' },
+        },
+        effortMapping: {
+          low: { model: 'sonnet', provider: 'claude' },
+          medium: { model: 'opus', provider: 'claude' },
+          high: { model: 'opus', provider: 'claude' },
+        },
         timeout: 30,
         maxRetries: 5,
         autoCommit: false,
         worktree: true,
         commitFormat: { prefix: 'MY', task: '{prefix}[{projectId}] {description}' },
+      };
+      expect(() => validateConfig(config)).not.toThrow();
+    });
+
+    it('should accept mixed-provider model entries', () => {
+      const config = {
+        models: {
+          plan: { model: 'opus', provider: 'claude' },
+          execute: { model: 'gpt-5.4', provider: 'codex' },
+        },
+      };
+      expect(() => validateConfig(config)).not.toThrow();
+    });
+
+    it('should accept model entries with reasoningEffort', () => {
+      const config = {
+        models: {
+          plan: { model: 'opus', provider: 'claude', reasoningEffort: 'high' },
+        },
       };
       expect(() => validateConfig(config)).not.toThrow();
     });
@@ -118,46 +144,78 @@ describe('Config', () => {
     });
 
     it('should reject unknown model keys', () => {
-      expect(() => validateConfig({ models: { unknownScenario: 'opus' } })).toThrow('Unknown config key: models.unknownScenario');
+      expect(() => validateConfig({ models: { unknownScenario: { model: 'opus', provider: 'claude' } } })).toThrow('Unknown config key: models.unknownScenario');
     });
 
     it('should reject unknown effortMapping keys', () => {
-      expect(() => validateConfig({ effortMapping: { unknownLevel: 'haiku' } })).toThrow('Unknown config key: effortMapping.unknownLevel');
+      expect(() => validateConfig({ effortMapping: { unknownLevel: { model: 'haiku', provider: 'claude' } } })).toThrow('Unknown config key: effortMapping.unknownLevel');
     });
 
     it('should reject unknown commitFormat keys', () => {
       expect(() => validateConfig({ commitFormat: { unknownKey: 'val' } })).toThrow('Unknown config key: commitFormat.unknownKey');
     });
 
-    // Valid full model IDs
-    it('should accept full model IDs', () => {
-      expect(() => validateConfig({ models: { plan: 'claude-opus-4-5-20251101' } })).not.toThrow();
-      expect(() => validateConfig({ models: { execute: 'claude-sonnet-4-5-20250929' } })).not.toThrow();
-      expect(() => validateConfig({ models: { failureAnalysis: 'claude-haiku-4-5-20251001' } })).not.toThrow();
+    // Removed legacy keys
+    it('should reject removed provider key with helpful message', () => {
+      expect(() => validateConfig({ provider: 'claude' })).toThrow('Top-level "provider" has been removed');
     });
 
-    it('should accept model IDs without date suffix', () => {
-      expect(() => validateConfig({ models: { plan: 'claude-sonnet-4-5' } })).not.toThrow();
-      expect(() => validateConfig({ models: { plan: 'claude-opus-4' } })).not.toThrow();
+    it('should reject removed codexModels key with helpful message', () => {
+      expect(() => validateConfig({ codexModels: { plan: 'gpt-5.4' } })).toThrow('"codexModels" has been removed');
     });
 
-    // Invalid model values
-    it('should reject invalid model names', () => {
-      expect(() => validateConfig({ models: { plan: 'gpt-4' } })).toThrow('models.plan must be');
+    it('should reject removed codexEffortMapping key with helpful message', () => {
+      expect(() => validateConfig({ codexEffortMapping: { low: 'gpt-5.4' } })).toThrow('"codexEffortMapping" has been removed');
     });
 
-    it('should reject random strings as model names', () => {
-      expect(() => validateConfig({ models: { plan: 'random-string' } })).toThrow('models.plan must be');
-      expect(() => validateConfig({ models: { plan: 'not-a-model' } })).toThrow('models.plan must be');
+    // Model entry validation
+    it('should reject string model values (old schema)', () => {
+      expect(() => validateConfig({ models: { plan: 'opus' } })).toThrow('must be a model entry object');
     });
 
-    it('should reject non-string model values', () => {
-      expect(() => validateConfig({ models: { plan: 123 } })).toThrow('models.plan must be');
+    it('should reject model entries missing model field', () => {
+      expect(() => validateConfig({ models: { plan: { provider: 'claude' } } })).toThrow('models.plan.model is required');
     });
 
-    // Invalid effortMapping values
-    it('should reject invalid effortMapping model names', () => {
-      expect(() => validateConfig({ effortMapping: { low: 'invalid-model' } })).toThrow('effortMapping.low must be a short alias');
+    it('should reject model entries missing provider field', () => {
+      expect(() => validateConfig({ models: { plan: { model: 'opus' } } })).toThrow('models.plan.provider is required');
+    });
+
+    it('should reject invalid model names in model entries', () => {
+      expect(() => validateConfig({ models: { plan: { model: 'invalid', provider: 'claude' } } })).toThrow('models.plan.model must be a valid model name');
+    });
+
+    it('should reject invalid provider in model entries', () => {
+      expect(() => validateConfig({ models: { plan: { model: 'opus', provider: 'openai' } } })).toThrow('models.plan.provider must be one of');
+    });
+
+    it('should reject invalid reasoningEffort in model entries', () => {
+      expect(() => validateConfig({ models: { plan: { model: 'opus', provider: 'claude', reasoningEffort: 'ultra' } } })).toThrow('models.plan.reasoningEffort must be one of');
+    });
+
+    it('should reject unknown keys in model entries', () => {
+      expect(() => validateConfig({ models: { plan: { model: 'opus', provider: 'claude', unknown: true } } })).toThrow('Unknown config key: models.plan.unknown');
+    });
+
+    // Valid full model IDs in entries
+    it('should accept full model IDs in entries', () => {
+      expect(() => validateConfig({ models: { plan: { model: 'claude-opus-4-5-20251101', provider: 'claude' } } })).not.toThrow();
+      expect(() => validateConfig({ models: { execute: { model: 'gpt-5.4', provider: 'codex' } } })).not.toThrow();
+    });
+
+    // effortMapping validation
+    it('should reject string effortMapping values (old schema)', () => {
+      expect(() => validateConfig({ effortMapping: { low: 'sonnet' } })).toThrow('must be a model entry object');
+    });
+
+    it('should accept valid effortMapping model entries', () => {
+      expect(() => validateConfig({
+        effortMapping: {
+          low: { model: 'sonnet', provider: 'claude' },
+          medium: { model: 'opus', provider: 'claude' },
+          high: { model: 'gpt-5.4', provider: 'codex' },
+        },
+      })).not.toThrow();
     });
 
     // Invalid types for nested objects
@@ -242,6 +300,14 @@ describe('Config', () => {
       expect(isValidModelName('claude-opus-4')).toBe(true);
     });
 
+    it('should accept Codex model names', () => {
+      expect(isValidModelName('gpt-5.4')).toBe(true);
+      expect(isValidModelName('gpt-5.3-codex')).toBe(true);
+      expect(isValidModelName('spark')).toBe(true);
+      expect(isValidModelName('codex')).toBe(true);
+      expect(isValidModelName('gpt54')).toBe(true);
+    });
+
     it('should reject invalid strings', () => {
       expect(isValidModelName('gpt-4')).toBe(false);
       expect(isValidModelName('random-string')).toBe(false);
@@ -260,22 +326,27 @@ describe('Config', () => {
 
     it('should deep-merge partial models override', () => {
       const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, JSON.stringify({ models: { plan: 'haiku' } }));
+      fs.writeFileSync(configPath, JSON.stringify({
+        models: { plan: { model: 'haiku', provider: 'claude' } },
+      }));
 
       const config = resolveConfig(configPath);
-      expect(config.models.plan).toBe('haiku');
-      expect(config.models.execute).toBe('opus'); // default preserved
-      expect(config.models.failureAnalysis).toBe('haiku'); // default preserved
+      expect(config.models.plan.model).toBe('haiku');
+      expect(config.models.plan.provider).toBe('claude');
+      expect(config.models.execute.model).toBe('opus'); // default preserved
+      expect(config.models.failureAnalysis.model).toBe('haiku'); // default preserved
     });
 
     it('should deep-merge partial effortMapping override', () => {
       const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, JSON.stringify({ effortMapping: { medium: 'opus' } }));
+      fs.writeFileSync(configPath, JSON.stringify({
+        effortMapping: { medium: { model: 'opus', provider: 'claude' } },
+      }));
 
       const config = resolveConfig(configPath);
-      expect(config.effortMapping.medium).toBe('opus');
-      expect(config.effortMapping.low).toBe('sonnet'); // default preserved
-      expect(config.effortMapping.high).toBe('opus'); // default preserved
+      expect(config.effortMapping.medium.model).toBe('opus');
+      expect(config.effortMapping.low.model).toBe('sonnet'); // default preserved
+      expect(config.effortMapping.high.model).toBe('opus'); // default preserved
     });
 
     it('should deep-merge partial commitFormat override', () => {
@@ -318,21 +389,34 @@ describe('Config', () => {
       expect(() => resolveConfig(configPath)).toThrow(ConfigValidationError);
     });
 
-    it('should deep-merge full model ID override', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, JSON.stringify({ models: { plan: 'claude-opus-4-5-20251101' } }));
-
-      const config = resolveConfig(configPath);
-      expect(config.models.plan).toBe('claude-opus-4-5-20251101');
-      expect(config.models.execute).toBe('opus'); // default preserved
-    });
-
     it('should not mutate DEFAULT_CONFIG', () => {
       const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, JSON.stringify({ models: { plan: 'haiku' } }));
+      fs.writeFileSync(configPath, JSON.stringify({
+        models: { plan: { model: 'haiku', provider: 'claude' } },
+      }));
 
       resolveConfig(configPath);
-      expect(DEFAULT_CONFIG.models.plan).toBe('opus');
+      expect(DEFAULT_CONFIG.models.plan.model).toBe('opus');
+    });
+
+    it('should support Codex model entries in config', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({
+        models: {
+          execute: { model: 'gpt-5.4', provider: 'codex' },
+        },
+        effortMapping: {
+          high: { model: 'gpt-5.4', provider: 'codex' },
+        },
+      }));
+
+      const config = resolveConfig(configPath);
+      expect(config.models.execute.model).toBe('gpt-5.4');
+      expect(config.models.execute.provider).toBe('codex');
+      expect(config.effortMapping.high.model).toBe('gpt-5.4');
+      expect(config.effortMapping.high.provider).toBe('codex');
+      // Claude defaults preserved for unoverridden entries
+      expect(config.models.plan.provider).toBe('claude');
     });
   });
 
@@ -354,21 +438,25 @@ describe('Config', () => {
   });
 
   describe('helper accessors', () => {
-    it('getModel returns correct model for scenario', () => {
+    it('getModel returns correct model entry for scenario', () => {
       const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, JSON.stringify({ models: { plan: 'haiku' } }));
-      // Use resolveConfig directly to avoid cached global config
+      fs.writeFileSync(configPath, JSON.stringify({
+        models: { plan: { model: 'haiku', provider: 'claude' } },
+      }));
       const config = resolveConfig(configPath);
-      expect(config.models.plan).toBe('haiku');
-      expect(config.models.execute).toBe('opus');
+      expect(config.models.plan.model).toBe('haiku');
+      expect(config.models.plan.provider).toBe('claude');
+      expect(config.models.execute.model).toBe('opus');
     });
 
     it('effortMapping resolves correctly from config', () => {
       const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, JSON.stringify({ effortMapping: { high: 'sonnet' } }));
+      fs.writeFileSync(configPath, JSON.stringify({
+        effortMapping: { high: { model: 'sonnet', provider: 'claude' } },
+      }));
       const config = resolveConfig(configPath);
-      expect(config.effortMapping.high).toBe('sonnet');
-      expect(config.effortMapping.low).toBe('sonnet'); // default preserved
+      expect(config.effortMapping.high.model).toBe('sonnet');
+      expect(config.effortMapping.low.model).toBe('sonnet'); // default preserved
     });
 
     it('getCommitFormat returns correct format', () => {
@@ -391,19 +479,19 @@ describe('Config', () => {
   });
 
   describe('DEFAULT_CONFIG', () => {
-    it('should have all model scenarios defined', () => {
-      expect(DEFAULT_CONFIG.models.plan).toBe('opus');
-      expect(DEFAULT_CONFIG.models.execute).toBe('opus');
-      expect(DEFAULT_CONFIG.models.nameGeneration).toBe('sonnet');
-      expect(DEFAULT_CONFIG.models.failureAnalysis).toBe('haiku');
-      expect(DEFAULT_CONFIG.models.prGeneration).toBe('sonnet');
-      expect(DEFAULT_CONFIG.models.config).toBe('sonnet');
+    it('should have all model scenarios defined as ModelEntry objects', () => {
+      expect(DEFAULT_CONFIG.models.plan).toEqual({ model: 'opus', provider: 'claude' });
+      expect(DEFAULT_CONFIG.models.execute).toEqual({ model: 'opus', provider: 'claude' });
+      expect(DEFAULT_CONFIG.models.nameGeneration).toEqual({ model: 'sonnet', provider: 'claude' });
+      expect(DEFAULT_CONFIG.models.failureAnalysis).toEqual({ model: 'haiku', provider: 'claude' });
+      expect(DEFAULT_CONFIG.models.prGeneration).toEqual({ model: 'sonnet', provider: 'claude' });
+      expect(DEFAULT_CONFIG.models.config).toEqual({ model: 'sonnet', provider: 'claude' });
     });
 
-    it('should have all effortMapping levels defined', () => {
-      expect(DEFAULT_CONFIG.effortMapping.low).toBe('sonnet');
-      expect(DEFAULT_CONFIG.effortMapping.medium).toBe('opus');
-      expect(DEFAULT_CONFIG.effortMapping.high).toBe('opus');
+    it('should have all effortMapping levels defined as ModelEntry objects', () => {
+      expect(DEFAULT_CONFIG.effortMapping.low).toEqual({ model: 'sonnet', provider: 'claude' });
+      expect(DEFAULT_CONFIG.effortMapping.medium).toEqual({ model: 'opus', provider: 'claude' });
+      expect(DEFAULT_CONFIG.effortMapping.high).toEqual({ model: 'opus', provider: 'claude' });
     });
 
     it('should have all commit format fields defined', () => {
@@ -411,6 +499,12 @@ describe('Config', () => {
       expect(DEFAULT_CONFIG.commitFormat.plan).toContain('{prefix}');
       expect(DEFAULT_CONFIG.commitFormat.amend).toContain('{prefix}');
       expect(DEFAULT_CONFIG.commitFormat.prefix).toBe('RAF');
+    });
+
+    it('should not have provider, codexModels, or codexEffortMapping fields', () => {
+      expect('provider' in DEFAULT_CONFIG).toBe(false);
+      expect('codexModels' in DEFAULT_CONFIG).toBe(false);
+      expect('codexEffortMapping' in DEFAULT_CONFIG).toBe(false);
     });
   });
 
@@ -474,67 +568,6 @@ describe('Config', () => {
     });
   });
 
-  describe('config integration - defaults match previous hardcoded values', () => {
-    it('should default models to match previous hardcoded values', () => {
-      expect(DEFAULT_CONFIG.models.execute).toBe('opus');
-      expect(DEFAULT_CONFIG.models.plan).toBe('opus');
-      expect(DEFAULT_CONFIG.models.nameGeneration).toBe('sonnet');
-      expect(DEFAULT_CONFIG.models.failureAnalysis).toBe('haiku');
-      expect(DEFAULT_CONFIG.models.prGeneration).toBe('sonnet');
-    });
-
-    it('should default effortMapping to sonnet/opus/opus', () => {
-      expect(DEFAULT_CONFIG.effortMapping.low).toBe('sonnet');
-      expect(DEFAULT_CONFIG.effortMapping.medium).toBe('opus');
-      expect(DEFAULT_CONFIG.effortMapping.high).toBe('opus');
-    });
-
-    it('should default timeout to 60', () => {
-      expect(DEFAULT_CONFIG.timeout).toBe(60);
-    });
-
-    it('should default maxRetries to 3', () => {
-      expect(DEFAULT_CONFIG.maxRetries).toBe(3);
-    });
-
-    it('should default autoCommit to true', () => {
-      expect(DEFAULT_CONFIG.autoCommit).toBe(true);
-    });
-
-    it('should default worktree to false', () => {
-      expect(DEFAULT_CONFIG.worktree).toBe(false);
-    });
-
-    it('should default commit format to match previous hardcoded format', () => {
-      // The task format should produce the same output as the old hardcoded format
-      const result = renderCommitMessage(DEFAULT_CONFIG.commitFormat.task, {
-        prefix: DEFAULT_CONFIG.commitFormat.prefix,
-        projectId: '3',
-        taskId: '01',
-        description: 'Add feature',
-      });
-      expect(result).toBe('RAF[3:01] Add feature');
-    });
-
-    it('should default plan commit format to match previous hardcoded format', () => {
-      const result = renderCommitMessage(DEFAULT_CONFIG.commitFormat.plan, {
-        prefix: DEFAULT_CONFIG.commitFormat.prefix,
-        projectId: '3',
-        projectName: 'my-project',
-      });
-      expect(result).toBe('RAF[3] Plan: my-project');
-    });
-
-    it('should default amend commit format to match previous hardcoded format', () => {
-      const result = renderCommitMessage(DEFAULT_CONFIG.commitFormat.amend, {
-        prefix: DEFAULT_CONFIG.commitFormat.prefix,
-        projectId: '3',
-        projectName: 'my-project',
-      });
-      expect(result).toBe('RAF[3] Amend: my-project');
-    });
-  });
-
   describe('getModelShortName', () => {
     it('should return short aliases as-is', () => {
       expect(getModelShortName('opus')).toBe('opus');
@@ -578,36 +611,66 @@ describe('Config', () => {
     });
   });
 
-  describe('config integration - overrides work', () => {
-    it('should use custom model when configured', () => {
-      const configPath = path.join(tempDir, 'custom-models.json');
-      saveConfig(configPath, { models: { execute: 'sonnet', plan: 'haiku' } });
-      const config = resolveConfig(configPath);
-      expect(config.models.execute).toBe('sonnet');
-      expect(config.models.plan).toBe('haiku');
-      // Others should remain at defaults
-      expect(config.models.nameGeneration).toBe('sonnet');
-      expect(config.models.failureAnalysis).toBe('haiku');
+  describe('getModelTier', () => {
+    it('should return correct tier for short aliases', () => {
+      expect(getModelTier('haiku')).toBe(1);
+      expect(getModelTier('sonnet')).toBe(2);
+      expect(getModelTier('opus')).toBe(3);
     });
 
-    it('should use custom effortMapping when configured', () => {
-      const configPath = path.join(tempDir, 'custom-effort.json');
-      saveConfig(configPath, { effortMapping: { high: 'sonnet' } });
-      const config = resolveConfig(configPath);
-      expect(config.effortMapping.high).toBe('sonnet');
-      // Others should remain at defaults
-      expect(config.effortMapping.low).toBe('sonnet');
-      expect(config.effortMapping.medium).toBe('opus');
+    it('should extract tier from full model IDs', () => {
+      expect(getModelTier('claude-haiku-4-5-20251001')).toBe(1);
+      expect(getModelTier('claude-sonnet-4-5-20250929')).toBe(2);
+      expect(getModelTier('claude-opus-4-6')).toBe(3);
     });
 
-    it('should use custom commit format when configured', () => {
-      const configPath = path.join(tempDir, 'custom-commit.json');
-      saveConfig(configPath, { commitFormat: { prefix: 'CUSTOM', task: '{prefix}-{taskId}: {description}' } });
-      const config = resolveConfig(configPath);
-      expect(config.commitFormat.prefix).toBe('CUSTOM');
-      expect(config.commitFormat.task).toBe('{prefix}-{taskId}: {description}');
-      // plan/amend remain at defaults
-      expect(config.commitFormat.plan).toBe(DEFAULT_CONFIG.commitFormat.plan);
+    it('should return correct tiers for Codex models', () => {
+      expect(getModelTier('spark')).toBe(1);
+      expect(getModelTier('codex')).toBe(1);
+      expect(getModelTier('gpt-5.3-codex')).toBe(1);
+      expect(getModelTier('gpt54')).toBe(2);
+      expect(getModelTier('gpt-5.4')).toBe(2);
+    });
+
+    it('should return highest tier for unknown models', () => {
+      expect(getModelTier('unknown-model')).toBe(3);
+      expect(getModelTier('claude-future-5-0')).toBe(3);
+      expect(getModelTier('')).toBe(3);
+    });
+  });
+
+  describe('applyModelCeiling', () => {
+    it('should return resolved entry when below ceiling', () => {
+      const resolved = { model: 'haiku', provider: 'claude' as const };
+      const ceiling = { model: 'sonnet', provider: 'claude' as const };
+      expect(applyModelCeiling(resolved, ceiling)).toEqual(resolved);
+    });
+
+    it('should return ceiling entry when above ceiling', () => {
+      const resolved = { model: 'opus', provider: 'claude' as const };
+      const ceiling = { model: 'sonnet', provider: 'claude' as const };
+      expect(applyModelCeiling(resolved, ceiling)).toEqual(ceiling);
+    });
+
+    it('should return resolved entry when at ceiling', () => {
+      const resolved = { model: 'sonnet', provider: 'claude' as const };
+      const ceiling = { model: 'sonnet', provider: 'claude' as const };
+      expect(applyModelCeiling(resolved, ceiling)).toEqual(resolved);
+    });
+
+    it('should work with full model IDs', () => {
+      const resolved = { model: 'claude-opus-4-6', provider: 'claude' as const };
+      const ceiling = { model: 'sonnet', provider: 'claude' as const };
+      expect(applyModelCeiling(resolved, ceiling)).toEqual(ceiling);
+    });
+  });
+
+  describe('resolveEffortToModel', () => {
+    it('should resolve effort levels to default model entries', () => {
+      const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
+      expect(config.effortMapping.low).toEqual({ model: 'sonnet', provider: 'claude' });
+      expect(config.effortMapping.medium).toEqual({ model: 'opus', provider: 'claude' });
+      expect(config.effortMapping.high).toEqual({ model: 'opus', provider: 'claude' });
     });
   });
 
@@ -662,94 +725,37 @@ describe('Config', () => {
     });
   });
 
-  describe('getModelTier', () => {
-    it('should return correct tier for short aliases', () => {
-      expect(getModelTier('haiku')).toBe(1);
-      expect(getModelTier('sonnet')).toBe(2);
-      expect(getModelTier('opus')).toBe(3);
-    });
-
-    it('should extract tier from full model IDs', () => {
-      expect(getModelTier('claude-haiku-4-5-20251001')).toBe(1);
-      expect(getModelTier('claude-sonnet-4-5-20250929')).toBe(2);
-      expect(getModelTier('claude-opus-4-6')).toBe(3);
-    });
-
-    it('should return highest tier for unknown models', () => {
-      expect(getModelTier('unknown-model')).toBe(3);
-      expect(getModelTier('claude-future-5-0')).toBe(3);
-      expect(getModelTier('')).toBe(3);
-    });
-  });
-
-  describe('applyModelCeiling', () => {
-    it('should return resolved model when below ceiling', () => {
-      expect(applyModelCeiling('haiku', 'sonnet')).toBe('haiku');
-      expect(applyModelCeiling('haiku', 'opus')).toBe('haiku');
-      expect(applyModelCeiling('sonnet', 'opus')).toBe('sonnet');
-    });
-
-    it('should return ceiling model when above ceiling', () => {
-      expect(applyModelCeiling('opus', 'sonnet')).toBe('sonnet');
-      expect(applyModelCeiling('opus', 'haiku')).toBe('haiku');
-      expect(applyModelCeiling('sonnet', 'haiku')).toBe('haiku');
-    });
-
-    it('should return resolved model when at ceiling', () => {
-      expect(applyModelCeiling('sonnet', 'sonnet')).toBe('sonnet');
-      expect(applyModelCeiling('opus', 'opus')).toBe('opus');
-    });
-
-    it('should work with full model IDs', () => {
-      expect(applyModelCeiling('claude-opus-4-6', 'sonnet')).toBe('sonnet');
-      expect(applyModelCeiling('claude-haiku-4-5-20251001', 'claude-opus-4-6')).toBe('claude-haiku-4-5-20251001');
-    });
-  });
-
-  describe('resolveEffortToModel', () => {
-    it('should resolve effort levels to default models', () => {
-      const configPath = path.join(tempDir, 'default.json');
-      // Use default config
-      const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
-      expect(config.effortMapping.low).toBe('sonnet');
-      expect(config.effortMapping.medium).toBe('opus');
-      expect(config.effortMapping.high).toBe('opus');
-    });
-  });
-
-  describe('validateConfig - effortMapping', () => {
-    it('should accept valid effortMapping config', () => {
-      expect(() => validateConfig({
-        effortMapping: {
-          low: 'sonnet',
-          medium: 'opus',
-          high: 'opus',
+  describe('new schema - provider-aware resolution', () => {
+    it('should allow mixing Claude and Codex entries across scenarios', () => {
+      const configPath = path.join(tempDir, 'mixed.json');
+      fs.writeFileSync(configPath, JSON.stringify({
+        models: {
+          plan: { model: 'opus', provider: 'claude' },
+          execute: { model: 'gpt-5.4', provider: 'codex' },
+          nameGeneration: { model: 'sonnet', provider: 'claude' },
         },
-      })).not.toThrow();
+      }));
+
+      const config = resolveConfig(configPath);
+      expect(config.models.plan.provider).toBe('claude');
+      expect(config.models.execute.provider).toBe('codex');
+      expect(config.models.nameGeneration.provider).toBe('claude');
     });
 
-    it('should accept partial effortMapping override', () => {
-      expect(() => validateConfig({
-        effortMapping: { high: 'sonnet' },
-      })).not.toThrow();
-    });
+    it('should allow mixing providers in effortMapping', () => {
+      const configPath = path.join(tempDir, 'mixed-effort.json');
+      fs.writeFileSync(configPath, JSON.stringify({
+        effortMapping: {
+          low: { model: 'sonnet', provider: 'claude' },
+          high: { model: 'gpt-5.4', provider: 'codex' },
+        },
+      }));
 
-    it('should accept full model IDs in effortMapping', () => {
-      expect(() => validateConfig({
-        effortMapping: { low: 'claude-haiku-4-5-20251001' },
-      })).not.toThrow();
-    });
-
-    it('should reject invalid model names in effortMapping', () => {
-      expect(() => validateConfig({
-        effortMapping: { low: 'gpt-4' },
-      })).toThrow('effortMapping.low must be a short alias');
-    });
-
-    it('should reject unknown keys in effortMapping', () => {
-      expect(() => validateConfig({
-        effortMapping: { extra: 'haiku' },
-      })).toThrow('Unknown config key: effortMapping.extra');
+      const config = resolveConfig(configPath);
+      expect(config.effortMapping.low.provider).toBe('claude');
+      expect(config.effortMapping.high.provider).toBe('codex');
+      // Medium preserved from defaults
+      expect(config.effortMapping.medium.provider).toBe('claude');
     });
   });
 });

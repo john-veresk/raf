@@ -279,7 +279,7 @@ Respond with ONLY the PR body in this exact format (no extra text, no code fence
 [1-3 bullet points describing how to verify these changes work correctly]`;
 
   try {
-    const prModel = getModelShortName(getModel('prGeneration'));
+    const prModel = getModelShortName(getModel('prGeneration').model);
     logger.info(`Generating PR with ${prModel}...`);
     const body = await callClaudeForPrBody(prompt, timeoutMs);
     return body;
@@ -365,7 +365,7 @@ async function callClaudeForPrBody(prompt: string, timeoutMs: number): Promise<s
     let output = '';
     let stderr = '';
 
-    const prModel = getModel('prGeneration');
+    const prModel = getModel('prGeneration').model;
     const proc = spawn(claudePath, [
       '--model', prModel,
       '--no-session-persistence',

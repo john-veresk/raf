@@ -13,6 +13,7 @@ import {
   ClaudeModelName,
   TaskEffortLevel,
   ModelScenario,
+  ModelEntry,
   CommitFormatType,
   DisplayConfig,
   EffortMappingConfig,
@@ -36,10 +37,17 @@ export function getClaudeSettingsPath(): string {
 // ---- Validation ----
 
 const VALID_TOP_LEVEL_KEYS = new Set<string>([
-  'provider', 'models', 'effortMapping', 'codexModels', 'codexEffortMapping',
+  'models', 'effortMapping',
   'timeout', 'maxRetries', 'autoCommit',
   'worktree', 'syncMainBranch', 'commitFormat', 'display',
 ]);
+
+/** Keys that were removed in the schema migration. Rejected with a helpful error. */
+const REMOVED_KEYS: Record<string, string> = {
+  provider: 'Top-level "provider" has been removed. Set provider per-entry in "models" and "effortMapping" instead.',
+  codexModels: '"codexModels" has been removed. Use "models" with provider-aware entries (e.g. { "model": "gpt-5.4", "provider": "codex" }) instead.',
+  codexEffortMapping: '"codexEffortMapping" has been removed. Use "effortMapping" with provider-aware entries instead.',
+};
 
 const VALID_MODEL_KEYS = new Set<string>([
   'plan', 'execute', 'nameGeneration', 'failureAnalysis', 'prGeneration', 'config',
@@ -50,6 +58,10 @@ const VALID_EFFORT_MAPPING_KEYS = new Set<string>(['low', 'medium', 'high']);
 const VALID_COMMIT_FORMAT_KEYS = new Set<string>(['task', 'plan', 'amend', 'prefix']);
 
 const VALID_DISPLAY_KEYS = new Set<string>(['showCacheTokens']);
+
+const VALID_MODEL_ENTRY_KEYS = new Set<string>(['model', 'provider', 'reasoningEffort']);
+
+const VALID_REASONING_EFFORTS = new Set<string>(['low', 'medium', 'high']);
 
 export class ConfigValidationError extends Error {
   constructor(message: string) {
@@ -126,20 +138,54 @@ export function parseModelSpec(modelSpec: string): { provider: HarnessProvider; 
   return { provider: 'claude', model: modelSpec };
 }
 
+/**
+ * Validate a model entry object: { model, provider, reasoningEffort? }
+ */
+function validateModelEntry(obj: unknown, prefix: string): void {
+  if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
+    throw new ConfigValidationError(`${prefix} must be a model entry object (e.g. { "model": "opus", "provider": "claude" })`);
+  }
+  const entry = obj as Record<string, unknown>;
+  checkUnknownKeys(entry, VALID_MODEL_ENTRY_KEYS, prefix);
+
+  if (entry.model === undefined) {
+    throw new ConfigValidationError(`${prefix}.model is required`);
+  }
+  if (typeof entry.model !== 'string' || !isValidModelName(entry.model)) {
+    throw new ConfigValidationError(
+      `${prefix}.model must be a valid model name (e.g. opus, sonnet, gpt-5.4, claude-opus-4-6)`
+    );
+  }
+
+  if (entry.provider === undefined) {
+    throw new ConfigValidationError(`${prefix}.provider is required`);
+  }
+  if (typeof entry.provider !== 'string' || !(VALID_HARNESS_PROVIDERS as readonly string[]).includes(entry.provider)) {
+    throw new ConfigValidationError(`${prefix}.provider must be one of: ${VALID_HARNESS_PROVIDERS.join(', ')}`);
+  }
+
+  if (entry.reasoningEffort !== undefined) {
+    if (typeof entry.reasoningEffort !== 'string' || !VALID_REASONING_EFFORTS.has(entry.reasoningEffort)) {
+      throw new ConfigValidationError(`${prefix}.reasoningEffort must be one of: low, medium, high`);
+    }
+  }
+}
+
 export function validateConfig(config: unknown): UserConfig {
   if (config === null || typeof config !== 'object' || Array.isArray(config)) {
     throw new ConfigValidationError('Config must be a JSON object');
   }
 
   const obj = config as Record<string, unknown>;
-  checkUnknownKeys(obj, VALID_TOP_LEVEL_KEYS, '');
 
-  // provider
-  if (obj.provider !== undefined) {
-    if (typeof obj.provider !== 'string' || !(VALID_HARNESS_PROVIDERS as readonly string[]).includes(obj.provider)) {
-      throw new ConfigValidationError(`provider must be one of: ${VALID_HARNESS_PROVIDERS.join(', ')}`);
+  // Check for removed keys first (helpful error messages)
+  for (const [key, message] of Object.entries(REMOVED_KEYS)) {
+    if (key in obj) {
+      throw new ConfigValidationError(message);
     }
   }
+
+  checkUnknownKeys(obj, VALID_TOP_LEVEL_KEYS, '');
 
   // models
   if (obj.models !== undefined) {
@@ -149,11 +195,7 @@ export function validateConfig(config: unknown): UserConfig {
     const models = obj.models as Record<string, unknown>;
     checkUnknownKeys(models, VALID_MODEL_KEYS, 'models');
     for (const [key, val] of Object.entries(models)) {
-      if (typeof val !== 'string' || !isValidModelName(val)) {
-        throw new ConfigValidationError(
-          `models.${key} must be a short alias (${VALID_MODEL_ALIASES.join(', ')}) or a full model ID (e.g., claude-sonnet-4-5-20250929)`
-        );
-      }
+      validateModelEntry(val, `models.${key}`);
     }
   }
 
@@ -165,43 +207,7 @@ export function validateConfig(config: unknown): UserConfig {
     const effortMapping = obj.effortMapping as Record<string, unknown>;
     checkUnknownKeys(effortMapping, VALID_EFFORT_MAPPING_KEYS, 'effortMapping');
     for (const [key, val] of Object.entries(effortMapping)) {
-      if (typeof val !== 'string' || !isValidModelName(val)) {
-        throw new ConfigValidationError(
-          `effortMapping.${key} must be a short alias (${VALID_MODEL_ALIASES.join(', ')}) or a full model ID (e.g., claude-sonnet-4-5-20250929)`
-        );
-      }
-    }
-  }
-
-  // codexModels
-  if (obj.codexModels !== undefined) {
-    if (typeof obj.codexModels !== 'object' || obj.codexModels === null || Array.isArray(obj.codexModels)) {
-      throw new ConfigValidationError('codexModels must be an object');
-    }
-    const codexModels = obj.codexModels as Record<string, unknown>;
-    checkUnknownKeys(codexModels, VALID_MODEL_KEYS, 'codexModels');
-    for (const [key, val] of Object.entries(codexModels)) {
-      if (typeof val !== 'string' || !isValidModelName(val)) {
-        throw new ConfigValidationError(
-          `codexModels.${key} must be a valid model name (e.g., gpt-5.4, gpt-5.3-codex)`
-        );
-      }
-    }
-  }
-
-  // codexEffortMapping
-  if (obj.codexEffortMapping !== undefined) {
-    if (typeof obj.codexEffortMapping !== 'object' || obj.codexEffortMapping === null || Array.isArray(obj.codexEffortMapping)) {
-      throw new ConfigValidationError('codexEffortMapping must be an object');
-    }
-    const codexEffortMapping = obj.codexEffortMapping as Record<string, unknown>;
-    checkUnknownKeys(codexEffortMapping, VALID_EFFORT_MAPPING_KEYS, 'codexEffortMapping');
-    for (const [key, val] of Object.entries(codexEffortMapping)) {
-      if (typeof val !== 'string' || !isValidModelName(val)) {
-        throw new ConfigValidationError(
-          `codexEffortMapping.${key} must be a valid model name (e.g., gpt-5.4, gpt-5.3-codex)`
-        );
-      }
+      validateModelEntry(val, `effortMapping.${key}`);
     }
   }
 
@@ -273,21 +279,44 @@ export function validateConfig(config: unknown): UserConfig {
 
 // ---- Deep merge ----
 
+/** Deep-merge a single model entry: user override replaces the default entirely. */
+function mergeModelEntry(defaultEntry: ModelEntry, override: unknown): ModelEntry {
+  if (override && typeof override === 'object' && !Array.isArray(override)) {
+    const o = override as Record<string, unknown>;
+    return {
+      model: typeof o.model === 'string' ? o.model : defaultEntry.model,
+      provider: typeof o.provider === 'string' ? (o.provider as HarnessProvider) : defaultEntry.provider,
+      ...(o.reasoningEffort !== undefined
+        ? { reasoningEffort: o.reasoningEffort as ModelEntry['reasoningEffort'] }
+        : defaultEntry.reasoningEffort !== undefined
+          ? { reasoningEffort: defaultEntry.reasoningEffort }
+          : {}),
+    };
+  }
+  return defaultEntry;
+}
+
 function deepMerge(defaults: RafConfig, overrides: UserConfig): RafConfig {
   const result = { ...defaults };
 
-  if (overrides.provider !== undefined) result.provider = overrides.provider;
   if (overrides.models) {
-    result.models = { ...defaults.models, ...overrides.models };
+    const m = overrides.models as Record<string, unknown>;
+    result.models = {
+      plan: m.plan ? mergeModelEntry(defaults.models.plan, m.plan) : { ...defaults.models.plan },
+      execute: m.execute ? mergeModelEntry(defaults.models.execute, m.execute) : { ...defaults.models.execute },
+      nameGeneration: m.nameGeneration ? mergeModelEntry(defaults.models.nameGeneration, m.nameGeneration) : { ...defaults.models.nameGeneration },
+      failureAnalysis: m.failureAnalysis ? mergeModelEntry(defaults.models.failureAnalysis, m.failureAnalysis) : { ...defaults.models.failureAnalysis },
+      prGeneration: m.prGeneration ? mergeModelEntry(defaults.models.prGeneration, m.prGeneration) : { ...defaults.models.prGeneration },
+      config: m.config ? mergeModelEntry(defaults.models.config, m.config) : { ...defaults.models.config },
+    };
   }
   if (overrides.effortMapping) {
-    result.effortMapping = { ...defaults.effortMapping, ...overrides.effortMapping };
-  }
-  if (overrides.codexModels) {
-    result.codexModels = { ...defaults.codexModels, ...overrides.codexModels };
-  }
-  if (overrides.codexEffortMapping) {
-    result.codexEffortMapping = { ...defaults.codexEffortMapping, ...overrides.codexEffortMapping };
+    const e = overrides.effortMapping as Record<string, unknown>;
+    result.effortMapping = {
+      low: e.low ? mergeModelEntry(defaults.effortMapping.low, e.low) : { ...defaults.effortMapping.low },
+      medium: e.medium ? mergeModelEntry(defaults.effortMapping.medium, e.medium) : { ...defaults.effortMapping.medium },
+      high: e.high ? mergeModelEntry(defaults.effortMapping.high, e.high) : { ...defaults.effortMapping.high },
+    };
   }
   if (overrides.commitFormat) {
     result.commitFormat = { ...defaults.commitFormat, ...overrides.commitFormat };
@@ -316,10 +345,19 @@ export function resolveConfig(configPath?: string): RafConfig {
   if (!fs.existsSync(filePath)) {
     return {
       ...DEFAULT_CONFIG,
-      models: { ...DEFAULT_CONFIG.models },
-      effortMapping: { ...DEFAULT_CONFIG.effortMapping },
-      codexModels: { ...DEFAULT_CONFIG.codexModels },
-      codexEffortMapping: { ...DEFAULT_CONFIG.codexEffortMapping },
+      models: {
+        plan: { ...DEFAULT_CONFIG.models.plan },
+        execute: { ...DEFAULT_CONFIG.models.execute },
+        nameGeneration: { ...DEFAULT_CONFIG.models.nameGeneration },
+        failureAnalysis: { ...DEFAULT_CONFIG.models.failureAnalysis },
+        prGeneration: { ...DEFAULT_CONFIG.models.prGeneration },
+        config: { ...DEFAULT_CONFIG.models.config },
+      },
+      effortMapping: {
+        low: { ...DEFAULT_CONFIG.effortMapping.low },
+        medium: { ...DEFAULT_CONFIG.effortMapping.medium },
+        high: { ...DEFAULT_CONFIG.effortMapping.high },
+      },
       commitFormat: { ...DEFAULT_CONFIG.commitFormat },
       display: { ...DEFAULT_CONFIG.display },
     };
@@ -365,37 +403,44 @@ export function resetConfigCache(): void {
   _cachedConfig = null;
 }
 
-export function getModel(scenario: ModelScenario, provider?: HarnessProvider): ClaudeModelName {
+/**
+ * Get the model entry for a scenario.
+ * When providerOverride is given, the returned entry's provider is replaced.
+ */
+export function getModel(scenario: ModelScenario, providerOverride?: HarnessProvider): ModelEntry {
   const config = getResolvedConfig();
-  const effectiveProvider = provider ?? config.provider;
-  if (effectiveProvider === 'codex') {
-    return config.codexModels[scenario];
+  const entry = config.models[scenario];
+  if (providerOverride) {
+    return { ...entry, provider: providerOverride };
   }
-  return config.models[scenario];
+  return entry;
 }
 
 /**
  * Get the full effort mapping config.
  */
-export function getEffortMapping(provider?: HarnessProvider): EffortMappingConfig {
+export function getEffortMapping(providerOverride?: HarnessProvider): EffortMappingConfig {
   const config = getResolvedConfig();
-  const effectiveProvider = provider ?? config.provider;
-  if (effectiveProvider === 'codex') {
-    return config.codexEffortMapping;
+  if (providerOverride) {
+    return {
+      low: { ...config.effortMapping.low, provider: providerOverride },
+      medium: { ...config.effortMapping.medium, provider: providerOverride },
+      high: { ...config.effortMapping.high, provider: providerOverride },
+    };
   }
   return config.effortMapping;
 }
 
 /**
- * Resolve a task effort level to a model name using the effort mapping config.
+ * Resolve a task effort level to a model entry using the effort mapping config.
  */
-export function resolveEffortToModel(effort: TaskEffortLevel, provider?: HarnessProvider): ClaudeModelName {
+export function resolveEffortToModel(effort: TaskEffortLevel, providerOverride?: HarnessProvider): ModelEntry {
   const config = getResolvedConfig();
-  const effectiveProvider = provider ?? config.provider;
-  if (effectiveProvider === 'codex') {
-    return config.codexEffortMapping[effort];
+  const entry = config.effortMapping[effort];
+  if (providerOverride) {
+    return { ...entry, provider: providerOverride };
   }
-  return config.effortMapping[effort];
+  return entry;
 }
 
 /**
@@ -450,19 +495,20 @@ export function getModelTier(modelName: string): number {
 }
 
 /**
- * Apply ceiling to a model based on the configured models.execute ceiling.
- * Returns the lower-tier model between the input and the ceiling.
+ * Apply ceiling to a model entry based on the configured models.execute ceiling.
+ * Returns the lower-tier entry between the input and the ceiling.
+ * When the input exceeds the ceiling, the ceiling entry is returned (including its provider).
  */
-export function applyModelCeiling(resolvedModel: string, ceiling?: string): string {
-  const ceilingModel = ceiling ?? getModel('execute');
-  const resolvedTier = getModelTier(resolvedModel);
-  const ceilingTier = getModelTier(ceilingModel);
+export function applyModelCeiling(resolved: ModelEntry, ceiling?: ModelEntry): ModelEntry {
+  const ceilingEntry = ceiling ?? getModel('execute');
+  const resolvedTier = getModelTier(resolved.model);
+  const ceilingTier = getModelTier(ceilingEntry.model);
 
   // If resolved model is above ceiling, use ceiling instead
   if (resolvedTier > ceilingTier) {
-    return ceilingModel;
+    return ceilingEntry;
   }
-  return resolvedModel;
+  return resolved;
 }
 
 export function getCommitFormat(type: CommitFormatType): string {

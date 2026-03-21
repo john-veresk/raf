@@ -2,7 +2,6 @@ import {
   validateProjectName,
   sanitizeProjectName,
   validateModelName,
-  resolveModelOption,
 } from '../../src/utils/validation.js';
 
 describe('Validation', () => {
@@ -67,6 +66,11 @@ describe('Validation', () => {
       expect(validateModelName('OPUS')).toBe('opus');
     });
 
+    it('should accept Codex model names', () => {
+      expect(validateModelName('gpt-5.4')).toBe('gpt-5.4');
+      expect(validateModelName('gpt54')).toBe('gpt54');
+    });
+
     it('should reject invalid model names', () => {
       expect(validateModelName('gpt4')).toBeNull();
       expect(validateModelName('claude')).toBeNull();
@@ -75,78 +79,10 @@ describe('Validation', () => {
     });
   });
 
-  describe('resolveModelOption', () => {
-    it('should return a valid model as default', () => {
-      // Default comes from config, could be short alias or full model ID
-      const result = resolveModelOption();
-      expect(result).toMatch(/^(opus|sonnet|haiku|claude-(opus|sonnet|haiku)-.+)$/);
-      expect(resolveModelOption(undefined, undefined)).toBe(result);
-      expect(resolveModelOption(undefined, false)).toBe(result);
-    });
-
-    it('should use --model flag when provided', () => {
-      expect(resolveModelOption('sonnet')).toBe('sonnet');
-      expect(resolveModelOption('haiku')).toBe('haiku');
-      expect(resolveModelOption('opus')).toBe('opus');
-    });
-
-    it('should normalize model name to lowercase', () => {
-      expect(resolveModelOption('SONNET')).toBe('sonnet');
-      expect(resolveModelOption('Haiku')).toBe('haiku');
-    });
-
-    it('should use --sonnet shorthand', () => {
-      expect(resolveModelOption(undefined, true)).toBe('sonnet');
-    });
-
-    it('should throw error for conflicting flags', () => {
-      expect(() => resolveModelOption('haiku', true)).toThrow(
-        'Cannot specify both --model and --sonnet flags'
-      );
-      expect(() => resolveModelOption('opus', true)).toThrow(
-        'Cannot specify both --model and --sonnet flags'
-      );
-    });
-
-    it('should throw error for invalid model name', () => {
-      expect(() => resolveModelOption('gpt4')).toThrow(
-        'Invalid model name: "gpt4". Valid options: sonnet, haiku, opus'
-      );
-      expect(() => resolveModelOption('invalid')).toThrow(
-        'Invalid model name: "invalid". Valid options: sonnet, haiku, opus'
-      );
-    });
-
-    it('should use codex defaults when provider is codex', () => {
-      // Plan scenario with codex provider should return a codex model, not opus
-      const planModel = resolveModelOption(undefined, undefined, 'plan', 'codex');
-      expect(planModel).toBe('gpt-5.4');
-
-      // Execute scenario with codex provider
-      const executeModel = resolveModelOption(undefined, undefined, 'execute', 'codex');
-      expect(executeModel).toBe('gpt-5.4');
-
-      // Failure analysis with codex provider
-      const failureModel = resolveModelOption(undefined, undefined, 'failureAnalysis', 'codex');
-      expect(failureModel).toBe('gpt-5.4');
-    });
-
-    it('should use claude defaults when provider is claude or undefined', () => {
-      const planModel = resolveModelOption(undefined, undefined, 'plan', 'claude');
-      expect(planModel).toBe('opus');
-
-      const defaultModel = resolveModelOption(undefined, undefined, 'plan');
-      expect(defaultModel).toBe('opus');
-    });
-
-    it('should not resolve codex provider to opus', () => {
-      // Regression: --provider codex must never resolve to opus
-      const scenarios = ['plan', 'execute', 'nameGeneration', 'failureAnalysis', 'prGeneration', 'config'] as const;
-      for (const scenario of scenarios) {
-        const model = resolveModelOption(undefined, undefined, scenario, 'codex');
-        expect(model).not.toBe('opus');
-        expect(model).not.toMatch(/opus/);
-      }
+  describe('resolveModelOption removed', () => {
+    it('should not be exported from validation module', async () => {
+      const validationModule = await import('../../src/utils/validation.js');
+      expect('resolveModelOption' in validationModule).toBe(false);
     });
   });
 });

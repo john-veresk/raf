@@ -13,10 +13,10 @@ import {
   validateEnvironment,
   reportValidation,
   validateProjectName,
-  resolveModelOption,
 } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
 import { getWorktreeDefault, getModel, getModelShortName, getSyncMainBranch } from '../utils/config.js';
+import type { HarnessProvider, ModelEntry } from '../types/config.js';
 import { generateProjectNames } from '../utils/name-generator.js';
 import { pickProjectName } from '../ui/name-picker.js';
 import {
@@ -52,8 +52,6 @@ import {
 
 interface PlanCommandOptions {
   amend?: boolean;
-  model?: string;
-  sonnet?: boolean;
   auto?: boolean;
   worktree?: boolean;
   resume?: string;
@@ -68,28 +66,18 @@ export function createPlanCommand(): Command {
       '-a, --amend',
       'Add tasks to an existing project (requires project identifier as argument)'
     )
-    .option('-m, --model <name>', 'Model to use (sonnet, haiku, opus)')
-    .option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')
     .option('-y, --auto', 'Skip permission prompts for file operations')
     .option('-r, --resume <identifier>', 'Resume a planning session for an existing project')
     .option('-p, --provider <provider>', 'CLI provider to use (claude, codex)')
     .action(async (projectName: string | undefined, options: PlanCommandOptions) => {
-      // Validate and resolve model option
-      const provider = options.provider as import('../types/config.js').HarnessProvider | undefined;
-
-      let model: string;
-      try {
-        model = resolveModelOption(options.model, options.sonnet, 'plan', provider);
-      } catch (error) {
-        logger.error((error as Error).message);
-        process.exit(1);
-      }
+      const provider = options.provider as HarnessProvider | undefined;
+      const modelEntry = getModel('plan', provider);
 
       const autoMode = options.auto ?? false;
       const worktreeMode = options.worktree ?? getWorktreeDefault();
 
       if (options.resume) {
-        await runResumeCommand(options.resume, model, provider);
+        await runResumeCommand(options.resume, modelEntry);
       } else if (options.amend) {
         if (!projectName) {
           logger.error('--amend requires a project identifier');
@@ -97,16 +85,16 @@ export function createPlanCommand(): Command {
           logger.error('   or: raf plan --amend <project>');
           process.exit(1);
         }
-        await runAmendCommand(projectName, model, autoMode, provider);
+        await runAmendCommand(projectName, modelEntry, autoMode);
       } else {
-        await runPlanCommand(projectName, model, autoMode, worktreeMode, provider);
+        await runPlanCommand(projectName, modelEntry, autoMode, worktreeMode);
       }
     });
 
   return command;
 }
 
-async function runPlanCommand(projectName?: string, model?: string, autoMode: boolean = false, worktreeMode: boolean = false, provider?: import('../types/config.js').HarnessProvider): Promise<void> {
+async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, autoMode: boolean = false, worktreeMode: boolean = false): Promise<void> {
   // Validate environment
   const validation = validateEnvironment();
   reportValidation(validation);
@@ -149,7 +137,7 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
       });
 
       if (answer === 'amend') {
-        await runAmendCommand(existingFolder, model, autoMode, provider);
+        await runAmendCommand(existingFolder, modelEntry, autoMode);
         return;
       } else if (answer === 'cancel') {
         logger.info('Aborted.');
@@ -195,9 +183,10 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
   // Get or generate project name
   let finalProjectName = projectName;
   if (!finalProjectName) {
-    const nameModel = getModelShortName(getModel('nameGeneration', provider));
+    const nameEntry = getModel('nameGeneration', modelEntry?.provider);
+    const nameModel = getModelShortName(nameEntry.model);
     logger.info(`Generating project name suggestions with ${nameModel}...`);
-    const suggestedNames = await generateProjectNames(cleanInput, provider);
+    const suggestedNames = await generateProjectNames(cleanInput);
     logger.newline();
 
     if (autoMode) {
@@ -282,7 +271,7 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
   }
 
   // Set up shutdown handler
-  const claudeRunner = createRunner({ model, provider });
+  const claudeRunner = createRunner({ model: modelEntry?.model, provider: modelEntry?.provider });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
@@ -310,8 +299,8 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
   // Run planning session
   logger.info('Starting planning session...');
   logger.info('The planner will interview you about each task.');
-  if (model) {
-    logger.info(`Using model: ${model}`);
+  if (modelEntry) {
+    logger.info(`Using model: ${modelEntry.model} (${modelEntry.provider})`);
   }
   if (autoMode) {
     logger.warn('Auto mode enabled: permission prompts will be skipped.');
@@ -393,7 +382,7 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
   }
 }
 
-async function runAmendCommand(identifier: string, model?: string, autoMode: boolean = false, provider?: import('../types/config.js').HarnessProvider): Promise<void> {
+async function runAmendCommand(identifier: string, modelEntry?: ModelEntry, autoMode: boolean = false): Promise<void> {
   // Validate environment
   const validation = validateEnvironment();
   reportValidation(validation);
@@ -526,15 +515,15 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
   fs.writeFileSync(inputPath, updatedInput);
 
   // Set up shutdown handler
-  const claudeRunner = createRunner({ model, provider });
+  const claudeRunner = createRunner({ model: modelEntry?.model, provider: modelEntry?.provider });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
   // Run amend planning session
   logger.info('Starting amendment session...');
   logger.info('The planner will interview you about each new task.');
-  if (model) {
-    logger.info(`Using model: ${model}`);
+  if (modelEntry) {
+    logger.info(`Using model: ${modelEntry.model} (${modelEntry.provider})`);
   }
   if (autoMode) {
     logger.warn('Auto mode enabled: permission prompts will be skipped.');
@@ -634,7 +623,7 @@ ${taskList}
 `;
 }
 
-async function runResumeCommand(identifier: string, model?: string, provider?: import('../types/config.js').HarnessProvider): Promise<void> {
+async function runResumeCommand(identifier: string, modelEntry?: ModelEntry): Promise<void> {
   // Validate environment
   const validation = validateEnvironment();
   reportValidation(validation);
@@ -698,13 +687,13 @@ async function runResumeCommand(identifier: string, model?: string, provider?: i
   }
 
   logger.info(`Project: ${folderName}`);
-  if (model) {
-    logger.info(`Model: ${model}`);
+  if (modelEntry) {
+    logger.info(`Model: ${modelEntry.model} (${modelEntry.provider})`);
   }
   logger.newline();
 
   // Set up shutdown handler
-  const claudeRunner = createRunner({ model, provider });
+  const claudeRunner = createRunner({ model: modelEntry?.model, provider: modelEntry?.provider });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 

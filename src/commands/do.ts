@@ -8,12 +8,12 @@ import { shutdownHandler } from '../core/shutdown-handler.js';
 import { stashChanges, hasUncommittedChanges, isGitRepo, getHeadCommitHash } from '../core/git.js';
 import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, isRetryableFailure } from '../parsers/output-parser.js';
-import { validatePlansExist, resolveModelOption } from '../utils/validation.js';
+import { validatePlansExist } from '../utils/validation.js';
 import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFromPlanFile, resolveProjectIdentifierWithDetails, getOutcomeFilePath } from '../utils/paths.js';
 import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
-import { getConfig, getModel, getModelShortName, resolveFullModelId, getSyncMainBranch, resolveEffortToModel, applyModelCeiling, getShowCacheTokens } from '../utils/config.js';
+import { getConfig, getModel, getModelShortName, resolveFullModelId, getSyncMainBranch, resolveEffortToModel, applyModelCeiling, getShowCacheTokens, parseModelSpec } from '../utils/config.js';
 import type { PlanFrontmatter } from '../utils/frontmatter.js';
 import { getVersion } from '../utils/version.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
@@ -52,7 +52,7 @@ import {
   rebaseOntoMain,
 } from '../core/worktree.js';
 import { createPullRequest, prPreflight } from '../core/pull-request.js';
-import type { DoCommandOptions } from '../types/config.js';
+import type { DoCommandOptions, HarnessProvider, ModelEntry } from '../types/config.js';
 
 /**
  * Post-execution action chosen by the user before task execution begins.
@@ -66,8 +66,8 @@ export type PostExecutionAction = 'merge' | 'pr' | 'leave';
  * Result of resolving a task's model from frontmatter.
  */
 interface TaskModelResolution {
-  /** The resolved model (after ceiling is applied). */
-  model: string;
+  /** The resolved model entry (after ceiling is applied). */
+  entry: ModelEntry;
   /** Whether a warning should be logged about missing frontmatter. */
   missingFrontmatter: boolean;
   /** Frontmatter parsing warnings to log. */
@@ -84,27 +84,28 @@ interface TaskModelResolution {
  *
  * @param frontmatter - Parsed frontmatter from the plan file
  * @param frontmatterWarnings - Warnings from frontmatter parsing
- * @param ceilingModel - The ceiling model (usually models.execute from config)
+ * @param ceilingEntry - The ceiling model entry (usually models.execute from config)
  * @param isRetry - Whether this is a retry attempt (escalates to ceiling)
+ * @param providerOverride - CLI --provider override
  */
 function resolveTaskModel(
   frontmatter: PlanFrontmatter | undefined,
   frontmatterWarnings: string[] | undefined,
-  ceilingModel: string,
+  ceilingEntry: ModelEntry,
   isRetry: boolean,
-  provider?: import('../types/config.js').HarnessProvider,
+  providerOverride?: HarnessProvider,
 ): TaskModelResolution {
   const warnings = frontmatterWarnings ? [...frontmatterWarnings] : [];
 
   // Retry escalation: always use the ceiling model on retry
   if (isRetry) {
-    return { model: ceilingModel, missingFrontmatter: false, warnings };
+    return { entry: ceilingEntry, missingFrontmatter: false, warnings };
   }
 
   // No frontmatter - fallback to ceiling with warning
   if (!frontmatter) {
     return {
-      model: ceilingModel,
+      entry: ceilingEntry,
       missingFrontmatter: true,
       warnings,
     };
@@ -112,20 +113,25 @@ function resolveTaskModel(
 
   // Explicit model in frontmatter - apply ceiling
   if (frontmatter.model) {
-    const model = applyModelCeiling(frontmatter.model, ceilingModel);
-    return { model, missingFrontmatter: false, warnings };
+    const parsed = parseModelSpec(frontmatter.model);
+    const fmEntry: ModelEntry = {
+      model: parsed.model,
+      provider: providerOverride ?? parsed.provider,
+    };
+    const result = applyModelCeiling(fmEntry, ceilingEntry);
+    return { entry: result, missingFrontmatter: false, warnings };
   }
 
   // Effort-based resolution - apply ceiling
   if (frontmatter.effort) {
-    const mappedModel = resolveEffortToModel(frontmatter.effort, provider);
-    const model = applyModelCeiling(mappedModel, ceilingModel);
-    return { model, missingFrontmatter: false, warnings };
+    const mappedEntry = resolveEffortToModel(frontmatter.effort, providerOverride);
+    const result = applyModelCeiling(mappedEntry, ceilingEntry);
+    return { entry: result, missingFrontmatter: false, warnings };
   }
 
   // Frontmatter present but no effort or model - fallback to ceiling with warning
   return {
-    model: ceilingModel,
+    entry: ceilingEntry,
     missingFrontmatter: true,
     warnings,
   };
@@ -195,8 +201,6 @@ export function createDoCommand(): Command {
     .option('-v, --verbose', 'Show full LLM output')
     .option('-d, --debug', 'Save all logs and show debug output')
     .option('-f, --force', 'Re-run all tasks regardless of status')
-    .option('-m, --model <name>', 'Model to use (sonnet, haiku, opus)')
-    .option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')
     .option('-p, --provider <provider>', 'CLI provider to use (claude, codex)')
     .action(async (project: string | undefined, options: DoCommandOptions) => {
       await runDoCommand(project, options);
@@ -208,15 +212,8 @@ export function createDoCommand(): Command {
 async function runDoCommand(projectIdentifierArg: string | undefined, options: DoCommandOptions): Promise<void> {
   const rafDir = getRafDir();
   let projectIdentifier = projectIdentifierArg;
-  // Validate and resolve model option (provider-aware)
-  const provider = options.provider as import('../types/config.js').HarnessProvider | undefined;
-  let model: string;
-  try {
-    model = resolveModelOption(options.model as string | undefined, options.sonnet, 'execute', provider);
-  } catch (error) {
-    logger.error((error as Error).message);
-    process.exit(1);
-  }
+  const provider = options.provider as HarnessProvider | undefined;
+  const executeEntry = getModel('execute', provider);
 
   // Variables for worktree context (derived from where the project is found)
   let worktreeRoot: string | undefined;
@@ -399,8 +396,8 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
         force,
         maxRetries,
         autoCommit,
-        model,
-        provider: options.provider,
+        executeEntry,
+        providerOverride: provider,
         worktreeCwd: worktreeRoot,
       }
     );
@@ -559,9 +556,10 @@ interface SingleProjectOptions {
   force: boolean;
   maxRetries: number;
   autoCommit: boolean;
-  model: string;
-  /** CLI provider to use (claude, codex). */
-  provider?: import('../types/config.js').HarnessProvider;
+  /** The resolved execute model entry (acts as ceiling for per-task resolution). */
+  executeEntry: ModelEntry;
+  /** CLI --provider override. */
+  providerOverride?: HarnessProvider;
   /** Worktree root directory. When set, the runner uses cwd in the worktree. */
   worktreeCwd?: string;
 }
@@ -571,7 +569,7 @@ async function executeSingleProject(
   projectName: string,
   options: SingleProjectOptions
 ): Promise<ProjectExecutionResult> {
-  const { timeout, verbose, debug, force, maxRetries, autoCommit, model, provider, worktreeCwd } = options;
+  const { timeout, verbose, debug, force, maxRetries, autoCommit, executeEntry, providerOverride, worktreeCwd } = options;
 
   if (!validatePlansExist(projectPath)) {
     return {
@@ -615,8 +613,8 @@ async function executeSingleProject(
   const projectManager = new ProjectManager();
   shutdownHandler.init();
 
-  // The ceiling model for all tasks (can be overridden per-task, subject to this ceiling)
-  const ceilingModel = model;
+  // The ceiling model entry for all tasks (can be overridden per-task, subject to this ceiling)
+  const ceilingEntry = executeEntry;
 
   // Initialize token tracker for usage reporting
   const tokenTracker = new TokenTracker();
@@ -629,8 +627,8 @@ async function executeSingleProject(
   const projectStartTime = Date.now();
 
   // Resolve and display version + ceiling model info (before any tasks run)
-  const fullCeilingModelId = resolveFullModelId(ceilingModel);
-  logger.dim(`RAF v${getVersion()} | Ceiling: ${fullCeilingModelId}`);
+  const fullCeilingModelId = resolveFullModelId(ceilingEntry.model);
+  logger.dim(`RAF v${getVersion()} | Ceiling: ${fullCeilingModelId} (${ceilingEntry.provider})`);
 
   if (verbose) {
     logger.info(`Executing project: ${projectName}`);
@@ -842,13 +840,13 @@ async function executeSingleProject(
       const modelResolution = resolveTaskModel(
         task.frontmatter,
         undefined, // warnings already logged above
-        ceilingModel,
+        ceilingEntry,
         isRetry,
-        provider,
+        providerOverride,
       );
 
       // Update current model for timer callback display
-      currentModel = modelResolution.model;
+      currentModel = modelResolution.entry.model;
 
       // Log missing frontmatter warning on first attempt only
       if (!isRetry && modelResolution.missingFrontmatter) {
@@ -856,14 +854,14 @@ async function executeSingleProject(
       }
 
       // Create a runner for this attempt's model
-      const taskRunner = createRunner({ model: modelResolution.model, provider });
+      const taskRunner = createRunner({ model: modelResolution.entry.model, provider: modelResolution.entry.provider });
       shutdownHandler.registerClaudeRunner(taskRunner);
 
       if (verbose && isRetry) {
-        const retryModel = resolveFullModelId(modelResolution.model);
+        const retryModel = resolveFullModelId(modelResolution.entry.model);
         logger.info(`  Retry ${attempts}/${maxRetries} for task ${taskLabel} (model: ${retryModel})...`);
       } else if (verbose && !isRetry) {
-        const taskModel = resolveFullModelId(modelResolution.model);
+        const taskModel = resolveFullModelId(modelResolution.entry.model);
         logger.info(`  Model: ${taskModel}`);
       }
 
@@ -1052,7 +1050,8 @@ Task completed. No detailed report provided.
 
       if (verbose) {
         logger.error(`  Task ${taskLabel} failed: ${failureReason} (${elapsedFormatted})`);
-        const analysisModel = getModelShortName(getModel('failureAnalysis', provider));
+        const analysisEntry = getModel('failureAnalysis', providerOverride);
+        const analysisModel = getModelShortName(analysisEntry.model);
         logger.info(`  Analyzing failure with ${analysisModel}...`);
       } else {
         // Minimal mode: show failed task line

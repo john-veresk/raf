@@ -2,9 +2,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execSync } from 'node:child_process';
 import { logger } from './logger.js';
-import type { ClaudeModelName, ModelScenario } from '../types/config.js';
-import { VALID_MODEL_ALIASES } from '../types/config.js';
-import { getModel, isValidModelName } from './config.js';
+import type { ClaudeModelName } from '../types/config.js';
+import { isValidModelName } from './config.js';
 
 export interface ValidationResult {
   valid: boolean;
@@ -100,28 +99,4 @@ export function validateModelName(model: string): ClaudeModelName | null {
     return normalized as ClaudeModelName;
   }
   return null;
-}
-
-export function resolveModelOption(model?: string, sonnet?: boolean, scenario: ModelScenario = 'execute', provider?: import('../types/config.js').HarnessProvider): ClaudeModelName {
-  // Check for conflicting flags
-  if (model && sonnet) {
-    throw new Error('Cannot specify both --model and --sonnet flags');
-  }
-
-  // --sonnet shorthand
-  if (sonnet) {
-    return 'sonnet';
-  }
-
-  // --model flag
-  if (model) {
-    const validated = validateModelName(model);
-    if (!validated) {
-      throw new Error(`Invalid model name: "${model}". Valid options: ${VALID_MODEL_ALIASES.join(', ')} or a full model ID (e.g., claude-sonnet-4-5-20250929), or harness-prefixed (e.g., codex/gpt-5.4)`);
-    }
-    return validated;
-  }
-
-  // Default from config (provider-aware)
-  return getModel(scenario, provider);
 }

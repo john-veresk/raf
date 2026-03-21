@@ -26,23 +26,36 @@ export type TaskEffortLevel = 'low' | 'medium' | 'high';
 export type ModelScenario = 'plan' | 'execute' | 'nameGeneration' | 'failureAnalysis' | 'prGeneration' | 'config';
 export type CommitFormatType = 'task' | 'plan' | 'amend';
 
+/**
+ * A provider-aware model configuration entry.
+ * Stores model, provider, and optional reasoning effort together.
+ */
+export interface ModelEntry {
+  /** Model name: short alias (opus, sonnet, gpt-5.4) or full ID */
+  model: string;
+  /** Which CLI provider to use for this entry */
+  provider: HarnessProvider;
+  /** Optional reasoning effort hint (low/medium/high) */
+  reasoningEffort?: TaskEffortLevel;
+}
+
 export interface ModelsConfig {
-  plan: ClaudeModelName;
-  execute: ClaudeModelName;
-  nameGeneration: ClaudeModelName;
-  failureAnalysis: ClaudeModelName;
-  prGeneration: ClaudeModelName;
-  config: ClaudeModelName;
+  plan: ModelEntry;
+  execute: ModelEntry;
+  nameGeneration: ModelEntry;
+  failureAnalysis: ModelEntry;
+  prGeneration: ModelEntry;
+  config: ModelEntry;
 }
 
 /**
- * Maps task complexity labels to model names.
+ * Maps task complexity labels to provider-aware model entries.
  * Used to resolve per-task effort frontmatter to a model.
  */
 export interface EffortMappingConfig {
-  low: ClaudeModelName;
-  medium: ClaudeModelName;
-  high: ClaudeModelName;
+  low: ModelEntry;
+  medium: ModelEntry;
+  high: ModelEntry;
 }
 
 export interface CommitFormatConfig {
@@ -59,15 +72,9 @@ export interface DisplayConfig {
 }
 
 export interface RafConfig {
-  /** CLI harness provider. Default: 'claude' */
-  provider: HarnessProvider;
   models: ModelsConfig;
-  /** Maps task complexity labels (low/medium/high) to models. Used for per-task effort frontmatter. */
+  /** Maps task complexity labels (low/medium/high) to model entries. Used for per-task effort frontmatter. */
   effortMapping: EffortMappingConfig;
-  /** Codex model assignments per scenario */
-  codexModels: ModelsConfig;
-  /** Maps task complexity labels to Codex models */
-  codexEffortMapping: EffortMappingConfig;
   timeout: number;
   maxRetries: number;
   autoCommit: boolean;
@@ -79,32 +86,18 @@ export interface RafConfig {
 }
 
 export const DEFAULT_CONFIG: RafConfig = {
-  provider: 'claude',
   models: {
-    plan: 'opus',
-    execute: 'opus',
-    nameGeneration: 'sonnet',
-    failureAnalysis: 'haiku',
-    prGeneration: 'sonnet',
-    config: 'sonnet',
+    plan: { model: 'opus', provider: 'claude' },
+    execute: { model: 'opus', provider: 'claude' },
+    nameGeneration: { model: 'sonnet', provider: 'claude' },
+    failureAnalysis: { model: 'haiku', provider: 'claude' },
+    prGeneration: { model: 'sonnet', provider: 'claude' },
+    config: { model: 'sonnet', provider: 'claude' },
   },
   effortMapping: {
-    low: 'sonnet',
-    medium: 'opus',
-    high: 'opus',
-  },
-  codexModels: {
-    plan: 'gpt-5.4',
-    execute: 'gpt-5.4',
-    nameGeneration: 'gpt-5.4',
-    failureAnalysis: 'gpt-5.4',
-    prGeneration: 'gpt-5.4',
-    config: 'gpt-5.4',
-  },
-  codexEffortMapping: {
-    low: 'gpt-5.4',
-    medium: 'gpt-5.4',
-    high: 'gpt-5.4',
+    low: { model: 'sonnet', provider: 'claude' },
+    medium: { model: 'opus', provider: 'claude' },
+    high: { model: 'opus', provider: 'claude' },
   },
   timeout: 60,
   maxRetries: 3,
@@ -157,8 +150,6 @@ export const DEFAULT_RAF_CONFIG = {
 
 export interface PlanCommandOptions {
   projectName?: string;
-  model?: ClaudeModelName;
-  sonnet?: boolean;
   provider?: HarnessProvider;
 }
 
@@ -167,8 +158,6 @@ export interface DoCommandOptions {
   verbose?: boolean;
   debug?: boolean;
   force?: boolean;
-  model?: ClaudeModelName;
-  sonnet?: boolean;
   provider?: HarnessProvider;
 }
 

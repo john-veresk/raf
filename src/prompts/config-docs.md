@@ -13,7 +13,7 @@ The config file is a JSON object. All keys are optional at every level. User val
 ```json
 {
   "models": {
-    "plan": "opus"
+    "plan": { "model": "sonnet", "provider": "claude" }
   }
 }
 ```
@@ -24,49 +24,76 @@ The above only changes `models.plan` — all other model settings keep their def
 
 ### `models` — Model Selection
 
-Controls which model is used for each scenario. Values can be a short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID.
+Controls which model and provider is used for each scenario. Each entry is a `ModelEntry` object with the following shape:
 
-**Model ID format**: Full model IDs follow the pattern `claude-{family}-{version}`, for example:
-- `"claude-opus-4-5-20251101"` — Opus 4.5 from November 2025
-- `"claude-opus-4-6"` — Opus 4.6 (latest)
-- `"claude-sonnet-4-5-20250929"` — Sonnet 4.5 from September 2025
-- `"claude-haiku-4-5-20251001"` — Haiku 4.5 from October 2025
+```json
+{ "model": "<model-name>", "provider": "<provider>", "reasoningEffort": "<effort>" }
+```
 
-**Short aliases**: Using aliases (`"opus"`, `"sonnet"`, `"haiku"`) automatically selects the latest version of that model family.
+- **`model`** (required): A short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID (e.g., `"claude-opus-4-6"`, `"gpt-5.4"`, `"o3"`).
+- **`provider`** (required): The LLM provider — `"claude"` or `"codex"`.
+- **`reasoningEffort`** (optional): Only for models that support reasoning effort — `"low"`, `"medium"`, or `"high"`.
+
+**Claude model aliases**: `"opus"`, `"sonnet"`, `"haiku"` automatically select the latest version.
+**Codex model examples**: `"gpt-5.4"`, `"o3"`, `"gpt54"`.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `models.plan` | `"opus"` | Model used for planning sessions (`raf plan`) |
-| `models.execute` | `"opus"` | Ceiling model for task execution (`raf do`). Per-task models from effort frontmatter are capped to this tier. Also used as the fallback when a plan has no effort frontmatter. |
-| `models.nameGeneration` | `"sonnet"` | Model used for generating project names |
-| `models.failureAnalysis` | `"haiku"` | Model used for analyzing task failures |
-| `models.prGeneration` | `"sonnet"` | Model used for generating PR titles and descriptions |
-| `models.config` | `"sonnet"` | Model used for the interactive config editor (`raf config`) |
+| `models.plan` | `{ "model": "opus", "provider": "claude" }` | Model used for planning sessions (`raf plan`) |
+| `models.execute` | `{ "model": "opus", "provider": "claude" }` | Ceiling model for task execution (`raf do`). Per-task models from effort frontmatter are capped to this tier. Also used as the fallback when a plan has no effort frontmatter. |
+| `models.nameGeneration` | `{ "model": "sonnet", "provider": "claude" }` | Model used for generating project names |
+| `models.failureAnalysis` | `{ "model": "haiku", "provider": "claude" }` | Model used for analyzing task failures |
+| `models.prGeneration` | `{ "model": "sonnet", "provider": "claude" }` | Model used for generating PR titles and descriptions |
+| `models.config` | `{ "model": "sonnet", "provider": "claude" }` | Model used for the interactive config editor (`raf config`) |
+
+**Partial overrides**: When deep-merging, you can override just the `model` or `provider` within an entry:
+
+```json
+{
+  "models": {
+    "execute": { "model": "gpt-5.4", "provider": "codex" }
+  }
+}
+```
 
 ### `effortMapping` — Task Effort to Model Mapping
 
-Maps task complexity labels (in plan frontmatter) to models. When a plan file has `effort: medium`, RAF resolves the execution model using this mapping.
+Maps task complexity labels (in plan frontmatter) to `ModelEntry` objects. When a plan file has `effort: medium`, RAF resolves the execution model using this mapping.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `effortMapping.low` | `"sonnet"` | Model for low-complexity tasks |
-| `effortMapping.medium` | `"opus"` | Model for medium-complexity tasks |
-| `effortMapping.high` | `"opus"` | Model for high-complexity tasks |
+| `effortMapping.low` | `{ "model": "sonnet", "provider": "claude" }` | Model for low-complexity tasks |
+| `effortMapping.medium` | `{ "model": "opus", "provider": "claude" }` | Model for medium-complexity tasks |
+| `effortMapping.high` | `{ "model": "opus", "provider": "claude" }` | Model for high-complexity tasks |
 
-Values must be a short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID.
+Each value is a `ModelEntry` object (same shape as `models.*` entries).
 
 **Interaction with `models.execute`**: The `models.execute` value acts as a ceiling. If a task's effort maps to a more expensive model than the ceiling, the ceiling model is used instead. This gives users budget control while allowing tasks to use cheaper models when appropriate.
 
 Example:
 ```json
 {
-  "models": { "execute": "sonnet" },
-  "effortMapping": { "low": "sonnet", "medium": "opus", "high": "opus" }
+  "models": { "execute": { "model": "sonnet", "provider": "claude" } },
+  "effortMapping": {
+    "low": { "model": "sonnet", "provider": "claude" },
+    "medium": { "model": "opus", "provider": "claude" },
+    "high": { "model": "opus", "provider": "claude" }
+  }
 }
 ```
 - Task with `effort: low` → sonnet (at ceiling)
 - Task with `effort: medium` → sonnet (capped to ceiling, not opus)
 - Task with `effort: high` → sonnet (capped to ceiling, not opus)
+
+**Mixed providers**: You can mix Claude and Codex models freely:
+```json
+{
+  "effortMapping": {
+    "low": { "model": "sonnet", "provider": "claude" },
+    "high": { "model": "gpt-5.4", "provider": "codex" }
+  }
+}
+```
 
 ### `timeout` — Task Timeout
 
@@ -90,7 +117,7 @@ Example:
 
 - **Type**: boolean
 - **Default**: `false`
-- **Description**: When `true`, `raf plan` defaults to worktree mode (isolated git worktree). Can be overridden with `--worktree` flag. `raf do` auto-detects worktree projects regardless of this setting.
+- **Description**: When `true`, `raf plan` defaults to worktree mode (isolated git worktree). `raf do` auto-detects worktree projects regardless of this setting.
 
 ### `syncMainBranch` — Sync Main Branch with Remote
 
@@ -158,7 +185,8 @@ Example:
 The config is validated when loaded. Invalid configs cause an error with a descriptive message. The following rules are enforced:
 
 - **Unknown keys are rejected** at every nesting level. Typos like `"model"` instead of `"models"` will be caught.
-- **Model values** (`models.*`, `effortMapping.*`) must be a short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID (e.g., `"claude-sonnet-4-5-20250929"`, `"o3"`).
+- **Removed legacy keys** (`provider`, `codexModels`, `codexEffortMapping`) are rejected with helpful migration messages.
+- **Model entries** (`models.*`, `effortMapping.*`) must be `ModelEntry` objects with required `model` and `provider` fields. Plain strings (e.g., `"sonnet"`) are not accepted — use `{ "model": "sonnet", "provider": "claude" }` instead.
 - **`effortMapping` keys** must be `"low"`, `"medium"`, or `"high"`.
 - **`timeout`** must be a positive finite number.
 - **`maxRetries`** must be a non-negative integer.
@@ -171,8 +199,8 @@ The config is validated when loaded. Invalid configs cause an error with a descr
 
 CLI flags always override config values. For example:
 
-- `raf do --model haiku` uses Haiku regardless of `models.execute` in config
-- `raf plan --worktree` enables worktree mode regardless of the `worktree` config value
+- `raf do --provider codex` overrides the provider in all resolved model entries for that invocation
+- `raf plan --provider codex` uses Codex binary and models regardless of config providers
 
 The precedence order is: **CLI flag > config file > default value**.
 
@@ -183,7 +211,7 @@ The precedence order is: **CLI flag > config file > default value**.
 ```json
 {
   "models": {
-    "execute": "sonnet"
+    "execute": { "model": "sonnet", "provider": "claude" }
   }
 }
 ```
@@ -195,8 +223,8 @@ Uses Sonnet instead of Opus for task execution. Everything else stays at default
 ```json
 {
   "models": {
-    "plan": "sonnet",
-    "execute": "sonnet"
+    "plan": { "model": "sonnet", "provider": "claude" },
+    "execute": { "model": "sonnet", "provider": "claude" }
   },
   "worktree": true
 }
@@ -204,22 +232,39 @@ Uses Sonnet instead of Opus for task execution. Everything else stays at default
 
 Uses Sonnet for planning and caps task execution at Sonnet (tasks with `effort: high` will use Sonnet instead of Opus). Defaults to worktree mode.
 
+### Mixed Providers — Claude Planning, Codex Execution
+
+```json
+{
+  "models": {
+    "plan": { "model": "opus", "provider": "claude" },
+    "execute": { "model": "gpt-5.4", "provider": "codex" }
+  },
+  "effortMapping": {
+    "low": { "model": "sonnet", "provider": "claude" },
+    "high": { "model": "gpt-5.4", "provider": "codex" }
+  }
+}
+```
+
+Uses Claude Opus for planning but Codex for execution. Low-effort tasks use Claude Sonnet, high-effort tasks use Codex.
+
 ### Full — All Settings Explicit
 
 ```json
 {
   "models": {
-    "plan": "opus",
-    "execute": "opus",
-    "nameGeneration": "sonnet",
-    "failureAnalysis": "haiku",
-    "prGeneration": "sonnet",
-    "config": "sonnet"
+    "plan": { "model": "opus", "provider": "claude" },
+    "execute": { "model": "opus", "provider": "claude" },
+    "nameGeneration": { "model": "sonnet", "provider": "claude" },
+    "failureAnalysis": { "model": "haiku", "provider": "claude" },
+    "prGeneration": { "model": "sonnet", "provider": "claude" },
+    "config": { "model": "sonnet", "provider": "claude" }
   },
   "effortMapping": {
-    "low": "sonnet",
-    "medium": "opus",
-    "high": "opus"
+    "low": { "model": "sonnet", "provider": "claude" },
+    "medium": { "model": "opus", "provider": "claude" },
+    "high": { "model": "opus", "provider": "claude" }
   },
   "timeout": 60,
   "maxRetries": 3,
@@ -245,8 +290,8 @@ This is equivalent to having no config file at all — all values match the defa
 ```json
 {
   "models": {
-    "plan": "claude-opus-4-5-20251101",
-    "execute": "claude-sonnet-4-5-20250929"
+    "plan": { "model": "claude-opus-4-5-20251101", "provider": "claude" },
+    "execute": { "model": "claude-sonnet-4-5-20250929", "provider": "claude" }
   }
 }
 ```
@@ -316,7 +361,7 @@ Distinguish between user-set values and defaults so the user knows what they've 
 ### Common User Requests
 
 - **"Show my config"** — Read and display the config file, noting defaults
-- **"Use sonnet for everything"** — Set all `models.*` keys to `"sonnet"`
+- **"Use sonnet for everything"** — Set all `models.*` entries to `{ "model": "sonnet", "provider": "claude" }`
 - **"Reset to defaults"** — Delete the config file (confirm with user first)
 - **"What does X do?"** — Explain the setting using the reference above
 - **"Set timeout to 90"** — Update `timeout` to `90` in the config file

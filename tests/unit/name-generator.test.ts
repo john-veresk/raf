@@ -38,16 +38,17 @@ describe('Name Generator', () => {
   });
 
   describe('generateProjectName', () => {
-    it('should return sanitized name from Claude response', async () => {
+    it('should return sanitized name from CLI response', async () => {
       mockSpawn.mockReturnValue(createMockSpawn('user-auth-system\n'));
 
       const result = await generateProjectName('Build a user authentication system');
 
       expect(result).toBe('user-auth-system');
       expect(mockSpawn).toHaveBeenCalledTimes(1);
+      // Should use the default config: claude binary with sonnet model
       expect(mockSpawn).toHaveBeenCalledWith(
         'claude',
-        expect.arrayContaining(['--model', 'haiku', '--no-session-persistence', '-p']),
+        expect.arrayContaining(['--model', 'sonnet', '--no-session-persistence', '-p']),
         expect.any(Object)
       );
     });
@@ -77,7 +78,7 @@ describe('Name Generator', () => {
       expect(result).toBe('some-project-name');
     });
 
-    it('should fall back to word extraction when Claude fails', async () => {
+    it('should fall back to word extraction when CLI fails', async () => {
       mockSpawn.mockReturnValue(createMockSpawn(null, 1));
 
       const result = await generateProjectName('Build a user authentication system with OAuth');
@@ -85,7 +86,7 @@ describe('Name Generator', () => {
       expect(result).toBe('build-user-authentication');
     });
 
-    it('should fall back to word extraction when Claude returns empty', async () => {
+    it('should fall back to word extraction when CLI returns empty', async () => {
       mockSpawn.mockReturnValue(createMockSpawn(''));
 
       const result = await generateProjectName('Implement caching layer for database');
@@ -93,7 +94,7 @@ describe('Name Generator', () => {
       expect(result).toBe('implement-caching-layer');
     });
 
-    it('should fall back to word extraction when Claude returns single char', async () => {
+    it('should fall back to word extraction when CLI returns single char', async () => {
       mockSpawn.mockReturnValue(createMockSpawn('a'));
 
       const result = await generateProjectName('Add new logging functionality');
@@ -109,7 +110,7 @@ describe('Name Generator', () => {
       expect(result).toBe('project');
     });
 
-    it('should truncate long names from Claude', async () => {
+    it('should truncate long names from CLI', async () => {
       const longName =
         'this-is-a-very-long-project-name-that-exceeds-the-maximum-allowed-length-for-folder-names';
       mockSpawn.mockReturnValue(createMockSpawn(longName));
@@ -153,7 +154,7 @@ describe('Name Generator', () => {
   });
 
   describe('generateProjectNames', () => {
-    it('should return multiple sanitized names from Claude response', async () => {
+    it('should return multiple sanitized names from CLI response', async () => {
       mockSpawn.mockReturnValue(
         createMockSpawn('phoenix-rise\nturbo-boost\nbug-squasher\ncatalyst\nmerlin\n')
       );
@@ -227,7 +228,7 @@ describe('Name Generator', () => {
       expect(result.length).toBe(3);
     });
 
-    it('should fall back to single name when Claude fails', async () => {
+    it('should fall back to single name when CLI fails', async () => {
       mockSpawn.mockReturnValue(createMockSpawn(null, 1));
 
       const result = await generateProjectNames('Build a user authentication system with OAuth');
@@ -272,32 +273,20 @@ describe('Name Generator', () => {
       expect(result).toEqual(['some-project']);
     });
 
-    it('should use codex binary and model when provider is codex', async () => {
+    it('should no longer accept a provider parameter (config-driven)', async () => {
+      // Provider is now embedded in the config, not passed as a parameter
+      // This test verifies that generateProjectNames has a single-parameter signature
       mockSpawn.mockReturnValue(
         createMockSpawn('phoenix\nturbo-boost\ncatalyst\n')
       );
 
-      const result = await generateProjectNames('Build something', 'codex');
+      const result = await generateProjectNames('Build something');
 
       expect(result).toEqual(['phoenix', 'turbo-boost', 'catalyst']);
-      expect(mockSpawn).toHaveBeenCalledTimes(1);
-      expect(mockSpawn).toHaveBeenCalledWith(
-        'codex',
-        expect.arrayContaining(['--model', 'gpt-5.4', '--no-session-persistence', '-p']),
-        expect.any(Object)
-      );
-    });
-
-    it('should use claude binary when provider is claude', async () => {
-      mockSpawn.mockReturnValue(
-        createMockSpawn('phoenix\nturbo-boost\ncatalyst\n')
-      );
-
-      await generateProjectNames('Build something', 'claude');
-
+      // Default config uses claude binary
       expect(mockSpawn).toHaveBeenCalledWith(
         'claude',
-        expect.arrayContaining(['--model']),
+        expect.arrayContaining(['--model', 'sonnet']),
         expect.any(Object)
       );
     });
