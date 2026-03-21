@@ -18,3 +18,12 @@ Investigation notes:
 
 ## For `update-cli-help-docs`, should I update only CLI help text and `README.md`, or also any prompt/docs artifacts under `src/prompts` and `RAF/*` that still mention the removed flags?
 Update only CLI help text and `README.md`.
+
+## For `update-default-codex-config`, should every Codex model slot use the same literal model string `gpt-5.4`, including planning, execution, name generation, and fallback/default slots?
+Yes.
+
+## For `separate-effort-to-reasoning-effort-config`, should the config stay provider-specific, or should it move to a provider-agnostic schema even if that is a breaking change?
+Make it provider-agnostic and change config so each model is specified as an object like `{ model: "opus", reasoningEffort: "high", provider: "claude" }`. Remove the top-level provider field, remove separate Codex model and effort-mapping sections, and remove special model-specifying flags like `--model` and `--sonnet`.
+
+## For `separate-effort-to-reasoning-effort-config`, should RAF reject the old config keys and removed model flags with migration errors, or just drop support and cover the new schema with tests?
+Drop support with no migration path. Add new tests for the new config schema to cover all cases.
