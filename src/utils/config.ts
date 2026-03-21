@@ -18,6 +18,7 @@ import {
   EffortMappingConfig,
   HarnessName,
 } from '../types/config.js';
+import { logger } from './logger.js';
 
 const CONFIG_DIR = path.join(os.homedir(), '.raf');
 const CONFIG_FILENAME = 'raf.config.json';
@@ -176,6 +177,39 @@ function validateModelEntry(obj: unknown, prefix: string): void {
   }
 }
 
+function getCodexFastWarning(prefix: string): string {
+  return `${prefix}.fast is enabled but ignored because Codex does not support fast mode`;
+}
+
+function collectModelEntryWarnings(obj: unknown, prefix: string, warnings: string[]): void {
+  if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
+    return;
+  }
+
+  const entry = obj as Record<string, unknown>;
+  if (entry.harness === 'codex' && entry.fast === true) {
+    warnings.push(getCodexFastWarning(prefix));
+  }
+}
+
+export function collectConfigValidationWarnings(config: UserConfig): string[] {
+  const warnings: string[] = [];
+
+  if (config.models && typeof config.models === 'object') {
+    for (const [key, value] of Object.entries(config.models)) {
+      collectModelEntryWarnings(value, `models.${key}`, warnings);
+    }
+  }
+
+  if (config.effortMapping && typeof config.effortMapping === 'object') {
+    for (const [key, value] of Object.entries(config.effortMapping)) {
+      collectModelEntryWarnings(value, `effortMapping.${key}`, warnings);
+    }
+  }
+
+  return warnings;
+}
+
 export function validateConfig(config: unknown): UserConfig {
   if (config === null || typeof config !== 'object' || Array.isArray(config)) {
     throw new ConfigValidationError('Config must be a JSON object');
@@ -286,9 +320,17 @@ export function validateConfig(config: unknown): UserConfig {
 
 /** Deep-merge a single model entry: user override replaces the default entirely. */
 function mergeModelEntry(defaultEntry: ModelEntry, override: unknown): ModelEntry {
+  const normalizedEntry = (entry: ModelEntry): ModelEntry => {
+    if (entry.harness !== 'codex') {
+      return entry;
+    }
+    const { fast: _ignored, ...rest } = entry;
+    return rest;
+  };
+
   if (override && typeof override === 'object' && !Array.isArray(override)) {
     const o = override as Record<string, unknown>;
-    return {
+    return normalizedEntry({
       model: typeof o.model === 'string' ? o.model : defaultEntry.model,
       harness: typeof o.harness === 'string' ? (o.harness as HarnessName) : defaultEntry.harness,
       ...(o.reasoningEffort !== undefined
@@ -301,9 +343,9 @@ function mergeModelEntry(defaultEntry: ModelEntry, override: unknown): ModelEntr
         : defaultEntry.fast !== undefined
           ? { fast: defaultEntry.fast }
           : {}),
-    };
+    });
   }
-  return defaultEntry;
+  return normalizedEntry(defaultEntry);
 }
 
 function deepMerge(defaults: RafConfig, overrides: UserConfig): RafConfig {
@@ -376,6 +418,9 @@ export function resolveConfig(configPath?: string): RafConfig {
   const content = fs.readFileSync(filePath, 'utf-8');
   const parsed: unknown = JSON.parse(content);
   const validated = validateConfig(parsed);
+  for (const warning of collectConfigValidationWarnings(validated)) {
+    logger.warn(`Config validation warning: ${warning}`);
+  }
   return deepMerge(DEFAULT_CONFIG, validated);
 }
 

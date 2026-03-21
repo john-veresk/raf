@@ -89,7 +89,7 @@ raf do abcdef         # Execute by project ID
 raf do my-project     # Execute by name
 ```
 
-Note: In non-verbose mode, task lines show the resolved model in the existing parentheses slot and append reasoning effort and `fast` when configured, for example `● 01-auth-login (sonnet, low, fast) 12s`.
+Note: In non-verbose mode, task lines show the resolved model in the existing parentheses slot and append reasoning effort and `fast` when configured, for example `● 01-auth-login (sonnet, low, fast) 12s`. Fast mode is Claude-only; if set on a Codex entry, RAF warns and ignores it.
 
 Note: The completion summary reflects the tasks executed in that run (the remaining tasks at start), so the elapsed time maps to those tasks.
 

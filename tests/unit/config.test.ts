@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { jest } from '@jest/globals';
 import {
   getClaudeModel,
   getClaudeSettingsPath,
@@ -27,6 +28,7 @@ import {
   saveConfig,
   renderCommitMessage,
   isValidModelName,
+  collectConfigValidationWarnings,
 } from '../../src/utils/config.js';
 import { DEFAULT_CONFIG } from '../../src/types/config.js';
 
@@ -127,6 +129,18 @@ describe('Config', () => {
         },
       };
       expect(() => validateConfig(config)).not.toThrow();
+    });
+
+    it('should warn when fast mode is set on codex entries', () => {
+      const validated = validateConfig({
+        models: {
+          execute: { model: 'gpt-5.4', harness: 'codex', fast: true },
+        },
+      });
+
+      expect(collectConfigValidationWarnings(validated)).toEqual([
+        'models.execute.fast is enabled but ignored because Codex does not support fast mode',
+      ]);
     });
 
     it('should reject non-object config', () => {
@@ -305,7 +319,6 @@ describe('Config', () => {
     it('should accept Codex model names', () => {
       expect(isValidModelName('gpt-5.4')).toBe(true);
       expect(isValidModelName('gpt-5.3-codex')).toBe(true);
-      expect(isValidModelName('spark')).toBe(true);
       expect(isValidModelName('codex')).toBe(true);
       expect(isValidModelName('gpt54')).toBe(true);
     });
@@ -419,6 +432,25 @@ describe('Config', () => {
       expect(config.effortMapping.high.harness).toBe('codex');
       // Claude defaults preserved for unoverridden entries
       expect(config.models.plan.harness).toBe('claude');
+    });
+
+    it('should warn and ignore fast mode on codex entries', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({
+        models: {
+          execute: { model: 'gpt-5.4', harness: 'codex', fast: true },
+        },
+      }));
+
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const config = resolveConfig(configPath);
+
+      expect(config.models.execute.fast).toBeUndefined();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('models.execute.fast is enabled but ignored because Codex does not support fast mode')
+      );
+
+      warnSpy.mockRestore();
     });
   });
 
@@ -623,7 +655,6 @@ describe('Config', () => {
     it('should keep readable Codex aliases that are already concise labels', () => {
       expect(getModelDisplayName('codex')).toBe('codex');
       expect(getModelDisplayName('gpt-5.3-codex')).toBe('codex');
-      expect(getModelDisplayName('spark')).toBe('spark');
     });
   });
 
@@ -673,7 +704,6 @@ describe('Config', () => {
     });
 
     it('should return correct tiers for Codex models', () => {
-      expect(getModelTier('spark')).toBe(1);
       expect(getModelTier('codex')).toBe(1);
       expect(getModelTier('gpt-5.3-codex')).toBe(1);
       expect(getModelTier('gpt54')).toBe(2);

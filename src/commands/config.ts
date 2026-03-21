@@ -11,6 +11,7 @@ import {
   formatModelDisplay,
   getModel,
   validateConfig,
+  collectConfigValidationWarnings,
   ConfigValidationError,
   resetConfigCache,
   resolveConfig,
@@ -299,7 +300,10 @@ function handleSet(key: string, rawValue: string): void {
 
   // Validate the resulting config
   try {
-    validateConfig(userConfig);
+    const validated = validateConfig(userConfig);
+    for (const warning of collectConfigValidationWarnings(validated)) {
+      logger.warn(`Config validation warning: ${warning}`);
+    }
   } catch (error) {
     if (error instanceof ConfigValidationError) {
       logger.error(`Validation error: ${error.message}`);
