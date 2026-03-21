@@ -44,7 +44,12 @@
     "orchestration",
     "developer-tools",
     "productivity",
-    "anthropic"
+    "anthropic",
+    "codex",
+    "openai-codex",
+    "claude-code",
+    "agentic-coding",
+    "coding-agent"
   ],
   "repository": {
     "type": "git",
