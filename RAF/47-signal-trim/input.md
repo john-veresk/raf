@@ -1,0 +1,2 @@
+- [ ] remove cache from 'plan do' status entirely. leave only tokens in / out and price $
+- [ ] add to config wizard docs info on how presets work so it can use it. presets path and cli api
