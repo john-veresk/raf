@@ -369,7 +369,7 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
       if (worktreeMode) {
         logger.info(`Worktree: ${worktreePath}`);
         logger.info(`Branch: ${worktreeBranch}`);
-        logger.info(`Run 'raf do ${finalProjectName} --worktree' to execute the plans.`);
+        logger.info(`Run 'raf do ${finalProjectName}' to execute the plans.`);
       } else {
         logger.info(`Run 'raf do ${finalProjectName}' to execute the plans.`);
       }
@@ -690,7 +690,7 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
       logger.newline();
       logger.info(`Total tasks: ${allPlanFiles.length}`);
       if (worktreeMode) {
-        logger.info(`Run 'raf do ${identifier} --worktree' to execute the new tasks.`);
+        logger.info(`Run 'raf do ${identifier}' to execute the new tasks.`);
       } else {
         logger.info(`Run 'raf do ${identifier}' to execute the new tasks.`);
       }

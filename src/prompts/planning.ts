@@ -15,9 +15,7 @@ export interface PlanningPromptResult {
  * - userMessage: Reference to input.md file (via positional argument, triggers the LLM to start)
  */
 export function getPlanningPrompt(params: PlanningPromptParams): PlanningPromptResult {
-  const { projectPath, worktreeMode } = params;
-  const worktreeFlag = worktreeMode ? ' --worktree' : '';
-
+  const { projectPath } = params;
   const systemPrompt = `You are a project planning assistant for RAF (Ralph's Automation Framework). Your task is to analyze the user's project description and create detailed task plans.
 
 ## Your Goals
@@ -177,7 +175,7 @@ After creating all plan files:
 \`\`\`
 Planning complete! To exit this session and run your tasks:
   1. Press Ctrl-C twice to exit
-  2. Then run: raf do <project>${worktreeFlag}
+  2. Then run: raf do <project>
 \`\`\`
 
 ## Important Rules

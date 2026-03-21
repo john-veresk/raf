@@ -90,7 +90,7 @@ Example:
 
 - **Type**: boolean
 - **Default**: `false`
-- **Description**: When `true`, `raf plan` and `raf do` default to worktree mode (isolated git worktree). Can be overridden per-command with `--worktree` flag.
+- **Description**: When `true`, `raf plan` defaults to worktree mode (isolated git worktree). Can be overridden with `--worktree` flag. `raf do` auto-detects worktree projects regardless of this setting.
 
 ### `syncMainBranch` — Sync Main Branch with Remote
 

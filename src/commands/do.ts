@@ -10,10 +10,10 @@ import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, isRetryableFailure } from '../parsers/output-parser.js';
 import { validatePlansExist, resolveModelOption } from '../utils/validation.js';
 import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFromPlanFile, resolveProjectIdentifierWithDetails, getOutcomeFilePath } from '../utils/paths.js';
-import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects, formatProjectChoice } from '../ui/project-picker.js';
+import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
-import { getConfig, getWorktreeDefault, getModel, getModelShortName, resolveFullModelId, getSyncMainBranch, resolveEffortToModel, applyModelCeiling, getShowCacheTokens } from '../utils/config.js';
+import { getConfig, getModel, getModelShortName, resolveFullModelId, getSyncMainBranch, resolveEffortToModel, applyModelCeiling, getShowCacheTokens } from '../utils/config.js';
 import type { PlanFrontmatter } from '../utils/frontmatter.js';
 import { getVersion } from '../utils/version.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
@@ -29,7 +29,6 @@ import { TokenTracker } from '../utils/token-tracker.js';
 import { VerboseToggle } from '../utils/verbose-toggle.js';
 import {
   deriveProjectState,
-  discoverProjects,
   getNextExecutableTask,
   getDerivedStats,
   getDerivedStatsForTasks,
@@ -44,10 +43,6 @@ import {
   getRepoRoot,
   getRepoBasename,
   getCurrentBranch,
-  computeWorktreePath,
-  computeWorktreeBaseDir,
-  validateWorktree,
-  listWorktreeProjects,
   mergeWorktreeBranch,
   removeWorktree,
   resolveWorktreeProjectByIdentifier,
@@ -202,8 +197,6 @@ export function createDoCommand(): Command {
     .option('-f, --force', 'Re-run all tasks regardless of status')
     .option('-m, --model <name>', 'Model to use (sonnet, haiku, opus)')
     .option('--sonnet', 'Use Sonnet model (shorthand for --model sonnet)')
-    .option('-w, --worktree', 'Execute tasks in a git worktree')
-    .option('--no-worktree', 'Disable worktree mode (overrides config)')
     .option('-p, --provider <provider>', 'CLI provider to use (claude, codex)')
     .action(async (project: string | undefined, options: DoCommandOptions) => {
       await runDoCommand(project, options);
@@ -215,8 +208,6 @@ export function createDoCommand(): Command {
 async function runDoCommand(projectIdentifierArg: string | undefined, options: DoCommandOptions): Promise<void> {
   const rafDir = getRafDir();
   let projectIdentifier = projectIdentifierArg;
-  let worktreeMode = options.worktree ?? getWorktreeDefault();
-
   // Validate and resolve model option
   let model: string;
   try {
@@ -226,47 +217,10 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
     process.exit(1);
   }
 
-  // Variables for worktree context (set when --worktree is used)
+  // Variables for worktree context (derived from where the project is found)
   let worktreeRoot: string | undefined;
   let originalBranch: string | undefined;
   let mainBranchName: string | null = null;
-
-  if (worktreeMode) {
-    // Validate git repo
-    const repoRoot = getRepoRoot();
-    if (!repoRoot) {
-      logger.error('--worktree requires a git repository');
-      process.exit(1);
-    }
-    const repoBasename = getRepoBasename()!;
-    const rafRelativePath = path.relative(repoRoot, rafDir);
-
-    // Record original branch before any worktree operations
-    originalBranch = getCurrentBranch() ?? undefined;
-
-    // Sync main branch before worktree operations (if enabled)
-    if (getSyncMainBranch()) {
-      const syncResult = pullMainBranch();
-      mainBranchName = syncResult.mainBranch;
-      if (syncResult.success) {
-        if (syncResult.hadChanges) {
-          logger.info(`Synced ${syncResult.mainBranch} from remote`);
-        }
-      } else {
-        logger.warn(`Could not sync main branch: ${syncResult.error}`);
-      }
-    }
-
-    if (!projectIdentifier) {
-      // Auto-discovery flow
-      const selected = await discoverAndPickWorktreeProject(repoBasename, rafDir, rafRelativePath);
-      if (!selected) {
-        process.exit(0);
-      }
-      worktreeRoot = selected.worktreeRoot;
-      projectIdentifier = selected.projectFolder;
-    }
-  }
 
   // Handle no project identifier (non-worktree mode) - show interactive picker
   if (!projectIdentifier) {
@@ -299,9 +253,8 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
       // Use the selected project
       projectIdentifier = selectedProject.folder;
 
-      // If a worktree project was selected, auto-switch to worktree mode
+      // If a worktree project was selected, record worktree context
       if (selectedProject.source === 'worktree' && selectedProject.worktreeRoot) {
-        worktreeMode = true;
         worktreeRoot = selectedProject.worktreeRoot;
         originalBranch = getCurrentBranch() ?? undefined;
       }
@@ -317,89 +270,20 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
   // Resolve project identifier
   let resolvedProject: { identifier: string; path: string; name: string } | undefined;
 
-  if (worktreeMode) {
-    // Worktree mode: resolve project inside the worktree
+  if (worktreeRoot) {
+    // Worktree was set by the picker — resolve project inside the worktree
     const repoRoot = getRepoRoot()!;
-    const repoBasename = getRepoBasename()!;
     const rafRelativePath = path.relative(repoRoot, rafDir);
-
-    // If worktreeRoot was set by auto-discovery, use it directly
-    if (worktreeRoot) {
-      const wtRafDir = path.join(worktreeRoot, rafRelativePath);
-      const result = resolveProjectIdentifierWithDetails(wtRafDir, projectIdentifier);
-      if (!result.path) {
-        logger.error(`Project not found in worktree: ${projectIdentifier}`);
-        process.exit(1);
-      }
-      const projectName = extractProjectName(result.path) ?? projectIdentifier;
-      resolvedProject = { identifier: projectIdentifier, path: result.path, name: projectName };
-    } else {
-      // Explicit identifier: resolve from main repo to get folder name, then validate worktree
-      const mainResult = resolveProjectIdentifierWithDetails(rafDir, projectIdentifier);
-
-      let projectFolderName: string;
-      if (mainResult.path) {
-        // Found in main repo - use its folder name
-        projectFolderName = path.basename(mainResult.path);
-      } else {
-        // Not found in main repo - try to find it in worktrees directly
-        // This handles projects that only exist in worktrees
-        const worktreeBaseDir = computeWorktreeBaseDir(repoBasename);
-        if (!fs.existsSync(worktreeBaseDir)) {
-          logger.error(`No worktree found for project "${projectIdentifier}". Did you plan with --worktree?`);
-          process.exit(1);
-        }
-
-        // Search worktrees for the project
-        const wtProjects = listWorktreeProjects(repoBasename);
-        let found = false;
-        for (const wtProjectDir of wtProjects) {
-          const wtPath = computeWorktreePath(repoBasename, wtProjectDir);
-          const wtRafDir = path.join(wtPath, rafRelativePath);
-          if (!fs.existsSync(wtRafDir)) continue;
-
-          const resolution = resolveProjectIdentifierWithDetails(wtRafDir, projectIdentifier);
-          if (resolution.path) {
-            projectFolderName = path.basename(resolution.path);
-            worktreeRoot = wtPath;
-            found = true;
-            break;
-          }
-        }
-
-        if (!found) {
-          logger.error(`No worktree found for project "${projectIdentifier}". Did you plan with --worktree?`);
-          process.exit(1);
-        }
-      }
-
-      // Compute worktree path if not already set
-      if (!worktreeRoot) {
-        worktreeRoot = computeWorktreePath(repoBasename, projectFolderName!);
-      }
-
-      // Validate the worktree
-      const wtProjectRelPath = path.join(rafRelativePath, projectFolderName!);
-      const validation = validateWorktree(worktreeRoot, wtProjectRelPath);
-
-      if (!validation.exists || !validation.isValidWorktree) {
-        logger.error(`No worktree found for project "${projectIdentifier}". Did you plan with --worktree?`);
-        logger.error(`Expected worktree at: ${worktreeRoot}`);
-        process.exit(1);
-      }
-
-      if (!validation.hasProjectFolder || !validation.hasPlans) {
-        logger.error(`Worktree exists but project content is missing.`);
-        logger.error(`Expected project folder at: ${validation.projectPath ?? path.join(worktreeRoot, wtProjectRelPath)}`);
-        process.exit(1);
-      }
-
-      const projectPath = validation.projectPath!;
-      const projectName = extractProjectName(projectPath) ?? projectIdentifier;
-      resolvedProject = { identifier: projectIdentifier, path: projectPath, name: projectName };
+    const wtRafDir = path.join(worktreeRoot, rafRelativePath);
+    const result = resolveProjectIdentifierWithDetails(wtRafDir, projectIdentifier);
+    if (!result.path) {
+      logger.error(`Project not found in worktree: ${projectIdentifier}`);
+      process.exit(1);
     }
+    const projectName = extractProjectName(result.path) ?? projectIdentifier;
+    resolvedProject = { identifier: projectIdentifier, path: result.path, name: projectName };
   } else {
-    // Standard mode: check worktrees first (worktree takes priority), then main repo
+    // Auto-detect: check worktrees first (worktree takes priority), then main repo
     const repoRoot = getRepoRoot();
     const repoBasename = repoRoot ? getRepoBasename() : null;
 
@@ -412,8 +296,6 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
         const wtProjectPath = path.join(wtRafDir, wtResolution.folder);
 
         if (fs.existsSync(wtProjectPath)) {
-          // Auto-switch to worktree mode
-          worktreeMode = true;
           worktreeRoot = wtResolution.worktreeRoot;
           originalBranch = getCurrentBranch() ?? undefined;
 
@@ -457,9 +339,26 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
   // Configure logger
   logger.configure({ verbose, debug });
 
-  // Show post-execution picker before task execution (worktree mode only)
+  // Worktree setup: sync main branch and show post-execution picker
   let postAction: PostExecutionAction = 'leave';
-  if (worktreeMode && worktreeRoot) {
+  if (worktreeRoot) {
+    if (!originalBranch) {
+      originalBranch = getCurrentBranch() ?? undefined;
+    }
+
+    // Sync main branch before worktree operations (if enabled)
+    if (getSyncMainBranch()) {
+      const syncResult = pullMainBranch();
+      mainBranchName = syncResult.mainBranch;
+      if (syncResult.success) {
+        if (syncResult.hadChanges) {
+          logger.info(`Synced ${syncResult.mainBranch} from remote`);
+        }
+      } else {
+        logger.warn(`Could not sync main branch: ${syncResult.error}`);
+      }
+    }
+
     try {
       postAction = await pickPostExecutionAction(worktreeRoot);
     } catch (error) {
@@ -511,7 +410,7 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
   }
 
   // Execute post-execution action based on picker choice
-  if (worktreeMode && worktreeRoot) {
+  if (worktreeRoot) {
     const worktreeBranch = path.basename(worktreeRoot);
 
     if (result.success) {
@@ -649,88 +548,6 @@ async function executePostAction(
       }
       break;
     }
-  }
-}
-
-/**
- * Auto-discovery flow for `raf do --worktree` without a project identifier.
- * Shows both worktree AND main-repo pending projects in an interactive picker.
- * Worktree projects above a threshold filter are included; main-repo projects
- * are always included. Duplicates are deduped with worktree taking precedence.
- *
- * @returns Selected project info or null if cancelled/no projects
- */
-async function discoverAndPickWorktreeProject(
-  repoBasename: string,
-  rafDir: string,
-  rafRelativePath: string,
-): Promise<{ worktreeRoot?: string; projectFolder: string } | null> {
-  // Get worktree pending projects (uses shared utility from project-picker)
-  const wtPendingProjects = getPendingWorktreeProjects(repoBasename, rafRelativePath);
-
-  // Find the highest-numbered completed project in the MAIN tree for threshold filter
-  const mainProjects = discoverProjects(rafDir);
-  let highestCompletedNumber = 0;
-
-  for (const project of mainProjects) {
-    const state = deriveProjectState(project.path);
-    if (isProjectComplete(state) && state.tasks.length > 0) {
-      if (project.number > highestCompletedNumber) {
-        highestCompletedNumber = project.number;
-      }
-    }
-  }
-
-  // Filter threshold: highest completed - 3 (or 0 if none completed)
-  const threshold = highestCompletedNumber > 3 ? highestCompletedNumber - 3 : 0;
-
-  // Apply threshold filter to worktree projects only
-  const filteredWtProjects = wtPendingProjects.filter((p) => p.number >= threshold);
-
-  // Get main-repo pending projects (no threshold filter)
-  const mainPendingProjects = getPendingProjects(rafDir);
-
-  // Merge and deduplicate: worktree versions take precedence
-  const allProjects = [...mainPendingProjects, ...filteredWtProjects];
-  const seen = new Map<string, PendingProjectInfo>();
-  for (const project of allProjects) {
-    const existing = seen.get(project.folder);
-    if (!existing || project.source === 'worktree') {
-      seen.set(project.folder, project);
-    }
-  }
-  const deduped = Array.from(seen.values());
-
-  // Sort by project number
-  deduped.sort((a, b) => a.number - b.number);
-
-  if (deduped.length === 0) {
-    logger.info('No pending projects found.');
-    return null;
-  }
-
-  // Show interactive picker
-  const choices = deduped.map((p) => ({
-    name: formatProjectChoice(p),
-    value: p,
-  }));
-
-  try {
-    const selected = await select({
-      message: 'Select a project to execute:',
-      choices,
-    });
-
-    return {
-      worktreeRoot: selected.worktreeRoot,
-      projectFolder: selected.folder,
-    };
-  } catch (error) {
-    // Handle Ctrl+C (user cancellation)
-    if (error instanceof Error && error.message.includes('User force closed')) {
-      return null;
-    }
-    throw error;
   }
 }
 

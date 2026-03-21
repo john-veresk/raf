@@ -25,9 +25,7 @@ export function getAmendPrompt(params: AmendPromptParams): AmendPromptResult {
     existingTasks,
     nextTaskNumber,
     newTaskDescription,
-    worktreeMode,
   } = params;
-  const worktreeFlag = worktreeMode ? ' --worktree' : '';
 
   const existingTasksSummary = existingTasks
     .map((task) => {
@@ -210,7 +208,7 @@ After creating all new plan files:
 \`\`\`
 Planning complete! To exit this session and run your tasks:
   1. Press Ctrl-C twice to exit
-  2. Then run: raf do <project>${worktreeFlag}
+  2. Then run: raf do <project>
 \`\`\`
 
 ## Important Rules
