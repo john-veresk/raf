@@ -15,26 +15,21 @@ import {
   validateProjectName,
 } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
-import { formatModelDisplay, getWorktreeDefault, getModel, getSyncMainBranch } from '../utils/config.js';
+import { formatModelDisplay, getModel } from '../utils/config.js';
 import type { ModelEntry } from '../types/config.js';
 import { generateProjectNames } from '../utils/name-generator.js';
 import { pickProjectName } from '../ui/name-picker.js';
 import {
   getPlansDir,
   getRafDir,
-  getNextProjectNumber,
-  formatProjectNumber,
   resolveProjectIdentifierWithDetails,
   getInputPath,
-  getDecisionsPath,
-  getOutcomesDir,
   extractTaskNameFromPlanFile,
   decodeTaskId,
   encodeTaskId,
   TASK_ID_PATTERN,
   numericFileSort,
 } from '../utils/paths.js';
-import { sanitizeProjectName } from '../utils/validation.js';
 import {
   deriveProjectState,
   isProjectComplete,
@@ -43,17 +38,13 @@ import {
 import {
   getRepoBasename,
   getRepoRoot,
-  createWorktree,
   validateWorktree,
-  removeWorktree,
-  pullMainBranch,
   resolveWorktreeProjectByIdentifier,
 } from '../core/worktree.js';
 
 interface PlanCommandOptions {
   amend?: boolean;
   auto?: boolean;
-  worktree?: boolean;
   resume?: string;
 }
 
@@ -71,7 +62,6 @@ export function createPlanCommand(): Command {
       const modelEntry = getModel('plan');
 
       const autoMode = options.auto ?? false;
-      const worktreeMode = options.worktree ?? getWorktreeDefault();
 
       if (options.resume) {
         await runResumeCommand(options.resume, modelEntry);
@@ -84,14 +74,14 @@ export function createPlanCommand(): Command {
         }
         await runAmendCommand(projectName, modelEntry, autoMode);
       } else {
-        await runPlanCommand(projectName, modelEntry, autoMode, worktreeMode);
+        await runPlanCommand(projectName, modelEntry, autoMode);
       }
     });
 
   return command;
 }
 
-async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, autoMode: boolean = false, worktreeMode: boolean = false): Promise<void> {
+async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, autoMode: boolean = false): Promise<void> {
   // Validate environment
   const validation = validateEnvironment();
   reportValidation(validation);
@@ -144,15 +134,6 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
     }
   }
 
-  // Validate git repo for worktree mode
-  if (worktreeMode) {
-    const repoRoot = getRepoRoot();
-    if (!repoRoot) {
-      logger.error('--worktree requires a git repository');
-      process.exit(1);
-    }
-  }
-
   // Open editor for user input
   logger.info('Opening editor for project description...');
   logger.info('(Save and close the editor when done)');
@@ -201,71 +182,15 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
     process.exit(1);
   }
 
-  let projectPath: string;
-  let worktreePath: string | null = null;
-  let worktreeBranch: string | null = null;
+  // Standard mode: create project in main repo
+  const projectManager = new ProjectManager();
+  const projectPath = projectManager.createProject(finalProjectName);
 
-  if (worktreeMode) {
-    // Worktree mode: create worktree, then project folder inside it
-    const repoBasename = getRepoBasename()!;
-    const repoRoot = getRepoRoot()!;
-    const rafDir = getRafDir();
+  logger.success(`Created project: ${projectPath}`);
+  logger.newline();
 
-    // Sync main branch before creating worktree (if enabled)
-    if (getSyncMainBranch()) {
-      const syncResult = pullMainBranch();
-      if (syncResult.success) {
-        if (syncResult.hadChanges) {
-          logger.info(`Synced ${syncResult.mainBranch} from remote`);
-        }
-      } else {
-        logger.warn(`Could not sync main branch: ${syncResult.error}`);
-      }
-    }
-
-    // Compute project number from main repo's RAF directory (scan worktrees too)
-    const projectNumber = getNextProjectNumber(rafDir, repoBasename);
-    const sanitizedName = sanitizeProjectName(finalProjectName);
-    const folderName = `${formatProjectNumber(projectNumber)}-${sanitizedName}`;
-
-    // Create worktree
-    const result = createWorktree(repoBasename, folderName);
-    if (!result.success) {
-      logger.error(`Failed to create worktree: ${result.error}`);
-      process.exit(1);
-    }
-
-    worktreePath = result.worktreePath;
-    worktreeBranch = result.branch;
-
-    // Compute project path inside worktree at the same relative path
-    const rafRelativePath = path.relative(repoRoot, rafDir);
-    projectPath = path.join(worktreePath, rafRelativePath, folderName);
-
-    // Create project folder structure inside the worktree
-    fs.mkdirSync(projectPath, { recursive: true });
-    fs.mkdirSync(getPlansDir(projectPath), { recursive: true });
-    fs.mkdirSync(getOutcomesDir(projectPath), { recursive: true });
-    fs.writeFileSync(getDecisionsPath(projectPath), '# Project Decisions\n');
-
-    // Save input inside worktree project folder
-    fs.writeFileSync(getInputPath(projectPath), userInput);
-
-    logger.success(`Created worktree: ${worktreePath}`);
-    logger.success(`Branch: ${worktreeBranch}`);
-    logger.success(`Project: ${projectPath}`);
-    logger.newline();
-  } else {
-    // Standard mode: create project in main repo
-    const projectManager = new ProjectManager();
-    projectPath = projectManager.createProject(finalProjectName);
-
-    logger.success(`Created project: ${projectPath}`);
-    logger.newline();
-
-    // Save input
-    projectManager.saveInput(projectPath, userInput);
-  }
+  // Save input
+  projectManager.saveInput(projectPath, userInput);
 
   // Set up shutdown handler
   const claudeRunner = createRunner({ model: modelEntry?.model, harness: modelEntry?.harness, reasoningEffort: modelEntry?.reasoningEffort, fast: modelEntry?.fast });
@@ -274,23 +199,8 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
 
   // Register cleanup callback
   shutdownHandler.onShutdown(() => {
-    if (worktreeMode && worktreePath) {
-      // Clean up worktree if no plans were created
-      const plansDir = getPlansDir(projectPath);
-      const hasPlanFiles = fs.existsSync(plansDir) &&
-        fs.readdirSync(plansDir).filter((f) => f.endsWith('.md')).length > 0;
-      if (!hasPlanFiles) {
-        const removal = removeWorktree(worktreePath);
-        if (removal.success) {
-          logger.debug(`Cleaned up worktree: ${worktreePath}`);
-        } else {
-          logger.warn(`Failed to clean up worktree: ${removal.error}`);
-        }
-      }
-    } else {
-      const projectManager = new ProjectManager();
-      projectManager.cleanupEmptyProject(projectPath);
-    }
+    const projectManager = new ProjectManager();
+    projectManager.cleanupEmptyProject(projectPath);
   });
 
   // Run planning session
@@ -307,14 +217,11 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
   const { systemPrompt, userMessage } = getPlanningPrompt({
     projectPath,
     inputContent: userInput,
-    worktreeMode,
   });
 
   try {
     const exitCode = await claudeRunner.runInteractive(systemPrompt, userMessage, {
       dangerouslySkipPermissions: autoMode,
-      // Run session in the worktree root if in worktree mode
-      cwd: worktreePath ?? undefined,
     });
 
     if (exitCode !== 0) {
@@ -341,41 +248,19 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
       // Commit planning artifacts (input.md, decisions.md, and plan files)
       const planAbsolutePaths = planFiles.map((f) => path.join(plansDir, f));
       await commitPlanningArtifacts(projectPath, {
-        cwd: worktreePath ?? undefined,
         additionalFiles: planAbsolutePaths,
       });
 
       logger.newline();
-      if (worktreeMode) {
-        logger.info(`Worktree: ${worktreePath}`);
-        logger.info(`Branch: ${worktreeBranch}`);
-        logger.info(`Run 'raf do ${finalProjectName}' to execute the plans.`);
-      } else {
-        logger.info(`Run 'raf do ${finalProjectName}' to execute the plans.`);
-      }
+      logger.info(`Run 'raf do ${finalProjectName}' to execute the plans.`);
     }
   } catch (error) {
     logger.error(`Planning failed: ${error}`);
     throw error;
   } finally {
-    if (worktreeMode && worktreePath) {
-      // Clean up worktree if no plans were created
-      const plansDir = getPlansDir(projectPath);
-      const hasPlanFiles = fs.existsSync(plansDir) &&
-        fs.readdirSync(plansDir).filter((f) => f.endsWith('.md')).length > 0;
-      if (!hasPlanFiles) {
-        const removal = removeWorktree(worktreePath);
-        if (removal.success) {
-          logger.debug(`Cleaned up worktree: ${worktreePath}`);
-        } else {
-          logger.warn(`Failed to clean up worktree: ${removal.error}`);
-        }
-      }
-    } else if (!worktreeMode) {
-      // Cleanup empty project folder if no plans were created (standard mode only)
-      const projectManager = new ProjectManager();
-      projectManager.cleanupEmptyProject(projectPath);
-    }
+    // Cleanup empty project folder if no plans were created
+    const projectManager = new ProjectManager();
+    projectManager.cleanupEmptyProject(projectPath);
   }
 }
 
