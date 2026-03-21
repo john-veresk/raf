@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Command } from 'commander';
+import { select } from '@inquirer/prompts';
 import { ProjectManager } from '../core/project-manager.js';
 import { ClaudeRunner } from '../core/claude-runner.js';
 import { openEditor, getInputTemplate } from '../core/editor.js';
@@ -23,7 +24,6 @@ import {
   getRafDir,
   getNextProjectNumber,
   formatProjectNumber,
-  resolveProjectIdentifier,
   resolveProjectIdentifierWithDetails,
   getInputPath,
   getDecisionsPath,
@@ -115,14 +115,48 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
     process.exit(1);
   }
 
-  // Check if project name matches an existing project
-  if (projectName) {
+  // Check if project name matches an existing project (skip in auto mode)
+  if (projectName && !autoMode) {
     const rafDir = getRafDir();
-    const existingProject = resolveProjectIdentifier(rafDir, projectName);
-    if (existingProject) {
-      logger.error(`Project already exists: ${existingProject}`);
-      logger.error(`To add tasks to an existing project, use: raf plan --amend ${projectName}`);
-      process.exit(1);
+    const mainResult = resolveProjectIdentifierWithDetails(rafDir, projectName);
+
+    let existingFolder: string | null = null;
+    let existingWorktreeMode = false;
+
+    if (mainResult.path) {
+      existingFolder = path.basename(mainResult.path);
+    } else {
+      const repoBasename = getRepoBasename();
+      if (repoBasename) {
+        const wtResult = resolveWorktreeProjectByIdentifier(repoBasename, projectName);
+        if (wtResult) {
+          existingFolder = wtResult.folder;
+          existingWorktreeMode = true;
+        }
+      }
+    }
+
+    if (existingFolder) {
+      const numMatch = existingFolder.match(/^(\d+)-/);
+      const projectId = numMatch ? numMatch[1] : existingFolder;
+
+      const answer = await select({
+        message: `Project '${projectName}' already exists (ID: ${projectId}). Did you want to amend it?`,
+        choices: [
+          { name: 'Yes, amend it', value: 'amend' },
+          { name: 'No, create a new project', value: 'create' },
+          { name: 'Cancel', value: 'cancel' },
+        ],
+      });
+
+      if (answer === 'amend') {
+        await runAmendCommand(existingFolder, model, autoMode, existingWorktreeMode);
+        return;
+      } else if (answer === 'cancel') {
+        logger.info('Aborted.');
+        process.exit(0);
+      }
+      // 'create': fall through to normal project creation
     }
   }
 
