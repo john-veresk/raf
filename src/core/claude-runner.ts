@@ -1,12 +1,17 @@
-import * as fs from 'node:fs';
 import * as pty from 'node-pty';
 import type { IDisposable } from 'node-pty';
 import { execSync, spawn } from 'node:child_process';
 import { logger } from '../utils/logger.js';
 import { renderStreamEvent } from '../parsers/stream-renderer.js';
-import type { UsageData } from '../types/config.js';
-import { getHeadCommitHash, getHeadCommitMessage, isFileCommittedInHead } from './git.js';
 import { getModel } from '../utils/config.js';
+import type { ICliRunner } from './runner-interface.js';
+import type { RunnerOptions, RunnerConfig, RunResult } from './runner-types.js';
+import { createCompletionDetector } from './completion-detector.js';
+
+// Re-export shared types for backward compatibility
+export type { RunnerOptions as ClaudeRunnerOptions, RunnerConfig as ClaudeRunnerConfig, RunResult } from './runner-types.js';
+export { COMPLETION_GRACE_PERIOD_MS, COMPLETION_HARD_MAX_MS, COMMIT_POLL_INTERVAL_MS, OUTCOME_POLL_INTERVAL_MS } from './completion-detector.js';
+export type { CommitContext, CompletionDetector } from './completion-detector.js';
 
 function getClaudePath(): string {
   try {
@@ -16,67 +21,6 @@ function getClaudePath(): string {
   }
 }
 
-export interface ClaudeRunnerOptions {
-  /**
-   * Timeout in minutes for this single execution.
-   * Default: 60 minutes.
-   * Each call to run() or runVerbose() gets its own fresh timeout.
-   * Retries get a fresh timeout - elapsed time is NOT accumulated across attempts.
-   */
-  timeout?: number;
-  cwd?: string;
-  /**
-   * Skip Claude's permission prompts for file operations.
-   * Only used in interactive mode (runInteractive).
-   * Claude will still ask planning interview questions.
-   */
-  dangerouslySkipPermissions?: boolean;
-  /**
-   * Path to the outcome file. When provided, enables completion detection:
-   * - Monitors stdout for completion markers (<promise>COMPLETE/FAILED</promise>)
-   * - Polls the outcome file for completion markers
-   * When detected, starts a grace period before terminating the process,
-   * allowing time for git commit operations to complete.
-   */
-  outcomeFilePath?: string;
-  /**
-   * Commit verification context. When provided, the grace period will verify
-   * that the expected git commit has been made before terminating.
-   * Only applies when a COMPLETE marker is detected (not FAILED).
-   */
-  commitContext?: {
-    /** HEAD commit hash recorded before task execution began. */
-    preExecutionHead: string;
-    /** Expected commit message prefix (e.g., "RAF[005:01]"). */
-    expectedPrefix: string;
-    /** Path to the outcome file that should be committed. */
-    outcomeFilePath: string;
-  };
-  /**
-   * Dynamic verbose display callback. When provided, called for each stream event
-   * to determine whether to write display output to stdout. Overrides the static
-   * verbose parameter in _runStreamJson. Used by the runtime verbose toggle.
-   */
-  verboseCheck?: () => boolean;
-}
-
-export interface ClaudeRunnerConfig {
-  /**
-   * Claude model to use (sonnet, haiku, opus).
-   * Default: opus.
-   */
-  model?: string;
-}
-
-export interface RunResult {
-  output: string;
-  exitCode: number;
-  timedOut: boolean;
-  contextOverflow: boolean;
-  /** Token usage data from the stream-json result event. */
-  usageData?: UsageData;
-}
-
 const CONTEXT_OVERFLOW_PATTERNS = [
   /context length exceeded/i,
   /token limit/i,
@@ -84,186 +28,12 @@ const CONTEXT_OVERFLOW_PATTERNS = [
   /context window/i,
 ];
 
-const COMPLETION_MARKER_PATTERN = /<promise>(COMPLETE|FAILED)<\/promise>/i;
-
-/**
- * Grace period in ms after completion marker is detected before terminating.
- * Allows time for git commit operations to complete.
- */
-export const COMPLETION_GRACE_PERIOD_MS = 60_000;
-
-/**
- * Hard maximum grace period in ms. If the commit hasn't landed by this point,
- * the process is killed regardless.
- */
-export const COMPLETION_HARD_MAX_MS = 180_000;
-
-/**
- * Interval in ms for polling commit verification after the initial grace period expires.
- */
-export const COMMIT_POLL_INTERVAL_MS = 10_000;
-
-/**
- * Interval in ms for polling the outcome file for completion markers.
- */
-export const OUTCOME_POLL_INTERVAL_MS = 5_000;
-
-/**
- * Context for commit verification during grace period.
- */
-export interface CommitContext {
-  /** HEAD commit hash recorded before task execution began. */
-  preExecutionHead: string;
-  /** Expected commit message prefix (e.g., "RAF[005:01]"). */
-  expectedPrefix: string;
-  /** Path to the outcome file that should be committed. */
-  outcomeFilePath: string;
-}
-
-/**
- * Monitors for task completion markers in stdout and outcome files.
- * When a marker is detected, starts a grace period before killing the process.
- */
-interface CompletionDetector {
-  /** Check accumulated stdout output for completion markers. */
-  checkOutput(output: string): void;
-  /** Clean up all timers. Must be called when the process exits. */
-  cleanup(): void;
-}
-
-const COMPLETE_MARKER_PATTERN = /<promise>COMPLETE<\/promise>/i;
-
-/**
- * Verify that the expected commit has been made.
- * Checks: HEAD changed, commit message matches prefix, outcome file is committed.
- */
-function verifyCommit(commitContext: CommitContext): boolean {
-  const currentHead = getHeadCommitHash();
-  if (!currentHead || currentHead === commitContext.preExecutionHead) {
-    return false;
-  }
-
-  const message = getHeadCommitMessage();
-  if (!message || !message.startsWith(commitContext.expectedPrefix)) {
-    return false;
-  }
-
-  if (!isFileCommittedInHead(commitContext.outcomeFilePath)) {
-    return false;
-  }
-
-  return true;
-}
-
-function createCompletionDetector(
-  killFn: () => void,
-  outcomeFilePath?: string,
-  commitContext?: CommitContext,
-): CompletionDetector {
-  let graceHandle: ReturnType<typeof setTimeout> | null = null;
-  let commitPollHandle: ReturnType<typeof setInterval> | null = null;
-  let hardMaxHandle: ReturnType<typeof setTimeout> | null = null;
-  let pollHandle: ReturnType<typeof setInterval> | null = null;
-  let initialMtime = 0;
-  let detectedMarkerIsComplete = false;
-
-  // Record initial mtime of outcome file to avoid false positives from previous runs
-  if (outcomeFilePath) {
-    try {
-      if (fs.existsSync(outcomeFilePath)) {
-        initialMtime = fs.statSync(outcomeFilePath).mtimeMs;
-      }
-    } catch {
-      // Ignore stat errors
-    }
-  }
-
-  /**
-   * Called when the initial grace period expires.
-   * If commit verification is needed and the commit hasn't landed yet,
-   * start polling for the commit up to the hard maximum.
-   */
-  function onGracePeriodExpired(): void {
-    if (commitContext && detectedMarkerIsComplete) {
-      // Check if commit already landed
-      if (verifyCommit(commitContext)) {
-        logger.debug('Grace period expired - commit verified, terminating Claude process');
-        killFn();
-        return;
-      }
-
-      // Commit not found yet - extend with polling
-      logger.debug('Grace period expired but commit not verified - extending with polling');
-      const remainingMs = COMPLETION_HARD_MAX_MS - COMPLETION_GRACE_PERIOD_MS;
-
-      hardMaxHandle = setTimeout(() => {
-        logger.warn('Hard maximum grace period reached without commit verification - terminating Claude process');
-        if (commitPollHandle) clearInterval(commitPollHandle);
-        killFn();
-      }, remainingMs);
-
-      commitPollHandle = setInterval(() => {
-        if (commitContext && verifyCommit(commitContext)) {
-          logger.debug('Commit verified during extended grace period - terminating Claude process');
-          if (commitPollHandle) clearInterval(commitPollHandle);
-          if (hardMaxHandle) clearTimeout(hardMaxHandle);
-          killFn();
-        }
-      }, COMMIT_POLL_INTERVAL_MS);
-    } else {
-      // No commit verification needed (FAILED marker or no context) - kill immediately
-      logger.debug('Grace period expired - terminating Claude process');
-      killFn();
-    }
-  }
-
-  function startGracePeriod(markerOutput: string): void {
-    if (graceHandle) return; // Already started
-    detectedMarkerIsComplete = COMPLETE_MARKER_PATTERN.test(markerOutput);
-    logger.debug('Completion marker detected - starting grace period before termination');
-    graceHandle = setTimeout(onGracePeriodExpired, COMPLETION_GRACE_PERIOD_MS);
-  }
-
-  function checkOutput(output: string): void {
-    if (!graceHandle && COMPLETION_MARKER_PATTERN.test(output)) {
-      startGracePeriod(output);
-    }
-  }
-
-  // Start outcome file polling if path provided
-  if (outcomeFilePath) {
-    const filePath = outcomeFilePath;
-    pollHandle = setInterval(() => {
-      try {
-        if (!fs.existsSync(filePath)) return;
-        const stat = fs.statSync(filePath);
-        if (stat.mtimeMs <= initialMtime) return; // File unchanged from before execution
-        const content = fs.readFileSync(filePath, 'utf-8');
-        if (COMPLETION_MARKER_PATTERN.test(content)) {
-          startGracePeriod(content);
-        }
-      } catch {
-        // Ignore read errors - file may be mid-write
-      }
-    }, OUTCOME_POLL_INTERVAL_MS);
-  }
-
-  function cleanup(): void {
-    if (graceHandle) clearTimeout(graceHandle);
-    if (pollHandle) clearInterval(pollHandle);
-    if (commitPollHandle) clearInterval(commitPollHandle);
-    if (hardMaxHandle) clearTimeout(hardMaxHandle);
-  }
-
-  return { checkOutput, cleanup };
-}
-
-export class ClaudeRunner {
+export class ClaudeRunner implements ICliRunner {
   private activeProcess: pty.IPty | null = null;
   private killed = false;
   private model: string;
 
-  constructor(config: ClaudeRunnerConfig = {}) {
+  constructor(config: RunnerConfig = {}) {
     this.model = config.model ?? getModel('execute');
   }
 
@@ -278,7 +48,7 @@ export class ClaudeRunner {
   async runInteractive(
     systemPrompt: string,
     userMessage: string,
-    options: ClaudeRunnerOptions = {}
+    options: RunnerOptions = {}
   ): Promise<number> {
     const { cwd = process.cwd(), dangerouslySkipPermissions = false } = options;
 
@@ -371,7 +141,7 @@ export class ClaudeRunner {
    *
    * @param options - Runner options (cwd)
    */
-  async runResume(options: ClaudeRunnerOptions = {}): Promise<number> {
+  async runResume(options: RunnerOptions = {}): Promise<number> {
     const { cwd = process.cwd() } = options;
 
     return new Promise((resolve) => {
@@ -449,15 +219,8 @@ export class ClaudeRunner {
    * Run Claude non-interactively and collect output.
    * Uses stream-json format internally to capture token usage data.
    * Tool display is suppressed (non-verbose mode).
-   *
-   * TIMEOUT BEHAVIOR:
-   * - The timeout is applied per individual call to this method
-   * - Each call gets a fresh timeout - elapsed time is NOT shared between calls
-   * - When used with retries (in do.ts), each retry attempt gets its own fresh timeout
-   * - Timeout includes all time Claude is running, including context building
-   * - Default timeout is 60 minutes if not specified
    */
-  async run(prompt: string, options: ClaudeRunnerOptions = {}): Promise<RunResult> {
+  async run(prompt: string, options: RunnerOptions = {}): Promise<RunResult> {
     return this._runStreamJson(prompt, options, false);
   }
 
@@ -465,15 +228,8 @@ export class ClaudeRunner {
    * Run Claude non-interactively with verbose output to stdout.
    * Uses --output-format stream-json --verbose to get real-time streaming
    * of tool calls, file operations, and thinking steps.
-   *
-   * TIMEOUT BEHAVIOR:
-   * - The timeout is applied per individual call to this method
-   * - Each call gets a fresh timeout - elapsed time is NOT shared between calls
-   * - When used with retries (in do.ts), each retry attempt gets its own fresh timeout
-   * - Timeout includes all time Claude is running, including context building
-   * - Default timeout is 60 minutes if not specified
    */
-  async runVerbose(prompt: string, options: ClaudeRunnerOptions = {}): Promise<RunResult> {
+  async runVerbose(prompt: string, options: RunnerOptions = {}): Promise<RunResult> {
     return this._runStreamJson(prompt, options, true);
   }
 
@@ -486,7 +242,7 @@ export class ClaudeRunner {
    */
   private async _runStreamJson(
     prompt: string,
-    options: ClaudeRunnerOptions,
+    options: RunnerOptions,
     verbose: boolean,
   ): Promise<RunResult> {
     const { timeout = 60, cwd = process.cwd(), outcomeFilePath, commitContext, verboseCheck } = options;

@@ -1,18 +1,25 @@
-import { ClaudeRunner } from './claude-runner.js';
+import type { ICliRunner } from './runner-interface.js';
 import { logger } from '../utils/logger.js';
 
 type CleanupCallback = () => void | Promise<void>;
 
 class ShutdownHandler {
-  private claudeRunner: ClaudeRunner | null = null;
+  private runner: ICliRunner | null = null;
   private cleanupCallbacks: CleanupCallback[] = [];
   private isShuttingDown = false;
 
   /**
-   * Register a Claude runner to be killed on shutdown.
+   * Register a CLI runner to be killed on shutdown.
    */
-  registerClaudeRunner(runner: ClaudeRunner): void {
-    this.claudeRunner = runner;
+  registerRunner(runner: ICliRunner): void {
+    this.runner = runner;
+  }
+
+  /**
+   * @deprecated Use registerRunner instead.
+   */
+  registerClaudeRunner(runner: ICliRunner): void {
+    this.registerRunner(runner);
   }
 
   /**
@@ -54,10 +61,10 @@ class ShutdownHandler {
     this.isShuttingDown = true;
     logger.info(`\nReceived ${signal}, shutting down gracefully...`);
 
-    // Kill Claude process if running
-    if (this.claudeRunner?.isRunning()) {
-      logger.debug('Killing Claude process...');
-      this.claudeRunner.kill();
+    // Kill runner process if running
+    if (this.runner?.isRunning()) {
+      logger.debug('Killing runner process...');
+      this.runner.kill();
     }
 
     // Run cleanup callbacks
@@ -85,7 +92,7 @@ class ShutdownHandler {
    * Clear registrations (useful for testing).
    */
   clear(): void {
-    this.claudeRunner = null;
+    this.runner = null;
     this.cleanupCallbacks = [];
   }
 }

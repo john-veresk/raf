@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { Command } from 'commander';
 import { select } from '@inquirer/prompts';
 import { ProjectManager } from '../core/project-manager.js';
-import { ClaudeRunner } from '../core/claude-runner.js';
+import { createRunner } from '../core/runner-factory.js';
 import { shutdownHandler } from '../core/shutdown-handler.js';
 import { stashChanges, hasUncommittedChanges, isGitRepo, getHeadCommitHash } from '../core/git.js';
 import { getExecutionPrompt } from '../prompts/execution.js';
@@ -1068,7 +1068,7 @@ async function executeSingleProject(
       }
 
       // Create a runner for this attempt's model
-      const taskRunner = new ClaudeRunner({ model: modelResolution.model });
+      const taskRunner = createRunner({ model: modelResolution.model });
       shutdownHandler.registerClaudeRunner(taskRunner);
 
       if (verbose && isRetry) {

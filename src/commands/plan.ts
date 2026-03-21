@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { Command } from 'commander';
 import { select } from '@inquirer/prompts';
 import { ProjectManager } from '../core/project-manager.js';
-import { ClaudeRunner } from '../core/claude-runner.js';
+import { createRunner } from '../core/runner-factory.js';
 import { openEditor, getInputTemplate } from '../core/editor.js';
 import { shutdownHandler } from '../core/shutdown-handler.js';
 import { commitPlanningArtifacts } from '../core/git.js';
@@ -285,7 +285,7 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
   }
 
   // Set up shutdown handler
-  const claudeRunner = new ClaudeRunner({ model });
+  const claudeRunner = createRunner({ model });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
@@ -615,7 +615,7 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
   fs.writeFileSync(inputPath, updatedInput);
 
   // Set up shutdown handler
-  const claudeRunner = new ClaudeRunner({ model });
+  const claudeRunner = createRunner({ model });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
@@ -798,7 +798,7 @@ async function runResumeCommand(identifier: string, model?: string): Promise<voi
   logger.newline();
 
   // Set up shutdown handler
-  const claudeRunner = new ClaudeRunner({ model });
+  const claudeRunner = createRunner({ model });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 

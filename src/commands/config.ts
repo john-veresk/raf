@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import * as readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
-import { ClaudeRunner } from '../core/claude-runner.js';
+import { createRunner } from '../core/runner-factory.js';
 import { shutdownHandler } from '../core/shutdown-handler.js';
 import { logger } from '../utils/logger.js';
 import {
@@ -438,7 +438,7 @@ async function runConfigSession(initialPrompt?: string): Promise<void> {
     ?? 'Show me my current config and help me make changes.';
 
   // Set up Claude runner
-  const claudeRunner = new ClaudeRunner({ model });
+  const claudeRunner = createRunner({ model });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
