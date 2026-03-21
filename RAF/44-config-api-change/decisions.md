@@ -11,3 +11,12 @@ update existing
 
 ## For docs, should README/help text just present the new commands, or include a short breaking-change/migration note too?
 just new commands update
+
+## For the new name-generation task, should Codex-backed project naming produce 3–5 creative kebab-case suggestions like the Claude path, with permission to change Codex invocation and response parsing as needed while keeping Claude behavior unchanged and adding regression tests?
+yes
+
+## When Codex name generation returns fewer than 3 valid suggestions, should RAF still use 1–2 valid Codex suggestions and only fall back to extracted input words when the CLI completely fails or produces no usable suggestions?
+Use 1–2 valid Codex suggestions if that is all Codex returns, and only fall back to extracted input words when the CLI completely fails or produces no usable suggestions.
+
+## Should the Codex path keep the same name instructions and picker behavior as Claude, including 3–5 creative kebab-case suggestions, 1–3 words each, and the existing picker / auto-select-first flow?
+same name instructions
