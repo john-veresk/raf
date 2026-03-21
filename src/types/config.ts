@@ -35,8 +35,8 @@ export interface ModelEntry {
   model: string;
   /** Which CLI provider to use for this entry */
   provider: HarnessProvider;
-  /** Optional reasoning effort hint (low/medium/high) */
-  reasoningEffort?: TaskEffortLevel;
+  /** Optional reasoning effort hint. Codex accepts: "none", "minimal", "low", "medium", "high", "xhigh" */
+  reasoningEffort?: string;
 }
 
 export interface ModelsConfig {

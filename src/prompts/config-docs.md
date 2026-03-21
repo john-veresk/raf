@@ -32,10 +32,12 @@ Controls which model and provider is used for each scenario. Each entry is a `Mo
 
 - **`model`** (required): A short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID (e.g., `"claude-opus-4-6"`, `"gpt-5.4"`, `"o3"`).
 - **`provider`** (required): The LLM provider — `"claude"` or `"codex"`.
-- **`reasoningEffort`** (optional): Only for models that support reasoning effort — `"low"`, `"medium"`, or `"high"`.
+- **`reasoningEffort`** (optional): Controls reasoning depth. Accepted values differ by provider:
+  - **Claude** (`output_config.effort`): `"low"`, `"medium"`, `"high"` (default), `"max"` (Opus 4.6 only). Supported on Opus 4.5+, Sonnet 4.6+. Haiku does not support reasoning.
+  - **Codex** (`model_reasoning_effort`): `"none"`, `"minimal"`, `"low"`, `"medium"` (default), `"high"`, `"xhigh"`.
 
 **Claude model aliases**: `"opus"`, `"sonnet"`, `"haiku"` automatically select the latest version.
-**Codex model examples**: `"gpt-5.4"`, `"o3"`, `"gpt54"`.
+**Known Codex models**: `"gpt-5.4"`, `"gpt-5.4-2026-03-05"` (pinned), `"gpt-5.4-pro"`, `"gpt-5.4-mini"`, `"gpt-5.4-nano"`, `"o3"`.
 
 | Key | Default | Description |
 |-----|---------|-------------|
