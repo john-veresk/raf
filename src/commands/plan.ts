@@ -43,11 +43,8 @@ import {
   getRepoBasename,
   getRepoRoot,
   createWorktree,
-  createWorktreeFromBranch,
-  branchExists,
   validateWorktree,
   removeWorktree,
-  computeWorktreeBaseDir,
   pullMainBranch,
   resolveWorktreeProjectByIdentifier,
 } from '../core/worktree.js';
@@ -101,7 +98,7 @@ export function createPlanCommand(): Command {
           logger.error('   or: raf plan --amend <project>');
           process.exit(1);
         }
-        await runAmendCommand(projectName, model, autoMode, worktreeMode, provider);
+        await runAmendCommand(projectName, model, autoMode, provider);
       } else {
         await runPlanCommand(projectName, model, autoMode, worktreeMode, provider);
       }
@@ -126,7 +123,6 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
     const mainResult = resolveProjectIdentifierWithDetails(rafDir, projectName);
 
     let existingFolder: string | null = null;
-    let existingWorktreeMode = false;
 
     if (mainResult.path) {
       existingFolder = path.basename(mainResult.path);
@@ -136,7 +132,6 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
         const wtResult = resolveWorktreeProjectByIdentifier(repoBasename, projectName);
         if (wtResult) {
           existingFolder = wtResult.folder;
-          existingWorktreeMode = true;
         }
       }
     }
@@ -155,7 +150,7 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
       });
 
       if (answer === 'amend') {
-        await runAmendCommand(existingFolder, model, autoMode, existingWorktreeMode, provider);
+        await runAmendCommand(existingFolder, model, autoMode, provider);
         return;
       } else if (answer === 'cancel') {
         logger.info('Aborted.');
@@ -399,7 +394,7 @@ async function runPlanCommand(projectName?: string, model?: string, autoMode: bo
   }
 }
 
-async function runAmendCommand(identifier: string, model?: string, autoMode: boolean = false, worktreeMode: boolean = false, provider?: import('../types/config.js').HarnessProvider): Promise<void> {
+async function runAmendCommand(identifier: string, model?: string, autoMode: boolean = false, provider?: import('../types/config.js').HarnessProvider): Promise<void> {
   // Validate environment
   const validation = validateEnvironment();
   reportValidation(validation);
@@ -408,112 +403,26 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
     process.exit(1);
   }
 
+  // Auto-detect project location: check worktrees first, then main repo
   let worktreePath: string | null = null;
-  let projectPath: string;
+  let projectPath: string | undefined;
 
-  if (worktreeMode) {
-    // Worktree mode: resolve project from worktree directory
-    const repoBasename = getRepoBasename();
-    if (!repoBasename) {
-      logger.error('--worktree requires a git repository');
-      process.exit(1);
+  const repoBasename = getRepoBasename();
+  const rafDir = getRafDir();
+
+  // 1. Try worktree resolution first (if we're in a git repo)
+  if (repoBasename) {
+    const wtResult = resolveWorktreeProjectByIdentifier(repoBasename, identifier);
+    if (wtResult) {
+      const repoRoot = getRepoRoot()!;
+      const rafRelativePath = path.relative(repoRoot, rafDir);
+      worktreePath = wtResult.worktreeRoot;
+      projectPath = path.join(wtResult.worktreeRoot, rafRelativePath, wtResult.folder);
     }
+  }
 
-    const repoRoot = getRepoRoot()!;
-    const rafDir = getRafDir();
-    const rafRelativePath = path.relative(repoRoot, rafDir);
-
-    const worktreeBaseDir = computeWorktreeBaseDir(repoBasename);
-
-    // Search through existing worktree directories for the project
-    let matchedWorktreeDir: string | null = null;
-    let matchedProjectPath: string | null = null;
-
-    if (fs.existsSync(worktreeBaseDir)) {
-      const entries = fs.readdirSync(worktreeBaseDir, { withFileTypes: true });
-
-      for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
-        const wtPath = path.join(worktreeBaseDir, entry.name);
-        const wtRafDir = path.join(wtPath, rafRelativePath);
-        if (!fs.existsSync(wtRafDir)) continue;
-
-        const resolution = resolveProjectIdentifierWithDetails(wtRafDir, identifier);
-        if (resolution.path) {
-          if (matchedWorktreeDir) {
-            logger.error(`Ambiguous: project "${identifier}" found in multiple worktrees`);
-            process.exit(1);
-          }
-          matchedWorktreeDir = wtPath;
-          matchedProjectPath = resolution.path;
-        }
-      }
-    }
-
-    if (!matchedWorktreeDir || !matchedProjectPath) {
-      // Worktree not found — try to recreate it
-      // First, resolve the project from the main repo to get the folder name
-      const mainResolution = resolveProjectIdentifierWithDetails(rafDir, identifier);
-      if (!mainResolution.path) {
-        logger.error(`Project not found in any worktree or main repo: ${identifier}`);
-        logger.error(`Searched in: ${worktreeBaseDir}`);
-        process.exit(1);
-      }
-
-      const folderName = path.basename(mainResolution.path);
-
-      if (branchExists(folderName)) {
-        // Branch exists — recreate worktree from it
-        const result = createWorktreeFromBranch(repoBasename, folderName);
-        if (!result.success) {
-          logger.error(`Failed to recreate worktree from branch: ${result.error}`);
-          process.exit(1);
-        }
-        matchedWorktreeDir = result.worktreePath;
-        matchedProjectPath = path.join(result.worktreePath, rafRelativePath, folderName);
-        logger.info(`Recreated worktree from branch: ${folderName}`);
-      } else {
-        // No branch — create fresh worktree and copy project files
-        // Sync main branch before creating worktree (if enabled)
-        if (getSyncMainBranch()) {
-          const syncResult = pullMainBranch();
-          if (syncResult.success) {
-            if (syncResult.hadChanges) {
-              logger.info(`Synced ${syncResult.mainBranch} from remote`);
-            }
-          } else {
-            logger.warn(`Could not sync main branch: ${syncResult.error}`);
-          }
-        }
-
-        const result = createWorktree(repoBasename, folderName);
-        if (!result.success) {
-          logger.error(`Failed to create worktree: ${result.error}`);
-          process.exit(1);
-        }
-        matchedWorktreeDir = result.worktreePath;
-        const wtProjectPath = path.join(result.worktreePath, rafRelativePath, folderName);
-        // Copy project folder from main repo into the new worktree
-        fs.cpSync(mainResolution.path, wtProjectPath, { recursive: true });
-        matchedProjectPath = wtProjectPath;
-        logger.info(`Created fresh worktree and copied project files: ${folderName}`);
-      }
-    }
-
-    worktreePath = matchedWorktreeDir;
-    projectPath = matchedProjectPath;
-
-    // Validate the worktree is valid
-    const relProjectPath = path.relative(worktreePath, projectPath);
-    const wtValidation = validateWorktree(worktreePath, relProjectPath);
-    if (!wtValidation.isValidWorktree) {
-      logger.error(`Invalid worktree at: ${worktreePath}`);
-      logger.error('The worktree may have been removed or corrupted.');
-      process.exit(1);
-    }
-  } else {
-    // Standard mode: resolve from main repo
-    const rafDir = getRafDir();
+  // 2. Fall back to main repo
+  if (!projectPath) {
     const resolution = resolveProjectIdentifierWithDetails(rafDir, identifier);
 
     if (!resolution.path) {
@@ -572,7 +481,7 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
   // Show existing tasks summary
   logger.info('Amending existing project:');
   logger.info(`  Path: ${projectPath}`);
-  if (worktreeMode && worktreePath) {
+  if (worktreePath) {
     logger.info(`  Worktree: ${worktreePath}`);
   }
   logger.info(`  Existing tasks: ${existingTasks.length}`);
@@ -638,7 +547,6 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
     existingTasks,
     nextTaskNumber,
     newTaskDescription: cleanInput,
-    worktreeMode,
   });
 
   try {
@@ -689,11 +597,7 @@ async function runAmendCommand(identifier: string, model?: string, autoMode: boo
     if (newPlanFiles.length > 0) {
       logger.newline();
       logger.info(`Total tasks: ${allPlanFiles.length}`);
-      if (worktreeMode) {
-        logger.info(`Run 'raf do ${identifier}' to execute the new tasks.`);
-      } else {
-        logger.info(`Run 'raf do ${identifier}' to execute the new tasks.`);
-      }
+      logger.info(`Run 'raf do ${identifier}' to execute the new tasks.`);
     }
   } catch (error) {
     logger.error(`Amendment failed: ${error}`);

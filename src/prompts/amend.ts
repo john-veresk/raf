@@ -6,7 +6,6 @@ export interface AmendPromptParams {
   existingTasks: Array<DerivedTask & { taskName: string }>;
   nextTaskNumber: number;
   newTaskDescription: string;
-  worktreeMode?: boolean;
 }
 
 export interface AmendPromptResult {
