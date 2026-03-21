@@ -13,6 +13,10 @@ export interface TokenSummaryOptions {
   showCacheTokens?: boolean;
 }
 
+function hasExactCost(cost: number | null): cost is number {
+  return cost !== null;
+}
+
 /**
  * Visual symbols for terminal output using dots/symbols style.
  */
@@ -215,7 +219,9 @@ function formatTokenLine(
     }
   }
 
-  parts.push(`Cost: ${formatCost(costValue)}`);
+  if (hasExactCost(costValue)) {
+    parts.push(`Cost: ${formatCost(costValue)}`);
+  }
 
   return `${indent}${parts.join(' | ')}`;
 }
@@ -277,7 +283,9 @@ export function formatTokenTotalSummary(
     lines.push(`Cache: ${cacheParts.join(' / ')}`);
   }
 
-  lines.push(`Total cost: ${formatCost(cost.totalCost)}`);
+  if (hasExactCost(cost.totalCost)) {
+    lines.push(`Total cost: ${formatCost(cost.totalCost)}`);
+  }
 
   lines.push('─────────────────────────────────────────');
   return lines.join('\n');

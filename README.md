@@ -93,6 +93,8 @@ Note: In non-verbose mode, task lines show the resolved model in the existing pa
 
 Note: The completion summary reflects the tasks executed in that run (the remaining tasks at start), so the elapsed time maps to those tasks.
 
+Note: Post-run token summaries now show exact input/output token counts for both Claude and Codex runs. Dollar cost is shown only when the provider reports an exact value, so current Codex summaries are token-only.
+
 ### `raf status`
 
 Check project status. Worktree projects are discovered automatically when inside a git repo — no flag needed.
@@ -157,6 +159,7 @@ RAF supports multiple LLM providers per scenario. Each model entry in `models` a
 **Codex limitations:**
 - `--resume` is not supported (Codex CLI has no session resume)
 - System prompt is prepended to the user message rather than passed separately
+- Post-run summaries currently include exact token counts but omit USD cost because Codex CLI does not provide an exact per-run price
 
 ## Status Symbols
 

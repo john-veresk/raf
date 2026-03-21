@@ -438,10 +438,10 @@ describe('Terminal Symbols', () => {
         expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cost: $0.42');
       });
 
-      it('should render unavailable cost when exact cost is unknown', () => {
+      it('should omit cost when exact cost is unknown', () => {
         const usage = makeUsage({ totalCostUsd: null });
         const result = formatTaskTokenSummary(makeEntry(usage, makeCost(null)));
-        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cost: unavailable');
+        expect(result).toBe('  Tokens: 5,234 in / 1,023 out');
       });
     });
 
@@ -513,7 +513,7 @@ describe('Terminal Symbols', () => {
         expect(lines[3]).toContain('Total');
       });
 
-      it('should show unavailable cost for attempts and totals with unknown exact cost', () => {
+      it('should omit cost for attempts and totals with unknown exact cost', () => {
         const attempt1 = makeUsage({ inputTokens: 1000, outputTokens: 200, totalCostUsd: null });
         const attempt2 = makeUsage({ inputTokens: 2000, outputTokens: 400, totalCostUsd: null });
         const totalUsage = makeUsage({ inputTokens: 3000, outputTokens: 600, totalCostUsd: null });
@@ -522,9 +522,23 @@ describe('Terminal Symbols', () => {
         const result = formatTaskTokenSummary(entry);
         const lines = result.split('\n');
 
-        expect(lines[0]).toBe('    Attempt 1: 1,000 in / 200 out | Cost: unavailable');
-        expect(lines[1]).toBe('    Attempt 2: 2,000 in / 400 out | Cost: unavailable');
-        expect(lines[2]).toBe('    Total: 3,000 in / 600 out | Cost: unavailable');
+        expect(lines[0]).toBe('    Attempt 1: 1,000 in / 200 out');
+        expect(lines[1]).toBe('    Attempt 2: 2,000 in / 400 out');
+        expect(lines[2]).toBe('    Total: 3,000 in / 600 out');
+      });
+
+      it('should preserve exact zero cost instead of omitting it', () => {
+        const attempt1 = makeUsage({ inputTokens: 1000, outputTokens: 200, totalCostUsd: 0 });
+        const attempt2 = makeUsage({ inputTokens: 2000, outputTokens: 400, totalCostUsd: null });
+        const totalUsage = makeUsage({ inputTokens: 3000, outputTokens: 600, totalCostUsd: 0 });
+        const entry = makeEntry(totalUsage, makeCost(0), [attempt1, attempt2]);
+
+        const result = formatTaskTokenSummary(entry);
+        const lines = result.split('\n');
+
+        expect(lines[0]).toBe('    Attempt 1: 1,000 in / 200 out | Cost: $0.00');
+        expect(lines[1]).toBe('    Attempt 2: 2,000 in / 400 out');
+        expect(lines[2]).toBe('    Total: 3,000 in / 600 out | Cost: $0.00');
       });
     });
   });
@@ -595,9 +609,9 @@ describe('Terminal Symbols', () => {
       expect(result).not.toContain('Cache:');
     });
 
-    it('should show unavailable when total exact cost is unknown', () => {
+    it('should omit total cost when exact cost is unknown', () => {
       const result = formatTokenTotalSummary(makeUsage(), makeCost(null));
-      expect(result).toContain('Total cost: unavailable');
+      expect(result).not.toContain('Total cost:');
     });
   });
 
