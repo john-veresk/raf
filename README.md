@@ -89,7 +89,11 @@ raf do abcdef         # Execute by project ID
 raf do my-project     # Execute by name
 ```
 
-Note: In non-verbose mode, the completion summary reflects the tasks executed in that run (the remaining tasks at start), so the elapsed time maps to those tasks.
+Note: In non-verbose mode, task lines show the resolved model in the existing parentheses slot and append reasoning effort and `fast` when configured, for example `● 01-auth-login (sonnet, low, fast) 12s`.
+
+Note: The completion summary reflects the tasks executed in that run (the remaining tasks at start), so the elapsed time maps to those tasks.
+
+Note: Post-run token summaries now show exact input/output token counts for both Claude and Codex runs. Dollar cost is shown only when the provider reports an exact value, so current Codex summaries are token-only.
 
 ### `raf status`
 
@@ -155,6 +159,7 @@ RAF supports multiple LLM providers per scenario. Each model entry in `models` a
 **Codex limitations:**
 - `--resume` is not supported (Codex CLI has no session resume)
 - System prompt is prepended to the user message rather than passed separately
+- Post-run summaries currently include exact token counts but omit USD cost because Codex CLI does not provide an exact per-run price
 
 ## Status Symbols
 

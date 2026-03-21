@@ -2,7 +2,7 @@ import { UsageData } from '../types/config.js';
 
 /** Cost breakdown for a single task or accumulated total. */
 export interface CostBreakdown {
-  totalCost: number;
+  totalCost: number | null;
 }
 
 /** Per-task usage snapshot stored by the tracker. */
@@ -22,6 +22,9 @@ export interface TaskUsageEntry {
 export function sumCostBreakdowns(costs: CostBreakdown[]): CostBreakdown {
   let totalCost = 0;
   for (const cost of costs) {
+    if (cost.totalCost === null) {
+      return { totalCost: null };
+    }
     totalCost += cost.totalCost;
   }
   return { totalCost };
@@ -55,14 +58,23 @@ export function accumulateUsage(attempts: UsageData[]): UsageData {
         existing.outputTokens += modelUsage.outputTokens;
         existing.cacheReadInputTokens += modelUsage.cacheReadInputTokens;
         existing.cacheCreationInputTokens += modelUsage.cacheCreationInputTokens;
-        existing.costUsd += modelUsage.costUsd;
+        if (existing.costUsd === null || modelUsage.costUsd === null || existing.costUsd === undefined || modelUsage.costUsd === undefined) {
+          existing.costUsd = null;
+        } else {
+          existing.costUsd += modelUsage.costUsd;
+        }
       } else {
         result.modelUsage[modelId] = { ...modelUsage };
       }
     }
 
-    // Sum totalCostUsd across attempts
-    result.totalCostUsd += attempt.totalCostUsd;
+    if (result.totalCostUsd !== null) {
+      if (attempt.totalCostUsd === null) {
+        result.totalCostUsd = null;
+      } else {
+        result.totalCostUsd += attempt.totalCostUsd;
+      }
+    }
   }
 
   return result;
@@ -85,8 +97,7 @@ export class TokenTracker {
    */
   addTask(taskId: string, attempts: UsageData[]): TaskUsageEntry {
     const usage = accumulateUsage(attempts);
-    // Sum costs from CLI-provided totalCostUsd
-    const totalCost = attempts.reduce((sum, attempt) => sum + attempt.totalCostUsd, 0);
+    const totalCost = usage.totalCostUsd;
     const cost: CostBreakdown = { totalCost };
     const entry: TaskUsageEntry = { taskId, usage, cost, attempts };
     this.entries.push(entry);
@@ -121,7 +132,13 @@ export class TokenTracker {
       totalUsage.outputTokens += entry.usage.outputTokens;
       totalUsage.cacheReadInputTokens += entry.usage.cacheReadInputTokens;
       totalUsage.cacheCreationInputTokens += entry.usage.cacheCreationInputTokens;
-      totalUsage.totalCostUsd += entry.usage.totalCostUsd;
+      if (totalUsage.totalCostUsd !== null) {
+        if (entry.usage.totalCostUsd === null) {
+          totalUsage.totalCostUsd = null;
+        } else {
+          totalUsage.totalCostUsd += entry.usage.totalCostUsd;
+        }
+      }
 
       // Merge per-model usage
       for (const [modelId, modelUsage] of Object.entries(entry.usage.modelUsage)) {
@@ -131,13 +148,23 @@ export class TokenTracker {
           existing.outputTokens += modelUsage.outputTokens;
           existing.cacheReadInputTokens += modelUsage.cacheReadInputTokens;
           existing.cacheCreationInputTokens += modelUsage.cacheCreationInputTokens;
-          existing.costUsd += modelUsage.costUsd;
+          if (existing.costUsd === null || modelUsage.costUsd === null || existing.costUsd === undefined || modelUsage.costUsd === undefined) {
+            existing.costUsd = null;
+          } else {
+            existing.costUsd += modelUsage.costUsd;
+          }
         } else {
           totalUsage.modelUsage[modelId] = { ...modelUsage };
         }
       }
 
-      totalCost.totalCost += entry.cost.totalCost;
+      if (totalCost.totalCost !== null) {
+        if (entry.cost.totalCost === null) {
+          totalCost.totalCost = null;
+        } else {
+          totalCost.totalCost += entry.cost.totalCost;
+        }
+      }
     }
 
     return { usage: totalUsage, cost: totalCost };

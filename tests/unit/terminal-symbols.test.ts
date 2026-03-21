@@ -1,5 +1,6 @@
 import {
   SYMBOLS,
+  formatModelMetadata,
   formatTaskProgress,
   formatProjectHeader,
   formatSummary,
@@ -15,6 +16,28 @@ import type { UsageData } from '../../src/types/config.js';
 import type { CostBreakdown, TaskUsageEntry } from '../../src/utils/token-tracker.js';
 
 describe('Terminal Symbols', () => {
+  describe('formatModelMetadata', () => {
+    it('should format model only when no metadata is present', () => {
+      expect(formatModelMetadata('sonnet')).toBe('sonnet');
+    });
+
+    it('should append effort when present', () => {
+      expect(formatModelMetadata('sonnet', { effort: 'low' })).toBe('sonnet, low');
+    });
+
+    it('should append fast when enabled', () => {
+      expect(formatModelMetadata('sonnet', { fast: true })).toBe('sonnet, fast');
+    });
+
+    it('should append effort and fast in order', () => {
+      expect(formatModelMetadata('sonnet', { effort: 'low', fast: true })).toBe('sonnet, low, fast');
+    });
+
+    it('should omit falsy fast values', () => {
+      expect(formatModelMetadata('sonnet', { effort: 'low', fast: false })).toBe('sonnet, low');
+    });
+  });
+
   describe('SYMBOLS', () => {
     it('should have all required symbols', () => {
       expect(SYMBOLS.running).toBe('●');
@@ -115,6 +138,11 @@ describe('Terminal Symbols', () => {
       expect(result).toBe('● auth-login (sonnet) 1m 23s');
     });
 
+    it('should show model metadata in parentheses for running task with time', () => {
+      const result = formatTaskProgress(1, 5, 'running', 'auth-login', 83000, undefined, 'sonnet', { effort: 'low', fast: true });
+      expect(result).toBe('● auth-login (sonnet, low, fast) 1m 23s');
+    });
+
     it('should show model name in parentheses for running task without time', () => {
       const result = formatTaskProgress(1, 5, 'running', 'auth-login', undefined, undefined, 'opus');
       expect(result).toBe('● auth-login (opus) 1/5');
@@ -122,6 +150,11 @@ describe('Terminal Symbols', () => {
 
     it('should show model name in parentheses for completed task with time', () => {
       const result = formatTaskProgress(3, 5, 'completed', 'setup-db', 154000, undefined, 'haiku');
+      expect(result).toBe('✓ setup-db (haiku) 2m 34s');
+    });
+
+    it('should omit effort when unavailable and omit falsy fast', () => {
+      const result = formatTaskProgress(3, 5, 'completed', 'setup-db', 154000, undefined, 'haiku', { fast: false });
       expect(result).toBe('✓ setup-db (haiku) 2m 34s');
     });
 
@@ -163,6 +196,14 @@ describe('Terminal Symbols', () => {
     it('should handle model name with task ID and time', () => {
       const result = formatTaskProgress(2, 5, 'completed', 'setup-db', 154000, '002', 'opus');
       expect(result).toBe('✓ 002-setup-db (opus) 2m 34s');
+    });
+
+    it('should keep truncation stable with model metadata', () => {
+      const longName = 'this-is-a-very-long-task-name-that-should-be-truncated-for-display';
+      const result = formatTaskProgress(1, 1, 'running', longName, 1000, '001', 'sonnet', { effort: 'low', fast: true });
+
+      expect(result).toContain('001-this-is-a-very-long-task-name-that-shou…');
+      expect(result).toContain('(sonnet, low, fast) 1s');
     });
   });
 
@@ -317,6 +358,10 @@ describe('Terminal Symbols', () => {
       expect(formatCost(0)).toBe('$0.00');
     });
 
+    it('should format unavailable cost', () => {
+      expect(formatCost(null)).toBe('unavailable');
+    });
+
     it('should format normal costs with 2 decimals', () => {
       expect(formatCost(1.23)).toBe('$1.23');
     });
@@ -341,10 +386,11 @@ describe('Terminal Symbols', () => {
       cacheReadInputTokens: 0,
       cacheCreationInputTokens: 0,
       modelUsage: {},
+      totalCostUsd: 0,
       ...overrides,
     });
 
-    const makeCost = (total: number): CostBreakdown => ({
+    const makeCost = (total: number | null): CostBreakdown => ({
       totalCost: total,
     });
 
@@ -390,6 +436,12 @@ describe('Terminal Symbols', () => {
         const usage = makeUsage();
         const result = formatTaskTokenSummary(makeEntry(usage, makeCost(0.42), []));
         expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cost: $0.42');
+      });
+
+      it('should omit cost when exact cost is unknown', () => {
+        const usage = makeUsage({ totalCostUsd: null });
+        const result = formatTaskTokenSummary(makeEntry(usage, makeCost(null)));
+        expect(result).toBe('  Tokens: 5,234 in / 1,023 out');
       });
     });
 
@@ -460,6 +512,34 @@ describe('Terminal Symbols', () => {
         expect(lines[2]).toContain('Attempt 3');
         expect(lines[3]).toContain('Total');
       });
+
+      it('should omit cost for attempts and totals with unknown exact cost', () => {
+        const attempt1 = makeUsage({ inputTokens: 1000, outputTokens: 200, totalCostUsd: null });
+        const attempt2 = makeUsage({ inputTokens: 2000, outputTokens: 400, totalCostUsd: null });
+        const totalUsage = makeUsage({ inputTokens: 3000, outputTokens: 600, totalCostUsd: null });
+        const entry = makeEntry(totalUsage, makeCost(null), [attempt1, attempt2]);
+
+        const result = formatTaskTokenSummary(entry);
+        const lines = result.split('\n');
+
+        expect(lines[0]).toBe('    Attempt 1: 1,000 in / 200 out');
+        expect(lines[1]).toBe('    Attempt 2: 2,000 in / 400 out');
+        expect(lines[2]).toBe('    Total: 3,000 in / 600 out');
+      });
+
+      it('should preserve exact zero cost instead of omitting it', () => {
+        const attempt1 = makeUsage({ inputTokens: 1000, outputTokens: 200, totalCostUsd: 0 });
+        const attempt2 = makeUsage({ inputTokens: 2000, outputTokens: 400, totalCostUsd: null });
+        const totalUsage = makeUsage({ inputTokens: 3000, outputTokens: 600, totalCostUsd: 0 });
+        const entry = makeEntry(totalUsage, makeCost(0), [attempt1, attempt2]);
+
+        const result = formatTaskTokenSummary(entry);
+        const lines = result.split('\n');
+
+        expect(lines[0]).toBe('    Attempt 1: 1,000 in / 200 out | Cost: $0.00');
+        expect(lines[1]).toBe('    Attempt 2: 2,000 in / 400 out');
+        expect(lines[2]).toBe('    Total: 3,000 in / 600 out | Cost: $0.00');
+      });
     });
   });
 
@@ -474,7 +554,7 @@ describe('Terminal Symbols', () => {
       ...overrides,
     });
 
-    const makeCost = (total: number): CostBreakdown => ({
+    const makeCost = (total: number | null): CostBreakdown => ({
       totalCost: total,
     });
 
@@ -528,6 +608,11 @@ describe('Terminal Symbols', () => {
       );
       expect(result).not.toContain('Cache:');
     });
+
+    it('should omit total cost when exact cost is unknown', () => {
+      const result = formatTokenTotalSummary(makeUsage(), makeCost(null));
+      expect(result).not.toContain('Total cost:');
+    });
   });
 
   describe('formatTaskTokenSummary with options', () => {
@@ -537,10 +622,11 @@ describe('Terminal Symbols', () => {
       cacheReadInputTokens: 0,
       cacheCreationInputTokens: 0,
       modelUsage: {},
+      totalCostUsd: 0,
       ...overrides,
     });
 
-    const makeCost = (total: number): CostBreakdown => ({
+    const makeCost = (total: number | null): CostBreakdown => ({
       totalCost: total,
     });
 

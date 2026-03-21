@@ -13,6 +13,10 @@ export interface TokenSummaryOptions {
   showCacheTokens?: boolean;
 }
 
+function hasExactCost(cost: number | null): cost is number {
+  return cost !== null;
+}
+
 /**
  * Visual symbols for terminal output using dots/symbols style.
  */
@@ -26,6 +30,11 @@ export const SYMBOLS = {
 } as const;
 
 export type TaskStatus = 'running' | 'completed' | 'failed' | 'pending' | 'blocked';
+
+export interface ModelDisplayOptions {
+  effort?: string;
+  fast?: boolean;
+}
 
 /**
  * Truncates a string to the specified length, adding ellipsis if needed.
@@ -55,12 +64,13 @@ export function formatTaskProgress(
   name: string,
   elapsedMs?: number,
   taskId?: string,
-  model?: string
+  model?: string,
+  modelOptions: ModelDisplayOptions = {}
 ): string {
   const symbol = SYMBOLS[status];
   const displayName = truncate(name || 'task', 40);
   const idPrefix = taskId ? `${taskId}-` : '';
-  const modelSuffix = model ? ` (${model})` : '';
+  const modelSuffix = formatModelDisplay(model, modelOptions);
 
   // Show elapsed time for running tasks, completed tasks, and failed tasks
   if (elapsedMs !== undefined) {
@@ -69,6 +79,31 @@ export function formatTaskProgress(
   }
 
   return `${symbol} ${idPrefix}${displayName}${modelSuffix} ${current}/${total}`;
+}
+
+/**
+ * Formats a model label with optional effort/fast metadata.
+ * Examples: "sonnet", "sonnet, low", "sonnet, low, fast"
+ */
+export function formatModelMetadata(model: string, options: ModelDisplayOptions = {}): string {
+  const parts = [model];
+  if (options.effort) {
+    parts.push(options.effort);
+  }
+  if (options.fast) {
+    parts.push('fast');
+  }
+  return parts.join(', ');
+}
+
+/**
+ * Formats model metadata for display surfaces that wrap the label in parentheses.
+ */
+export function formatModelDisplay(model?: string, options: ModelDisplayOptions = {}): string {
+  if (!model) {
+    return '';
+  }
+  return ` (${formatModelMetadata(model, options)})`;
 }
 
 /**
@@ -148,7 +183,8 @@ export function formatNumber(n: number): string {
  * Formats a cost in USD with 2-4 decimal places.
  * Uses 2 decimals for values >= $0.01, 4 decimals for smaller values.
  */
-export function formatCost(cost: number): string {
+export function formatCost(cost: number | null): string {
+  if (cost === null) return 'unavailable';
   if (cost === 0) return '$0.00';
   if (cost < 0.01) return `$${cost.toFixed(4)}`;
   return `$${cost.toFixed(2)}`;
@@ -160,7 +196,7 @@ export function formatCost(cost: number): string {
  */
 function formatTokenLine(
   usage: UsageData,
-  costValue: number,
+  costValue: number | null,
   prefix: string = '',
   indent: string = '  ',
   options: TokenSummaryOptions = {}
@@ -183,7 +219,9 @@ function formatTokenLine(
     }
   }
 
-  parts.push(`Cost: ${formatCost(costValue)}`);
+  if (hasExactCost(costValue)) {
+    parts.push(`Cost: ${formatCost(costValue)}`);
+  }
 
   return `${indent}${parts.join(' | ')}`;
 }
@@ -245,7 +283,9 @@ export function formatTokenTotalSummary(
     lines.push(`Cache: ${cacheParts.join(' / ')}`);
   }
 
-  lines.push(`Total cost: ${formatCost(cost.totalCost)}`);
+  if (hasExactCost(cost.totalCost)) {
+    lines.push(`Total cost: ${formatCost(cost.totalCost)}`);
+  }
 
   lines.push('─────────────────────────────────────────');
   return lines.join('\n');

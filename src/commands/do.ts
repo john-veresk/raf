@@ -20,6 +20,7 @@ import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
 import { createStatusLine } from '../utils/status-line.js';
 import {
   formatProjectHeader,
+  formatModelMetadata,
   formatSummary,
   formatTaskProgress,
   formatTaskTokenSummary,
@@ -188,6 +189,13 @@ interface ProjectExecutionResult {
   totalTasks: number;
   error?: string;
   retryHistory?: TaskRetryHistory[];
+}
+
+export function formatResolvedTaskModel(entry: ModelEntry): string {
+  return formatModelMetadata(resolveFullModelId(entry.model), {
+    effort: entry.reasoningEffort,
+    fast: entry.fast === true,
+  });
 }
 
 export function createDoCommand(): Command {
@@ -803,6 +811,8 @@ async function executeSingleProject(
     const failureHistory: Array<{ attempt: number; reason: string }> = [];
     // Track current model for display in status line (updated in retry loop)
     let currentModel: string | undefined;
+    let currentModelReasoningEffort: string | undefined;
+    let currentModelFast = false;
 
     // Set up timer for elapsed time tracking
     const statusLine = createStatusLine();
@@ -814,7 +824,10 @@ async function executeSingleProject(
       }
       // Show running status with task name and timer (updates in place)
       const modelShortName = currentModel ? getModelShortName(currentModel) : undefined;
-      statusLine.update(formatTaskProgress(taskNumber, totalTasks, 'running', displayName, elapsed, taskId, modelShortName));
+      statusLine.update(formatTaskProgress(taskNumber, totalTasks, 'running', displayName, elapsed, taskId, modelShortName, {
+        effort: currentModelReasoningEffort,
+        fast: currentModelFast,
+      }));
     });
     timer.start();
 
@@ -839,6 +852,8 @@ async function executeSingleProject(
 
       // Update current model for timer callback display
       currentModel = modelResolution.entry.model;
+      currentModelReasoningEffort = modelResolution.entry.reasoningEffort;
+      currentModelFast = modelResolution.entry.fast === true;
 
       // Log missing frontmatter warning on first attempt only
       if (!isRetry && modelResolution.missingFrontmatter) {
@@ -850,10 +865,10 @@ async function executeSingleProject(
       shutdownHandler.registerClaudeRunner(taskRunner);
 
       if (verbose && isRetry) {
-        const retryModel = resolveFullModelId(modelResolution.entry.model);
+        const retryModel = formatResolvedTaskModel(modelResolution.entry);
         logger.info(`  Retry ${attempts}/${maxRetries} for task ${taskLabel} (model: ${retryModel})...`);
       } else if (verbose && !isRetry) {
-        const taskModel = resolveFullModelId(modelResolution.entry.model);
+        const taskModel = formatResolvedTaskModel(modelResolution.entry);
         logger.info(`  Model: ${taskModel}`);
       }
 
@@ -1016,7 +1031,10 @@ Task completed. No detailed report provided.
       } else {
         // Minimal mode: show completed task line
         const modelShortName = currentModel ? getModelShortName(currentModel) : undefined;
-        logger.info(formatTaskProgress(taskNumber, totalTasks, 'completed', displayName, elapsedMs, task.id, modelShortName));
+        logger.info(formatTaskProgress(taskNumber, totalTasks, 'completed', displayName, elapsedMs, task.id, modelShortName, {
+          effort: currentModelReasoningEffort,
+          fast: currentModelFast,
+        }));
       }
 
       // Track and display token usage for this task
@@ -1048,7 +1066,10 @@ Task completed. No detailed report provided.
       } else {
         // Minimal mode: show failed task line
         const modelShortName = currentModel ? getModelShortName(currentModel) : undefined;
-        logger.info(formatTaskProgress(taskNumber, totalTasks, 'failed', displayName, elapsedMs, task.id, modelShortName));
+        logger.info(formatTaskProgress(taskNumber, totalTasks, 'failed', displayName, elapsedMs, task.id, modelShortName, {
+          effort: currentModelReasoningEffort,
+          fast: currentModelFast,
+        }));
       }
 
       // Track token usage even for failed tasks (partial data still useful for totals)
@@ -1201,4 +1222,3 @@ ${stashName ? `- Stash: ${stashName}` : ''}
     retryHistory: projectRetryHistory,
   };
 }
-

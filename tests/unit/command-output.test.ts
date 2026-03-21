@@ -8,9 +8,13 @@ import {
   formatProjectHeader,
   formatSummary,
   formatProgressBar,
+  formatTaskTokenSummary,
+  formatTokenTotalSummary,
   TaskStatus,
 } from '../../src/utils/terminal-symbols.js';
 import { logger } from '../../src/utils/logger.js';
+import type { UsageData } from '../../src/types/config.js';
+import type { CostBreakdown, TaskUsageEntry } from '../../src/utils/token-tracker.js';
 
 /**
  * Integration tests verifying that do/status commands produce expected output format.
@@ -76,6 +80,13 @@ describe('Command Output Integration', () => {
         expect(consoleLogSpy).toHaveBeenCalledWith('✗ deploy 5m 0s');
       });
 
+      it('should show model metadata in the existing compact model slot', () => {
+        const output = formatTaskProgress(1, 3, 'running', 'auth-login', 45000, '01', 'sonnet', { effort: 'low', fast: true });
+        logger.info(output);
+
+        expect(consoleLogSpy).toHaveBeenCalledWith('● 01-auth-login (sonnet, low, fast) 45s');
+      });
+
       it('should show pending task with fraction', () => {
         const output = formatTaskProgress(2, 5, 'pending', 'cleanup');
         logger.info(output);
@@ -125,6 +136,45 @@ describe('Command Output Integration', () => {
         logger.info(output);
 
         expect(consoleLogSpy).toHaveBeenCalledWith('○ no tasks');
+      });
+
+      it('should log Codex task token summaries without a fake cost', () => {
+        const usage: UsageData = {
+          inputTokens: 1234,
+          outputTokens: 567,
+          cacheReadInputTokens: 0,
+          cacheCreationInputTokens: 0,
+          modelUsage: {},
+          totalCostUsd: null,
+        };
+        const entry: TaskUsageEntry = {
+          taskId: '01',
+          usage,
+          cost: { totalCost: null },
+          attempts: [usage],
+        };
+
+        logger.dim(formatTaskTokenSummary(entry));
+
+        expect(consoleLogSpy).toHaveBeenCalledWith('  Tokens: 1,234 in / 567 out');
+      });
+
+      it('should log Claude total summaries with exact cost when available', () => {
+        const usage: UsageData = {
+          inputTokens: 5000,
+          outputTokens: 900,
+          cacheReadInputTokens: 0,
+          cacheCreationInputTokens: 0,
+          modelUsage: {},
+          totalCostUsd: 0.42,
+        };
+        const cost: CostBreakdown = { totalCost: 0.42 };
+
+        logger.dim(formatTokenTotalSummary(usage, cost));
+
+        expect(consoleLogSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Total cost: $0.42')
+        );
       });
     });
 
