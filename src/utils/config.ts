@@ -85,7 +85,7 @@ const CODEX_MODEL_ID_PATTERN = /^gpt-\d+\.\d+(-.+)*$/;
  * Accepts:
  * - Claude short aliases: sonnet, haiku, opus
  * - Claude full IDs: claude-opus-4-6
- * - Codex short aliases: spark, codex, gpt54
+ * - Codex short aliases: codex, gpt54
  * - Raw Codex model IDs: gpt-5.4, gpt-5.3-codex
  * - Harness-prefixed format: claude/opus, codex/gpt-5.4
  */
@@ -448,9 +448,8 @@ const MODEL_TIER_ORDER: Record<string, number> = {
   opus: 3,
 };
 
-/** Codex model tier ordering: spark/codex (1) < gpt54 (2) */
+/** Codex model tier ordering: codex (1) < gpt54 (2) */
 const CODEX_MODEL_TIER_ORDER: Record<string, number> = {
-  spark: 1,
   codex: 1,
   'gpt-5.3-codex': 1,
   gpt54: 2,
@@ -544,7 +543,7 @@ export function getModelShortName(modelId: string): string {
     return modelId;
   }
   // Codex short aliases
-  if (modelId === 'spark' || modelId === 'codex' || modelId === 'gpt54') {
+  if (modelId === 'codex' || modelId === 'gpt54') {
     return modelId;
   }
   // Codex model IDs -> short names
@@ -574,7 +573,6 @@ const MODEL_ALIAS_TO_FULL_ID: Record<string, string> = {
   opus: 'claude-opus-4-6',
   sonnet: 'claude-sonnet-4-5-20250929',
   haiku: 'claude-haiku-4-5-20251001',
-  spark: 'gpt-5.3-codex',
   codex: 'gpt-5.3-codex',
   gpt54: 'gpt-5.4',
 };

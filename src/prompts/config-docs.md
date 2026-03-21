@@ -209,8 +209,7 @@ Any string matching the pattern `claude-<family>-*` is accepted as a valid Claud
 
 | Alias | Resolves To | Notes |
 |-------|------------|-------|
-| `"spark"` | `gpt-5.3-codex` | Lightweight, fast |
-| `"codex"` | `gpt-5.3-codex` | Same as spark |
+| `"codex"` | `gpt-5.3-codex` | Lightweight, fast |
 | `"gpt54"` | `gpt-5.4` | Most capable Codex model |
 
 You can also use raw Codex model IDs directly:

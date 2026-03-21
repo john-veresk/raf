@@ -5,7 +5,7 @@ export type HarnessName = 'claude' | 'codex';
 export type ClaudeModelAlias = 'sonnet' | 'haiku' | 'opus';
 
 /** Short alias for a Codex model family */
-export type CodexModelAlias = 'spark' | 'codex' | 'gpt54';
+export type CodexModelAlias = 'codex' | 'gpt54';
 
 /** Harness-agnostic model alias (union of all harness aliases) */
 export type ModelAlias = ClaudeModelAlias | CodexModelAlias;
@@ -126,7 +126,7 @@ export type UserConfig = DeepPartial<RafConfig>;
 
 export const VALID_MODEL_ALIASES: readonly ClaudeModelAlias[] = ['sonnet', 'haiku', 'opus'];
 
-export const VALID_CODEX_MODEL_ALIASES: readonly CodexModelAlias[] = ['spark', 'codex', 'gpt54'];
+export const VALID_CODEX_MODEL_ALIASES: readonly CodexModelAlias[] = ['codex', 'gpt54'];
 
 export const VALID_HARNESSES: readonly HarnessName[] = ['claude', 'codex'];
 
