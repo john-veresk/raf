@@ -323,7 +323,7 @@ function handleSet(key: string, rawValue: string): void {
 
 export function createConfigCommand(): Command {
   const command = new Command('config')
-    .description('Read, write, reset, and edit RAF configuration')
+    .description('Manage RAF configuration with get, set, reset, wizard, and preset subcommands')
     .action(function(this: Command) {
       this.outputHelp();
     });
@@ -331,7 +331,7 @@ export function createConfigCommand(): Command {
   command
     .addCommand(
       new Command('get')
-        .description('Show resolved config values')
+        .description('Print the resolved config or one resolved dot-notation value')
         .argument('[key]', 'Optional dot-notation key to read')
         .action((key?: string) => {
           handleGet(key);
@@ -339,7 +339,7 @@ export function createConfigCommand(): Command {
     )
     .addCommand(
       new Command('set')
-        .description('Set a config value using a dot-notation key')
+        .description('Write a config value using a dot-notation key')
         .argument('<key>', 'Dot-notation key to write')
         .argument('<value>', 'Value to write; parsed as JSON when possible')
         .action((key: string, value: string) => {
@@ -355,7 +355,7 @@ export function createConfigCommand(): Command {
     )
     .addCommand(
       new Command('wizard')
-        .description('Launch the interactive config editor')
+        .description('Launch the interactive config editor session')
         .argument('[prompt...]', 'Optional initial prompt for the config session')
         .action(async (promptParts: string[]) => {
           const initialPrompt = promptParts.length > 0 ? promptParts.join(' ') : undefined;

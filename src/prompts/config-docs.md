@@ -396,13 +396,15 @@ Commits will read `ACME[my-project:1] Add login page` instead of `RAF[my-project
 
 ## Resetting to Defaults
 
-To reset all settings to defaults, delete the config file:
+To reset all settings to defaults, run:
 
 ```bash
-rm ~/.raf/raf.config.json
+raf config reset
 ```
 
-To reset a single setting, remove its key from the config file. Any key not present in the file will use its default value.
+This deletes `~/.raf/raf.config.json` after confirmation.
+
+To reset a single setting, remove its key from the config file or set it back to the default with `raf config set <key> <value>`. Any key not present in the file will use its default value.
 
 ---
 

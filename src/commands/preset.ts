@@ -160,7 +160,7 @@ function deletePreset(name: string): void {
 
 export function createPresetCommand(): Command {
   const preset = new Command('preset')
-    .description('Save, load, list, and delete named config presets under `raf config`');
+    .description('Manage named config presets under `raf config preset`');
 
   preset
     .command('save <name>')
