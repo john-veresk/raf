@@ -172,7 +172,7 @@ export interface ModelTokenUsage {
   cacheReadInputTokens: number;
   cacheCreationInputTokens: number;
   /** Cost in USD for this model's usage (provided by Claude CLI). */
-  costUsd: number;
+  costUsd?: number | null;
 }
 
 /** Token usage data extracted from Claude CLI stream-json result event. */
@@ -185,5 +185,5 @@ export interface UsageData {
   /** Per-model breakdown (e.g., { "claude-opus-4-6": { ... } }). */
   modelUsage: Record<string, ModelTokenUsage>;
   /** Total cost in USD for this usage (provided by Claude CLI). */
-  totalCostUsd: number;
+  totalCostUsd: number | null;
 }

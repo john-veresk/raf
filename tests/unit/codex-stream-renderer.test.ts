@@ -76,4 +76,52 @@ describe('renderCodexStreamEvent', () => {
       expect(result.display).toContain('✗ Error: fatal error');
     });
   });
+
+  describe('turn.completed usage extraction', () => {
+    it('captures input and output tokens as usageData', () => {
+      const line = JSON.stringify({
+        type: 'turn.completed',
+        model: 'gpt-5.4',
+        usage: {
+          input_tokens: 1234,
+          output_tokens: 567,
+        },
+      });
+
+      const result = renderCodexStreamEvent(line);
+
+      expect(result.display).toBe('  → Usage: in: 1234, out: 567\n');
+      expect(result.usageData).toEqual({
+        inputTokens: 1234,
+        outputTokens: 567,
+        cacheReadInputTokens: 0,
+        cacheCreationInputTokens: 0,
+        modelUsage: {
+          'gpt-5.4': {
+            inputTokens: 1234,
+            outputTokens: 567,
+            cacheReadInputTokens: 0,
+            cacheCreationInputTokens: 0,
+            costUsd: null,
+          },
+        },
+        totalCostUsd: null,
+      });
+    });
+
+    it('keeps Codex cost unavailable when no exact cost field is present', () => {
+      const line = JSON.stringify({
+        type: 'turn.completed',
+        usage: {
+          input_tokens: 99,
+          output_tokens: 1,
+        },
+      });
+
+      const result = renderCodexStreamEvent(line);
+
+      expect(result.usageData?.totalCostUsd).toBeNull();
+      expect(result.usageData?.modelUsage.codex?.costUsd).toBeNull();
+    });
+  });
 });

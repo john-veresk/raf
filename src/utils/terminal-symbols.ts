@@ -179,7 +179,8 @@ export function formatNumber(n: number): string {
  * Formats a cost in USD with 2-4 decimal places.
  * Uses 2 decimals for values >= $0.01, 4 decimals for smaller values.
  */
-export function formatCost(cost: number): string {
+export function formatCost(cost: number | null): string {
+  if (cost === null) return 'unavailable';
   if (cost === 0) return '$0.00';
   if (cost < 0.01) return `$${cost.toFixed(4)}`;
   return `$${cost.toFixed(2)}`;
@@ -191,7 +192,7 @@ export function formatCost(cost: number): string {
  */
 function formatTokenLine(
   usage: UsageData,
-  costValue: number,
+  costValue: number | null,
   prefix: string = '',
   indent: string = '  ',
   options: TokenSummaryOptions = {}

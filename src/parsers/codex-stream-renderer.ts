@@ -9,10 +9,13 @@
  * - TodoList: Task tracking (skipped)
  */
 
+import type { UsageData } from '../types/config.js';
 import type { RenderResult } from './stream-renderer.js';
 
 export interface CodexEvent {
   type: string;
+  id?: string;
+  model?: string;
   /** Claude flat-format fields (AgentMessage) */
   content?: string;
   /** Claude flat-format fields (CommandExecution) */
@@ -188,19 +191,49 @@ function renderItemCompleted(event: CodexEvent): RenderResult {
 }
 
 function renderTurnCompleted(event: CodexEvent): RenderResult {
+  const usageData = extractUsageData(event);
+
   if (event.usage) {
     const { input_tokens, output_tokens } = event.usage;
     const parts: string[] = [];
-    if (input_tokens) parts.push(`in: ${input_tokens}`);
-    if (output_tokens) parts.push(`out: ${output_tokens}`);
+    if (input_tokens !== undefined) parts.push(`in: ${input_tokens}`);
+    if (output_tokens !== undefined) parts.push(`out: ${output_tokens}`);
     if (parts.length > 0) {
       return {
         display: `  → Usage: ${parts.join(', ')}\n`,
         textContent: '',
+        usageData,
       };
     }
   }
-  return { display: '', textContent: '' };
+  return { display: '', textContent: '', usageData };
+}
+
+function extractUsageData(event: CodexEvent): UsageData | undefined {
+  if (!event.usage) {
+    return undefined;
+  }
+
+  const modelId = event.model ?? 'codex';
+  const inputTokens = event.usage.input_tokens ?? 0;
+  const outputTokens = event.usage.output_tokens ?? 0;
+
+  return {
+    inputTokens,
+    outputTokens,
+    cacheReadInputTokens: 0,
+    cacheCreationInputTokens: 0,
+    modelUsage: {
+      [modelId]: {
+        inputTokens,
+        outputTokens,
+        cacheReadInputTokens: 0,
+        cacheCreationInputTokens: 0,
+        costUsd: null,
+      },
+    },
+    totalCostUsd: null,
+  };
 }
 
 function renderError(event: CodexEvent): RenderResult {

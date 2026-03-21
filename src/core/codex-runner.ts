@@ -176,6 +176,7 @@ export class CodexRunner implements ICliRunner {
       let stderr = '';
       let timedOut = false;
       let contextOverflow = false;
+      let usageData: import('../types/config.js').UsageData | undefined;
 
       const codexPath = getCodexPath();
 
@@ -261,6 +262,10 @@ export class CodexRunner implements ICliRunner {
             }
           }
 
+          if (rendered.usageData) {
+            usageData = rendered.usageData;
+          }
+
           if (shouldDisplay() && rendered.display) {
             process.stdout.write(rendered.display);
           }
@@ -278,6 +283,9 @@ export class CodexRunner implements ICliRunner {
           const rendered = renderCodexStreamEvent(lineBuffer);
           if (rendered.textContent) {
             output += rendered.textContent;
+          }
+          if (rendered.usageData) {
+            usageData = rendered.usageData;
           }
           if (shouldDisplay() && rendered.display) {
             process.stdout.write(rendered.display);
@@ -298,8 +306,7 @@ export class CodexRunner implements ICliRunner {
           exitCode: exitCode ?? (this.killed ? 130 : 1),
           timedOut,
           contextOverflow,
-          // Codex does not provide usage data in the same format — omit gracefully
-          usageData: undefined,
+          usageData,
         });
       });
     });

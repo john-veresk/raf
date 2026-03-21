@@ -85,6 +85,26 @@ describe('TokenTracker', () => {
       expect(entry.cost.totalCost).toBe(25.0);
     });
 
+    it('should mark total cost unavailable when any attempt has unknown exact cost', () => {
+      const tracker = new TokenTracker();
+      const attempt1 = makeUsage({
+        inputTokens: 100,
+        outputTokens: 50,
+        totalCostUsd: null,
+      });
+      const attempt2 = makeUsage({
+        inputTokens: 200,
+        outputTokens: 75,
+        totalCostUsd: 0.5,
+      });
+
+      const entry = tracker.addTask('01', [attempt1, attempt2]);
+      expect(entry.usage.inputTokens).toBe(300);
+      expect(entry.usage.outputTokens).toBe(125);
+      expect(entry.cost.totalCost).toBeNull();
+      expect(entry.usage.totalCostUsd).toBeNull();
+    });
+
     it('should store attempts array in entry', () => {
       const tracker = new TokenTracker();
       const usage = makeUsage({ inputTokens: 100, totalCostUsd: 0.01 });
@@ -127,6 +147,27 @@ describe('TokenTracker', () => {
       expect(totals.cost.totalCost).toBe(27.0);
       expect(totals.usage.inputTokens).toBe(1_500_000);
       expect(totals.usage.outputTokens).toBe(750_000);
+    });
+
+    it('should keep grand total cost unavailable when any task cost is unknown', () => {
+      const tracker = new TokenTracker();
+
+      tracker.addTask('01', [makeUsage({
+        inputTokens: 100,
+        outputTokens: 10,
+        totalCostUsd: null,
+      })]);
+
+      tracker.addTask('02', [makeUsage({
+        inputTokens: 200,
+        outputTokens: 20,
+        totalCostUsd: 1.25,
+      })]);
+
+      const totals = tracker.getTotals();
+      expect(totals.usage.inputTokens).toBe(300);
+      expect(totals.cost.totalCost).toBeNull();
+      expect(totals.usage.totalCostUsd).toBeNull();
     });
 
     it('should return empty totals when no tasks added', () => {
@@ -330,6 +371,21 @@ describe('TokenTracker', () => {
       expect(result.totalCostUsd).toBe(1.5);
     });
 
+    it('should keep accumulated cost unavailable when any attempt has unknown cost', () => {
+      const attempt1 = makeUsage({
+        inputTokens: 100,
+        totalCostUsd: null,
+      });
+      const attempt2 = makeUsage({
+        inputTokens: 200,
+        totalCostUsd: 1.0,
+      });
+
+      const result = accumulateUsage([attempt1, attempt2]);
+      expect(result.inputTokens).toBe(300);
+      expect(result.totalCostUsd).toBeNull();
+    });
+
     it('should merge modelUsage for same model across attempts', () => {
       const attempt1 = makeUsage({
         modelUsage: {
@@ -463,6 +519,14 @@ describe('TokenTracker', () => {
       };
       const result = sumCostBreakdowns([cost1, cost2]);
       expect(result.totalCost).toBe(49.5);
+    });
+
+    it('should keep total cost unavailable when any breakdown is unknown', () => {
+      const result = sumCostBreakdowns([
+        { totalCost: 33 },
+        { totalCost: null },
+      ]);
+      expect(result.totalCost).toBeNull();
     });
   });
 });
