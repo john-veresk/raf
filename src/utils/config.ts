@@ -66,7 +66,7 @@ function checkUnknownKeys(obj: Record<string, unknown>, validKeys: Set<string>, 
   }
 }
 
-/** Regex for raw Codex model IDs (e.g., `gpt-5.4`, `gpt-5.3-codex-spark`). Requires dot-separated version. */
+/** Regex for raw Codex model IDs (e.g., `gpt-5.4`, `gpt-5.3-codex`). Requires dot-separated version. */
 const CODEX_MODEL_ID_PATTERN = /^gpt-\d+\.\d+(-.+)*$/;
 
 /**
@@ -75,7 +75,7 @@ const CODEX_MODEL_ID_PATTERN = /^gpt-\d+\.\d+(-.+)*$/;
  * - Claude short aliases: sonnet, haiku, opus
  * - Claude full IDs: claude-opus-4-6
  * - Codex short aliases: spark, codex, gpt54
- * - Raw Codex model IDs: gpt-5.4, gpt-5.3-codex-spark
+ * - Raw Codex model IDs: gpt-5.4, gpt-5.3-codex
  * - Harness-prefixed format: claude/opus, codex/gpt-5.4
  */
 export function isValidModelName(value: string): boolean {
@@ -183,7 +183,7 @@ export function validateConfig(config: unknown): UserConfig {
     for (const [key, val] of Object.entries(codexModels)) {
       if (typeof val !== 'string' || !isValidModelName(val)) {
         throw new ConfigValidationError(
-          `codexModels.${key} must be a valid model name (e.g., gpt-5.4, gpt-5.3-codex-spark)`
+          `codexModels.${key} must be a valid model name (e.g., gpt-5.4, gpt-5.3-codex)`
         );
       }
     }
@@ -199,7 +199,7 @@ export function validateConfig(config: unknown): UserConfig {
     for (const [key, val] of Object.entries(codexEffortMapping)) {
       if (typeof val !== 'string' || !isValidModelName(val)) {
         throw new ConfigValidationError(
-          `codexEffortMapping.${key} must be a valid model name (e.g., gpt-5.4, gpt-5.3-codex-spark)`
+          `codexEffortMapping.${key} must be a valid model name (e.g., gpt-5.4, gpt-5.3-codex)`
         );
       }
     }
@@ -409,14 +409,13 @@ const MODEL_TIER_ORDER: Record<string, number> = {
   opus: 3,
 };
 
-/** Codex model tier ordering: spark (1) < codex (2) < gpt-5.4 (3) */
+/** Codex model tier ordering: spark/codex (1) < gpt54 (2) */
 const CODEX_MODEL_TIER_ORDER: Record<string, number> = {
   spark: 1,
-  'gpt-5.3-codex-spark': 1,
-  codex: 2,
-  'gpt-5.3-codex': 2,
-  gpt54: 3,
-  'gpt-5.4': 3,
+  codex: 1,
+  'gpt-5.3-codex': 1,
+  gpt54: 2,
+  'gpt-5.4': 2,
 };
 
 /**
@@ -509,7 +508,6 @@ export function getModelShortName(modelId: string): string {
     return modelId;
   }
   // Codex model IDs -> short names
-  if (modelId === 'gpt-5.3-codex-spark') return 'spark';
   if (modelId === 'gpt-5.3-codex') return 'codex';
   if (modelId === 'gpt-5.4') return 'gpt54';
   // Extract family from full Claude model ID: claude-{family}-{version}
@@ -532,7 +530,7 @@ const MODEL_ALIAS_TO_FULL_ID: Record<string, string> = {
   opus: 'claude-opus-4-6',
   sonnet: 'claude-sonnet-4-5-20250929',
   haiku: 'claude-haiku-4-5-20251001',
-  spark: 'gpt-5.3-codex-spark',
+  spark: 'gpt-5.3-codex',
   codex: 'gpt-5.3-codex',
   gpt54: 'gpt-5.4',
 };

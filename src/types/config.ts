@@ -96,13 +96,13 @@ export const DEFAULT_CONFIG: RafConfig = {
   codexModels: {
     plan: 'gpt-5.3-codex',
     execute: 'gpt-5.4',
-    nameGeneration: 'gpt-5.3-codex-spark',
-    failureAnalysis: 'gpt-5.3-codex-spark',
+    nameGeneration: 'gpt-5.3-codex',
+    failureAnalysis: 'gpt-5.3-codex',
     prGeneration: 'gpt-5.3-codex',
     config: 'gpt-5.3-codex',
   },
   codexEffortMapping: {
-    low: 'gpt-5.3-codex-spark',
+    low: 'gpt-5.3-codex',
     medium: 'gpt-5.3-codex',
     high: 'gpt-5.4',
   },
