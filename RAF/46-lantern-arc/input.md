@@ -1,0 +1,6 @@
+- [ ] config wizard say: Important caveat: RAF only applies fast mode on Claude runners. Since your planning model is stillprovider: "codex", this setting will not change raf plan behavior. If you want actual fast-mode planning, I can switch models.plan to a Claude model and keep fast: true. Invetigate if it's possible to wire fast mode to codex harness. do if possible
+- [ ] optimise prompts for llms. focus if there is confusing statements and repeating statements. clarify or remove redundancy if so. try to be less verbose but still clear for llm
+- [ ] The PlanCommandOptions interface declares worktree?: boolean and the action handler reads options.worktree - clean this up, no --worktree flag needed
+- [ ] When multiple `turn.completed` events are emitted in a single `codex exec --json` run (e.g., tool-driven multi-turn executions), this assignment overwrites prior usage and keeps only the last turn's tokens. That makes per-task and run-level token summaries undercount actual usage for those sessions. The runner should merge successive `rendered.usageData` payloads instead of replacing them.
+- [ ] effort is not displayed in task execution status in 'raf do' compact
+- [ ] spark alias in the RAF codebase already maps to gpt-5.3-codex <- find that alias are remove, this is wrong
