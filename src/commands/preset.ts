@@ -63,7 +63,7 @@ function loadPreset(name: string): void {
   const presetPath = getPresetPath(name);
 
   if (!fs.existsSync(presetPath)) {
-    logger.error(`Preset "${name}" not found. Run \`raf preset list\` to see available presets.`);
+    logger.error(`Preset "${name}" not found. Run \`raf config preset list\` to see available presets.`);
     process.exit(1);
   }
 
@@ -109,7 +109,7 @@ function listPresets(): void {
 
   const files = fs.readdirSync(PRESETS_DIR).filter(f => f.endsWith('.json'));
   if (files.length === 0) {
-    logger.info('No presets saved. Use `raf preset save <name>` to create one.');
+    logger.info('No presets saved. Use `raf config preset save <name>` to create one.');
     return;
   }
 
@@ -160,7 +160,7 @@ function deletePreset(name: string): void {
 
 export function createPresetCommand(): Command {
   const preset = new Command('preset')
-    .description('Save, load, list, and delete named config presets');
+    .description('Save, load, list, and delete named config presets under `raf config`');
 
   preset
     .command('save <name>')

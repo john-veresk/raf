@@ -96,9 +96,9 @@ describe('Config Command', () => {
       expect(cmd.name()).toBe('config');
     });
 
-    it('should expose get, set, reset, and wizard subcommands', () => {
+    it('should expose get, set, reset, wizard, and preset subcommands', () => {
       const cmd = createConfigCommand();
-      expect(cmd.commands.map((subcommand) => subcommand.name())).toEqual(['get', 'set', 'reset', 'wizard']);
+      expect(cmd.commands.map((subcommand) => subcommand.name())).toEqual(['get', 'set', 'reset', 'wizard', 'preset']);
     });
 
     it('should not keep the old root-level flags or prompt argument', () => {
@@ -120,6 +120,14 @@ describe('Config Command', () => {
       program.addCommand(createConfigCommand());
       const configCmd = program.commands.find((command) => command.name() === 'config');
       expect(configCmd).toBeDefined();
+      expect(program.commands.find((command) => command.name() === 'preset')).toBeUndefined();
+    });
+
+    it('should nest preset save/load/list/delete under config', () => {
+      const cmd = createConfigCommand();
+      const preset = cmd.commands.find((subcommand) => subcommand.name() === 'preset');
+      expect(preset).toBeDefined();
+      expect(preset!.commands.map((subcommand) => subcommand.name())).toEqual(['save', 'load', 'list', 'delete']);
     });
   });
 
@@ -230,8 +238,56 @@ describe('Config Command', () => {
       const helpOutput = stdoutSpy.mock.calls.map(([chunk]) => String(chunk)).join('');
       expect(helpOutput).toContain('wizard');
       expect(helpOutput).toContain('get');
+      expect(helpOutput).toContain('preset');
 
       stdoutSpy.mockRestore();
+    });
+  });
+
+  describe('config preset', () => {
+    it('saves, lists, loads, and deletes presets with the nested command', async () => {
+      fs.mkdirSync(path.dirname(configPath()), { recursive: true });
+      fs.writeFileSync(
+        configPath(),
+        JSON.stringify({ timeout: 45, models: { execute: { model: 'sonnet', provider: 'claude' } } }, null, 2)
+      );
+
+      await parseConfigCommand(['preset', 'save', 'team-default']);
+
+      const presetPath = path.join(tempDir, '.raf', 'presets', 'team-default.json');
+      expect(fs.existsSync(presetPath)).toBe(true);
+      expect(JSON.parse(fs.readFileSync(presetPath, 'utf-8'))).toEqual(
+        JSON.parse(fs.readFileSync(configPath(), 'utf-8'))
+      );
+
+      await parseConfigCommand(['preset', 'list']);
+      expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining('team-default'));
+
+      fs.writeFileSync(configPath(), JSON.stringify({ timeout: 5 }, null, 2));
+
+      await parseConfigCommand(['preset', 'load', 'team-default']);
+      expect(JSON.parse(fs.readFileSync(configPath(), 'utf-8'))).toEqual(
+        JSON.parse(fs.readFileSync(presetPath, 'utf-8'))
+      );
+
+      await parseConfigCommand(['preset', 'delete', 'team-default']);
+      expect(fs.existsSync(presetPath)).toBe(false);
+    });
+
+    it('uses updated guidance in preset runtime messages', async () => {
+      await parseConfigCommand(['preset', 'list']);
+      expect(mockLogger.info).toHaveBeenCalledWith('No presets saved. Use `raf config preset save <name>` to create one.');
+
+      const exitSpy = jest.spyOn(process, 'exit').mockImplementation((() => {
+        throw new Error('process.exit');
+      }) as typeof process.exit);
+
+      await expect(parseConfigCommand(['preset', 'load', 'missing'])).rejects.toThrow('process.exit');
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Preset "missing" not found. Run `raf config preset list` to see available presets.'
+      );
+
+      exitSpy.mockRestore();
     });
   });
 

@@ -18,6 +18,7 @@ import {
 } from '../utils/config.js';
 import { DEFAULT_CONFIG } from '../types/config.js';
 import type { UserConfig } from '../types/config.js';
+import { createPresetCommand } from './preset.js';
 
 /**
  * Load the config documentation markdown from src/prompts/config-docs.md.
@@ -360,7 +361,8 @@ export function createConfigCommand(): Command {
           const initialPrompt = promptParts.length > 0 ? promptParts.join(' ') : undefined;
           await runConfigSession(initialPrompt);
         })
-    );
+    )
+    .addCommand(createPresetCommand());
 
   return command;
 }

@@ -100,17 +100,6 @@ raf status            # List all projects (includes worktree projects that diffe
 raf status abcdef     # Show details for a project (shows both main and worktree if they differ)
 ```
 
-### `raf preset`
-
-Save, load, list, and delete named config presets. Presets are complete copies of your config stored in `~/.raf/presets/`.
-
-```bash
-raf preset save claude-setup    # Save current config as "claude-setup"
-raf preset load claude-setup    # Restore "claude-setup" (overwrites current config)
-raf preset list                 # Show all saved presets
-raf preset delete claude-setup  # Remove a preset
-```
-
 ### `raf config`
 
 Read, write, reset, and edit RAF configuration. Configuration is stored at `~/.raf/raf.config.json`. All settings are optional — only set what you want to change.
@@ -123,6 +112,10 @@ raf config set timeout 45          # Write a value
 raf config reset                   # Reset config to defaults
 raf config wizard                  # Interactive config editor
 raf config wizard "use haiku for name generation"  # Start with a specific request
+raf config preset save claude-setup    # Save current config as "claude-setup"
+raf config preset load claude-setup    # Restore "claude-setup" (overwrites current config)
+raf config preset list                 # Show all saved presets
+raf config preset delete claude-setup  # Remove a preset
 ```
 
 **Precedence**: CLI flags > config file > built-in defaults
@@ -263,15 +256,10 @@ Alias: `raf act`
 | `set <key> <value>` | Write a config value using a dot-notation key |
 | `reset` | Delete the config file and restore defaults after confirmation |
 | `wizard [prompt]` | Launch the interactive config editor |
-
-### `raf preset <subcommand> [name]`
-
-| Subcommand | Description |
-|------------|-------------|
-| `save <name>` | Save current config as a named preset |
-| `load <name>` | Load a preset (overwrites current config) |
-| `list` | List all saved presets |
-| `delete <name>` | Delete a preset |
+| `preset save <name>` | Save current config as a named preset |
+| `preset load <name>` | Load a preset (overwrites current config) |
+| `preset list` | List all saved presets |
+| `preset delete <name>` | Delete a preset |
 
 ### `raf status [identifier]`
 

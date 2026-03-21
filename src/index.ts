@@ -5,7 +5,6 @@ import { createPlanCommand } from './commands/plan.js';
 import { createDoCommand } from './commands/do.js';
 import { createStatusCommand } from './commands/status.js';
 import { createConfigCommand } from './commands/config.js';
-import { createPresetCommand } from './commands/preset.js';
 import { getVersion } from './utils/version.js';
 
 const program = new Command();
@@ -19,6 +18,5 @@ program.addCommand(createPlanCommand());
 program.addCommand(createDoCommand());
 program.addCommand(createStatusCommand());
 program.addCommand(createConfigCommand());
-program.addCommand(createPresetCommand());
 
 program.parse();
