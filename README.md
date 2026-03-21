@@ -85,11 +85,9 @@ raf plan --worktree   # Plan in an isolated git worktree
 Execute project tasks. Without arguments, shows a picker to select a pending project.
 
 ```bash
-raf do                # Interactive picker
+raf do                # Interactive picker (includes worktree projects)
 raf do abcdef         # Execute by project ID
 raf do my-project     # Execute by name
-raf do --worktree     # Pick and execute a worktree project
-raf do my-feature -w  # Execute in worktree (picker will ask what to do after)
 ```
 
 Note: In non-verbose mode, the completion summary reflects the tasks executed in that run (the remaining tasks at start), so the elapsed time maps to those tasks.
@@ -208,8 +206,8 @@ Worktree mode runs planning and execution in an isolated git worktree, keeping y
 # Plan in a worktree (creates branch and worktree directory)
 raf plan my-feature --worktree
 
-# Execute tasks in the worktree
-raf do my-feature --worktree
+# Execute tasks in the worktree (auto-detected, no flag needed)
+raf do my-feature
 ```
 
 ### Post-execution picker
@@ -238,10 +236,11 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 
 - `--worktree` creates a git worktree at `~/.raf/worktrees/<repo>/<project>/` with a new branch named after the project folder (e.g., `abcdef-my-feature`)
 - All planning artifacts, code changes, and commits happen in the worktree branch
+- `raf do` auto-detects whether a project lives in a worktree — no `--worktree` flag needed
 - After successful post-actions (merge, PR, or leave), the worktree directory is cleaned up automatically — the git branch is preserved
 - On merge conflicts, the merge is aborted and you get instructions for manual resolution
 - If tasks fail, the worktree is kept for inspection
-- Use `--no-worktree` to disable worktree mode for a single invocation (useful when `worktree: true` is set in config)
+- Use `--no-worktree` on `raf plan` to disable worktree mode for a single invocation (useful when `worktree: true` is set in config)
 
 ## Command Reference
 
@@ -266,8 +265,6 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 | `-p, --provider <name>` | LLM provider to use (`claude`, `codex`) |
 | `-m, --model <name>` | Model to use (e.g. `sonnet`, `codex/gpt54`) |
 | `--sonnet` | Shorthand for `--model sonnet` |
-| `-w, --worktree` | Execute tasks in a git worktree |
-| `--no-worktree` | Disable worktree mode (overrides config) |
 
 Alias: `raf act`
 
