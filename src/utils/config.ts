@@ -16,6 +16,7 @@ import {
   CommitFormatType,
   EffortMappingConfig,
   HarnessName,
+  CodexExecutionMode,
 } from '../types/config.js';
 import { logger } from './logger.js';
 
@@ -36,7 +37,7 @@ export function getClaudeSettingsPath(): string {
 // ---- Validation ----
 
 const VALID_TOP_LEVEL_KEYS = new Set<string>([
-  'models', 'effortMapping',
+  'models', 'effortMapping', 'codex',
   'timeout', 'maxRetries', 'autoCommit',
   'worktree', 'syncMainBranch', 'commitFormat',
 ]);
@@ -58,7 +59,11 @@ const VALID_COMMIT_FORMAT_KEYS = new Set<string>(['task', 'plan', 'amend', 'pref
 
 const VALID_MODEL_ENTRY_KEYS = new Set<string>(['model', 'harness', 'reasoningEffort', 'fast']);
 
+const VALID_CODEX_KEYS = new Set<string>(['executionMode']);
+
 const VALID_REASONING_EFFORTS = new Set<string>(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
+
+const VALID_CODEX_EXECUTION_MODES = new Set<string>(['dangerous', 'fullAuto']);
 
 export class ConfigValidationError extends Error {
   constructor(message: string) {
@@ -247,6 +252,21 @@ export function validateConfig(config: unknown): UserConfig {
     }
   }
 
+  // codex
+  if (obj.codex !== undefined) {
+    if (typeof obj.codex !== 'object' || obj.codex === null || Array.isArray(obj.codex)) {
+      throw new ConfigValidationError('codex must be an object');
+    }
+    const codex = obj.codex as Record<string, unknown>;
+    checkUnknownKeys(codex, VALID_CODEX_KEYS, 'codex');
+
+    if (codex.executionMode !== undefined) {
+      if (typeof codex.executionMode !== 'string' || !VALID_CODEX_EXECUTION_MODES.has(codex.executionMode)) {
+        throw new ConfigValidationError('codex.executionMode must be one of: dangerous, fullAuto');
+      }
+    }
+  }
+
   // timeout
   if (obj.timeout !== undefined) {
     if (typeof obj.timeout !== 'number' || obj.timeout <= 0 || !Number.isFinite(obj.timeout)) {
@@ -353,6 +373,12 @@ function deepMerge(defaults: RafConfig, overrides: UserConfig): RafConfig {
       high: e.high ? mergeModelEntry(defaults.effortMapping.high, e.high) : { ...defaults.effortMapping.high },
     };
   }
+  if (overrides.codex) {
+    result.codex = {
+      ...defaults.codex,
+      ...overrides.codex,
+    };
+  }
   if (overrides.commitFormat) {
     result.commitFormat = { ...defaults.commitFormat, ...overrides.commitFormat };
   }
@@ -390,6 +416,7 @@ export function resolveConfig(configPath?: string): RafConfig {
         medium: { ...DEFAULT_CONFIG.effortMapping.medium },
         high: { ...DEFAULT_CONFIG.effortMapping.high },
       },
+      codex: { ...DEFAULT_CONFIG.codex },
       commitFormat: { ...DEFAULT_CONFIG.commitFormat },
     };
   }
@@ -550,6 +577,10 @@ export function getAutoCommit(): boolean {
 
 export function getWorktreeDefault(): boolean {
   return getResolvedConfig().worktree;
+}
+
+export function getCodexExecutionMode(): CodexExecutionMode {
+  return getResolvedConfig().codex.executionMode;
 }
 
 export function getSyncMainBranch(): boolean {

@@ -295,6 +295,25 @@ describe('Config', () => {
       expect(() => validateConfig({ syncMainBranch: false })).not.toThrow();
     });
 
+    it('should accept codex execution mode values', () => {
+      expect(() => validateConfig({ codex: { executionMode: 'dangerous' } })).not.toThrow();
+      expect(() => validateConfig({ codex: { executionMode: 'fullAuto' } })).not.toThrow();
+    });
+
+    it('should reject non-object codex config', () => {
+      expect(() => validateConfig({ codex: 'dangerous' })).toThrow('codex must be an object');
+    });
+
+    it('should reject unknown codex keys', () => {
+      expect(() => validateConfig({ codex: { mode: 'dangerous' } })).toThrow('Unknown config key: codex.mode');
+    });
+
+    it('should reject invalid codex execution mode', () => {
+      expect(() => validateConfig({ codex: { executionMode: 'invalid' } })).toThrow(
+        'codex.executionMode must be one of: dangerous, fullAuto'
+      );
+    });
+
     // Non-string commitFormat values
     it('should reject non-string commitFormat values', () => {
       expect(() => validateConfig({ commitFormat: { prefix: 123 } })).toThrow('commitFormat.prefix must be a string');
@@ -371,6 +390,14 @@ describe('Config', () => {
       const config = resolveConfig(configPath);
       expect(config.commitFormat.prefix).toBe('MY');
       expect(config.commitFormat.task).toBe(DEFAULT_CONFIG.commitFormat.task); // default preserved
+    });
+
+    it('should deep-merge partial codex override', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ codex: { executionMode: 'fullAuto' } }));
+
+      const config = resolveConfig(configPath);
+      expect(config.codex.executionMode).toBe('fullAuto');
     });
 
     it('should override scalar values', () => {
@@ -526,6 +553,10 @@ describe('Config', () => {
       expect(DEFAULT_CONFIG.effortMapping.low).toEqual({ model: 'sonnet', harness: 'claude' });
       expect(DEFAULT_CONFIG.effortMapping.medium).toEqual({ model: 'opus', harness: 'claude' });
       expect(DEFAULT_CONFIG.effortMapping.high).toEqual({ model: 'opus', harness: 'claude' });
+    });
+
+    it('should default codex execution mode to dangerous', () => {
+      expect(DEFAULT_CONFIG.codex.executionMode).toBe('dangerous');
     });
 
     it('should have all commit format fields defined', () => {

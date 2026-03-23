@@ -98,6 +98,29 @@ Example:
 }
 ```
 
+### `codex` — Codex Execution Policy (`raf do`)
+
+Controls which Codex execution mode RAF uses for non-interactive task execution in `raf do`.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `codex.executionMode` | `"dangerous"` | Execution mode for `codex exec` during `raf do` runs |
+
+- **Type**: string
+- **Allowed values**:
+  - `"dangerous"`: Uses `--dangerously-bypass-approvals-and-sandbox` (unrestricted Codex mode)
+  - `"fullAuto"`: Uses `--full-auto` (sandboxed workspace-write mode with on-request approvals)
+- **Scope**: This affects non-interactive Codex task execution (`raf do`). Interactive Codex sessions are unchanged.
+
+Example:
+```json
+{
+  "codex": {
+    "executionMode": "fullAuto"
+  }
+}
+```
+
 ### `timeout` — Task Timeout
 
 - **Type**: number (positive)
@@ -273,6 +296,7 @@ The config is validated when loaded. Invalid configs cause an error with a descr
 - **`timeout`** must be a positive finite number.
 - **`maxRetries`** must be a non-negative integer.
 - **`autoCommit`**, **`worktree`**, and **`syncMainBranch`** must be booleans.
+- **`codex.executionMode`** must be `"dangerous"` or `"fullAuto"`.
 - **`commitFormat` values** must be strings.
 - The config file must be valid JSON containing an object (not an array or primitive).
 
@@ -343,6 +367,9 @@ Uses Claude Opus for planning but Codex for execution. Low-effort tasks use Clau
     "low": { "model": "sonnet", "harness": "claude" },
     "medium": { "model": "opus", "harness": "claude" },
     "high": { "model": "opus", "harness": "claude" }
+  },
+  "codex": {
+    "executionMode": "dangerous"
   },
   "timeout": 60,
   "maxRetries": 3,

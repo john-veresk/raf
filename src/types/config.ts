@@ -23,6 +23,14 @@ export type ModelName = string & { __brand?: 'ModelName' };
 /** Task complexity label for per-task effort frontmatter. Maps to models via effortMapping. */
 export type TaskEffortLevel = 'low' | 'medium' | 'high';
 
+/** Codex execution policy for non-interactive `codex exec` runs. */
+export type CodexExecutionMode = 'dangerous' | 'fullAuto';
+
+export interface CodexConfig {
+  /** Execution mode for Codex non-interactive runs. */
+  executionMode: CodexExecutionMode;
+}
+
 export type ModelScenario = 'plan' | 'execute' | 'nameGeneration' | 'failureAnalysis' | 'prGeneration' | 'config';
 export type CommitFormatType = 'task' | 'plan' | 'amend';
 
@@ -71,6 +79,8 @@ export interface RafConfig {
   models: ModelsConfig;
   /** Maps task complexity labels (low/medium/high) to model entries. Used for per-task effort frontmatter. */
   effortMapping: EffortMappingConfig;
+  /** Codex execution behavior for non-interactive task runs. */
+  codex: CodexConfig;
   timeout: number;
   maxRetries: number;
   autoCommit: boolean;
@@ -93,6 +103,9 @@ export const DEFAULT_CONFIG: RafConfig = {
     low: { model: 'sonnet', harness: 'claude' },
     medium: { model: 'opus', harness: 'claude' },
     high: { model: 'opus', harness: 'claude' },
+  },
+  codex: {
+    executionMode: 'dangerous',
   },
   timeout: 60,
   maxRetries: 3,

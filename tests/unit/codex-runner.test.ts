@@ -59,6 +59,36 @@ describe('CodexRunner', () => {
     mockExistsSync.mockReturnValue(false);
   });
 
+  it('uses dangerous execution mode by default for non-interactive runs', async () => {
+    const mockProc = createMockProcess();
+    mockSpawn.mockReturnValue(mockProc);
+
+    const runner = new CodexRunner({ model: 'gpt-5.4' });
+    const runPromise = runner.run('test prompt');
+
+    const spawnArgs = mockSpawn.mock.calls[0]?.[1] as string[];
+    expect(spawnArgs).toContain('--dangerously-bypass-approvals-and-sandbox');
+    expect(spawnArgs).not.toContain('--full-auto');
+
+    mockProc.emit('close', 0);
+    await runPromise;
+  });
+
+  it('uses full-auto execution mode when configured', async () => {
+    const mockProc = createMockProcess();
+    mockSpawn.mockReturnValue(mockProc);
+
+    const runner = new CodexRunner({ model: 'gpt-5.4', codexExecutionMode: 'fullAuto' });
+    const runPromise = runner.run('test prompt');
+
+    const spawnArgs = mockSpawn.mock.calls[0]?.[1] as string[];
+    expect(spawnArgs).toContain('--full-auto');
+    expect(spawnArgs).not.toContain('--dangerously-bypass-approvals-and-sandbox');
+
+    mockProc.emit('close', 0);
+    await runPromise;
+  });
+
   it('returns usageData from run() when turn.completed includes usage', async () => {
     const mockProc = createMockProcess();
     mockSpawn.mockReturnValue(mockProc);
@@ -80,14 +110,10 @@ describe('CodexRunner', () => {
     expect(result.usageData).toEqual({
       inputTokens: 1000,
       outputTokens: 250,
-      cacheReadInputTokens: 0,
-      cacheCreationInputTokens: 0,
       modelUsage: {
         'gpt-5.4': {
           inputTokens: 1000,
           outputTokens: 250,
-          cacheReadInputTokens: 0,
-          cacheCreationInputTokens: 0,
           costUsd: null,
         },
       },
@@ -126,14 +152,10 @@ describe('CodexRunner', () => {
     expect(result.usageData).toEqual({
       inputTokens: 1500,
       outputTokens: 400,
-      cacheReadInputTokens: 0,
-      cacheCreationInputTokens: 0,
       modelUsage: {
         'gpt-5.4': {
           inputTokens: 1500,
           outputTokens: 400,
-          cacheReadInputTokens: 0,
-          cacheCreationInputTokens: 0,
           costUsd: null,
         },
       },

@@ -5,6 +5,7 @@ import { logger } from '../utils/logger.js';
 import { renderCodexStreamEvent } from '../parsers/codex-stream-renderer.js';
 import { getModel } from '../utils/config.js';
 import { mergeUsageData } from '../utils/token-tracker.js';
+import type { CodexExecutionMode } from '../types/config.js';
 import type { ICliRunner } from './runner-interface.js';
 import type { RunnerOptions, RunnerConfig, RunResult } from './runner-types.js';
 import { createCompletionDetector } from './completion-detector.js';
@@ -33,15 +34,22 @@ const CONTEXT_OVERFLOW_PATTERNS = [
   /context window/i,
 ];
 
+const CODEX_EXECUTION_MODE_TO_FLAG: Record<CodexExecutionMode, string> = {
+  dangerous: '--dangerously-bypass-approvals-and-sandbox',
+  fullAuto: '--full-auto',
+};
+
 export class CodexRunner implements ICliRunner {
   private activeProcess: pty.IPty | null = null;
   private killed = false;
   private model: string;
   private reasoningEffort?: string;
+  private codexExecutionMode: CodexExecutionMode;
 
   constructor(config: RunnerConfig = {}) {
     this.model = config.model ?? getModel('execute').model;
     this.reasoningEffort = config.reasoningEffort;
+    this.codexExecutionMode = config.codexExecutionMode ?? 'dangerous';
   }
 
   /**
@@ -151,14 +159,14 @@ export class CodexRunner implements ICliRunner {
 
   /**
    * Run Codex non-interactively with verbose output to stdout.
-   * Uses `codex exec --full-auto --json` to get JSONL streaming events.
+   * Uses `codex exec <execution-mode> --json` to get JSONL streaming events.
    */
   async runVerbose(prompt: string, options: RunnerOptions = {}): Promise<RunResult> {
     return this._runExec(prompt, options, true);
   }
 
   /**
-   * Internal unified execution method using `codex exec --full-auto --json`.
+   * Internal unified execution method using `codex exec <execution-mode> --json`.
    * Both run() and runVerbose() delegate to this method.
    */
   private async _runExec(
@@ -188,7 +196,7 @@ export class CodexRunner implements ICliRunner {
       logger.debug('Spawning process...');
       const execArgs = [
         'exec',
-        '--full-auto',
+        CODEX_EXECUTION_MODE_TO_FLAG[this.codexExecutionMode],
         '--json',
         '--ephemeral',
         '-m',

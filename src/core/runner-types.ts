@@ -1,4 +1,4 @@
-import type { UsageData, HarnessName } from '../types/config.js';
+import type { UsageData, HarnessName, CodexExecutionMode } from '../types/config.js';
 
 /**
  * Options for a single runner execution (run, runVerbose, runInteractive, etc.).
@@ -73,6 +73,11 @@ export interface RunnerConfig {
    * Only included when explicitly set to true.
    */
   fast?: boolean;
+  /**
+   * Codex non-interactive execution policy for `codex exec`.
+   * Only applies when harness is "codex" and using run()/runVerbose().
+   */
+  codexExecutionMode?: CodexExecutionMode;
 }
 
 /**

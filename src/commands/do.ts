@@ -13,7 +13,7 @@ import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFro
 import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
-import { formatModelDisplay, getConfig, getModel, getSyncMainBranch, resolveEffortToModel, applyModelCeiling, parseModelSpec, resolveFullModelId } from '../utils/config.js';
+import { formatModelDisplay, getConfig, getModel, getSyncMainBranch, getCodexExecutionMode, resolveEffortToModel, applyModelCeiling, parseModelSpec, resolveFullModelId } from '../utils/config.js';
 import type { PlanFrontmatter } from '../utils/frontmatter.js';
 import { getVersion } from '../utils/version.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
@@ -53,7 +53,7 @@ import {
   rebaseOntoMain,
 } from '../core/worktree.js';
 import { createPullRequest, prPreflight } from '../core/pull-request.js';
-import type { DoCommandOptions, ModelEntry } from '../types/config.js';
+import type { DoCommandOptions, ModelEntry, CodexExecutionMode } from '../types/config.js';
 
 /**
  * Post-execution action chosen by the user before task execution begins.
@@ -337,6 +337,7 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
   const force = options.force ?? false;
   const maxRetries = config.maxRetries;
   const autoCommit = config.autoCommit;
+  const codexExecutionMode = getCodexExecutionMode();
 
   // Configure logger
   logger.configure({ verbose, debug });
@@ -400,6 +401,7 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
         force,
         maxRetries,
         autoCommit,
+        codexExecutionMode,
         executeEntry,
         worktreeCwd: worktreeRoot,
       }
@@ -559,6 +561,7 @@ interface SingleProjectOptions {
   force: boolean;
   maxRetries: number;
   autoCommit: boolean;
+  codexExecutionMode: CodexExecutionMode;
   /** The resolved execute model entry (acts as ceiling for per-task resolution). */
   executeEntry: ModelEntry;
   /** Worktree root directory. When set, the runner uses cwd in the worktree. */
@@ -570,7 +573,7 @@ async function executeSingleProject(
   projectName: string,
   options: SingleProjectOptions
 ): Promise<ProjectExecutionResult> {
-  const { timeout, verbose, debug, force, maxRetries, autoCommit, executeEntry, worktreeCwd } = options;
+  const { timeout, verbose, debug, force, maxRetries, autoCommit, codexExecutionMode, executeEntry, worktreeCwd } = options;
 
   if (!validatePlansExist(projectPath)) {
     return {
@@ -861,7 +864,13 @@ async function executeSingleProject(
       }
 
       // Create a runner for this attempt's model
-      const taskRunner = createRunner({ model: modelResolution.entry.model, harness: modelResolution.entry.harness, reasoningEffort: modelResolution.entry.reasoningEffort, fast: modelResolution.entry.fast });
+      const taskRunner = createRunner({
+        model: modelResolution.entry.model,
+        harness: modelResolution.entry.harness,
+        reasoningEffort: modelResolution.entry.reasoningEffort,
+        fast: modelResolution.entry.fast,
+        codexExecutionMode,
+      });
       shutdownHandler.registerClaudeRunner(taskRunner);
 
       if (verbose && isRetry) {

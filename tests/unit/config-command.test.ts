@@ -186,6 +186,14 @@ describe('Config Command', () => {
         expect.stringContaining('models.execute.fast is enabled but ignored because Codex does not support fast mode')
       );
     });
+
+    it('writes codex.executionMode for codex task execution policy', async () => {
+      await parseConfigCommand(['set', 'codex.executionMode', 'fullAuto']);
+
+      const saved = JSON.parse(fs.readFileSync(configPath(), 'utf-8'));
+      expect(saved).toEqual({ codex: { executionMode: 'fullAuto' } });
+      expect(resolveConfig(configPath()).codex.executionMode).toBe('fullAuto');
+    });
   });
 
   describe('config reset', () => {

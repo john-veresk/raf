@@ -95,6 +95,8 @@ Note: The completion summary reflects the tasks executed in that run (the remain
 
 Note: Post-run token summaries now show exact input/output token counts for both Claude and Codex runs. Dollar cost is shown only when the provider reports an exact value, so current Codex summaries are token-only.
 
+Note: When a task runs on Codex (`harness: "codex"`), `raf do` uses `codex exec --dangerously-bypass-approvals-and-sandbox` by default. Set `codex.executionMode` to `"fullAuto"` if you want the previous sandboxed `--full-auto` behavior.
+
 ### `raf status`
 
 Check project status. Worktree projects are discovered automatically when inside a git repo — no flag needed.
@@ -132,6 +134,9 @@ Example `~/.raf/raf.config.json`:
     "execute": { "model": "sonnet", "harness": "claude" },
     "nameGeneration": { "model": "haiku", "harness": "claude" }
   },
+  "codex": {
+    "executionMode": "dangerous"
+  },
   "worktree": true,
   "timeout": 45
 }
@@ -160,6 +165,7 @@ RAF supports multiple LLM harnesses per scenario. Each model entry in `models` a
 - `--resume` is not supported (Codex CLI has no session resume)
 - System prompt is prepended to the user message rather than passed separately
 - Post-run summaries currently include exact token counts but omit USD cost because Codex CLI does not provide an exact per-run price
+- `raf do` defaults to Codex dangerous execution mode (`--dangerously-bypass-approvals-and-sandbox`); switch to `codex.executionMode: "fullAuto"` for sandboxed workspace-write mode
 
 ## Status Symbols
 
@@ -251,7 +257,7 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 
 Alias: `raf act`
 
-> **Note:** `raf do` and `raf plan -y` run the CLI with skip-permissions flags for fully automated execution without interactive prompts.
+> **Note:** `raf do` runs non-interactive execution without approval prompts. For Codex tasks, the default is `--dangerously-bypass-approvals-and-sandbox`; set `codex.executionMode` to `"fullAuto"` to use the previous sandboxed mode. `raf plan -y` behavior is unchanged.
 
 ### `raf config`
 
