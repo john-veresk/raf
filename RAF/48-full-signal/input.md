@@ -1,0 +1,2 @@
+- [ ] in 'raf do' task execution status line it says "codex", make it render full version like "gpt-5.3-codex"
+- [ ] run codex harness in analog of "dangirously skip premission" mode in execution
