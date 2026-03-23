@@ -620,6 +620,8 @@ function normalizeModelAlias(value: string): string {
   return value.toLowerCase().replace(/^gpt-/, 'gpt').replace(/[^a-z0-9]/g, '');
 }
 
+const FULL_CODEX_DISPLAY_ALIASES = new Set<string>(['codex', 'gpt54']);
+
 /**
  * Mapping of short model aliases to their current full model IDs.
  * These should match the latest Claude model versions.
@@ -638,12 +640,17 @@ function getPreferredModelDisplayLabel(alias: string): string {
     return alias;
   }
 
+  // Codex aliases should always render as canonical full IDs in user-facing output.
+  if (FULL_CODEX_DISPLAY_ALIASES.has(alias)) {
+    return fullId;
+  }
+
   return normalizeModelAlias(alias) === normalizeModelAlias(fullId) ? fullId : alias;
 }
 
 /**
  * Get the centralized user-facing display label for a model.
- * Keeps concise Claude labels, while normalizing compact aliases like gpt54 -> gpt-5.4.
+ * Keeps concise Claude labels, while rendering Codex aliases as canonical full IDs.
  */
 export function getModelDisplayName(modelId: string): string {
   const aliasedDisplay = getPreferredModelDisplayLabel(modelId);

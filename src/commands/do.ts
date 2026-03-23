@@ -13,7 +13,7 @@ import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFro
 import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
-import { formatModelDisplay, getConfig, getModel, getSyncMainBranch, getCodexExecutionMode, resolveEffortToModel, applyModelCeiling, parseModelSpec, resolveFullModelId } from '../utils/config.js';
+import { formatModelDisplay, getConfig, getModel, getSyncMainBranch, getCodexExecutionMode, resolveEffortToModel, applyModelCeiling, parseModelSpec } from '../utils/config.js';
 import type { PlanFrontmatter } from '../utils/frontmatter.js';
 import { getVersion } from '../utils/version.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
@@ -192,7 +192,7 @@ interface ProjectExecutionResult {
 }
 
 export function formatResolvedTaskModel(entry: ModelEntry): string {
-  return formatModelMetadata(resolveFullModelId(entry.model), {
+  return formatModelMetadata(formatModelDisplay(entry.model, entry.harness, { fullId: true }), {
     effort: entry.reasoningEffort,
     fast: entry.fast === true,
   });
@@ -631,7 +631,7 @@ async function executeSingleProject(
   const projectStartTime = Date.now();
 
   // Resolve and display version + ceiling model info (before any tasks run)
-  const fullCeilingModelId = resolveFullModelId(ceilingEntry.model);
+  const fullCeilingModelId = formatModelDisplay(ceilingEntry.model, ceilingEntry.harness, { fullId: true });
   logger.dim(`RAF v${getVersion()} | Ceiling: ${fullCeilingModelId} (${ceilingEntry.harness})`);
 
   if (verbose) {

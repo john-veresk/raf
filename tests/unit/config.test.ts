@@ -679,18 +679,19 @@ describe('Config', () => {
     });
 
     it('should normalize compact Codex aliases to canonical display names', () => {
+      expect(getModelDisplayName('codex')).toBe('gpt-5.3-codex');
       expect(getModelDisplayName('gpt54')).toBe('gpt-5.4');
-      expect(getModelDisplayName('gpt-5.4')).toBe('gpt-5.4');
     });
 
-    it('should keep readable Codex aliases that are already concise labels', () => {
-      expect(getModelDisplayName('codex')).toBe('codex');
-      expect(getModelDisplayName('gpt-5.3-codex')).toBe('codex');
+    it('should keep canonical Codex model IDs unchanged', () => {
+      expect(getModelDisplayName('gpt-5.3-codex')).toBe('gpt-5.3-codex');
+      expect(getModelDisplayName('gpt-5.4')).toBe('gpt-5.4');
     });
   });
 
   describe('formatModelDisplay', () => {
     it('should include harness when requested', () => {
+      expect(formatModelDisplay('codex', 'codex', { includeHarness: true })).toBe('gpt-5.3-codex (codex)');
       expect(formatModelDisplay('gpt54', 'codex', { includeHarness: true })).toBe('gpt-5.4 (codex)');
       expect(formatModelDisplay('claude-sonnet-4-5-20250929', 'claude', { includeHarness: true })).toBe('sonnet (claude)');
     });

@@ -5,7 +5,7 @@ describe('do model display', () => {
   it('should include effort and fast metadata in verbose model logs', () => {
     const entry: ModelEntry = {
       model: 'sonnet',
-      provider: 'claude',
+      harness: 'claude',
       reasoningEffort: 'low',
       fast: true,
     };
@@ -16,7 +16,7 @@ describe('do model display', () => {
   it('should omit effort when unavailable', () => {
     const entry: ModelEntry = {
       model: 'sonnet',
-      provider: 'claude',
+      harness: 'claude',
     };
 
     expect(formatResolvedTaskModel(entry)).toBe('claude-sonnet-4-5-20250929');
@@ -25,11 +25,20 @@ describe('do model display', () => {
   it('should omit fast when false', () => {
     const entry: ModelEntry = {
       model: 'sonnet',
-      provider: 'claude',
+      harness: 'claude',
       reasoningEffort: 'low',
       fast: false,
     };
 
     expect(formatResolvedTaskModel(entry)).toBe('claude-sonnet-4-5-20250929, low');
+  });
+
+  it('should render codex alias as canonical full id', () => {
+    const entry: ModelEntry = {
+      model: 'codex',
+      harness: 'codex',
+    };
+
+    expect(formatResolvedTaskModel(entry)).toBe('gpt-5.3-codex');
   });
 });
