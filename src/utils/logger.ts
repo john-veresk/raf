@@ -1,3 +1,5 @@
+import type { StatusLine } from './status-line.js';
+
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 interface LoggerOptions {
@@ -8,6 +10,15 @@ interface LoggerOptions {
 class Logger {
   private verbose = false;
   private debugMode = false;
+  private activeStatusLine: StatusLine | null = null;
+
+  setActiveStatusLine(statusLine: StatusLine | null): void {
+    this.activeStatusLine = statusLine;
+  }
+
+  private clearStatusLine(): void {
+    this.activeStatusLine?.clear();
+  }
 
   configure(options: LoggerOptions): void {
     this.verbose = options.verbose ?? false;
@@ -39,6 +50,7 @@ class Logger {
   }
 
   info(message: string, ...args: unknown[]): void {
+    this.clearStatusLine();
     console.log(this.formatMessage(message), ...args);
   }
 
@@ -49,10 +61,12 @@ class Logger {
   }
 
   warn(message: string, ...args: unknown[]): void {
+    this.clearStatusLine();
     console.warn(`⚠️  ${this.formatMessage(message)}`, ...args);
   }
 
   error(message: string, ...args: unknown[]): void {
+    this.clearStatusLine();
     console.error(`✗ ${this.formatMessage(message)}`, ...args);
   }
 

@@ -819,6 +819,7 @@ async function executeSingleProject(
 
     // Set up timer for elapsed time tracking
     const statusLine = createStatusLine();
+    logger.setActiveStatusLine(statusLine);
     const timer = createTaskTimer(verbose ? undefined : (elapsed) => {
       // When verbose is toggled ON at runtime, clear the status line and skip updates
       if (verboseToggle.isVerbose) {
@@ -978,6 +979,7 @@ async function executeSingleProject(
     // Stop timer and clear status line
     const elapsedMs = timer.stop();
     statusLine.clear();
+    logger.setActiveStatusLine(null);
     const elapsedFormatted = formatElapsedTime(elapsedMs);
 
     // Save log if debug mode or failure
