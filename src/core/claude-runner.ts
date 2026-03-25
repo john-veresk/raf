@@ -2,6 +2,7 @@ import * as pty from 'node-pty';
 import type { IDisposable } from 'node-pty';
 import { execSync, spawn } from 'node:child_process';
 import { logger } from '../utils/logger.js';
+import { killProcessGroup } from '../utils/process-kill.js';
 import { renderStreamEvent } from '../parsers/stream-renderer.js';
 import { getModel } from '../utils/config.js';
 import { mergeUsageData } from '../utils/token-tracker.js';
@@ -327,6 +328,7 @@ export class ClaudeRunner implements ICliRunner {
         cwd,
         env: process.env,
         stdio: ['ignore', 'pipe', 'pipe'], // no stdin needed
+        detached: true,
       });
 
       // Track this process
@@ -337,12 +339,12 @@ export class ClaudeRunner implements ICliRunner {
       const timeoutHandle = setTimeout(() => {
         timedOut = true;
         logger.warn('Session timed out');
-        proc.kill('SIGTERM');
+        killProcessGroup(proc, 'timeout');
       }, timeoutMs);
 
       // Set up completion detection (stdout marker + outcome file polling)
       const completionDetector = createCompletionDetector(
-        () => proc.kill('SIGTERM'),
+        () => killProcessGroup(proc, 'completion detected'),
         outcomeFilePath,
         commitContext,
       );
@@ -378,7 +380,7 @@ export class ClaudeRunner implements ICliRunner {
               if (pattern.test(rendered.textContent)) {
                 contextOverflow = true;
                 logger.warn('Context overflow detected');
-                proc.kill('SIGTERM');
+                killProcessGroup(proc, 'context overflow');
                 break;
               }
             }
@@ -452,16 +454,22 @@ export class ClaudeRunner implements ICliRunner {
         // Ignore write errors - process may already be closing
       }
 
-      // Force kill after 5 seconds if still running
-      setTimeout(() => {
-        if (this.activeProcess) {
-          try {
-            this.activeProcess.kill();
-          } catch {
-            // Ignore kill errors - process may already be dead
+      // For spawn() ChildProcess (used by _runStreamJson), use killProcessGroup for reliable termination
+      // For PTY processes (used by runInteractive/runResume), fall back to direct kill
+      if (typeof this.activeProcess.write !== 'function' && 'pid' in this.activeProcess) {
+        killProcessGroup(this.activeProcess as any, 'manual kill');
+      } else {
+        // Force kill after 5 seconds if still running (PTY process)
+        setTimeout(() => {
+          if (this.activeProcess) {
+            try {
+              this.activeProcess.kill();
+            } catch {
+              // Ignore kill errors - process may already be dead
+            }
           }
-        }
-      }, 5000);
+        }, 5000);
+      }
     }
   }
 
