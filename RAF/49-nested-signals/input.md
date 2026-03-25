@@ -1,0 +1,4 @@
+- [ ] The raf config set CLI command doesn't support setting individual sub-fields within a   ModelEntry (like reasoningEffort). It only knows about top-level keys and full model entry   paths — not nested properties inside them. Fix that, make this command and simular possible "➜  BindNotes git:(main) ✗ raf config set models.execute.reasoningEffort high ✗ Config key not found in schema: models.execute.reasoningEffort"
+- [ ] add space between status line and error message in retry case "● 2-protocol-research-scripts (gpt-5.3-codex, high) 6m 4s⚠️  Context overflow detected"
+- [ ] "raf do" ignores if task failed, but should take into account failed outcome and do another attempt
+- [ ] a task on codex harness didn't stop after timeout. investigate possible reasons.1h 28m and still going. was 60 min. 
