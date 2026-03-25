@@ -17,7 +17,7 @@ import {
   resolveConfig,
   saveConfig,
 } from '../utils/config.js';
-import { DEFAULT_CONFIG } from '../types/config.js';
+import { DEFAULT_CONFIG, CONFIG_SCHEMA } from '../types/config.js';
 import type { UserConfig } from '../types/config.js';
 import { createPresetCommand } from './preset.js';
 
@@ -259,6 +259,28 @@ function handleGet(key?: string): void {
 }
 
 /**
+ * Find the deepest parent path in CONFIG_SCHEMA that resolves to an object,
+ * for a dot-path key whose full path doesn't directly resolve.
+ * Returns { parentPath, leafKey } if found, or null if the key is invalid.
+ */
+function findNestedParent(key: string): { parentPath: string; leafKey: string } | null {
+  const parts = key.split('.');
+  // Try progressively shorter parent paths (at least 1 part for parent)
+  for (let i = parts.length - 1; i >= 1; i--) {
+    const parentPath = parts.slice(0, i).join('.');
+    const parentInSchema = getNestedValue(CONFIG_SCHEMA, parentPath);
+    if (parentInSchema !== null && typeof parentInSchema === 'object') {
+      const leafKey = parts.slice(i).join('.');
+      // Verify leaf key exists within this parent object
+      if (getNestedValue(parentInSchema, leafKey) !== undefined) {
+        return { parentPath, leafKey };
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Update config file with a new value.
  */
 function handleSet(key: string, rawValue: string): void {
@@ -277,25 +299,54 @@ function handleSet(key: string, rawValue: string): void {
     }
   }
 
-  // Check if value matches default
-  const defaultValue = getDefaultValue(key);
+  // Validate key against schema (CONFIG_SCHEMA has all valid keys including optional ones)
+  const schemaValue = getNestedValue(CONFIG_SCHEMA, key);
+  const nested = findNestedParent(key);
 
-  if (defaultValue === undefined) {
+  // Key must exist either directly in schema or as a nested sub-field
+  if (schemaValue === undefined && !nested) {
     logger.error(`Config key not found in schema: ${key}`);
     process.exit(1);
   }
 
-  // Deep equality check for objects
-  const valuesMatch = JSON.stringify(value) === JSON.stringify(defaultValue);
+  // Use merge logic for sub-fields within nested objects (e.g., models.execute.reasoningEffort).
+  // Even if the key resolves directly, if it has a parent object we must merge to preserve
+  // required sibling fields like model/harness.
+  if (nested) {
+    // Setting a sub-field within a nested object (e.g., models.execute.reasoningEffort)
+    const { parentPath, leafKey } = nested;
 
-  if (valuesMatch) {
-    // Remove from config file (keep config minimal)
-    deleteNestedValue(userConfig as Record<string, unknown>, key);
-    logger.info(`Value matches default, removing ${key} from config`);
+    // Get current parent value from user config, falling back to DEFAULT_CONFIG
+    const userParent = getNestedValue(userConfig, parentPath) as Record<string, unknown> | undefined;
+    const defaultParent = getNestedValue(DEFAULT_CONFIG, parentPath) as Record<string, unknown>;
+    const mergedParent = { ...defaultParent, ...userParent };
+
+    // Apply the sub-field change
+    setNestedValue(mergedParent, leafKey, value);
+
+    // Check if merged parent matches default — if so, remove it
+    const defaultParentJson = JSON.stringify(defaultParent);
+    const mergedParentJson = JSON.stringify(mergedParent);
+
+    if (mergedParentJson === defaultParentJson) {
+      deleteNestedValue(userConfig as Record<string, unknown>, parentPath);
+      logger.info(`Value matches default, removing ${parentPath} from config`);
+    } else {
+      setNestedValue(userConfig as Record<string, unknown>, parentPath, mergedParent);
+      logger.info(`Set ${key} = ${formatValue(value)}`);
+    }
   } else {
-    // Set the value
-    setNestedValue(userConfig as Record<string, unknown>, key, value);
-    logger.info(`Set ${key} = ${formatValue(value)}`);
+    // Direct key (existing behavior)
+    const defaultValue = getDefaultValue(key);
+    const valuesMatch = JSON.stringify(value) === JSON.stringify(defaultValue);
+
+    if (valuesMatch) {
+      deleteNestedValue(userConfig as Record<string, unknown>, key);
+      logger.info(`Value matches default, removing ${key} from config`);
+    } else {
+      setNestedValue(userConfig as Record<string, unknown>, key, value);
+      logger.info(`Set ${key} = ${formatValue(value)}`);
+    }
   }
 
   // Validate the resulting config

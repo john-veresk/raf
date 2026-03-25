@@ -90,6 +90,42 @@ export interface RafConfig {
   commitFormat: CommitFormatConfig;
 }
 
+/**
+ * Full schema with all valid keys including optional ones.
+ * Used for key validation in `raf config set` — DEFAULT_CONFIG omits optional
+ * fields, so we need this to know that e.g. `models.execute.reasoningEffort`
+ * is a valid path even though it has no default value.
+ */
+const MODEL_ENTRY_SCHEMA: Required<ModelEntry> = {
+  model: '',
+  harness: 'claude',
+  reasoningEffort: '',
+  fast: false,
+};
+
+function buildConfigSchema(config: RafConfig): RafConfig {
+  const fillModelEntry = (entry: ModelEntry): Required<ModelEntry> => ({
+    ...MODEL_ENTRY_SCHEMA,
+    ...entry,
+  });
+  return {
+    ...config,
+    models: {
+      plan: fillModelEntry(config.models.plan),
+      execute: fillModelEntry(config.models.execute),
+      nameGeneration: fillModelEntry(config.models.nameGeneration),
+      failureAnalysis: fillModelEntry(config.models.failureAnalysis),
+      prGeneration: fillModelEntry(config.models.prGeneration),
+      config: fillModelEntry(config.models.config),
+    },
+    effortMapping: {
+      low: fillModelEntry(config.effortMapping.low),
+      medium: fillModelEntry(config.effortMapping.medium),
+      high: fillModelEntry(config.effortMapping.high),
+    },
+  };
+}
+
 export const DEFAULT_CONFIG: RafConfig = {
   models: {
     plan: { model: 'opus', harness: 'claude' },
@@ -119,6 +155,12 @@ export const DEFAULT_CONFIG: RafConfig = {
     prefix: 'RAF',
   },
 };
+
+/**
+ * Schema with all valid keys (including optional ModelEntry fields).
+ * Used only for key validation in `raf config set`.
+ */
+export const CONFIG_SCHEMA: RafConfig = buildConfigSchema(DEFAULT_CONFIG);
 
 /** Deep partial type for user config files — all fields optional at every level */
 export type DeepPartial<T> = {
