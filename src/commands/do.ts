@@ -856,7 +856,7 @@ async function executeSingleProject(
 
       // Update current model for timer callback display
       currentModel = modelResolution.entry.model;
-      currentEffort = task.frontmatter?.effort;
+      currentEffort = modelResolution.entry.reasoningEffort;
       currentModelFast = modelResolution.entry.fast === true;
 
       // Log missing frontmatter warning on first attempt only
