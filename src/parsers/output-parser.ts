@@ -97,22 +97,24 @@ export function isRetryableFailure(parsed: ParsedOutput): boolean {
   }
 
   // Check failure reason for non-retryable patterns
-  if (parsed.result === 'failed' && parsed.failureReason) {
-    const nonRetryable = [
-      /cannot be done/i,
-      /impossible/i,
-      /not supported/i,
-      /permission denied/i,
-      /access denied/i,
-    ];
+  if (parsed.result === 'failed') {
+    if (parsed.failureReason) {
+      const nonRetryable = [
+        /cannot be done/i,
+        /impossible/i,
+        /not supported/i,
+        /permission denied/i,
+        /access denied/i,
+      ];
 
-    for (const pattern of nonRetryable) {
-      if (pattern.test(parsed.failureReason)) {
-        return false;
+      for (const pattern of nonRetryable) {
+        if (pattern.test(parsed.failureReason)) {
+          return false;
+        }
       }
     }
 
-    // Most failures are retryable
+    // Failures are retryable by default (with or without a reason)
     return true;
   }
 

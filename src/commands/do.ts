@@ -955,6 +955,7 @@ async function executeSingleProject(
         if (!isRetryableFailure(parsed)) {
           break;
         }
+        continue;
       } else {
         // Unknown result - check outcome file as fallback
         if (fs.existsSync(outcomeFilePath)) {
@@ -965,13 +966,16 @@ async function executeSingleProject(
           } else if (outcomeStatus === 'failed') {
             failureReason = 'Task failed (from outcome file)';
             failureHistory.push({ attempt: attempts, reason: failureReason });
+            continue;
           } else {
             failureReason = 'No completion marker found in output or outcome file';
             failureHistory.push({ attempt: attempts, reason: failureReason });
+            continue;
           }
         } else {
           failureReason = 'No completion marker found';
           failureHistory.push({ attempt: attempts, reason: failureReason });
+          continue;
         }
       }
     }
