@@ -157,6 +157,18 @@ The main branch is auto-detected from `refs/remotes/origin/HEAD`, falling back t
 
 Failures in sync operations produce warnings but don't block the workflow. For example, if the local main branch has diverged from remote, the sync will warn and continue.
 
+### `pushOnComplete` — Push After Successful Execution
+
+- **Type**: boolean
+- **Default**: `false`
+- **Description**: When `true`, RAF pushes the current branch to the remote after successful `raf do` execution:
+  - **Non-worktree mode**: Pushes the current branch after all tasks complete successfully
+  - **Worktree merge mode**: After merging the worktree branch, pushes the merged-into branch to remote
+  - **Worktree PR mode**: No effect (PR creation already pushes the branch)
+  - **Worktree leave mode**: No effect (no merge occurs)
+
+Push failures produce warnings but don't fail the overall execution.
+
 ### `commitFormat` — Commit Message Templates
 
 Controls the format of git commit messages. Templates use `{placeholder}` syntax for variable substitution.
@@ -295,7 +307,7 @@ The config is validated when loaded. Invalid configs cause an error with a descr
 - **`effortMapping` keys** must be `"low"`, `"medium"`, or `"high"`.
 - **`timeout`** must be a positive finite number.
 - **`maxRetries`** must be a non-negative integer.
-- **`autoCommit`**, **`worktree`**, and **`syncMainBranch`** must be booleans.
+- **`autoCommit`**, **`worktree`**, **`syncMainBranch`**, and **`pushOnComplete`** must be booleans.
 - **`codex.executionMode`** must be `"dangerous"` or `"fullAuto"`.
 - **`commitFormat` values** must be strings.
 - The config file must be valid JSON containing an object (not an array or primitive).
@@ -376,6 +388,7 @@ Uses Claude Opus for planning but Codex for execution. Low-effort tasks use Clau
   "autoCommit": true,
   "worktree": false,
   "syncMainBranch": true,
+  "pushOnComplete": false,
   "commitFormat": {
     "task": "{prefix}[{projectName}:{taskId}] {description}",
     "plan": "{prefix}[{projectName}] Plan: {description}",
