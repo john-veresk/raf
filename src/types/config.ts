@@ -87,6 +87,8 @@ export interface RafConfig {
   worktree: boolean;
   /** Sync main branch with remote before worktree/PR operations. Default: true */
   syncMainBranch: boolean;
+  /** Push the current branch to remote after successful execution. Default: false */
+  pushOnComplete: boolean;
   commitFormat: CommitFormatConfig;
 }
 
@@ -148,6 +150,7 @@ export const DEFAULT_CONFIG: RafConfig = {
   autoCommit: true,
   worktree: false,
   syncMainBranch: true,
+  pushOnComplete: false,
   commitFormat: {
     task: '{prefix}[{projectName}:{taskId}] {description}',
     plan: '{prefix}[{projectName}] Plan: {description}',

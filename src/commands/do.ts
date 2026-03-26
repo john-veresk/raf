@@ -13,7 +13,7 @@ import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFro
 import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
-import { formatModelDisplay, getConfig, getModel, getSyncMainBranch, getCodexExecutionMode, resolveEffortToModel, applyModelCeiling, parseModelSpec } from '../utils/config.js';
+import { formatModelDisplay, getConfig, getModel, getSyncMainBranch, getPushOnComplete, getCodexExecutionMode, resolveEffortToModel, applyModelCeiling, parseModelSpec } from '../utils/config.js';
 import type { PlanFrontmatter } from '../utils/frontmatter.js';
 import { getVersion } from '../utils/version.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
@@ -48,6 +48,7 @@ import {
   removeWorktree,
   resolveWorktreeProjectByIdentifier,
   pushMainBranch,
+  pushCurrentBranch,
   pullMainBranch,
   detectMainBranch,
   rebaseOntoMain,
@@ -426,6 +427,18 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
     }
   }
 
+  // Push to remote after successful execution (if enabled, non-worktree mode)
+  if (!worktreeRoot && result.success && getPushOnComplete()) {
+    const pushResult = pushCurrentBranch();
+    if (pushResult.success) {
+      if (pushResult.hadChanges) {
+        logger.info(`Pushed ${pushResult.mainBranch} to remote`);
+      }
+    } else {
+      logger.warn(`Could not push to remote: ${pushResult.error}`);
+    }
+  }
+
   // Exit with appropriate code
   if (!result.success) {
     process.exit(1);
@@ -498,6 +511,17 @@ async function executePostAction(
       if (mergeResult.success) {
         const mergeType = mergeResult.fastForward ? 'fast-forward' : 'merge commit';
         logger.success(`Merged "${worktreeBranch}" into "${originalBranch}" (${mergeType})`);
+
+        if (getPushOnComplete()) {
+          const pushResult = pushCurrentBranch();
+          if (pushResult.success) {
+            if (pushResult.hadChanges) {
+              logger.info(`Pushed ${originalBranch} to remote`);
+            }
+          } else {
+            logger.warn(`Could not push to remote: ${pushResult.error}`);
+          }
+        }
       } else {
         logger.warn(`Could not auto-merge: ${mergeResult.error}`);
         logger.warn(`You can merge manually: git merge ${worktreeBranch}`);

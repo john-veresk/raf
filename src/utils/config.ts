@@ -39,7 +39,7 @@ export function getClaudeSettingsPath(): string {
 const VALID_TOP_LEVEL_KEYS = new Set<string>([
   'models', 'effortMapping', 'codex',
   'timeout', 'maxRetries', 'autoCommit',
-  'worktree', 'syncMainBranch', 'commitFormat',
+  'worktree', 'syncMainBranch', 'pushOnComplete', 'commitFormat',
 ]);
 
 /** Keys that were removed in the schema migration. Rejected with a helpful error. */
@@ -302,6 +302,13 @@ export function validateConfig(config: unknown): UserConfig {
     }
   }
 
+  // pushOnComplete
+  if (obj.pushOnComplete !== undefined) {
+    if (typeof obj.pushOnComplete !== 'boolean') {
+      throw new ConfigValidationError('pushOnComplete must be a boolean');
+    }
+  }
+
   // commitFormat
   if (obj.commitFormat !== undefined) {
     if (typeof obj.commitFormat !== 'object' || obj.commitFormat === null || Array.isArray(obj.commitFormat)) {
@@ -387,6 +394,7 @@ function deepMerge(defaults: RafConfig, overrides: UserConfig): RafConfig {
   if (overrides.autoCommit !== undefined) result.autoCommit = overrides.autoCommit;
   if (overrides.worktree !== undefined) result.worktree = overrides.worktree;
   if (overrides.syncMainBranch !== undefined) result.syncMainBranch = overrides.syncMainBranch;
+  if (overrides.pushOnComplete !== undefined) result.pushOnComplete = overrides.pushOnComplete;
 
   return result;
 }
@@ -585,6 +593,10 @@ export function getCodexExecutionMode(): CodexExecutionMode {
 
 export function getSyncMainBranch(): boolean {
   return getResolvedConfig().syncMainBranch;
+}
+
+export function getPushOnComplete(): boolean {
+  return getResolvedConfig().pushOnComplete;
 }
 
 /**

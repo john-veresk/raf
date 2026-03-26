@@ -667,6 +667,29 @@ export function pushMainBranch(cwd?: string): SyncMainBranchResult {
 }
 
 /**
+ * Push the current branch to remote.
+ * Reuses SyncMainBranchResult type (mainBranch field holds the current branch name).
+ *
+ * @param cwd - The directory to run git commands in (defaults to current directory)
+ */
+export function pushCurrentBranch(cwd?: string): SyncMainBranchResult {
+  const branch = getCurrentBranch();
+  if (!branch) {
+    return { success: false, mainBranch: null, hadChanges: false, error: 'Could not determine current branch' };
+  }
+  try {
+    execSync(`git push origin ${branch}`, { encoding: 'utf-8', stdio: 'pipe', ...(cwd ? { cwd } : {}) });
+    return { success: true, mainBranch: branch, hadChanges: true };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg.includes('Everything up-to-date')) {
+      return { success: true, mainBranch: branch, hadChanges: false };
+    }
+    return { success: false, mainBranch: branch, hadChanges: false, error: `Failed to push ${branch}: ${msg}` };
+  }
+}
+
+/**
  * Rebase the current branch onto the main branch.
  * If the rebase fails with conflicts, aborts the rebase and returns failure.
  *
