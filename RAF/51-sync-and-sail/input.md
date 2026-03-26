@@ -1,0 +1,1 @@
+- [ ] add option to push to main after 'plan do' complition, configurable. if syncMainBranch true - push (in addition to existing logic), also add in config "main branch name" defaults to "main".
