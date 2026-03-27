@@ -118,10 +118,10 @@ raf config set timeout 45          # Write a value
 raf config reset                   # Reset config to defaults
 raf config wizard                  # Interactive config editor
 raf config wizard "use haiku for name generation"  # Start with a specific request
-raf config preset save claude-setup    # Save current config as "claude-setup"
-raf config preset load claude-setup    # Restore "claude-setup" (overwrites current config)
-raf config preset list                 # Show all saved presets
-raf config preset delete claude-setup  # Remove a preset
+raf config preset save claude-setup    # Save config as "claude-setup" and link to it
+raf config preset load claude-setup    # Switch config link to "claude-setup" preset
+raf config preset list                 # Show all saved presets (marks linked preset)
+raf config preset delete claude-setup  # Remove a preset (unlinks if active)
 ```
 
 **Precedence**: CLI flags > config file > built-in defaults
@@ -267,10 +267,10 @@ Alias: `raf act`
 | `set <key> <value>` | Write a config value using a dot-notation key |
 | `reset` | Delete the config file and restore defaults after confirmation |
 | `wizard [prompt]` | Launch the interactive config editor |
-| `preset save <name>` | Save current config as a named preset |
-| `preset load <name>` | Load a preset (overwrites current config) |
-| `preset list` | List all saved presets |
-| `preset delete <name>` | Delete a preset |
+| `preset save <name>` | Save current config as a named preset and link to it (edits flow back) |
+| `preset load <name>` | Switch config link to a different preset |
+| `preset list` | List all saved presets (marks the currently linked preset) |
+| `preset delete <name>` | Delete a preset (unlinks first if it's the active preset) |
 
 ### `raf status [identifier]`
 

@@ -205,17 +205,22 @@ Unknown placeholders are left as-is in the output.
 
 ### `presets` — Named Config Snapshots
 
-Presets are named copies of your full config that you can save, load, and switch between.
+Presets are named config files that you can save and link to. Once linked, config edits automatically persist back to the preset.
 
 - **Storage**: `~/.raf/presets/<name>.json` — same format as `~/.raf/raf.config.json`
+- **Flow**:
+  1. `raf config set ...` creates a regular `~/.raf/raf.config.json`
+  2. `raf config preset save <name>` moves the file to `presets/<name>.json` and symlinks `raf.config.json` to it
+  3. From now on, `raf config set ...` writes directly to the preset file via the symlink
+  4. `raf config preset load <other>` switches the symlink to a different preset
 - **CLI commands**:
-  - `raf config preset save <name>` — save current config as a preset
-  - `raf config preset load <name>` — load a preset into the active config
-  - `raf config preset list` — list all saved presets
-  - `raf config preset delete <name>` — delete a preset
+  - `raf config preset save <name>` — move config into a preset and link to it
+  - `raf config preset load <name>` — switch the link to a different preset
+  - `raf config preset list` — list all saved presets (marks the linked one)
+  - `raf config preset delete <name>` — delete a preset (unlinks first if active)
+- **Unlinking**: `raf config reset` removes the symlink and restores defaults. The preset file is not deleted.
+- **Status**: `raf config get` shows `(linked: <name>)` when config is symlinked to a preset.
 - **Name rules**: alphanumeric characters, hyphens, and underscores only (`^[a-zA-Z0-9_-]+$`)
-
-Preset files are full config snapshots. They follow the same validation rules as the main config. Any key valid in `raf.config.json` is valid in a preset.
 
 ## Valid Model Names
 
@@ -491,12 +496,37 @@ If the user sets reasoning effort on a model that may not support it (e.g., Haik
 
 ### Managing Presets
 
-You can directly manage preset files without running CLI commands. Presets are stored at `~/.raf/presets/<name>.json`.
+Presets are stored at `~/.raf/presets/<name>.json`. After saving or loading a preset, `~/.raf/raf.config.json` is a **symlink** to the preset file — edits write through automatically.
 
-- **Save a preset**: Read `~/.raf/raf.config.json`, validate it, then write it to `~/.raf/presets/<name>.json`. Create the `~/.raf/presets/` directory if it doesn't exist.
-- **Load a preset**: Read `~/.raf/presets/<name>.json`, validate it, then write it to `~/.raf/raf.config.json`.
-- **List presets**: Read the `~/.raf/presets/` directory and list all `.json` files (strip the `.json` extension to show the preset name).
-- **Delete a preset**: Confirm with the user, then delete `~/.raf/presets/<name>.json`.
+#### Symlink Rules
+
+When managing presets via file operations, you MUST follow these rules:
+
+1. **Detect link state first**: Before any preset operation, check if `~/.raf/raf.config.json` is a symlink using `fs.lstatSync()`. `fs.existsSync()` follows symlinks and won't tell you if the path is a symlink.
+2. **Reading config**: `fs.readFileSync()` follows symlinks automatically — just read `~/.raf/raf.config.json` as normal.
+3. **Writing config**: `fs.writeFileSync()` follows symlinks — writes go to the preset file. This is correct behavior.
+4. **Removing config**: `fs.unlinkSync()` on a symlink removes the **link itself**, not the target preset file.
+5. **Broken symlinks**: If `~/.raf/raf.config.json` is a symlink but the target preset was deleted, `fs.existsSync()` returns false. Use `fs.lstatSync()` to detect this. Treat broken symlinks as "no config" (defaults).
+
+#### Preset Operations
+
+- **Save a preset** (`raf config preset save <name>`):
+  1. Read config content from `~/.raf/raf.config.json` (follows symlink if linked)
+  2. If already linked to the same preset name → no-op, tell the user
+  3. Validate content, write to `~/.raf/presets/<name>.json`
+  4. Remove `~/.raf/raf.config.json` (regular file or old symlink)
+  5. Create symlink: `~/.raf/raf.config.json` → `~/.raf/presets/<name>.json`
+
+- **Load a preset** (`raf config preset load <name>`):
+  1. Validate `~/.raf/presets/<name>.json` exists and contains valid config
+  2. Remove `~/.raf/raf.config.json` (regular file or old symlink)
+  3. Create symlink: `~/.raf/raf.config.json` → `~/.raf/presets/<name>.json`
+
+- **List presets**: Read `~/.raf/presets/` directory. Check if `~/.raf/raf.config.json` is a symlink pointing into `~/.raf/presets/` — if so, mark that preset as `(linked)`.
+
+- **Delete a preset**: If the preset is currently linked (symlink target), remove the symlink at `~/.raf/raf.config.json` first. Then delete `~/.raf/presets/<name>.json`.
+
+- **Unlink** (restore defaults): Remove the symlink at `~/.raf/raf.config.json`. The preset file is NOT deleted. Config falls back to defaults.
 
 Validate preset names against `^[a-zA-Z0-9_-]+$` before saving. Apply the same validation rules to preset content as to the main config.
 
@@ -507,6 +537,7 @@ Validate preset names against `^[a-zA-Z0-9_-]+$` before saving. Apply the same v
 - **"Reset to defaults"** — Delete the config file (confirm with user first)
 - **"What does X do?"** — Explain the setting using the reference above
 - **"Set timeout to 90"** — Update `timeout` to `90` in the config file
-- **"Save this as a preset"** — Ask for a name, then save the current config to `~/.raf/presets/<name>.json`
-- **"Load preset X"** — Read `~/.raf/presets/X.json` and write it to the active config
+- **"Save this as a preset"** — Ask for a name, save content to `~/.raf/presets/<name>.json`, create symlink from `~/.raf/raf.config.json`
+- **"Load preset X"** — Switch symlink from `~/.raf/raf.config.json` to `~/.raf/presets/X.json`
+- **"Unlink preset"** — Remove the symlink at `~/.raf/raf.config.json` to restore defaults
 - **"Show my presets"** — List all `.json` files in `~/.raf/presets/`
