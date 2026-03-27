@@ -19,7 +19,7 @@ import {
 } from '../utils/config.js';
 import { DEFAULT_CONFIG, CONFIG_SCHEMA } from '../types/config.js';
 import type { UserConfig } from '../types/config.js';
-import { createPresetCommand } from './preset.js';
+import { createPresetCommand, getLinkedPresetName } from './preset.js';
 
 /**
  * Load the config documentation markdown from src/prompts/config-docs.md.
@@ -241,12 +241,17 @@ function formatValue(value: unknown): string {
  * Print config value(s).
  */
 function handleGet(key?: string): void {
-  const config = resolveConfig();
-
   if (key === undefined) {
+    const linked = getLinkedPresetName();
+    if (linked) {
+      logger.info(`(linked: ${linked})`);
+    }
+    const config = resolveConfig();
     console.log(JSON.stringify(config, null, 2));
     return;
   }
+
+  const config = resolveConfig();
 
   const value = getNestedValue(config, key);
 
@@ -424,23 +429,32 @@ export function createConfigCommand(): Command {
 
 async function handleReset(): Promise<void> {
   const configPath = getConfigPath();
+  const linked = getLinkedPresetName();
 
-  if (!fs.existsSync(configPath)) {
+  // Check for symlink OR regular file
+  let exists = false;
+  try { fs.lstatSync(configPath); exists = true; } catch {}
+
+  if (!exists) {
     logger.info('No config file exists — already using defaults.');
     return;
   }
 
-  const confirmed = await confirm(
-    'This will delete ~/.raf/raf.config.json and restore all defaults. Continue? [y/N] '
-  );
+  const message = linked
+    ? `This will unlink preset "${linked}" and restore defaults. Continue? [y/N] `
+    : 'This will delete ~/.raf/raf.config.json and restore all defaults. Continue? [y/N] ';
 
+  const confirmed = await confirm(message);
   if (!confirmed) {
     logger.info('Cancelled.');
     return;
   }
 
   fs.unlinkSync(configPath);
-  logger.success('Config file deleted. All settings restored to defaults.');
+  logger.success(linked
+    ? `Unlinked from preset "${linked}". All settings restored to defaults.`
+    : 'Config file deleted. All settings restored to defaults.'
+  );
 }
 
 async function runConfigSession(initialPrompt?: string): Promise<void> {

@@ -17,6 +17,29 @@ function ensurePresetsDir(): void {
   }
 }
 
+export function getLinkedPresetName(): string | null {
+  const configPath = getConfigPath();
+  try {
+    const stat = fs.lstatSync(configPath);
+    if (!stat.isSymbolicLink()) return null;
+    const target = fs.readlinkSync(configPath);
+    const resolved = path.resolve(path.dirname(configPath), target);
+    if (!resolved.startsWith(PRESETS_DIR)) return null;
+    return path.basename(resolved, '.json');
+  } catch {
+    return null;
+  }
+}
+
+function removeConfigIfExists(configPath: string): void {
+  try {
+    fs.lstatSync(configPath);
+    fs.unlinkSync(configPath);
+  } catch {
+    // doesn't exist — fine
+  }
+}
+
 function getPresetPath(name: string): string {
   return path.join(PRESETS_DIR, `${name}.json`);
 }
@@ -33,12 +56,23 @@ function savePreset(name: string): void {
   ensurePresetsDir();
 
   const configPath = getConfigPath();
-  if (!fs.existsSync(configPath)) {
+  const linked = getLinkedPresetName();
+
+  // If already linked to this exact preset, nothing to do
+  if (linked === name) {
+    logger.info(`Already linked to preset "${name}" — config changes are saved automatically.`);
+    return;
+  }
+
+  // Config must exist (as regular file or symlink to another preset)
+  let configExists = false;
+  try { fs.lstatSync(configPath); configExists = true; } catch {}
+  if (!configExists) {
     logger.error('No config file found. Run `raf config wizard` or `raf config set <key> <value>` to create one first.');
     process.exit(1);
   }
 
-  const presetPath = getPresetPath(name);
+  // Read content (follows symlink if linked to another preset)
   const configContent = fs.readFileSync(configPath, 'utf-8');
 
   // Validate the config before saving
@@ -53,9 +87,17 @@ function savePreset(name: string): void {
     throw err;
   }
 
+  const presetPath = getPresetPath(name);
   const existed = fs.existsSync(presetPath);
+
+  // Write content to preset file
   fs.writeFileSync(presetPath, configContent);
-  logger.info(`${existed ? 'Updated' : 'Saved'} preset "${name}" at ${presetPath}`);
+
+  // Remove old config (regular file or old symlink) and create new symlink
+  removeConfigIfExists(configPath);
+  fs.symlinkSync(presetPath, configPath);
+
+  logger.info(`${existed ? 'Updated' : 'Saved'} preset "${name}" and linked config to it.`);
 }
 
 function loadPreset(name: string): void {
@@ -93,8 +135,11 @@ function loadPreset(name: string): void {
   if (!fs.existsSync(configDir)) {
     fs.mkdirSync(configDir, { recursive: true });
   }
-  fs.writeFileSync(configPath, content);
-  logger.info(`Loaded preset "${name}" into ${configPath}`);
+
+  // Remove existing config (file or symlink) and create symlink
+  removeConfigIfExists(configPath);
+  fs.symlinkSync(presetPath, configPath);
+  logger.info(`Linked config to preset "${name}"`);
 
   // Show a brief summary of what was loaded
   const config = parsed as Record<string, unknown>;
@@ -112,6 +157,8 @@ function listPresets(): void {
     logger.info('No presets saved. Use `raf config preset save <name>` to create one.');
     return;
   }
+
+  const linked = getLinkedPresetName();
 
   logger.info(`Found ${files.length} preset(s):\n`);
   for (const file of files) {
@@ -138,7 +185,8 @@ function listPresets(): void {
       }
 
       const info = summary.length > 0 ? ` (${summary.join('; ')})` : '';
-      logger.info(`  ${name}${info}`);
+      const marker = (name === linked) ? ' (linked)' : '';
+      logger.info(`  ${name}${info}${marker}`);
     } catch {
       logger.info(`  ${name} (invalid JSON)`);
     }
@@ -152,6 +200,13 @@ function deletePreset(name: string): void {
   if (!fs.existsSync(presetPath)) {
     logger.error(`Preset "${name}" not found.`);
     process.exit(1);
+  }
+
+  const linked = getLinkedPresetName();
+  if (linked === name) {
+    const configPath = getConfigPath();
+    fs.unlinkSync(configPath);
+    logger.warn(`Unlinked config from preset "${name}" (config reset to defaults).`);
   }
 
   fs.unlinkSync(presetPath);
