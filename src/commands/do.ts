@@ -186,6 +186,7 @@ interface ProjectExecutionResult {
   projectName: string;
   projectPath: string;
   success: boolean;
+  cancelled?: boolean;
   tasksCompleted: number;
   totalTasks: number;
   error?: string;
@@ -417,7 +418,7 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
   if (worktreeRoot) {
     const worktreeBranch = path.basename(worktreeRoot);
 
-    if (result.success) {
+    if (result.success && !result.cancelled) {
       await executePostAction(postAction, worktreeRoot, worktreeBranch, originalBranch, resolvedProject.path);
     } else {
       if (postAction !== 'leave') {
@@ -428,7 +429,7 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
   }
 
   // Push to remote after successful execution (if enabled, non-worktree mode)
-  if (!worktreeRoot && result.success && getPushOnComplete()) {
+  if (!worktreeRoot && result.success && !result.cancelled && getPushOnComplete()) {
     const pushResult = pushCurrentBranch();
     if (pushResult.success) {
       if (pushResult.hadChanges) {
@@ -1145,6 +1146,20 @@ ${stashName ? `- Stash: ${stashName}` : ''}
     // Re-derive state to get updated task statuses
     state = deriveProjectState(projectPath);
 
+    // Check for user-requested cancellation
+    if (keyboard.isCancelled) {
+      const cancelStats = getDerivedStats(state);
+      logger.info(`Cancelled — ${cancelStats.completed}/${cancelStats.total} tasks completed, ${cancelStats.pending + cancelStats.blocked} remaining`);
+      break;
+    }
+
+    // Check for user-requested pause
+    if (keyboard.isPaused) {
+      logger.info('Paused. Press P to resume...');
+      await keyboard.waitForResume();
+      logger.info('Resumed.');
+    }
+
     // Get next task to process
     task = getNextTaskToProcess(state);
   }
@@ -1246,10 +1261,13 @@ ${stashName ? `- Stash: ${stashName}` : ''}
     }
   }
 
+  const cancelled = keyboard.isCancelled;
+
   return {
     projectName,
     projectPath,
-    success: stats.failed === 0 && stats.pending === 0,
+    success: cancelled ? true : stats.failed === 0 && stats.pending === 0,
+    cancelled,
     tasksCompleted: stats.completed,
     totalTasks: stats.total,
     retryHistory: projectRetryHistory,
