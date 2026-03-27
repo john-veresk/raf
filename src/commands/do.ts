@@ -27,7 +27,7 @@ import {
   formatTokenTotalSummary,
 } from '../utils/terminal-symbols.js';
 import { TokenTracker } from '../utils/token-tracker.js';
-import { VerboseToggle } from '../utils/verbose-toggle.js';
+import { KeyboardController } from '../utils/keyboard-controller.js';
 import {
   deriveProjectState,
   getNextExecutableTask,
@@ -648,8 +648,8 @@ async function executeSingleProject(
   const tokenTracker = new TokenTracker();
 
   // Set up runtime verbose toggle (Tab key to toggle during execution)
-  const verboseToggle = new VerboseToggle(verbose);
-  shutdownHandler.onShutdown(() => verboseToggle.stop());
+  const keyboard = new KeyboardController(verbose);
+  shutdownHandler.onShutdown(() => keyboard.stop());
 
   // Start project timer
   const projectStartTime = Date.now();
@@ -755,7 +755,7 @@ async function executeSingleProject(
   }
 
   // Start verbose toggle listener (Tab key)
-  verboseToggle.start();
+  keyboard.start();
 
   let task = getNextTaskToProcess(state);
 
@@ -846,7 +846,7 @@ async function executeSingleProject(
     logger.setActiveStatusLine(statusLine);
     const timer = createTaskTimer(verbose ? undefined : (elapsed) => {
       // When verbose is toggled ON at runtime, clear the status line and skip updates
-      if (verboseToggle.isVerbose) {
+      if (keyboard.isVerbose) {
         statusLine.clear();
         return;
       }
@@ -942,7 +942,7 @@ async function executeSingleProject(
         outcomeFilePath,
         commitContext,
         cwd: worktreeCwd,
-        verboseCheck: () => verboseToggle.isVerbose,
+        verboseCheck: () => keyboard.isVerbose,
       };
       const result = verbose
         ? await taskRunner.runVerbose(prompt, runnerOptions)
@@ -1150,7 +1150,7 @@ ${stashName ? `- Stash: ${stashName}` : ''}
   }
 
   // Stop verbose toggle listener before summary output
-  verboseToggle.stop();
+  keyboard.stop();
 
   // Ensure context is cleared for summary
   logger.clearContext();

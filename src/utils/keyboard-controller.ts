@@ -1,19 +1,24 @@
 /**
- * Runtime verbose toggle for task execution.
+ * Keyboard controller for task execution.
  *
- * Listens for Tab keypress on process.stdin to toggle verbose display on/off.
- * When verbose is on, tool-use activity lines from stream-json are displayed.
- * When verbose is off, they are suppressed (but data is still captured).
+ * Listens for keypresses on process.stdin:
+ * - Tab: toggle verbose display on/off
+ * - P: pause/resume execution
+ * - C: cancel after current task
+ * - Ctrl+C: SIGINT
  *
  * Requires a TTY stdin. Silently skips setup when stdin is not a TTY (e.g., piped input).
  */
 
 import { logger } from './logger.js';
 
-export class VerboseToggle {
+export class KeyboardController {
   private _verbose: boolean;
+  private _paused = false;
+  private _cancelled = false;
   private _active = false;
   private _dataHandler: ((data: Buffer) => void) | null = null;
+  private _resumeResolvers: Array<() => void> = [];
 
   constructor(initialVerbose: boolean) {
     this._verbose = initialVerbose;
@@ -24,15 +29,36 @@ export class VerboseToggle {
     return this._verbose;
   }
 
-  /** Whether the toggle listener is currently active. */
+  /** Whether execution is paused. */
+  get isPaused(): boolean {
+    return this._paused;
+  }
+
+  /** Whether cancellation has been requested. */
+  get isCancelled(): boolean {
+    return this._cancelled;
+  }
+
+  /** Whether the keyboard listener is currently active. */
   get isActive(): boolean {
     return this._active;
   }
 
   /**
-   * Start listening for Tab keypress on stdin.
+   * Returns a promise that resolves immediately if not paused,
+   * or waits until unpaused. Also resolves if stop() is called.
+   */
+  waitForResume(): Promise<void> {
+    if (!this._paused) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      this._resumeResolvers.push(resolve);
+    });
+  }
+
+  /**
+   * Start listening for keypresses on stdin.
    * Sets stdin to raw mode to capture individual keypresses.
-   * Shows a hint message about the toggle.
+   * Shows a hint message about available hotkeys.
    *
    * No-op if stdin is not a TTY or if already active.
    */
@@ -58,6 +84,21 @@ export class VerboseToggle {
           this._verbose = !this._verbose;
           const state = this._verbose ? 'on' : 'off';
           logger.dim(`  [verbose: ${state}]`);
+        } else if (byte === 0x70 || byte === 0x50) {
+          // 'p' or 'P'
+          this._paused = !this._paused;
+          if (this._paused) {
+            logger.dim('  [paused]');
+          } else {
+            logger.dim('  [resumed]');
+            this._flushResumeResolvers();
+          }
+        } else if (byte === 0x63 || byte === 0x43) {
+          // 'c' or 'C'
+          if (!this._cancelled) {
+            this._cancelled = true;
+            logger.dim('  [stopping after current task...]');
+          }
         } else if (byte === 0x03) {
           // Ctrl+C — re-emit SIGINT so the shutdown handler catches it
           process.emit('SIGINT');
@@ -68,8 +109,8 @@ export class VerboseToggle {
     process.stdin.on('data', this._dataHandler);
     this._active = true;
 
-    // Show toggle hint
-    logger.dim('  Press Tab to toggle verbose mode');
+    // Show hotkeys hint
+    logger.dim('  Hotkeys: Tab = verbose, P = pause, C = cancel');
   }
 
   /**
@@ -99,5 +140,16 @@ export class VerboseToggle {
     }
 
     this._active = false;
+
+    // Resolve any pending waitForResume promises so they don't hang
+    this._flushResumeResolvers();
+  }
+
+  private _flushResumeResolvers(): void {
+    const resolvers = this._resumeResolvers;
+    this._resumeResolvers = [];
+    for (const resolve of resolvers) {
+      resolve();
+    }
   }
 }
