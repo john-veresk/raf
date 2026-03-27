@@ -1,0 +1,3 @@
+- [ ] during "raf do" / execution. add ability to pause. user presses 'p' on keyaboard and next task will not start until 'p' pressed again.  add message in console something like "pausing..."
+- [ ] during "raf do" / execution. add ability to gracefully cancel. user presses 'c' and after current task complites raf haults / cancels. add message "stopping..." in the console
+- [ ] add instructions about this hot keys in the beggining where we mention "tab" for on/off verbose mode
