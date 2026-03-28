@@ -29,3 +29,9 @@ Inline in Dependencies — e.g., "1 (see outcomes/1-setup-db.md), 3 (see outcome
 
 ## Should both planning.ts and amend.ts get the dependency validation and outcome link changes?
 Both identical — apply the same dependency ID validation rule and outcome link format to both prompts.
+
+## When limitType is 'unknown', should RAF skip the pause-and-wait entirely and let the normal retry flow handle it?
+Skip pause, normal retry — don't trigger waitForRateLimit for 'unknown' type. Let the task retry normally (counts against maxRetries). Claude Code likely already retried internally.
+
+## Should RAF also ignore the text-fallback rate limit detection when there's no structured rateLimitInfo?
+Also require known limitType from text — only trigger pause for quota-specific patterns (e.g. 'You've hit your limit', 'usage limit reached'), not generic ones like '429', 'rate limit', 'too many requests'.
