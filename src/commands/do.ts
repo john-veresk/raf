@@ -960,7 +960,11 @@ async function executeSingleProject(
 
       // Check for rate limit — wait and retry without consuming an attempt
       const rateLimitInfo = result.rateLimitInfo;
-      if (rateLimitInfo || (!result.timedOut && detectProgrammaticFailure(result.output, '') === 'rate_limit' && !result.rateLimitInfo)) {
+      const isUnknownRateLimit = rateLimitInfo && rateLimitInfo.limitType === 'unknown';
+      if (isUnknownRateLimit) {
+        logger.debug('Ignoring unknown rate limit type — treating as normal retry');
+      }
+      if ((rateLimitInfo && !isUnknownRateLimit) || (!result.timedOut && detectProgrammaticFailure(result.output, '') === 'rate_limit' && !result.rateLimitInfo)) {
         if (rateLimitWaits >= maxRateLimitWaits) {
           failureReason = `Rate limit hit ${rateLimitWaits} times — giving up`;
           failureHistory.push({ attempt: attempts, reason: failureReason });

@@ -38,14 +38,9 @@ const API_ERROR_PATTERNS = [
 ];
 
 const RATE_LIMIT_PATTERNS = [
-  /rate limit/i,
-  /too many requests/i,
-  /429\s+too\s+many\s+requests/i,
-  /quota exceeded/i,
-  /request limit/i,
-  /throttl/i,
   /you've hit your limit/i,
   /usage.limit.reached/i,
+  /quota exceeded/i,
 ];
 
 const CONTEXT_OVERFLOW_PATTERNS = [
