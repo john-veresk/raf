@@ -59,6 +59,7 @@ That's it! RAF will guide you through breaking down your task and then execute i
 - **Resume & Amend**: Continue interrupted sessions or extend existing projects
 - **Git Integration**: Automatic commits, worktree isolation, and PR generation
 - **Task Dependencies**: Dependency tracking with automatic blocking on failure
+- **Rate Limit Auto-Resume**: Detects quota limits from Claude and Codex, pauses with a live countdown, and resumes automatically when the limit resets
 - **Full Configurability**: Customize models, effort mappings, timeouts, and more via `raf config`
 
 ## Commands
@@ -96,6 +97,8 @@ Note: The completion summary reflects the tasks executed in that run (the remain
 Note: Post-run token summaries now show exact input/output token counts for both Claude and Codex runs. Dollar cost is shown only when the provider reports an exact value, so current Codex summaries are token-only.
 
 Note: When a task runs on Codex (`harness: "codex"`), `raf do` uses `codex exec --dangerously-bypass-approvals-and-sandbox` by default. Set `codex.executionMode` to `"fullAuto"` if you want the previous sandboxed `--full-auto` behavior.
+
+Note: When a rate limit is detected (daily/hourly quota from Claude or Codex), RAF pauses execution and displays a live countdown: `⏳ Rate limit hit. Resuming in 2h 14m 30s (resets 10:00 EET)`. It retries automatically when the limit resets. Rate limit waits do not count against `maxRetries`. If the reset time cannot be determined, RAF waits `rateLimitWaitDefault` minutes (default: 60).
 
 ### `raf status`
 
@@ -138,7 +141,8 @@ Example `~/.raf/raf.config.json`:
     "executionMode": "dangerous"
   },
   "worktree": true,
-  "timeout": 45
+  "timeout": 45,
+  "rateLimitWaitDefault": 60
 }
 ```
 
