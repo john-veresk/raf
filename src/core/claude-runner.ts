@@ -7,7 +7,7 @@ import { renderStreamEvent } from '../parsers/stream-renderer.js';
 import { getModel } from '../utils/config.js';
 import { mergeUsageData } from '../utils/token-tracker.js';
 import type { ICliRunner } from './runner-interface.js';
-import type { RunnerOptions, RunnerConfig, RunResult } from './runner-types.js';
+import type { RunnerOptions, RunnerConfig, RunResult, RateLimitInfo } from './runner-types.js';
 import { createCompletionDetector } from './completion-detector.js';
 
 // Re-export shared types for backward compatibility
@@ -29,6 +29,55 @@ const CONTEXT_OVERFLOW_PATTERNS = [
   /maximum context/i,
   /context window/i,
 ];
+
+/**
+ * Parse a time-of-day string like "10am" or "1pm" into a Date.
+ * Assumes today (or tomorrow if the time has already passed).
+ */
+function parseResetTime(timeStr: string): Date {
+  const match = timeStr.match(/^(\d{1,2})(am|pm)$/i);
+  if (!match || !match[1] || !match[2]) return new Date(Date.now() + 3600000); // fallback: 1 hour from now
+  let hours = parseInt(match[1], 10);
+  const isPm = match[2].toLowerCase() === 'pm';
+  if (isPm && hours !== 12) hours += 12;
+  if (!isPm && hours === 12) hours = 0;
+  const now = new Date();
+  const reset = new Date(now);
+  reset.setHours(hours, 0, 0, 0);
+  if (reset <= now) {
+    reset.setDate(reset.getDate() + 1);
+  }
+  return reset;
+}
+
+/**
+ * Detect rate limit info from plain text output/stderr as a fallback.
+ */
+function detectRateLimitFromText(output: string, stderr: string): RateLimitInfo | undefined {
+  const combined = `${output}\n${stderr}`;
+
+  // "You've hit your limit · resets 10am"
+  const hitLimitMatch = combined.match(/you've hit your limit.*resets\s+(\d{1,2}(?:am|pm))/i);
+  if (hitLimitMatch?.[1]) {
+    return { resetsAt: parseResetTime(hitLimitMatch[1]), limitType: 'quota_exhaustion' };
+  }
+
+  // "resets at <timestamp or time>"
+  const resetsAtMatch = combined.match(/resets at\s+(.+)/i);
+  if (resetsAtMatch?.[1]) {
+    const parsed = new Date(resetsAtMatch[1].trim());
+    if (!isNaN(parsed.getTime())) {
+      return { resetsAt: parsed, limitType: 'quota_exhaustion' };
+    }
+  }
+
+  // Generic "usage limit reached"
+  if (/usage.limit.reached/i.test(combined)) {
+    return { resetsAt: new Date(Date.now() + 3600000), limitType: 'usage_limit_reached' };
+  }
+
+  return undefined;
+}
 
 export class ClaudeRunner implements ICliRunner {
   private activeProcess: pty.IPty | null = null;
@@ -286,6 +335,7 @@ export class ClaudeRunner implements ICliRunner {
       let timedOut = false;
       let contextOverflow = false;
       let usageData: import('../types/config.js').UsageData | undefined;
+      let rateLimitInfo: RateLimitInfo | undefined;
 
       const claudePath = getClaudePath();
 
@@ -391,6 +441,11 @@ export class ClaudeRunner implements ICliRunner {
             usageData = mergeUsageData(usageData, rendered.usageData);
           }
 
+          // Capture rate limit info from rate_limit_event events
+          if (rendered.rateLimitInfo) {
+            rateLimitInfo = rendered.rateLimitInfo;
+          }
+
           if (shouldDisplay() && rendered.display) {
             process.stdout.write(rendered.display);
           }
@@ -412,9 +467,17 @@ export class ClaudeRunner implements ICliRunner {
           if (rendered.usageData) {
             usageData = mergeUsageData(usageData, rendered.usageData);
           }
+          if (rendered.rateLimitInfo) {
+            rateLimitInfo = rendered.rateLimitInfo;
+          }
           if (shouldDisplay() && rendered.display) {
             process.stdout.write(rendered.display);
           }
+        }
+
+        // Text fallback: detect rate limit from output/stderr if not already captured
+        if (!rateLimitInfo) {
+          rateLimitInfo = detectRateLimitFromText(output, stderr);
         }
 
         clearTimeout(timeoutHandle);
@@ -432,6 +495,7 @@ export class ClaudeRunner implements ICliRunner {
           timedOut,
           contextOverflow,
           usageData,
+          rateLimitInfo,
         });
       });
     });

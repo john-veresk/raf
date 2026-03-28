@@ -1,5 +1,10 @@
 import type { UsageData, HarnessName, CodexExecutionMode } from '../types/config.js';
 
+export interface RateLimitInfo {
+  resetsAt: Date;
+  limitType: string; // e.g. 'five_hour', 'seven_day', 'usage_limit_reached'
+}
+
 /**
  * Options for a single runner execution (run, runVerbose, runInteractive, etc.).
  */
@@ -90,4 +95,6 @@ export interface RunResult {
   contextOverflow: boolean;
   /** Token usage data from the stream-json result event. */
   usageData?: UsageData;
+  /** Rate limit info when quota exhaustion is detected. */
+  rateLimitInfo?: RateLimitInfo;
 }

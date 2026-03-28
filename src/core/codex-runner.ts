@@ -8,7 +8,7 @@ import { getModel } from '../utils/config.js';
 import { mergeUsageData } from '../utils/token-tracker.js';
 import type { CodexExecutionMode } from '../types/config.js';
 import type { ICliRunner } from './runner-interface.js';
-import type { RunnerOptions, RunnerConfig, RunResult } from './runner-types.js';
+import type { RunnerOptions, RunnerConfig, RunResult, RateLimitInfo } from './runner-types.js';
 import { createCompletionDetector } from './completion-detector.js';
 
 function getCodexPath(): string {
@@ -39,6 +39,70 @@ const CODEX_EXECUTION_MODE_TO_FLAG: Record<CodexExecutionMode, string> = {
   dangerous: '--dangerously-bypass-approvals-and-sandbox',
   fullAuto: '--full-auto',
 };
+
+/**
+ * Parse a time-of-day string like "10am" or "1pm" into a Date.
+ * Assumes today (or tomorrow if the time has already passed).
+ */
+function parseResetTime(timeStr: string): Date {
+  const match = timeStr.match(/^(\d{1,2})(am|pm)$/i);
+  if (!match || !match[1] || !match[2]) return new Date(Date.now() + 3600000);
+  let hours = parseInt(match[1], 10);
+  const isPm = match[2].toLowerCase() === 'pm';
+  if (isPm && hours !== 12) hours += 12;
+  if (!isPm && hours === 12) hours = 0;
+  const now = new Date();
+  const reset = new Date(now);
+  reset.setHours(hours, 0, 0, 0);
+  if (reset <= now) {
+    reset.setDate(reset.getDate() + 1);
+  }
+  return reset;
+}
+
+/**
+ * Detect rate limit info from plain text output/stderr as a fallback.
+ */
+function detectRateLimitFromText(output: string, stderr: string): RateLimitInfo | undefined {
+  const combined = `${output}\n${stderr}`;
+
+  const hitLimitMatch = combined.match(/you've hit your limit.*resets\s+(\d{1,2}(?:am|pm))/i);
+  if (hitLimitMatch?.[1]) {
+    return { resetsAt: parseResetTime(hitLimitMatch[1]), limitType: 'quota_exhaustion' };
+  }
+
+  const resetsAtMatch = combined.match(/resets at\s+(.+)/i);
+  if (resetsAtMatch?.[1]) {
+    const parsed = new Date(resetsAtMatch[1].trim());
+    if (!isNaN(parsed.getTime())) {
+      return { resetsAt: parsed, limitType: 'quota_exhaustion' };
+    }
+  }
+
+  if (/usage.limit.reached/i.test(combined)) {
+    return { resetsAt: new Date(Date.now() + 3600000), limitType: 'usage_limit_reached' };
+  }
+
+  return undefined;
+}
+
+/**
+ * Check a parsed Codex JSON event for usage_limit_reached error.
+ */
+function detectCodexRateLimitFromEvent(line: string): RateLimitInfo | undefined {
+  try {
+    const obj = JSON.parse(line);
+    if (obj.error_type === 'usage_limit_reached') {
+      const resetsAt = obj.resets_at
+        ? new Date(typeof obj.resets_at === 'number' ? obj.resets_at * 1000 : obj.resets_at)
+        : new Date(Date.now() + 3600000);
+      return { resetsAt, limitType: 'usage_limit_reached' };
+    }
+  } catch {
+    // Not JSON, ignore
+  }
+  return undefined;
+}
 
 export class CodexRunner implements ICliRunner {
   private activeProcess: pty.IPty | null = null;
@@ -187,6 +251,7 @@ export class CodexRunner implements ICliRunner {
       let timedOut = false;
       let contextOverflow = false;
       let usageData: import('../types/config.js').UsageData | undefined;
+      let rateLimitInfo: RateLimitInfo | undefined;
 
       const codexPath = getCodexPath();
 
@@ -256,6 +321,12 @@ export class CodexRunner implements ICliRunner {
 
           const rendered = renderCodexStreamEvent(line);
 
+          // Check raw JSONL for Codex usage_limit_reached errors
+          if (!rateLimitInfo) {
+            const rl = detectCodexRateLimitFromEvent(line);
+            if (rl) rateLimitInfo = rl;
+          }
+
           if (rendered.textContent) {
             output += rendered.textContent;
 
@@ -298,9 +369,18 @@ export class CodexRunner implements ICliRunner {
           if (rendered.usageData) {
             usageData = mergeUsageData(usageData, rendered.usageData);
           }
+          if (!rateLimitInfo) {
+            const rl = detectCodexRateLimitFromEvent(lineBuffer);
+            if (rl) rateLimitInfo = rl;
+          }
           if (shouldDisplay() && rendered.display) {
             process.stdout.write(rendered.display);
           }
+        }
+
+        // Text fallback: detect rate limit from output/stderr if not already captured
+        if (!rateLimitInfo) {
+          rateLimitInfo = detectRateLimitFromText(output, stderr);
         }
 
         clearTimeout(timeoutHandle);
@@ -318,6 +398,7 @@ export class CodexRunner implements ICliRunner {
           timedOut,
           contextOverflow,
           usageData,
+          rateLimitInfo,
         });
       });
     });

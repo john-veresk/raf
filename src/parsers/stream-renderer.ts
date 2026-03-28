@@ -9,10 +9,18 @@
  */
 
 import type { UsageData, ModelTokenUsage } from '../types/config.js';
+import type { RateLimitInfo } from '../core/runner-types.js';
+import { logger } from '../utils/logger.js';
 
 export interface StreamEvent {
   type: string;
   subtype?: string;
+  status?: string;
+  resetsAt?: number;
+  rateLimitType?: string;
+  is_error?: boolean;
+  error?: string;
+  retry_attempt?: number;
   message?: {
     content?: ContentBlock[];
   };
@@ -86,6 +94,8 @@ export interface RenderResult {
   textContent: string;
   /** Usage data extracted from result events (only present on result events) */
   usageData?: UsageData;
+  /** Rate limit info extracted from rate_limit_event events */
+  rateLimitInfo?: RateLimitInfo;
 }
 
 /**
@@ -107,7 +117,7 @@ export function renderStreamEvent(line: string): RenderResult {
 
   switch (event.type) {
     case 'system':
-      return { display: '', textContent: '' };
+      return renderSystem(event);
 
     case 'assistant':
       return renderAssistant(event);
@@ -119,9 +129,34 @@ export function renderStreamEvent(line: string): RenderResult {
     case 'result':
       return renderResult(event);
 
+    case 'rate_limit_event':
+      return renderRateLimitEvent(event);
+
     default:
       return { display: '', textContent: '' };
   }
+}
+
+function renderSystem(event: StreamEvent): RenderResult {
+  // Log transient rate limit retries (handled internally by Claude Code)
+  if (event.subtype === 'api_retry' && event.error === 'rate_limit') {
+    logger.debug(`Claude Code transient rate limit retry (attempt ${event.retry_attempt ?? '?'})`);
+  }
+  return { display: '', textContent: '' };
+}
+
+function renderRateLimitEvent(event: StreamEvent): RenderResult {
+  if (event.status === 'rejected' && event.resetsAt) {
+    const resetsAt = new Date(event.resetsAt * 1000);
+    const limitType = event.rateLimitType ?? 'unknown';
+    logger.debug(`Rate limit event: type=${limitType}, resetsAt=${resetsAt.toISOString()}`);
+    return {
+      display: '',
+      textContent: '',
+      rateLimitInfo: { resetsAt, limitType },
+    };
+  }
+  return { display: '', textContent: '' };
 }
 
 function renderAssistant(event: StreamEvent): RenderResult {

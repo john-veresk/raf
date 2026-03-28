@@ -44,6 +44,8 @@ const RATE_LIMIT_PATTERNS = [
   /quota exceeded/i,
   /request limit/i,
   /throttl/i,
+  /you've hit your limit/i,
+  /usage.limit.reached/i,
 ];
 
 const CONTEXT_OVERFLOW_PATTERNS = [
