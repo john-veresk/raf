@@ -10,6 +10,7 @@
  */
 
 import type { UsageData } from '../types/config.js';
+import type { RateLimitInfo } from '../core/runner-types.js';
 import type { RenderResult } from './stream-renderer.js';
 
 export interface CodexEvent {
@@ -39,8 +40,16 @@ export interface CodexEvent {
   };
   /** Error message (for error / turn.failed events) */
   message?: string;
-  /** Nested error object (for turn.failed events) */
-  error?: { message?: string };
+  /** Top-level error type (e.g. "usage_limit_reached", "server_is_overloaded") */
+  error_type?: string;
+  /** Nested error object (for turn.failed events or structured error responses) */
+  error?: {
+    message?: string;
+    type?: string;
+    resets_at?: number | string;
+  };
+  /** Reset timestamp (Unix or ISO 8601) for rate limit errors */
+  resets_at?: number | string;
   /** Usage data (for turn.completed events) */
   usage?: {
     input_tokens?: number;
@@ -232,18 +241,58 @@ function extractUsageData(event: CodexEvent): UsageData | undefined {
   };
 }
 
+/**
+ * Parse a resets_at value (Unix timestamp or ISO 8601 string) into a Date.
+ * Returns undefined if the value cannot be parsed.
+ */
+function parseResetsAt(value: number | string | undefined): Date | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === 'number') {
+    // Unix timestamp (seconds) — convert to ms
+    return new Date(value * 1000);
+  }
+  const parsed = new Date(value);
+  return isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
+/**
+ * Detect rate limit info from a Codex event.
+ * Checks both top-level error_type and nested error.type fields.
+ * Returns undefined for server_is_overloaded (capacity issue, not quota).
+ */
+function detectRateLimitFromEvent(event: CodexEvent): RateLimitInfo | undefined {
+  const errorType = event.error_type ?? event.error?.type;
+
+  // server_is_overloaded is a capacity issue, NOT a quota limit — do not wait
+  if (errorType === 'server_is_overloaded' || errorType === 'slow_down') {
+    return undefined;
+  }
+
+  if (errorType === 'usage_limit_reached') {
+    const resetsAt = parseResetsAt(event.resets_at ?? event.error?.resets_at)
+      ?? new Date(Date.now() + 3600000); // fallback: 1 hour
+    return { resetsAt, limitType: 'usage_limit_reached' };
+  }
+
+  return undefined;
+}
+
 function renderError(event: CodexEvent): RenderResult {
   const msg = event.message ?? 'Unknown error';
+  const rateLimitInfo = detectRateLimitFromEvent(event);
   return {
     display: `  ✗ Error: ${msg}\n`,
     textContent: msg,
+    rateLimitInfo,
   };
 }
 
 function renderTurnFailed(event: CodexEvent): RenderResult {
   const msg = event.error?.message ?? event.message ?? 'Turn failed';
+  const rateLimitInfo = detectRateLimitFromEvent(event);
   return {
     display: `  ✗ Failed: ${msg}\n`,
     textContent: msg,
+    rateLimitInfo,
   };
 }

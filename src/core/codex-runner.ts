@@ -79,7 +79,21 @@ function detectRateLimitFromText(output: string, stderr: string): RateLimitInfo 
     }
   }
 
+  // Codex-specific: "Try again at <timestamp>"
+  const tryAgainMatch = combined.match(/try again at\s+(.+)/i);
+  if (tryAgainMatch?.[1]) {
+    const parsed = new Date(tryAgainMatch[1].trim());
+    if (!isNaN(parsed.getTime())) {
+      return { resetsAt: parsed, limitType: 'usage_limit_reached' };
+    }
+  }
+
   if (/usage.limit.reached/i.test(combined)) {
+    return { resetsAt: new Date(Date.now() + 3600000), limitType: 'usage_limit_reached' };
+  }
+
+  // Codex-specific: "Upgrade to Plus/Pro" suggests plan-based limit
+  if (/upgrade to (plus|pro)/i.test(combined)) {
     return { resetsAt: new Date(Date.now() + 3600000), limitType: 'usage_limit_reached' };
   }
 
@@ -88,14 +102,28 @@ function detectRateLimitFromText(output: string, stderr: string): RateLimitInfo 
 
 /**
  * Check a parsed Codex JSON event for usage_limit_reached error.
+ * Handles both top-level error_type and nested error.type formats.
+ * Returns undefined for server_is_overloaded / slow_down (capacity, not quota).
  */
 function detectCodexRateLimitFromEvent(line: string): RateLimitInfo | undefined {
   try {
     const obj = JSON.parse(line);
-    if (obj.error_type === 'usage_limit_reached') {
-      const resetsAt = obj.resets_at
-        ? new Date(typeof obj.resets_at === 'number' ? obj.resets_at * 1000 : obj.resets_at)
-        : new Date(Date.now() + 3600000);
+    const errorType = obj.error_type ?? obj.error?.type;
+
+    // Server overload is a capacity issue — do not treat as rate limit
+    if (errorType === 'server_is_overloaded' || errorType === 'slow_down') {
+      return undefined;
+    }
+
+    if (errorType === 'usage_limit_reached') {
+      const rawResets = obj.resets_at ?? obj.error?.resets_at;
+      let resetsAt: Date;
+      if (rawResets) {
+        resetsAt = new Date(typeof rawResets === 'number' ? rawResets * 1000 : rawResets);
+        if (isNaN(resetsAt.getTime())) resetsAt = new Date(Date.now() + 3600000);
+      } else {
+        resetsAt = new Date(Date.now() + 3600000);
+      }
       return { resetsAt, limitType: 'usage_limit_reached' };
     }
   } catch {
@@ -321,10 +349,14 @@ export class CodexRunner implements ICliRunner {
 
           const rendered = renderCodexStreamEvent(line);
 
-          // Check raw JSONL for Codex usage_limit_reached errors
+          // Check for rate limit: renderer detection first, then raw JSONL fallback
           if (!rateLimitInfo) {
-            const rl = detectCodexRateLimitFromEvent(line);
-            if (rl) rateLimitInfo = rl;
+            if (rendered.rateLimitInfo) {
+              rateLimitInfo = rendered.rateLimitInfo;
+            } else {
+              const rl = detectCodexRateLimitFromEvent(line);
+              if (rl) rateLimitInfo = rl;
+            }
           }
 
           if (rendered.textContent) {
@@ -370,8 +402,12 @@ export class CodexRunner implements ICliRunner {
             usageData = mergeUsageData(usageData, rendered.usageData);
           }
           if (!rateLimitInfo) {
-            const rl = detectCodexRateLimitFromEvent(lineBuffer);
-            if (rl) rateLimitInfo = rl;
+            if (rendered.rateLimitInfo) {
+              rateLimitInfo = rendered.rateLimitInfo;
+            } else {
+              const rl = detectCodexRateLimitFromEvent(lineBuffer);
+              if (rl) rateLimitInfo = rl;
+            }
           }
           if (shouldDisplay() && rendered.display) {
             process.stdout.write(rendered.display);
