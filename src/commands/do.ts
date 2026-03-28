@@ -972,11 +972,13 @@ async function executeSingleProject(
           : new Date(Date.now() + getResolvedConfig().rateLimitWaitDefault * 60 * 1000);
         const limitLabel = rateLimitInfo?.limitType ?? 'unknown';
 
+        statusLine.clear();
         const waitResult = await waitForRateLimit({
           resetsAt: resetTime,
           limitType: limitLabel,
           shouldAbort: () => shutdownHandler.isShuttingDown,
-          onTick: (msg) => statusLine.update(msg),
+          isPaused: () => keyboard.isPaused,
+          waitForResume: () => keyboard.waitForResume(),
         });
 
         if (waitResult.completed) {

@@ -3,10 +3,12 @@ import { logger } from '../utils/logger.js';
 export interface RateLimitWaitOptions {
   resetsAt: Date;
   limitType: string;
-  /** Callback checked each second — if true, abort the wait */
+  /** If true, abort the wait immediately */
   shouldAbort: () => boolean;
-  /** Status line writer for countdown display */
-  onTick?: (message: string) => void;
+  /** If true, pause was requested — caller should handle pause flow */
+  isPaused: () => boolean;
+  /** Called when pause is detected; should resolve when user resumes */
+  waitForResume: () => Promise<void>;
 }
 
 export interface RateLimitWaitResult {
@@ -23,22 +25,6 @@ const MIN_DURATION_THRESHOLD_MS = 10_000;
 const NEAR_RESET_BUFFER_MS = 60_000;
 
 /**
- * Format milliseconds as a human-readable duration: "Xh Ym Zs".
- */
-function formatDuration(ms: number): string {
-  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  const parts: string[] = [];
-  if (hours > 0) parts.push(`${hours}h`);
-  if (minutes > 0 || hours > 0) parts.push(`${minutes}m`);
-  parts.push(`${seconds}s`);
-  return parts.join(' ');
-}
-
-/**
  * Format the reset time for display: "HH:MM TZ".
  */
 function formatResetTime(date: Date): string {
@@ -51,53 +37,49 @@ function formatResetTime(date: Date): string {
 }
 
 /**
- * Wait until a rate limit resets, showing a live countdown.
+ * Wait until a rate limit resets. Logs a static message and sleeps.
  *
- * Returns when the wait completes or is aborted (Ctrl+C).
+ * Supports abort (Ctrl+C) and pause (P key) during the wait.
  */
-export function waitForRateLimit(options: RateLimitWaitOptions): Promise<RateLimitWaitResult> {
-  const { resetsAt, limitType, shouldAbort, onTick } = options;
+export async function waitForRateLimit(options: RateLimitWaitOptions): Promise<RateLimitWaitResult> {
+  const { resetsAt, limitType, shouldAbort, isPaused, waitForResume } = options;
+  const startTime = Date.now();
 
-  return new Promise((resolve) => {
-    const startTime = Date.now();
+  // Calculate raw wait duration
+  let rawDuration = resetsAt.getTime() - Date.now();
 
-    // Calculate raw wait duration
-    let rawDuration = resetsAt.getTime() - Date.now();
+  // If reset time is very close or in the past, add extra buffer
+  if (rawDuration < MIN_DURATION_THRESHOLD_MS) {
+    rawDuration += NEAR_RESET_BUFFER_MS;
+  }
 
-    // If reset time is very close or in the past, add extra buffer
-    if (rawDuration < MIN_DURATION_THRESHOLD_MS) {
-      rawDuration += NEAR_RESET_BUFFER_MS;
+  // Always add safety buffer
+  rawDuration += SAFETY_BUFFER_MS;
+
+  const resetTimeDisplay = formatResetTime(new Date(resetsAt.getTime() + SAFETY_BUFFER_MS));
+  logger.info(`  \u23f3 Rate limit hit (${limitType}). Waiting until ${resetTimeDisplay}...`);
+
+  let remaining = rawDuration;
+
+  while (remaining > 0) {
+    if (shouldAbort()) {
+      return { completed: false, waitedMs: Date.now() - startTime };
     }
 
-    // Always add safety buffer
-    rawDuration += SAFETY_BUFFER_MS;
+    // Handle pause: stop the clock, wait for resume, then continue with remaining time
+    if (isPaused()) {
+      await waitForResume();
+      // Pause time doesn't count against the wait — log updated ETA
+      const newResetDisplay = formatResetTime(new Date(Date.now() + remaining));
+      logger.info(`  \u23f3 Resuming rate limit wait. Waiting until ${newResetDisplay}...`);
+      continue;
+    }
 
-    const targetTime = Date.now() + rawDuration;
-    const resetTimeDisplay = formatResetTime(new Date(resetsAt.getTime() + SAFETY_BUFFER_MS));
+    // Sleep in 1s chunks so we can check abort/pause
+    const sleepMs = Math.min(remaining, 1000);
+    await new Promise(resolve => setTimeout(resolve, sleepMs));
+    remaining -= sleepMs;
+  }
 
-    logger.info(`  \u23f3 Rate limit hit (${limitType}). Waiting until ${resetTimeDisplay}...`);
-
-    const tick = () => {
-      if (shouldAbort()) {
-        clearInterval(intervalId);
-        resolve({ completed: false, waitedMs: Date.now() - startTime });
-        return;
-      }
-
-      const remaining = targetTime - Date.now();
-      if (remaining <= 0) {
-        clearInterval(intervalId);
-        onTick?.('');
-        resolve({ completed: true, waitedMs: Date.now() - startTime });
-        return;
-      }
-
-      const message = `\u23f3 Rate limit hit (${limitType}). Resuming in ${formatDuration(remaining)} (resets ${resetTimeDisplay})`;
-      onTick?.(message);
-    };
-
-    // Tick immediately, then every second
-    tick();
-    const intervalId = setInterval(tick, 1000);
-  });
+  return { completed: true, waitedMs: Date.now() - startTime };
 }
