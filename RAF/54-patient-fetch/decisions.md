@@ -17,3 +17,15 @@ Countdown timer — show a live countdown like "Rate limit hit. Resuming in 2h 1
 
 ## What should happen if the reset time can't be parsed from the output?
 Wait a fixed duration — fall back to a configurable default wait time (e.g. 1 hour) if reset time is unknown.
+
+## For countdown removal: should the bottom status line be simplified or removed?
+Remove bottom ticker — keep only the inline log message, remove the live-updating bottom status bar entirely.
+
+## Should the 1-second interval tick loop be removed or kept for abort checking?
+Single setTimeout — replace the interval with a single setTimeout until reset time. Use AbortController for shutdown/abort support.
+
+## For outcome links in plans: should Dependencies include outcome file paths inline or elsewhere?
+Inline in Dependencies — e.g., "1 (see outcomes/1-setup-db.md), 3 (see outcomes/3-add-api.md)".
+
+## Should both planning.ts and amend.ts get the dependency validation and outcome link changes?
+Both identical — apply the same dependency ID validation rule and outcome link format to both prompts.
