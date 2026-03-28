@@ -131,12 +131,11 @@ ${relevantOutput}
 Rate limit exceeded during task execution.
 
 ## Analysis
-The API rate limit was reached. This typically happens when too many requests are made in a short period.
+The API rate limit was reached. RAF will automatically wait and retry when the limit resets.
 
 ## Suggested Fix
-- Wait 1-2 minutes before retrying
-- If using parallel execution, reduce concurrency
-- Consider upgrading your API tier for higher limits
+- RAF pauses and resumes automatically — no manual action needed
+- If this happens repeatedly, consider upgrading your API tier for higher limits
 
 ## Relevant Output
 \`\`\`

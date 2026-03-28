@@ -89,6 +89,8 @@ export interface RafConfig {
   syncMainBranch: boolean;
   /** Push the current branch to remote after successful execution. Default: false */
   pushOnComplete: boolean;
+  /** Default wait time in minutes when rate limit reset time is unknown. Default: 60 */
+  rateLimitWaitDefault: number;
   commitFormat: CommitFormatConfig;
 }
 
@@ -151,6 +153,7 @@ export const DEFAULT_CONFIG: RafConfig = {
   worktree: false,
   syncMainBranch: true,
   pushOnComplete: false,
+  rateLimitWaitDefault: 60,
   commitFormat: {
     task: '{prefix}[{projectName}:{taskId}] {description}',
     plan: '{prefix}[{projectName}] Plan: {description}',

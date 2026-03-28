@@ -6,7 +6,12 @@ type CleanupCallback = () => void | Promise<void>;
 class ShutdownHandler {
   private runner: ICliRunner | null = null;
   private cleanupCallbacks: CleanupCallback[] = [];
-  private isShuttingDown = false;
+  private _isShuttingDown = false;
+
+  /** Whether a shutdown has been requested (Ctrl+C / SIGTERM). */
+  get isShuttingDown(): boolean {
+    return this._isShuttingDown;
+  }
 
   /**
    * Register a CLI runner to be killed on shutdown.
@@ -52,13 +57,13 @@ class ShutdownHandler {
    * Handle graceful shutdown.
    */
   private async handleShutdown(signal: string): Promise<void> {
-    if (this.isShuttingDown) {
+    if (this._isShuttingDown) {
       // Force exit on second signal
       logger.info('\nForce exiting...');
       process.exit(130);
     }
 
-    this.isShuttingDown = true;
+    this._isShuttingDown = true;
     logger.info(`\nReceived ${signal}, shutting down gracefully...`);
 
     // Kill runner process if running

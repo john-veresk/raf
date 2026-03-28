@@ -5,6 +5,7 @@ import { select } from '@inquirer/prompts';
 import { ProjectManager } from '../core/project-manager.js';
 import { createRunner } from '../core/runner-factory.js';
 import { shutdownHandler } from '../core/shutdown-handler.js';
+import { waitForRateLimit } from '../core/rate-limit-waiter.js';
 import { stashChanges, hasUncommittedChanges, isGitRepo, getHeadCommitHash } from '../core/git.js';
 import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, isRetryableFailure } from '../parsers/output-parser.js';
@@ -13,7 +14,7 @@ import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFro
 import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
-import { formatModelDisplay, getConfig, getModel, getSyncMainBranch, getPushOnComplete, getCodexExecutionMode, resolveEffortToModel, applyModelCeiling, parseModelSpec } from '../utils/config.js';
+import { formatModelDisplay, getConfig, getResolvedConfig, getModel, getSyncMainBranch, getPushOnComplete, getCodexExecutionMode, resolveEffortToModel, applyModelCeiling, parseModelSpec } from '../utils/config.js';
 import type { PlanFrontmatter } from '../utils/frontmatter.js';
 import { getVersion } from '../utils/version.js';
 import { createTaskTimer, formatElapsedTime } from '../utils/timer.js';
@@ -39,7 +40,7 @@ import {
   type DerivedTask,
   type DerivedProjectState,
 } from '../core/state-derivation.js';
-import { analyzeFailure } from '../core/failure-analyzer.js';
+import { analyzeFailure, detectProgrammaticFailure } from '../core/failure-analyzer.js';
 import {
   getRepoRoot,
   getRepoBasename,
@@ -837,6 +838,9 @@ async function executeSingleProject(
     const attemptUsageData: import('../types/config.js').UsageData[] = [];
     // Track failure history for each attempt (attempt number -> reason)
     const failureHistory: Array<{ attempt: number; reason: string }> = [];
+    // Track rate limit waits (capped to avoid infinite loops)
+    let rateLimitWaits = 0;
+    const maxRateLimitWaits = 3;
     // Track current model for display in status line (updated in retry loop)
     let currentModel: string | undefined;
     let currentEffort: string | undefined;
@@ -952,6 +956,43 @@ async function executeSingleProject(
       lastOutput = result.output;
       if (result.usageData) {
         attemptUsageData.push(result.usageData);
+      }
+
+      // Check for rate limit — wait and retry without consuming an attempt
+      const rateLimitInfo = result.rateLimitInfo;
+      if (rateLimitInfo || (!result.timedOut && detectProgrammaticFailure(result.output, '') === 'rate_limit' && !result.rateLimitInfo)) {
+        if (rateLimitWaits >= maxRateLimitWaits) {
+          failureReason = `Rate limit hit ${rateLimitWaits} times — giving up`;
+          failureHistory.push({ attempt: attempts, reason: failureReason });
+          break;
+        }
+
+        const resetTime = rateLimitInfo
+          ? rateLimitInfo.resetsAt
+          : new Date(Date.now() + getResolvedConfig().rateLimitWaitDefault * 60 * 1000);
+        const limitLabel = rateLimitInfo?.limitType ?? 'unknown';
+
+        const waitResult = await waitForRateLimit({
+          resetsAt: resetTime,
+          limitType: limitLabel,
+          shouldAbort: () => shutdownHandler.isShuttingDown,
+          onTick: (msg) => statusLine.update(msg),
+        });
+
+        if (waitResult.completed) {
+          logger.info(`  Rate limit reset — resuming`);
+          rateLimitWaits++;
+          failureHistory.push({
+            attempt: attempts,
+            reason: `Rate limit (${limitLabel}) — waited ${Math.round(waitResult.waitedMs / 1000)}s`,
+          });
+          // Don't count this as an attempt — undo the increment
+          attempts--;
+          continue;
+        } else {
+          failureReason = 'Rate limit wait aborted';
+          break;
+        }
       }
 
       // Parse result
