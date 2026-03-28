@@ -59,7 +59,7 @@ effort: medium
 [Why this task is needed, how it fits into the larger project]
 
 ## Dependencies
-[Optional — omit if none. Comma-separated task IDs, e.g., "1, 2"]
+[Optional — omit if none. Comma-separated task IDs with outcome links for completed tasks, e.g., "1 (see outcomes/1-setup-db.md), 3 (see outcomes/3-add-api.md)"]
 
 ## Requirements
 - Requirement 1
@@ -81,7 +81,7 @@ effort: medium
 - \`effort\` (REQUIRED): \`low\` (trivial/mechanical), \`medium\` (well-scoped feature work), \`high\` (architectural/complex)
 - \`model\` (optional): Override effort-based model selection. Rarely needed — prefer \`effort\` so the user's config controls the model.
 
-**Dependencies:** Infer automatically from task relationships (don't ask the user). Only reference lower-numbered tasks. Only direct dependencies, not transitive ones. Omit section if no prerequisites.
+**Dependencies:** Infer automatically from task relationships (don't ask the user). A task's dependency IDs must be strictly lower than its own ID — for example, task 36 CANNOT depend on task 39. Only direct dependencies, not transitive ones. Omit section if no prerequisites. For dependencies on completed tasks, include the outcome file path inline: \`ID (see outcomes/ID-task-name.md)\`.
 
 ### Step 4: Confirm Completion
 

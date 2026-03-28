@@ -86,11 +86,12 @@ export function parseDependencies(content: string): string[] {
     return [];
   }
 
-  // Parse comma-separated numeric task IDs
+  // Parse comma-separated numeric task IDs, stripping optional parenthetical notes
+  // e.g., "1 (see outcomes/1-setup-db.md), 3" → ["1", "3"]
   const taskIdRegex = new RegExp(`^${TASK_ID_PATTERN}$`);
   return dependenciesLine
     .split(',')
-    .map((id) => id.trim())
+    .map((id) => id.replace(/\s*\(.*?\)/, '').trim())
     .filter((id) => taskIdRegex.test(id));
 }
 
