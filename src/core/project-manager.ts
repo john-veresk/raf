@@ -17,6 +17,7 @@ import {
 import { sanitizeProjectName } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
 import { deriveProjectState, getDerivedStats } from './state-derivation.js';
+import { getRepoBasename } from './worktree.js';
 
 export interface ProjectInfo {
   number: number;
@@ -42,7 +43,8 @@ export class ProjectManager {
     ensureRafDir();
 
     const sanitizedName = sanitizeProjectName(projectName);
-    const projectNumber = getNextProjectNumber(this.rafDir);
+    const repoBasename = getRepoBasename();
+    const projectNumber = getNextProjectNumber(this.rafDir, repoBasename ?? undefined);
     const folderName = `${formatProjectNumber(projectNumber)}-${sanitizedName}`;
     const projectPath = path.join(this.rafDir, folderName);
 

@@ -13,9 +13,10 @@ import {
   validateEnvironment,
   reportValidation,
   validateProjectName,
+  sanitizeProjectName,
 } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
-import { formatModelDisplay, getModel, getCouncilMode } from '../utils/config.js';
+import { formatModelDisplay, getModel, getCouncilMode, getWorktreeDefault, getSyncMainBranch } from '../utils/config.js';
 import type { ModelEntry } from '../types/config.js';
 import { generateProjectNames } from '../utils/name-generator.js';
 import { pickProjectName } from '../ui/name-picker.js';
@@ -27,6 +28,10 @@ import {
   extractTaskNameFromPlanFile,
   decodeTaskId,
   encodeTaskId,
+  getNextProjectNumber,
+  formatProjectNumber,
+  getOutcomesDir,
+  getDecisionsPath,
   TASK_ID_PATTERN,
   numericFileSort,
 } from '../utils/paths.js';
@@ -40,6 +45,9 @@ import {
   getRepoRoot,
   validateWorktree,
   resolveWorktreeProjectByIdentifier,
+  createWorktree,
+  removeWorktree,
+  pullMainBranch,
 } from '../core/worktree.js';
 
 interface PlanCommandOptions {
@@ -182,14 +190,66 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
     process.exit(1);
   }
 
-  // Standard mode: create project in main repo
-  const projectManager = new ProjectManager();
-  const projectPath = projectManager.createProject(finalProjectName);
+  // Create project — worktree-aware
+  let projectPath: string;
+  let worktreeRoot: string | null = null;
 
-  logger.success(`Created project: ${projectPath}`);
+  const worktreeEnabled = getWorktreeDefault();
+  const repoBasename = getRepoBasename();
+
+  if (worktreeEnabled && repoBasename) {
+    // Sync main branch first
+    if (getSyncMainBranch()) {
+      logger.info('Syncing main branch...');
+      const syncResult = pullMainBranch();
+      if (!syncResult.success) {
+        logger.warn(`Could not sync main branch: ${syncResult.error}`);
+      }
+    }
+
+    // Compute project folder name
+    const sanitizedName = sanitizeProjectName(finalProjectName);
+    const rafDir = getRafDir();
+    const projectNumber = getNextProjectNumber(rafDir, repoBasename);
+    const folderName = `${formatProjectNumber(projectNumber)}-${sanitizedName}`;
+
+    // Create worktree
+    const wtResult = createWorktree(repoBasename, folderName);
+
+    if (wtResult.success) {
+      worktreeRoot = wtResult.worktreePath;
+
+      // Create project structure inside worktree
+      const repoRoot = getRepoRoot()!;
+      const rafRelativePath = path.relative(repoRoot, rafDir);
+      projectPath = path.join(worktreeRoot, rafRelativePath, folderName);
+
+      fs.mkdirSync(projectPath, { recursive: true });
+      fs.mkdirSync(getPlansDir(projectPath), { recursive: true });
+      fs.mkdirSync(getOutcomesDir(projectPath), { recursive: true });
+      fs.writeFileSync(getDecisionsPath(projectPath), '# Project Decisions\n');
+
+      logger.success(`Created project in worktree: ${projectPath}`);
+      logger.info(`Worktree branch: ${wtResult.branch}`);
+    } else {
+      // Fallback to main repo
+      logger.warn(`Worktree creation failed: ${wtResult.error}`);
+      logger.warn('Falling back to main repo.');
+      const projectManager = new ProjectManager();
+      projectPath = projectManager.createProject(finalProjectName);
+      logger.success(`Created project: ${projectPath}`);
+    }
+  } else {
+    // Standard mode: create project in main repo
+    const projectManager = new ProjectManager();
+    projectPath = projectManager.createProject(finalProjectName);
+    logger.success(`Created project: ${projectPath}`);
+  }
+
   logger.newline();
 
   // Save input
+  const projectManager = new ProjectManager();
   projectManager.saveInput(projectPath, userInput);
 
   // Set up shutdown handler
@@ -199,8 +259,20 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
 
   // Register cleanup callback
   shutdownHandler.onShutdown(() => {
-    const projectManager = new ProjectManager();
-    projectManager.cleanupEmptyProject(projectPath);
+    if (worktreeRoot) {
+      const plansDir = getPlansDir(projectPath);
+      const hasPlans = fs.existsSync(plansDir) &&
+        fs.readdirSync(plansDir).filter(f => f.endsWith('.md')).length > 0;
+      if (!hasPlans) {
+        const rmResult = removeWorktree(worktreeRoot);
+        if (!rmResult.success) {
+          logger.warn(`Could not remove empty worktree: ${rmResult.error}`);
+        }
+      }
+    } else {
+      const projectManager = new ProjectManager();
+      projectManager.cleanupEmptyProject(projectPath);
+    }
   });
 
   // Run planning session
@@ -217,12 +289,14 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
   const { systemPrompt, userMessage } = getPlanningPrompt({
     projectPath,
     inputContent: userInput,
+    worktreeMode: !!worktreeRoot,
     councilMode: getCouncilMode(),
   });
 
   try {
     const exitCode = await claudeRunner.runInteractive(systemPrompt, userMessage, {
       dangerouslySkipPermissions: autoMode,
+      cwd: worktreeRoot ?? undefined,
     });
 
     if (exitCode !== 0) {
@@ -249,6 +323,7 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
       // Commit planning artifacts (input.md, decisions.md, and plan files)
       const planAbsolutePaths = planFiles.map((f) => path.join(plansDir, f));
       await commitPlanningArtifacts(projectPath, {
+        cwd: worktreeRoot ?? undefined,
         additionalFiles: planAbsolutePaths,
       });
 
@@ -259,9 +334,21 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
     logger.error(`Planning failed: ${error}`);
     throw error;
   } finally {
-    // Cleanup empty project folder if no plans were created
-    const projectManager = new ProjectManager();
-    projectManager.cleanupEmptyProject(projectPath);
+    if (worktreeRoot) {
+      const plansDir = getPlansDir(projectPath);
+      const hasPlans = fs.existsSync(plansDir) &&
+        fs.readdirSync(plansDir).filter(f => f.endsWith('.md')).length > 0;
+      if (!hasPlans) {
+        logger.debug('No plans created, removing worktree...');
+        const rmResult = removeWorktree(worktreeRoot);
+        if (!rmResult.success) {
+          logger.warn(`Could not remove empty worktree: ${rmResult.error}`);
+        }
+      }
+    } else {
+      const projectManager = new ProjectManager();
+      projectManager.cleanupEmptyProject(projectPath);
+    }
   }
 }
 
