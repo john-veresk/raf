@@ -92,6 +92,8 @@ export interface RafConfig {
   /** Default wait time in minutes when rate limit reset time is unknown. Default: 60 */
   rateLimitWaitDefault: number;
   commitFormat: CommitFormatConfig;
+  /** Enable council mode: planning agent spawns a team of sub-agents to investigate tasks in parallel. Default: false */
+  councilMode: boolean;
 }
 
 /**
@@ -154,6 +156,7 @@ export const DEFAULT_CONFIG: RafConfig = {
   syncMainBranch: true,
   pushOnComplete: false,
   rateLimitWaitDefault: 60,
+  councilMode: false,
   commitFormat: {
     task: '{prefix}[{projectName}:{taskId}] {description}',
     plan: '{prefix}[{projectName}] Plan: {description}',

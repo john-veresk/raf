@@ -40,6 +40,7 @@ const VALID_TOP_LEVEL_KEYS = new Set<string>([
   'models', 'effortMapping', 'codex',
   'timeout', 'maxRetries', 'autoCommit',
   'worktree', 'syncMainBranch', 'pushOnComplete', 'commitFormat',
+  'rateLimitWaitDefault', 'councilMode',
 ]);
 
 /** Keys that were removed in the schema migration. Rejected with a helpful error. */
@@ -309,6 +310,13 @@ export function validateConfig(config: unknown): UserConfig {
     }
   }
 
+  // councilMode
+  if (obj.councilMode !== undefined) {
+    if (typeof obj.councilMode !== 'boolean') {
+      throw new ConfigValidationError('councilMode must be a boolean');
+    }
+  }
+
   // commitFormat
   if (obj.commitFormat !== undefined) {
     if (typeof obj.commitFormat !== 'object' || obj.commitFormat === null || Array.isArray(obj.commitFormat)) {
@@ -395,6 +403,7 @@ function deepMerge(defaults: RafConfig, overrides: UserConfig): RafConfig {
   if (overrides.worktree !== undefined) result.worktree = overrides.worktree;
   if (overrides.syncMainBranch !== undefined) result.syncMainBranch = overrides.syncMainBranch;
   if (overrides.pushOnComplete !== undefined) result.pushOnComplete = overrides.pushOnComplete;
+  if (overrides.councilMode !== undefined) result.councilMode = overrides.councilMode;
 
   return result;
 }
@@ -597,6 +606,10 @@ export function getSyncMainBranch(): boolean {
 
 export function getPushOnComplete(): boolean {
   return getResolvedConfig().pushOnComplete;
+}
+
+export function getCouncilMode(): boolean {
+  return getResolvedConfig().councilMode;
 }
 
 /**
