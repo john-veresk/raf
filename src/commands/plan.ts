@@ -15,7 +15,7 @@ import {
   validateProjectName,
 } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
-import { formatModelDisplay, getModel } from '../utils/config.js';
+import { formatModelDisplay, getModel, getCouncilMode } from '../utils/config.js';
 import type { ModelEntry } from '../types/config.js';
 import { generateProjectNames } from '../utils/name-generator.js';
 import { pickProjectName } from '../ui/name-picker.js';
@@ -217,6 +217,7 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
   const { systemPrompt, userMessage } = getPlanningPrompt({
     projectPath,
     inputContent: userInput,
+    councilMode: getCouncilMode(),
   });
 
   try {
@@ -417,6 +418,7 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry, auto
     existingTasks,
     nextTaskNumber,
     newTaskDescription: cleanInput,
+    councilMode: getCouncilMode(),
   });
 
   try {

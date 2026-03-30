@@ -6,6 +6,7 @@ export interface AmendPromptParams {
   existingTasks: Array<DerivedTask & { taskName: string }>;
   nextTaskNumber: number;
   newTaskDescription: string;
+  councilMode?: boolean;
 }
 
 export interface AmendPromptResult {
@@ -161,11 +162,71 @@ Planning complete! To exit this session and run your tasks:
 - Be specific — vague plans lead to poor execution
 - Include implementation details, code snippets, and file paths when they clarify the approach`;
 
+  const councilSection = params.councilMode ? `
+
+## Council Mode
+
+You are operating in **council mode**. Instead of investigating all tasks yourself, act as a **team leader** coordinating a council of planning agents.
+
+### How to run the council
+
+1. **Analyze the new requirements** and identify the distinct new tasks (Steps 1-2 above).
+2. **Spawn sub-agents** using the Agent tool — one agent per task (or group small related tasks). Decide the number of agents based on the number of tasks identified. Run agents in parallel where possible.
+   - Each agent's prompt must include: the full project description, the new task description, the existing tasks context, the specific task(s) to investigate, the project path, and instructions to report back (a) a draft plan for their task(s) and (b) a list of questions they need answered by the user.
+   - Sub-agents must NOT use AskUserQuestion — they report questions back to you.
+3. **Collect results** from all sub-agents.
+4. **Consolidate questions** — deduplicate and batch all questions from sub-agents. Use AskUserQuestion to ask the user, grouping related questions together (up to 4 per call).
+5. **Distribute answers** — if any sub-agent needs user answers to refine their plan, send the answers back via SendMessage.
+6. **Review and merge** — review all draft plans from sub-agents. Ensure consistency, correct dependency ordering (respecting existing task IDs), and proper formatting.
+7. **Write final plan files** yourself — you (the leader) write all plan files to \`${projectPath}/plans/\`. Do not let sub-agents write files directly.
+8. **Record all Q&A** to \`${projectPath}/decisions.md\` as specified in Step 3 above.
+
+### Sub-agent prompt template
+
+When spawning each sub-agent, use a prompt like:
+\`\`\`
+You are a planning analyst investigating task(s) for a software project amendment.
+
+Project description:
+<description>
+{full project description}
+</description>
+
+New task description:
+<new-tasks>
+{new task description}
+</new-tasks>
+
+Existing tasks (for context and dependencies):
+{existing tasks summary}
+
+Your assigned task(s) to investigate:
+{task name and brief description}
+
+Instructions:
+1. Explore the codebase to understand the current state relevant to your task(s).
+2. Identify implementation approach, key files to modify, and specific steps.
+3. Consider dependencies on existing tasks.
+4. List any questions you need the user to answer (you cannot ask them directly).
+5. Return a structured report with:
+   - Draft plan (following the plan file format)
+   - Questions for the user (numbered list)
+   - Any risks or concerns
+\`\`\`
+
+### Important
+- You (the leader) are the ONLY agent that talks to the user via AskUserQuestion.
+- You (the leader) write ALL final plan files. Sub-agents only return draft content.
+- Ensure dependency IDs are consistent across all plans after merging.
+- Respect existing task numbering — new tasks start from ${encodeTaskId(nextTaskNumber)}.` : '';
+
+  const fullSystemPrompt = councilSection ? systemPrompt + councilSection : systemPrompt;
+
   const userMessage = `I want to add the following new tasks to this project:
 
 ${newTaskDescription}
 
 Please analyze this and start the planning interview for the new tasks.`;
 
-  return { systemPrompt, userMessage };
+  return { systemPrompt: fullSystemPrompt, userMessage };
 }
