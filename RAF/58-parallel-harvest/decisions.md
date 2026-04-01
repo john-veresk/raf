@@ -29,3 +29,15 @@ No. Git handles it — the project files are already tracked in git, so creating
 
 ## Should the worktree branch reuse an existing branch or always create a fresh one?
 Reuse if exists. Check if a branch matching the project folder name already exists (e.g. from a previous run). If so, create a worktree from that branch via `createWorktreeFromBranch`. Otherwise create a new one via `createWorktree`.
+
+## After a successful merge, should the local branch be deleted automatically or should the user be prompted?
+Auto-delete. Silently delete the local branch after successful merge — no prompt needed. The branch is already merged, so it's safe.
+
+## Should the cleanup also delete the remote branch if it was pushed?
+Local only. Only delete the local branch. Remote cleanup is out of scope — PRs handle their own branch deletion.
+
+## Should `git worktree prune` be run after worktree removal?
+Yes, always prune. Run `git worktree prune` after removing a worktree to keep `.git/worktrees/` clean.
+
+## Should branch cleanup happen for all post-execution actions or only after merge?
+Merge only. Only delete the branch after a successful merge. PR and leave-as-is need the branch to remain.

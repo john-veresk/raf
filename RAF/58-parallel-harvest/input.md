@@ -18,3 +18,7 @@ enabled.
 ---
 
 follow up for task 4.
+
+---
+
+clean up branch after worktree merge (follow up on 4, look decicions.md in the project)
