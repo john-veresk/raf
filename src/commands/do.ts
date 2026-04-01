@@ -205,31 +205,107 @@ export function createDoCommand(): Command {
   const command = new Command('do')
     .description('Execute planned tasks for a project')
     .alias('act')
-    .argument('[project]', 'Project identifier: ID (00j3k1), name (my-project), or folder (00j3k1-my-project)')
+    .argument('[projects...]', 'Project identifiers: ID, name, or folder. Multiple allowed.')
     .option('-t, --timeout <minutes>', 'Timeout per task in minutes', '60')
     .option('-v, --verbose', 'Show full LLM output')
     .option('-d, --debug', 'Save all logs and show debug output')
     .option('-f, --force', 'Re-run all tasks regardless of status')
-    .action(async (project: string | undefined, options: DoCommandOptions) => {
-      await runDoCommand(project, options);
+    .action(async (projects: string[], options: DoCommandOptions) => {
+      await runDoCommand(projects, options);
     });
 
   return command;
 }
 
-async function runDoCommand(projectIdentifierArg: string | undefined, options: DoCommandOptions): Promise<void> {
+/**
+ * Resolve a single project identifier to its path and metadata.
+ * Handles worktree detection, ambiguous names, etc.
+ */
+function resolveProjectFromIdentifier(
+  rafDir: string,
+  projectIdentifier: string,
+  knownWorktreeRoot?: string,
+): { resolvedProject: { identifier: string; path: string; name: string }; worktreeRoot?: string } | null {
+  if (knownWorktreeRoot) {
+    // Worktree was set by the picker — resolve project inside the worktree
+    const repoRoot = getRepoRoot()!;
+    const rafRelativePath = path.relative(repoRoot, rafDir);
+    const wtRafDir = path.join(knownWorktreeRoot, rafRelativePath);
+    const result = resolveProjectIdentifierWithDetails(wtRafDir, projectIdentifier);
+    if (!result.path) {
+      logger.error(`Project not found in worktree: ${projectIdentifier}`);
+      return null;
+    }
+    const projectName = extractProjectName(result.path) ?? projectIdentifier;
+    return {
+      resolvedProject: { identifier: projectIdentifier, path: result.path, name: projectName },
+      worktreeRoot: knownWorktreeRoot,
+    };
+  }
+
+  // Auto-detect: check worktrees first (worktree takes priority), then main repo
+  const repoRoot = getRepoRoot();
+  const repoBasename = repoRoot ? getRepoBasename() : null;
+
+  // Try worktree resolution first (preferred when project exists in both)
+  if (repoBasename) {
+    const wtResolution = resolveWorktreeProjectByIdentifier(repoBasename, projectIdentifier);
+    if (wtResolution) {
+      const rafRelativePath = path.relative(repoRoot!, rafDir);
+      const wtRafDir = path.join(wtResolution.worktreeRoot, rafRelativePath);
+      const wtProjectPath = path.join(wtRafDir, wtResolution.folder);
+
+      if (fs.existsSync(wtProjectPath)) {
+        const projectName = extractProjectName(wtResolution.folder) ?? projectIdentifier;
+        return {
+          resolvedProject: { identifier: projectIdentifier, path: wtProjectPath, name: projectName },
+          worktreeRoot: wtResolution.worktreeRoot,
+        };
+      }
+    }
+  }
+
+  // Fall back to main repo
+  const result = resolveProjectIdentifierWithDetails(rafDir, projectIdentifier);
+
+  if (!result.path) {
+    if (result.error === 'ambiguous' && result.matches) {
+      const matchList = result.matches
+        .map((m) => `  - ${m.folder}`)
+        .join('\n');
+      logger.error(`${projectIdentifier}: Ambiguous project name. Multiple projects match:\n${matchList}\nPlease specify the project ID or full folder name.`);
+    } else {
+      logger.error(`${projectIdentifier}: Project not found`);
+    }
+    logger.info("Run 'raf status' to see available projects.");
+    return null;
+  }
+
+  const projectName = extractProjectName(result.path) ?? projectIdentifier;
+  return {
+    resolvedProject: { identifier: projectIdentifier, path: result.path, name: projectName },
+  };
+}
+
+/**
+ * Entry describing a project to execute, with its resolved metadata.
+ */
+interface ProjectToRun {
+  identifier: string;
+  path: string;
+  name: string;
+  worktreeRoot?: string;
+}
+
+async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandOptions): Promise<void> {
   const rafDir = getRafDir();
-  let projectIdentifier = projectIdentifierArg;
   const executeEntry = getModel('execute');
 
-  // Variables for worktree context (derived from where the project is found)
-  let worktreeRoot: string | undefined;
-  let originalBranch: string | undefined;
-  let mainBranchName: string | null = null;
+  // Build the list of projects to run
+  const projectsToRun: ProjectToRun[] = [];
 
-  // Handle no project identifier (non-worktree mode) - show interactive picker
-  if (!projectIdentifier) {
-    // Discover worktree projects for the current repo (if in a git repo)
+  if (projectIdentifiersArg.length === 0) {
+    // No CLI args — show interactive picker
     let worktreeProjects: PendingProjectInfo[] = [];
     const repoRoot = getRepoRoot();
     if (repoRoot) {
@@ -238,7 +314,6 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
       worktreeProjects = getPendingWorktreeProjects(repoBasename, rafRelativePath);
     }
 
-    // Check if there are any pending projects (local or worktree)
     const pendingProjects = getPendingProjects(rafDir);
 
     if (pendingProjects.length === 0 && worktreeProjects.length === 0) {
@@ -255,81 +330,41 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
         process.exit(0);
       }
 
-      // Use the first selected project (multi-project execution handled in task 2)
-      const selectedProject = selectedProjects[0]!;
-      projectIdentifier = selectedProject.folder;
-
-      // If a worktree project was selected, record worktree context
-      if (selectedProject.source === 'worktree' && selectedProject.worktreeRoot) {
-        worktreeRoot = selectedProject.worktreeRoot;
-        originalBranch = getCurrentBranch() ?? undefined;
+      for (const selected of selectedProjects) {
+        const resolved = resolveProjectFromIdentifier(
+          rafDir,
+          selected.folder,
+          selected.source === 'worktree' ? selected.worktreeRoot : undefined,
+        );
+        if (!resolved) {
+          process.exit(1);
+        }
+        projectsToRun.push({
+          identifier: resolved.resolvedProject.identifier,
+          path: resolved.resolvedProject.path,
+          name: resolved.resolvedProject.name,
+          worktreeRoot: resolved.worktreeRoot,
+        });
       }
     } catch (error) {
-      // Handle Ctrl+C (user cancellation)
       if (error instanceof Error && error.message.includes('User force closed')) {
         process.exit(0);
       }
       throw error;
     }
-  }
-
-  // Resolve project identifier
-  let resolvedProject: { identifier: string; path: string; name: string } | undefined;
-
-  if (worktreeRoot) {
-    // Worktree was set by the picker — resolve project inside the worktree
-    const repoRoot = getRepoRoot()!;
-    const rafRelativePath = path.relative(repoRoot, rafDir);
-    const wtRafDir = path.join(worktreeRoot, rafRelativePath);
-    const result = resolveProjectIdentifierWithDetails(wtRafDir, projectIdentifier);
-    if (!result.path) {
-      logger.error(`Project not found in worktree: ${projectIdentifier}`);
-      process.exit(1);
-    }
-    const projectName = extractProjectName(result.path) ?? projectIdentifier;
-    resolvedProject = { identifier: projectIdentifier, path: result.path, name: projectName };
   } else {
-    // Auto-detect: check worktrees first (worktree takes priority), then main repo
-    const repoRoot = getRepoRoot();
-    const repoBasename = repoRoot ? getRepoBasename() : null;
-
-    // Try worktree resolution first (preferred when project exists in both)
-    if (repoBasename) {
-      const wtResolution = resolveWorktreeProjectByIdentifier(repoBasename, projectIdentifier);
-      if (wtResolution) {
-        const rafRelativePath = path.relative(repoRoot!, rafDir);
-        const wtRafDir = path.join(wtResolution.worktreeRoot, rafRelativePath);
-        const wtProjectPath = path.join(wtRafDir, wtResolution.folder);
-
-        if (fs.existsSync(wtProjectPath)) {
-          worktreeRoot = wtResolution.worktreeRoot;
-          originalBranch = getCurrentBranch() ?? undefined;
-
-          const projectName = extractProjectName(wtResolution.folder) ?? projectIdentifier;
-          resolvedProject = { identifier: projectIdentifier, path: wtProjectPath, name: projectName };
-        }
-      }
-    }
-
-    // Fall back to main repo if worktree didn't match
-    if (!resolvedProject) {
-      const result = resolveProjectIdentifierWithDetails(rafDir, projectIdentifier);
-
-      if (!result.path) {
-        if (result.error === 'ambiguous' && result.matches) {
-          const matchList = result.matches
-            .map((m) => `  - ${m.folder}`)
-            .join('\n');
-          logger.error(`${projectIdentifier}: Ambiguous project name. Multiple projects match:\n${matchList}\nPlease specify the project ID or full folder name.`);
-        } else {
-          logger.error(`${projectIdentifier}: Project not found`);
-        }
-        logger.info("Run 'raf status' to see available projects.");
+    // CLI args provided — resolve each
+    for (const identifier of projectIdentifiersArg) {
+      const resolved = resolveProjectFromIdentifier(rafDir, identifier);
+      if (!resolved) {
         process.exit(1);
       }
-
-      const projectName = extractProjectName(result.path) ?? projectIdentifier;
-      resolvedProject = { identifier: projectIdentifier, path: result.path, name: projectName };
+      projectsToRun.push({
+        identifier: resolved.resolvedProject.identifier,
+        path: resolved.resolvedProject.path,
+        name: resolved.resolvedProject.name,
+        worktreeRoot: resolved.worktreeRoot,
+      });
     }
   }
 
@@ -346,104 +381,136 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
   // Configure logger
   logger.configure({ verbose, debug });
 
-  // Worktree setup: sync main branch and show post-execution picker
-  let postAction: PostExecutionAction = 'leave';
-  if (worktreeRoot) {
-    if (!originalBranch) {
-      originalBranch = getCurrentBranch() ?? undefined;
-    }
+  const originalBranch = getCurrentBranch() ?? undefined;
 
-    // Sync main branch before worktree operations (if enabled)
-    if (getSyncMainBranch()) {
-      const syncResult = pullMainBranch();
-      mainBranchName = syncResult.mainBranch;
-      if (syncResult.success) {
-        if (syncResult.hadChanges) {
-          logger.info(`Synced ${syncResult.mainBranch} from remote`);
+  // Execute each project sequentially
+  const results: ProjectExecutionResult[] = [];
+
+  for (const project of projectsToRun) {
+    // Worktree setup per-project
+    let postAction: PostExecutionAction = 'leave';
+    let mainBranchName: string | null = null;
+
+    if (project.worktreeRoot) {
+      // Sync main branch before worktree operations (if enabled)
+      if (getSyncMainBranch()) {
+        const syncResult = pullMainBranch();
+        mainBranchName = syncResult.mainBranch;
+        if (syncResult.success) {
+          if (syncResult.hadChanges) {
+            logger.info(`Synced ${syncResult.mainBranch} from remote`);
+          }
+        } else {
+          logger.warn(`Could not sync main branch: ${syncResult.error}`);
         }
-      } else {
-        logger.warn(`Could not sync main branch: ${syncResult.error}`);
+      }
+
+      try {
+        postAction = await pickPostExecutionAction(project.worktreeRoot);
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('User force closed')) {
+          process.exit(0);
+        }
+        throw error;
+      }
+
+      // Rebase worktree branch onto main before execution (if sync is enabled)
+      if (getSyncMainBranch()) {
+        const mainBranch = mainBranchName ?? detectMainBranch();
+        if (mainBranch) {
+          const rebaseResult = rebaseOntoMain(mainBranch, project.worktreeRoot);
+          if (rebaseResult.success) {
+            logger.info(`Rebased onto ${mainBranch}`);
+          } else {
+            logger.warn(`Could not rebase onto ${mainBranch}: ${rebaseResult.error}`);
+            logger.warn('Continuing with current branch state.');
+          }
+        }
       }
     }
+
+    // Execute project
+    let result: ProjectExecutionResult;
 
     try {
-      postAction = await pickPostExecutionAction(worktreeRoot);
+      result = await executeSingleProject(
+        project.path,
+        project.name,
+        {
+          timeout,
+          verbose,
+          debug,
+          force,
+          maxRetries,
+          autoCommit,
+          codexExecutionMode,
+          executeEntry,
+          worktreeCwd: project.worktreeRoot,
+        }
+      );
     } catch (error) {
-      // Handle Ctrl+C (user cancellation)
-      if (error instanceof Error && error.message.includes('User force closed')) {
-        process.exit(0);
-      }
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(`Project ${project.name} failed: ${errorMessage}`);
+      result = {
+        projectName: project.name,
+        projectPath: project.path,
+        success: false,
+        tasksCompleted: 0,
+        totalTasks: 0,
+        error: errorMessage,
+      };
     }
 
-    // Rebase worktree branch onto main before execution (if sync is enabled)
-    if (getSyncMainBranch()) {
-      const mainBranch = mainBranchName ?? detectMainBranch();
-      if (mainBranch) {
-        const rebaseResult = rebaseOntoMain(mainBranch, worktreeRoot);
-        if (rebaseResult.success) {
-          logger.info(`Rebased onto ${mainBranch}`);
-        } else {
-          logger.warn(`Could not rebase onto ${mainBranch}: ${rebaseResult.error}`);
-          logger.warn('Continuing with current branch state.');
+    results.push(result);
+
+    // Execute post-execution action based on picker choice
+    if (project.worktreeRoot) {
+      const worktreeBranch = path.basename(project.worktreeRoot);
+
+      if (result.success && !result.cancelled) {
+        await executePostAction(postAction, project.worktreeRoot, worktreeBranch, originalBranch, project.path);
+      } else {
+        if (postAction !== 'leave') {
+          logger.newline();
+          logger.info(`Skipping post-execution action — project has failures. Branch "${worktreeBranch}" is available for inspection.`);
         }
       }
     }
-  }
 
-  // Execute project
-  let result: ProjectExecutionResult;
-
-  try {
-    result = await executeSingleProject(
-      resolvedProject.path,
-      resolvedProject.name,
-      {
-        timeout,
-        verbose,
-        debug,
-        force,
-        maxRetries,
-        autoCommit,
-        codexExecutionMode,
-        executeEntry,
-        worktreeCwd: worktreeRoot,
-      }
-    );
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(`Project ${resolvedProject.name} failed: ${errorMessage}`);
-    process.exit(1);
-  }
-
-  // Execute post-execution action based on picker choice
-  if (worktreeRoot) {
-    const worktreeBranch = path.basename(worktreeRoot);
-
-    if (result.success && !result.cancelled) {
-      await executePostAction(postAction, worktreeRoot, worktreeBranch, originalBranch, resolvedProject.path);
-    } else {
-      if (postAction !== 'leave') {
-        logger.newline();
-        logger.info(`Skipping post-execution action — project has failures. Branch "${worktreeBranch}" is available for inspection.`);
+    // Push to remote after successful execution (if enabled, non-worktree mode)
+    if (!project.worktreeRoot && result.success && !result.cancelled && getPushOnComplete()) {
+      const pushResult = pushCurrentBranch();
+      if (pushResult.success) {
+        if (pushResult.hadChanges) {
+          logger.info(`Pushed ${pushResult.mainBranch} to remote`);
+        }
+      } else {
+        logger.warn(`Could not push to remote: ${pushResult.error}`);
       }
     }
   }
 
-  // Push to remote after successful execution (if enabled, non-worktree mode)
-  if (!worktreeRoot && result.success && !result.cancelled && getPushOnComplete()) {
-    const pushResult = pushCurrentBranch();
-    if (pushResult.success) {
-      if (pushResult.hadChanges) {
-        logger.info(`Pushed ${pushResult.mainBranch} to remote`);
-      }
-    } else {
-      logger.warn(`Could not push to remote: ${pushResult.error}`);
+  // Batch summary (only when multiple projects were executed)
+  if (results.length > 1) {
+    logger.newline();
+    logger.info('Batch Summary:');
+
+    const succeeded = results.filter((r) => r.success);
+    const failed = results.filter((r) => !r.success);
+
+    if (succeeded.length > 0) {
+      logger.info(`  Completed: ${succeeded.map((r) => r.projectName).join(', ')}`);
     }
+    if (failed.length > 0) {
+      logger.info(`  Failed: ${failed.map((r) => r.projectName).join(', ')}`);
+    }
+
+    logger.info(`  Total: ${succeeded.length}/${results.length} succeeded`);
   }
 
   // Exit with appropriate code
-  if (!result.success) {
+  const anyFailed = results.some((r) => !r.success);
+  if (anyFailed) {
     process.exit(1);
   }
 }
