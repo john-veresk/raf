@@ -1,4 +1,4 @@
-import { select } from '@inquirer/prompts';
+import { checkbox } from '@inquirer/prompts';
 import { discoverProjects, deriveProjectState, getDerivedStats } from '../core/state-derivation.js';
 import { extractProjectNumber, extractProjectName, parseProjectPrefix, formatProjectNumber } from '../utils/paths.js';
 
@@ -133,16 +133,16 @@ export interface PickerResult {
 }
 
 /**
- * Display an interactive project picker for pending projects.
- * Returns the selected project info or null if no projects or cancelled.
+ * Display an interactive multi-select project picker for pending projects.
+ * Returns an array of selected projects (empty if none available or none selected).
  *
  * @param rafDir - The main repo's RAF directory
  * @param worktreeProjects - Optional worktree projects to merge into the picker
  */
-export async function pickPendingProject(
+export async function pickPendingProjects(
   rafDir: string,
   worktreeProjects?: PendingProjectInfo[],
-): Promise<PickerResult | null> {
+): Promise<PickerResult[]> {
   const localProjects = getPendingProjects(rafDir);
   const allProjects = [...localProjects, ...(worktreeProjects ?? [])];
 
@@ -160,7 +160,7 @@ export async function pickPendingProject(
   deduped.sort((a, b) => a.number - b.number);
 
   if (deduped.length === 0) {
-    return null;
+    return [];
   }
 
   const choices = deduped.map((project) => ({
@@ -168,14 +168,14 @@ export async function pickPendingProject(
     value: project,
   }));
 
-  const selected = await select({
-    message: 'Select a project to execute:',
+  const selected = await checkbox({
+    message: 'Select projects to execute (space to toggle, enter to confirm):',
     choices,
   });
 
-  return {
-    folder: selected.folder,
-    source: selected.source,
-    worktreeRoot: selected.worktreeRoot,
-  };
+  return selected.map((project) => ({
+    folder: project.folder,
+    source: project.source,
+    worktreeRoot: project.worktreeRoot,
+  }));
 }

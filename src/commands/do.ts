@@ -11,7 +11,7 @@ import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, isRetryableFailure } from '../parsers/output-parser.js';
 import { validatePlansExist } from '../utils/validation.js';
 import { getRafDir, extractProjectNumber, extractProjectName, extractTaskNameFromPlanFile, resolveProjectIdentifierWithDetails, getOutcomeFilePath } from '../utils/paths.js';
-import { pickPendingProject, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
+import { pickPendingProjects, getPendingProjects, getPendingWorktreeProjects } from '../ui/project-picker.js';
 import type { PendingProjectInfo } from '../ui/project-picker.js';
 import { logger } from '../utils/logger.js';
 import { formatModelDisplay, getConfig, getResolvedConfig, getModel, getSyncMainBranch, getPushOnComplete, getCodexExecutionMode, resolveEffortToModel, applyModelCeiling, parseModelSpec } from '../utils/config.js';
@@ -248,14 +248,15 @@ async function runDoCommand(projectIdentifierArg: string | undefined, options: D
     }
 
     try {
-      const selectedProject = await pickPendingProject(rafDir, worktreeProjects);
+      const selectedProjects = await pickPendingProjects(rafDir, worktreeProjects);
 
-      if (!selectedProject) {
-        logger.info('No pending projects found.');
+      if (selectedProjects.length === 0) {
+        logger.info('No projects selected.');
         process.exit(0);
       }
 
-      // Use the selected project
+      // Use the first selected project (multi-project execution handled in task 2)
+      const selectedProject = selectedProjects[0]!;
       projectIdentifier = selectedProject.folder;
 
       // If a worktree project was selected, record worktree context

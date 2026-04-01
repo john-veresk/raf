@@ -2,9 +2,9 @@ import { jest } from '@jest/globals';
 import * as path from 'node:path';
 
 // Mock @inquirer/prompts before importing the module
-const mockSelect = jest.fn();
+const mockCheckbox = jest.fn();
 jest.unstable_mockModule('@inquirer/prompts', () => ({
-  select: mockSelect,
+  checkbox: mockCheckbox,
 }));
 
 // Mock state-derivation module
@@ -37,7 +37,7 @@ jest.unstable_mockModule('node:fs', () => {
 });
 
 // Import after mocking
-const { pickPendingProject, getPendingProjects, formatProjectChoice, getPendingWorktreeProjects } = await import(
+const { pickPendingProjects, getPendingProjects, formatProjectChoice, getPendingWorktreeProjects } = await import(
   '../../src/ui/project-picker.js'
 );
 
@@ -368,17 +368,17 @@ describe('Project Picker', () => {
     });
   });
 
-  describe('pickPendingProject', () => {
-    it('should return null when no pending projects exist', async () => {
+  describe('pickPendingProjects', () => {
+    it('should return empty array when no pending projects exist', async () => {
       mockDiscoverProjects.mockReturnValue([]);
 
-      const result = await pickPendingProject(testRafDir);
+      const result = await pickPendingProjects(testRafDir);
 
-      expect(result).toBeNull();
-      expect(mockSelect).not.toHaveBeenCalled();
+      expect(result).toEqual([]);
+      expect(mockCheckbox).not.toHaveBeenCalled();
     });
 
-    it('should display pending projects as choices and return PickerResult', async () => {
+    it('should display pending projects as choices and return PickerResult[]', async () => {
       const firstProject = {
         folder: '1-first-project',
         number: 1,
@@ -406,19 +406,29 @@ describe('Project Picker', () => {
         total: 2,
       });
 
-      mockSelect.mockResolvedValue(firstProject);
+      mockCheckbox.mockResolvedValue([firstProject]);
 
-      const result = await pickPendingProject(testRafDir);
+      const result = await pickPendingProjects(testRafDir);
 
-      expect(result).toEqual({
+      expect(result).toEqual([{
         folder: '1-first-project',
         source: 'local',
         worktreeRoot: undefined,
-      });
+      }]);
     });
 
-    it('should return selected project folder name in result', async () => {
-      const selectedProject = {
+    it('should return multiple selected projects', async () => {
+      const project1 = {
+        folder: '1-first-project',
+        number: 1,
+        name: 'first-project',
+        path: path.join(testRafDir, '1-first-project'),
+        completedTasks: 0,
+        totalTasks: 1,
+        source: 'local' as const,
+      };
+
+      const project2 = {
         folder: '5-my-project',
         number: 5,
         name: 'my-project',
@@ -429,6 +439,7 @@ describe('Project Picker', () => {
       };
 
       mockDiscoverProjects.mockReturnValue([
+        { number: 1, name: 'first-project', path: path.join(testRafDir, '1-first-project') },
         { number: 5, name: 'my-project', path: path.join(testRafDir, '5-my-project') },
       ]);
 
@@ -444,15 +455,38 @@ describe('Project Picker', () => {
         total: 1,
       });
 
-      mockSelect.mockResolvedValue(selectedProject);
+      mockCheckbox.mockResolvedValue([project1, project2]);
 
-      const result = await pickPendingProject(testRafDir);
+      const result = await pickPendingProjects(testRafDir);
 
-      expect(result).toEqual({
-        folder: '5-my-project',
-        source: 'local',
-        worktreeRoot: undefined,
+      expect(result).toEqual([
+        { folder: '1-first-project', source: 'local', worktreeRoot: undefined },
+        { folder: '5-my-project', source: 'local', worktreeRoot: undefined },
+      ]);
+    });
+
+    it('should return empty array when no projects selected', async () => {
+      mockDiscoverProjects.mockReturnValue([
+        { number: 1, name: 'test-project', path: path.join(testRafDir, '1-test-project') },
+      ]);
+
+      mockDeriveProjectState.mockReturnValue({
+        tasks: [{ status: 'pending' }],
+        status: 'ready',
       });
+
+      mockGetDerivedStats.mockReturnValue({
+        completed: 0,
+        pending: 1,
+        failed: 0,
+        total: 1,
+      });
+
+      mockCheckbox.mockResolvedValue([]);
+
+      const result = await pickPendingProjects(testRafDir);
+
+      expect(result).toEqual([]);
     });
 
     it('should format choices with task progress', async () => {
@@ -482,12 +516,12 @@ describe('Project Picker', () => {
         total: 3,
       });
 
-      mockSelect.mockResolvedValue(testProject);
+      mockCheckbox.mockResolvedValue([testProject]);
 
-      await pickPendingProject(testRafDir);
+      await pickPendingProjects(testRafDir);
 
-      expect(mockSelect).toHaveBeenCalledWith({
-        message: 'Select a project to execute:',
+      expect(mockCheckbox).toHaveBeenCalledWith({
+        message: 'Select projects to execute (space to toggle, enter to confirm):',
         choices: [
           {
             name: '1 test-project (1/3 tasks)',
@@ -524,29 +558,19 @@ describe('Project Picker', () => {
         total: 1,
       });
 
-      mockSelect.mockResolvedValue(onlyProject);
+      mockCheckbox.mockResolvedValue([onlyProject]);
 
-      const result = await pickPendingProject(testRafDir);
+      const result = await pickPendingProjects(testRafDir);
 
-      expect(result).toEqual({
+      expect(result).toEqual([{
         folder: '7-only-project',
         source: 'local',
         worktreeRoot: undefined,
-      });
-      expect(mockSelect).toHaveBeenCalledTimes(1);
+      }]);
+      expect(mockCheckbox).toHaveBeenCalledTimes(1);
     });
 
     it('should merge worktree projects into picker choices', async () => {
-      const localProject = {
-        folder: '1-local-proj',
-        number: 1,
-        name: 'local-proj',
-        path: path.join(testRafDir, '1-local-proj'),
-        completedTasks: 0,
-        totalTasks: 2,
-        source: 'local' as const,
-      };
-
       mockDiscoverProjects.mockReturnValue([
         { number: 1, name: 'local-proj', path: path.join(testRafDir, '1-local-proj') },
       ]);
@@ -574,24 +598,24 @@ describe('Project Picker', () => {
         worktreeRoot: '/worktrees/myapp/2-wt-proj',
       };
 
-      mockSelect.mockResolvedValue(worktreeProject);
+      mockCheckbox.mockResolvedValue([worktreeProject]);
 
-      const result = await pickPendingProject(testRafDir, [worktreeProject]);
+      const result = await pickPendingProjects(testRafDir, [worktreeProject]);
 
       // Should have been called with both local and worktree projects
-      expect(mockSelect).toHaveBeenCalledWith({
-        message: 'Select a project to execute:',
+      expect(mockCheckbox).toHaveBeenCalledWith({
+        message: 'Select projects to execute (space to toggle, enter to confirm):',
         choices: expect.arrayContaining([
           expect.objectContaining({ name: expect.stringContaining('local-proj') }),
           expect.objectContaining({ name: expect.stringContaining('[worktree]') }),
         ]),
       });
 
-      expect(result).toEqual({
+      expect(result).toEqual([{
         folder: '2-wt-proj',
         source: 'worktree',
         worktreeRoot: '/worktrees/myapp/2-wt-proj',
-      });
+      }]);
     });
 
     it('should deduplicate projects when same folder exists in local and worktree (prefer worktree)', async () => {
@@ -622,14 +646,14 @@ describe('Project Picker', () => {
         total: 1,
       });
 
-      mockSelect.mockResolvedValue(worktreeVersion);
+      mockCheckbox.mockResolvedValue([worktreeVersion]);
 
-      await pickPendingProject(testRafDir, [worktreeVersion]);
+      await pickPendingProjects(testRafDir, [worktreeVersion]);
 
       // Should have only 1 choice (deduplicated), and it should be the worktree version
-      const selectCall = mockSelect.mock.calls[0] as [{ choices: Array<{ name: string; value: { source: string } }> }];
-      expect(selectCall[0].choices).toHaveLength(1);
-      expect(selectCall[0].choices[0]!.value.source).toBe('worktree');
+      const checkboxCall = mockCheckbox.mock.calls[0] as [{ choices: Array<{ name: string; value: { source: string } }> }];
+      expect(checkboxCall[0].choices).toHaveLength(1);
+      expect(checkboxCall[0].choices[0]!.value.source).toBe('worktree');
     });
 
     it('should sort mixed local and worktree projects chronologically', async () => {
@@ -671,16 +695,16 @@ describe('Project Picker', () => {
         source: 'local' as const,
       };
 
-      mockSelect.mockResolvedValue(earlyLocal);
+      mockCheckbox.mockResolvedValue([earlyLocal]);
 
-      await pickPendingProject(testRafDir, [worktreeProject]);
+      await pickPendingProjects(testRafDir, [worktreeProject]);
 
-      const selectCall = mockSelect.mock.calls[0] as [{ choices: Array<{ name: string; value: { number: number } }> }];
-      const numbers = selectCall[0].choices.map((c) => c.value.number);
+      const checkboxCall = mockCheckbox.mock.calls[0] as [{ choices: Array<{ name: string; value: { number: number } }> }];
+      const numbers = checkboxCall[0].choices.map((c) => c.value.number);
       expect(numbers).toEqual([1, 3, 5]);
     });
 
-    it('should work with no worktree projects (backwards compatible)', async () => {
+    it('should work with no worktree projects', async () => {
       const localProject = {
         folder: '1-solo',
         number: 1,
@@ -707,15 +731,15 @@ describe('Project Picker', () => {
         total: 1,
       });
 
-      mockSelect.mockResolvedValue(localProject);
+      mockCheckbox.mockResolvedValue([localProject]);
 
-      const result = await pickPendingProject(testRafDir);
+      const result = await pickPendingProjects(testRafDir);
 
-      expect(result).toEqual({
+      expect(result).toEqual([{
         folder: '1-solo',
         source: 'local',
         worktreeRoot: undefined,
-      });
+      }]);
     });
   });
 });
