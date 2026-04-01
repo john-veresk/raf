@@ -48,6 +48,7 @@ Controls which model and harness is used for each scenario. Each entry is a `Mod
 | `models.failureAnalysis` | `{ "model": "haiku", "harness": "claude" }` | Model used for analyzing task failures |
 | `models.prGeneration` | `{ "model": "sonnet", "harness": "claude" }` | Model used for generating PR titles and descriptions |
 | `models.config` | `{ "model": "sonnet", "harness": "claude" }` | Model used for the interactive config editor (`raf config wizard`) |
+| `models.merge` | `{ "model": "opus", "harness": "claude" }` | Model used for AI-powered merge conflict resolution |
 
 **Partial overrides**: When deep-merging, you can override just the `model` or `harness` within an entry:
 
@@ -184,6 +185,7 @@ Controls the format of git commit messages. Templates use `{placeholder}` syntax
 | `commitFormat.task` | `"{prefix}[{projectName}:{taskId}] {description}"` | Format for task completion commits |
 | `commitFormat.plan` | `"{prefix}[{projectName}] Plan: {description}"` | Format for plan creation commits |
 | `commitFormat.amend` | `"{prefix}[{projectName}] Amend: {description}"` | Format for plan amendment commits |
+| `commitFormat.merge` | `"{prefix}[{projectName}] Merge: {branchName} into {targetBranch}"` | Format for AI-resolved merge commits |
 | `commitFormat.prefix` | `"RAF"` | Prefix string substituted into `{prefix}` placeholder |
 
 #### Template Variables
@@ -206,6 +208,12 @@ Controls the format of git commit messages. Templates use `{placeholder}` syntax
 - `{projectName}` — The project name extracted from the folder
 - `{projectId}` — Backwards-compatible alias for `{projectName}`
 - `{description}` — Auto-generated description of what was amended
+
+**Merge commits** (`commitFormat.merge`):
+- `{prefix}` — The value of `commitFormat.prefix`
+- `{projectName}` — The project name extracted from the folder
+- `{branchName}` — The feature branch being merged
+- `{targetBranch}` — The branch being merged into
 
 Unknown placeholders are left as-is in the output.
 
@@ -384,7 +392,8 @@ Uses Claude Opus for planning but Codex for execution. Low-effort tasks use Clau
     "nameGeneration": { "model": "sonnet", "harness": "claude" },
     "failureAnalysis": { "model": "haiku", "harness": "claude" },
     "prGeneration": { "model": "sonnet", "harness": "claude" },
-    "config": { "model": "sonnet", "harness": "claude" }
+    "config": { "model": "sonnet", "harness": "claude" },
+    "merge": { "model": "opus", "harness": "claude" }
   },
   "effortMapping": {
     "low": { "model": "sonnet", "harness": "claude" },
@@ -404,6 +413,7 @@ Uses Claude Opus for planning but Codex for execution. Low-effort tasks use Clau
     "task": "{prefix}[{projectName}:{taskId}] {description}",
     "plan": "{prefix}[{projectName}] Plan: {description}",
     "amend": "{prefix}[{projectName}] Amend: {description}",
+    "merge": "{prefix}[{projectName}] Merge: {branchName} into {targetBranch}",
     "prefix": "RAF"
   }
 }

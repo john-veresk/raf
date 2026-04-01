@@ -2,7 +2,9 @@ import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { createRunner } from './runner-factory.js';
 import { logger } from '../utils/logger.js';
+import { getModel, getCommitFormat, getCommitPrefix, renderCommitMessage, getTimeout } from '../utils/config.js';
 import { extractProjectNumber, extractProjectName, parseProjectPrefix } from '../utils/paths.js';
 
 export interface WorktreeCreateResult {
@@ -191,16 +193,118 @@ export function validateWorktree(worktreePath: string, projectRelativePath: stri
 }
 
 /**
+ * Invoke an AI harness non-interactively to resolve merge conflicts.
+ * The AI reads the RAF project context (plans, decisions, outcomes), reviews
+ * the conflicted files, resolves all conflict markers, stages, and commits.
+ *
+ * @param branch - The feature branch being merged
+ * @param targetBranch - The branch being merged into
+ * @param projectName - The project name for commit formatting
+ * @param projectPath - Path to the RAF project folder (for context)
+ */
+export async function resolveConflictsWithAI(
+  branch: string,
+  targetBranch: string,
+  projectName: string,
+  projectPath: string,
+): Promise<{ success: boolean; error?: string }> {
+  const mergeEntry = getModel('merge');
+  const runner = createRunner({
+    model: mergeEntry.model,
+    harness: mergeEntry.harness,
+    reasoningEffort: mergeEntry.reasoningEffort,
+    fast: mergeEntry.fast,
+  });
+
+  // Build the merge commit message
+  const template = getCommitFormat('merge');
+  const prefix = getCommitPrefix();
+  const commitMessage = renderCommitMessage(template, {
+    prefix,
+    projectName,
+    branchName: branch,
+    targetBranch,
+  });
+
+  const prompt = `You are resolving git merge conflicts. A merge of branch "${branch}" into "${targetBranch}" has produced conflicts that need resolution.
+
+## Context
+
+Read the RAF project folder for context about what happened on the feature branch:
+- Plans: ${projectPath}/plans/ — these describe what each task was supposed to accomplish
+- Decisions: ${projectPath}/decisions.md — if it exists, contains architectural decisions
+- Outcomes: ${projectPath}/outcomes/ — these describe what was actually done in each task
+
+## Steps
+
+1. Run \`git log ${targetBranch}..${branch}\` to understand what commits were made on the feature branch
+2. Run \`git diff --name-only --diff-filter=U\` to find all conflicted files
+3. For each conflicted file:
+   - Read the file to see the conflict markers (\`<<<<<<<\`, \`=======\`, \`>>>>>>>\`)
+   - Understand the intent from both sides using the project context
+   - Resolve the conflict by choosing the correct combination of changes
+   - Ensure NO conflict markers remain in the file
+4. Stage all resolved files with \`git add <file>\` for each resolved file
+5. Commit with exactly this message: ${commitMessage}
+   Run: git commit -m "${commitMessage.replace(/"/g, '\\"')}"
+
+## Rules
+
+- Resolve ALL conflicts — do not leave any \`<<<<<<<\`, \`=======\`, or \`>>>>>>>\` markers
+- Preserve the intent from both sides where possible
+- If one side added new code and the other modified existing code, include both changes
+- Do NOT modify files that are not conflicted
+- Use exactly the commit message specified above — do not modify it`;
+
+  const timeout = getTimeout();
+
+  try {
+    const result = await runner.run(prompt, { timeout, cwd: process.cwd() });
+
+    if (result.exitCode !== 0) {
+      return { success: false, error: `AI harness exited with code ${result.exitCode}` };
+    }
+
+    // Verify the merge was committed (no remaining conflicts)
+    try {
+      const status = execSync('git status --porcelain', { encoding: 'utf-8', stdio: 'pipe' }).trim();
+      // If there are still unmerged files (status starts with U or has UU), resolution failed
+      if (status && status.split('\n').some(line => /^(U.|.U|AA|DD)\s/.test(line))) {
+        return { success: false, error: 'AI resolved some conflicts but unmerged files remain' };
+      }
+      // If there are staged changes but no commit was made, that's also a failure
+      if (status) {
+        return { success: false, error: 'AI did not commit the resolved merge' };
+      }
+    } catch {
+      return { success: false, error: 'Failed to verify merge status after AI resolution' };
+    }
+
+    return { success: true };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false, error: `AI merge harness failed: ${msg}` };
+  }
+}
+
+/**
  * Merge a worktree branch into the current branch.
  * Attempts fast-forward first; falls back to merge commit.
- * On conflicts, aborts merge and returns failure.
+ * On conflicts, invokes AI to resolve them. If AI fails, aborts merge.
  *
  * MUST be called from the original repo (not the worktree).
  *
  * @param branch - The branch name to merge (typically the project folder name)
  * @param originalBranch - The branch to merge into (the branch that was active when worktree was created)
+ * @param projectName - The project name (for AI merge commit formatting)
+ * @param projectPath - Path to the RAF project folder (for AI context)
  */
-export function mergeWorktreeBranch(branch: string, originalBranch: string): WorktreeMergeResult {
+export async function mergeWorktreeBranch(
+  branch: string,
+  originalBranch: string,
+  projectName: string,
+  projectPath: string,
+): Promise<WorktreeMergeResult> {
   // Switch to the original branch
   try {
     execSync(`git checkout "${originalBranch}"`, { encoding: 'utf-8', stdio: 'pipe' });
@@ -227,7 +331,16 @@ export function mergeWorktreeBranch(branch: string, originalBranch: string): Wor
     execSync(`git merge "${branch}"`, { encoding: 'utf-8', stdio: 'pipe' });
     return { success: true, merged: true, fastForward: false };
   } catch {
-    // Merge conflicts - abort
+    // Merge conflicts detected — invoke AI to resolve
+    logger.info('Merge conflicts detected. Invoking AI to resolve...');
+
+    const aiResult = await resolveConflictsWithAI(branch, originalBranch, projectName, projectPath);
+
+    if (aiResult.success) {
+      return { success: true, merged: true, fastForward: false };
+    }
+
+    // AI failed — abort merge and return error
     try {
       execSync('git merge --abort', { encoding: 'utf-8', stdio: 'pipe' });
     } catch {
@@ -238,7 +351,7 @@ export function mergeWorktreeBranch(branch: string, originalBranch: string): Wor
       success: false,
       merged: false,
       fastForward: false,
-      error: `Merge conflicts detected. Please merge branch "${branch}" into "${originalBranch}" manually.`,
+      error: `AI merge resolution failed for "${branch}" into "${originalBranch}". ${aiResult.error ?? 'Please merge manually.'}`,
     };
   }
 }

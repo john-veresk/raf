@@ -31,8 +31,8 @@ export interface CodexConfig {
   executionMode: CodexExecutionMode;
 }
 
-export type ModelScenario = 'plan' | 'execute' | 'nameGeneration' | 'failureAnalysis' | 'prGeneration' | 'config';
-export type CommitFormatType = 'task' | 'plan' | 'amend';
+export type ModelScenario = 'plan' | 'execute' | 'nameGeneration' | 'failureAnalysis' | 'prGeneration' | 'config' | 'merge';
+export type CommitFormatType = 'task' | 'plan' | 'amend' | 'merge';
 
 /**
  * A harness-aware model configuration entry.
@@ -56,6 +56,7 @@ export interface ModelsConfig {
   failureAnalysis: ModelEntry;
   prGeneration: ModelEntry;
   config: ModelEntry;
+  merge: ModelEntry;
 }
 
 /**
@@ -72,6 +73,7 @@ export interface CommitFormatConfig {
   task: string;
   plan: string;
   amend: string;
+  merge: string;
   prefix: string;
 }
 
@@ -123,6 +125,7 @@ function buildConfigSchema(config: RafConfig): RafConfig {
       failureAnalysis: fillModelEntry(config.models.failureAnalysis),
       prGeneration: fillModelEntry(config.models.prGeneration),
       config: fillModelEntry(config.models.config),
+      merge: fillModelEntry(config.models.merge),
     },
     effortMapping: {
       low: fillModelEntry(config.effortMapping.low),
@@ -140,6 +143,7 @@ export const DEFAULT_CONFIG: RafConfig = {
     failureAnalysis: { model: 'haiku', harness: 'claude' },
     prGeneration: { model: 'sonnet', harness: 'claude' },
     config: { model: 'sonnet', harness: 'claude' },
+    merge: { model: 'opus', harness: 'claude' },
   },
   effortMapping: {
     low: { model: 'sonnet', harness: 'claude' },
@@ -161,6 +165,7 @@ export const DEFAULT_CONFIG: RafConfig = {
     task: '{prefix}[{projectName}:{taskId}] {description}',
     plan: '{prefix}[{projectName}] Plan: {description}',
     amend: '{prefix}[{projectName}] Amend: {description}',
+    merge: '{prefix}[{projectName}] Merge: {branchName} into {targetBranch}',
     prefix: 'RAF',
   },
 };

@@ -51,12 +51,12 @@ const REMOVED_KEYS: Record<string, string> = {
 };
 
 const VALID_MODEL_KEYS = new Set<string>([
-  'plan', 'execute', 'nameGeneration', 'failureAnalysis', 'prGeneration', 'config',
+  'plan', 'execute', 'nameGeneration', 'failureAnalysis', 'prGeneration', 'config', 'merge',
 ]);
 
 const VALID_EFFORT_MAPPING_KEYS = new Set<string>(['low', 'medium', 'high']);
 
-const VALID_COMMIT_FORMAT_KEYS = new Set<string>(['task', 'plan', 'amend', 'prefix']);
+const VALID_COMMIT_FORMAT_KEYS = new Set<string>(['task', 'plan', 'amend', 'merge', 'prefix']);
 
 const VALID_MODEL_ENTRY_KEYS = new Set<string>(['model', 'harness', 'reasoningEffort', 'fast']);
 
@@ -378,6 +378,7 @@ function deepMerge(defaults: RafConfig, overrides: UserConfig): RafConfig {
       failureAnalysis: m.failureAnalysis ? mergeModelEntry(defaults.models.failureAnalysis, m.failureAnalysis) : { ...defaults.models.failureAnalysis },
       prGeneration: m.prGeneration ? mergeModelEntry(defaults.models.prGeneration, m.prGeneration) : { ...defaults.models.prGeneration },
       config: m.config ? mergeModelEntry(defaults.models.config, m.config) : { ...defaults.models.config },
+      merge: m.merge ? mergeModelEntry(defaults.models.merge, m.merge) : { ...defaults.models.merge },
     };
   }
   if (overrides.effortMapping) {
@@ -427,6 +428,7 @@ export function resolveConfig(configPath?: string): RafConfig {
         failureAnalysis: { ...DEFAULT_CONFIG.models.failureAnalysis },
         prGeneration: { ...DEFAULT_CONFIG.models.prGeneration },
         config: { ...DEFAULT_CONFIG.models.config },
+        merge: { ...DEFAULT_CONFIG.models.merge },
       },
       effortMapping: {
         low: { ...DEFAULT_CONFIG.effortMapping.low },

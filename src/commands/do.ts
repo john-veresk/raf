@@ -560,23 +560,27 @@ async function executePostAction(
 ): Promise<void> {
   switch (action) {
     case 'merge': {
-      // Clean up worktree before merge (merge uses branch, not directory)
-      const cleanupResult = removeWorktree(worktreeRoot);
-      if (cleanupResult.success) {
-        logger.info(`Cleaned up worktree: ${worktreeRoot}`);
-      } else {
-        logger.warn(`Could not clean up worktree: ${cleanupResult.error}`);
-      }
-
       if (!originalBranch) {
         logger.warn('Could not determine original branch for merge.');
+        // Still clean up worktree
+        removeWorktree(worktreeRoot);
         return;
       }
 
       logger.newline();
       logger.info(`Merging branch "${worktreeBranch}" into "${originalBranch}"...`);
 
-      const mergeResult = mergeWorktreeBranch(worktreeBranch, originalBranch);
+      // Merge FIRST (needs branch to exist; worktree dir not needed for merge)
+      const projectName = extractProjectName(path.basename(projectPath)) ?? path.basename(projectPath);
+      const mergeResult = await mergeWorktreeBranch(worktreeBranch, originalBranch, projectName, projectPath);
+
+      // Clean up worktree AFTER merge (regardless of outcome)
+      const cleanupResult = removeWorktree(worktreeRoot);
+      if (cleanupResult.success) {
+        logger.info(`Cleaned up worktree: ${worktreeRoot}`);
+      } else {
+        logger.warn(`Could not clean up worktree: ${cleanupResult.error}`);
+      }
 
       if (mergeResult.success) {
         const mergeType = mergeResult.fastForward ? 'fast-forward' : 'merge commit';

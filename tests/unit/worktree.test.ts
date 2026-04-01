@@ -6,6 +6,7 @@ import * as path from 'node:path';
 const mockExecSync = jest.fn();
 jest.unstable_mockModule('node:child_process', () => ({
   execSync: mockExecSync,
+  spawn: jest.fn(),
 }));
 
 // Mock fs
@@ -13,18 +14,42 @@ const mockExistsSync = jest.fn();
 const mockMkdirSync = jest.fn();
 const mockReaddirSync = jest.fn();
 jest.unstable_mockModule('node:fs', () => ({
+  default: { existsSync: mockExistsSync, mkdirSync: mockMkdirSync, readdirSync: mockReaddirSync, readFileSync: jest.fn(), writeFileSync: jest.fn(), statSync: jest.fn(), lstatSync: jest.fn(), unlinkSync: jest.fn(), symlinkSync: jest.fn() },
   existsSync: mockExistsSync,
   mkdirSync: mockMkdirSync,
   readdirSync: mockReaddirSync,
+  readFileSync: jest.fn(),
+  writeFileSync: jest.fn(),
+  statSync: jest.fn(),
+  lstatSync: jest.fn(),
+  unlinkSync: jest.fn(),
+  symlinkSync: jest.fn(),
 }));
 
 // Mock logger to prevent console output
 jest.unstable_mockModule('../../src/utils/logger.js', () => ({
   logger: {
     debug: jest.fn(),
+    info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
   },
+}));
+
+// Mock runner-factory (transitive dependency via worktree.ts)
+const mockRun = jest.fn();
+const mockRunner = { run: mockRun, runInteractive: jest.fn(), runResume: jest.fn(), runVerbose: jest.fn(), kill: jest.fn(), isRunning: jest.fn() };
+jest.unstable_mockModule('../../src/core/runner-factory.js', () => ({
+  createRunner: jest.fn(() => mockRunner),
+}));
+
+// Mock config utils (transitive dependency via worktree.ts)
+jest.unstable_mockModule('../../src/utils/config.js', () => ({
+  getModel: jest.fn(() => ({ model: 'opus', harness: 'claude' })),
+  getCommitFormat: jest.fn(() => '{prefix}[{projectName}] Merge: {branchName} into {targetBranch}'),
+  getCommitPrefix: jest.fn(() => 'RAF'),
+  renderCommitMessage: jest.fn((_template: string, vars: Record<string, string>) => `RAF[${vars['projectName']}] Merge: ${vars['branchName']} into ${vars['targetBranch']}`),
+  getTimeout: jest.fn(() => 60),
 }));
 
 // Import after mocking
@@ -40,6 +65,7 @@ const {
   branchExists,
   validateWorktree,
   mergeWorktreeBranch,
+  resolveConflictsWithAI,
   removeWorktree,
   listWorktreeProjects,
   resolveWorktreeProjectByIdentifier,
@@ -281,7 +307,7 @@ describe('worktree utilities', () => {
   });
 
   describe('mergeWorktreeBranch', () => {
-    it('should succeed with fast-forward merge', () => {
+    it('should succeed with fast-forward merge', async () => {
       mockExecSync.mockImplementation((cmd: unknown) => {
         const cmdStr = cmd as string;
         if (cmdStr.includes('checkout')) return '';
@@ -289,14 +315,14 @@ describe('worktree utilities', () => {
         return '';
       });
 
-      const result = mergeWorktreeBranch('abaaba-worktree-weaver', 'main');
+      const result = await mergeWorktreeBranch('abaaba-worktree-weaver', 'main', 'worktree-weaver', '/path/to/project');
 
       expect(result.success).toBe(true);
       expect(result.merged).toBe(true);
       expect(result.fastForward).toBe(true);
     });
 
-    it('should fall back to merge commit when ff not possible', () => {
+    it('should fall back to merge commit when ff not possible', async () => {
       let ffAttempted = false;
       mockExecSync.mockImplementation((cmd: unknown) => {
         const cmdStr = cmd as string;
@@ -309,14 +335,14 @@ describe('worktree utilities', () => {
         return '';
       });
 
-      const result = mergeWorktreeBranch('abaaba-worktree-weaver', 'main');
+      const result = await mergeWorktreeBranch('abaaba-worktree-weaver', 'main', 'worktree-weaver', '/path/to/project');
 
       expect(result.success).toBe(true);
       expect(result.merged).toBe(true);
       expect(result.fastForward).toBe(false);
     });
 
-    it('should abort and return failure on merge conflicts', () => {
+    it('should invoke AI on merge conflicts and abort if AI fails', async () => {
       mockExecSync.mockImplementation((cmd: unknown) => {
         const cmdStr = cmd as string;
         if (cmdStr.includes('checkout')) return '';
@@ -326,23 +352,51 @@ describe('worktree utilities', () => {
         return '';
       });
 
-      const result = mergeWorktreeBranch('abaaba-worktree-weaver', 'main');
+      // AI fails
+      mockRun.mockResolvedValue({ output: '', exitCode: 1, timedOut: false, contextOverflow: false });
+
+      const result = await mergeWorktreeBranch('abaaba-worktree-weaver', 'main', 'worktree-weaver', '/path/to/project');
 
       expect(result.success).toBe(false);
       expect(result.merged).toBe(false);
-      expect(result.error).toContain('manually');
+      expect(result.error).toContain('AI merge resolution failed');
       expect(mockExecSync).toHaveBeenCalledWith(
         'git merge --abort',
         expect.any(Object)
       );
     });
 
-    it('should return failure when checkout fails', () => {
+    it('should succeed when AI resolves conflicts', async () => {
+      let mergeAttempted = false;
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('checkout')) return '';
+        if (cmdStr.includes('--ff-only')) throw new Error('Not possible to fast-forward');
+        if (cmdStr.includes('git merge') && !mergeAttempted) {
+          mergeAttempted = true;
+          throw new Error('CONFLICT');
+        }
+        // After AI runs, git status returns clean
+        if (cmdStr.includes('git status --porcelain')) return '';
+        return '';
+      });
+
+      // AI succeeds
+      mockRun.mockResolvedValue({ output: 'Resolved conflicts', exitCode: 0, timedOut: false, contextOverflow: false });
+
+      const result = await mergeWorktreeBranch('abaaba-worktree-weaver', 'main', 'worktree-weaver', '/path/to/project');
+
+      expect(result.success).toBe(true);
+      expect(result.merged).toBe(true);
+      expect(result.fastForward).toBe(false);
+    });
+
+    it('should return failure when checkout fails', async () => {
       mockExecSync.mockImplementation(() => {
         throw new Error('pathspec "main" did not match');
       });
 
-      const result = mergeWorktreeBranch('abaaba-worktree-weaver', 'main');
+      const result = await mergeWorktreeBranch('abaaba-worktree-weaver', 'main', 'worktree-weaver', '/path/to/project');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Failed to checkout');
