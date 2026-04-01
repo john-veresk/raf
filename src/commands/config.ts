@@ -11,7 +11,6 @@ import {
   formatModelDisplay,
   getModel,
   validateConfig,
-  collectConfigValidationWarnings,
   ConfigValidationError,
   resetConfigCache,
   resolveConfig,
@@ -356,10 +355,7 @@ function handleSet(key: string, rawValue: string): void {
 
   // Validate the resulting config
   try {
-    const validated = validateConfig(userConfig);
-    for (const warning of collectConfigValidationWarnings(validated)) {
-      logger.warn(`Config validation warning: ${warning}`);
-    }
+    validateConfig(userConfig);
   } catch (error) {
     if (error instanceof ConfigValidationError) {
       logger.error(`Validation error: ${error.message}`);
@@ -500,7 +496,7 @@ async function runConfigSession(initialPrompt?: string): Promise<void> {
     ?? 'Show me my current config and help me make changes.';
 
   // Set up runner
-  const claudeRunner = createRunner({ model: modelEntry.model, harness: modelEntry.harness, reasoningEffort: modelEntry.reasoningEffort, fast: modelEntry.fast });
+  const claudeRunner = createRunner({ model: modelEntry.model, harness: modelEntry.harness, reasoningEffort: modelEntry.reasoningEffort });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 

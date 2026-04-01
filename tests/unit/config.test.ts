@@ -28,7 +28,6 @@ import {
   saveConfig,
   renderCommitMessage,
   isValidModelName,
-  collectConfigValidationWarnings,
 } from '../../src/utils/config.js';
 import { DEFAULT_CONFIG } from '../../src/types/config.js';
 
@@ -129,18 +128,6 @@ describe('Config', () => {
         },
       };
       expect(() => validateConfig(config)).not.toThrow();
-    });
-
-    it('should warn when fast mode is set on codex entries', () => {
-      const validated = validateConfig({
-        models: {
-          execute: { model: 'gpt-5.4', harness: 'codex', fast: true },
-        },
-      });
-
-      expect(collectConfigValidationWarnings(validated)).toEqual([
-        'models.execute.fast is enabled but ignored because Codex does not support fast mode',
-      ]);
     });
 
     it('should reject non-object config', () => {
@@ -461,24 +448,6 @@ describe('Config', () => {
       expect(config.models.plan.harness).toBe('claude');
     });
 
-    it('should warn and ignore fast mode on codex entries', () => {
-      const configPath = path.join(tempDir, 'raf.config.json');
-      fs.writeFileSync(configPath, JSON.stringify({
-        models: {
-          execute: { model: 'gpt-5.4', harness: 'codex', fast: true },
-        },
-      }));
-
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-      const config = resolveConfig(configPath);
-
-      expect(config.models.execute.fast).toBeUndefined();
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('models.execute.fast is enabled but ignored because Codex does not support fast mode')
-      );
-
-      warnSpy.mockRestore();
-    });
   });
 
   describe('saveConfig', () => {

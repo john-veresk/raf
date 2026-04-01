@@ -27,12 +27,11 @@ The above only changes `models.plan` — all other model settings keep their def
 Controls which model and harness is used for each scenario. Each entry is a `ModelEntry` object with the following shape:
 
 ```json
-{ "model": "<model-name>", "harness": "<harness>", "reasoningEffort": "<effort>", "fast": true }
+{ "model": "<model-name>", "harness": "<harness>", "reasoningEffort": "<effort>" }
 ```
 
 - **`model`** (required): A short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID (e.g., `"claude-opus-4-6"`, `"gpt-5.4"`, `"o3"`).
 - **`harness`** (required): The CLI harness — `"claude"` or `"codex"`.
-- **`fast`** (optional): Enable fast mode for faster output. Claude only — uses the same model with ~2.5x faster responses at higher per-token cost. Default: `false`/omitted. Codex does not support fast mode; RAF warns and ignores `fast: true` on Codex entries.
 - **`reasoningEffort`** (optional): Controls reasoning depth. Accepted values differ by harness:
   - **Claude** (`output_config.effort`): `"low"`, `"medium"`, `"high"` (default), `"max"` (Opus 4.6 only). Supported on Opus 4.5+, Sonnet 4.6+. Haiku does not support reasoning.
   - **Codex** (`model_reasoning_effort`): `"none"`, `"minimal"`, `"low"`, `"medium"` (default), `"high"`, `"xhigh"`.
@@ -296,25 +295,6 @@ Reasoning effort controls how much thinking the model does before responding. Hi
 - **Higher effort** (max/xhigh): Complex architectural decisions, subtle bugs, or security-sensitive code.
 
 Reasoning effort is optional — omit it to use the harness's default.
-
-## Fast Mode
-
-Fast mode enables faster output from Claude by routing requests through a higher-priority serving path. It uses the same model but delivers responses roughly 2.5x faster at a higher per-token cost.
-
-- **Claude only** — Codex does not support fast mode. RAF warns and ignores `fast: true` on Codex entries.
-- **Default**: `false`/omitted (standard speed).
-- Passed as `--settings '{"fastMode": true}'` to Claude CLI.
-- Useful for interactive planning sessions where rapid iteration matters. For batch execution where cost efficiency is the priority, standard mode is recommended.
-
-Example — fast planning, standard execution:
-```json
-{
-  "models": {
-    "plan": { "model": "opus", "harness": "claude", "fast": true },
-    "execute": { "model": "opus", "harness": "claude" }
-  }
-}
-```
 
 ## Validation Rules
 

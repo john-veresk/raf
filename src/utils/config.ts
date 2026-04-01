@@ -18,7 +18,6 @@ import {
   HarnessName,
   CodexExecutionMode,
 } from '../types/config.js';
-import { logger } from './logger.js';
 
 const CONFIG_DIR = path.join(os.homedir(), '.raf');
 const CONFIG_FILENAME = 'raf.config.json';
@@ -58,7 +57,7 @@ const VALID_EFFORT_MAPPING_KEYS = new Set<string>(['low', 'medium', 'high']);
 
 const VALID_COMMIT_FORMAT_KEYS = new Set<string>(['task', 'plan', 'amend', 'merge', 'prefix']);
 
-const VALID_MODEL_ENTRY_KEYS = new Set<string>(['model', 'harness', 'reasoningEffort', 'fast']);
+const VALID_MODEL_ENTRY_KEYS = new Set<string>(['model', 'harness', 'reasoningEffort']);
 
 const VALID_CODEX_KEYS = new Set<string>(['executionMode']);
 
@@ -172,45 +171,6 @@ function validateModelEntry(obj: unknown, prefix: string): void {
       throw new ConfigValidationError(`${prefix}.reasoningEffort must be one of: none, minimal, low, medium, high, xhigh, max`);
     }
   }
-
-  if (entry.fast !== undefined) {
-    if (typeof entry.fast !== 'boolean') {
-      throw new ConfigValidationError(`${prefix}.fast must be a boolean`);
-    }
-  }
-}
-
-function getCodexFastWarning(prefix: string): string {
-  return `${prefix}.fast is enabled but ignored because Codex does not support fast mode`;
-}
-
-function collectModelEntryWarnings(obj: unknown, prefix: string, warnings: string[]): void {
-  if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
-    return;
-  }
-
-  const entry = obj as Record<string, unknown>;
-  if (entry.harness === 'codex' && entry.fast === true) {
-    warnings.push(getCodexFastWarning(prefix));
-  }
-}
-
-export function collectConfigValidationWarnings(config: UserConfig): string[] {
-  const warnings: string[] = [];
-
-  if (config.models && typeof config.models === 'object') {
-    for (const [key, value] of Object.entries(config.models)) {
-      collectModelEntryWarnings(value, `models.${key}`, warnings);
-    }
-  }
-
-  if (config.effortMapping && typeof config.effortMapping === 'object') {
-    for (const [key, value] of Object.entries(config.effortMapping)) {
-      collectModelEntryWarnings(value, `effortMapping.${key}`, warnings);
-    }
-  }
-
-  return warnings;
 }
 
 export function validateConfig(config: unknown): UserConfig {
@@ -338,17 +298,9 @@ export function validateConfig(config: unknown): UserConfig {
 
 /** Deep-merge a single model entry: user override replaces the default entirely. */
 function mergeModelEntry(defaultEntry: ModelEntry, override: unknown): ModelEntry {
-  const normalizedEntry = (entry: ModelEntry): ModelEntry => {
-    if (entry.harness !== 'codex') {
-      return entry;
-    }
-    const { fast: _ignored, ...rest } = entry;
-    return rest;
-  };
-
   if (override && typeof override === 'object' && !Array.isArray(override)) {
     const o = override as Record<string, unknown>;
-    return normalizedEntry({
+    return {
       model: typeof o.model === 'string' ? o.model : defaultEntry.model,
       harness: typeof o.harness === 'string' ? (o.harness as HarnessName) : defaultEntry.harness,
       ...(o.reasoningEffort !== undefined
@@ -356,14 +308,9 @@ function mergeModelEntry(defaultEntry: ModelEntry, override: unknown): ModelEntr
         : defaultEntry.reasoningEffort !== undefined
           ? { reasoningEffort: defaultEntry.reasoningEffort }
           : {}),
-      ...(o.fast !== undefined
-        ? { fast: o.fast as boolean }
-        : defaultEntry.fast !== undefined
-          ? { fast: defaultEntry.fast }
-          : {}),
-    });
+    };
   }
-  return normalizedEntry(defaultEntry);
+  return defaultEntry;
 }
 
 function deepMerge(defaults: RafConfig, overrides: UserConfig): RafConfig {
@@ -443,9 +390,6 @@ export function resolveConfig(configPath?: string): RafConfig {
   const content = fs.readFileSync(filePath, 'utf-8');
   const parsed: unknown = JSON.parse(content);
   const validated = validateConfig(parsed);
-  for (const warning of collectConfigValidationWarnings(validated)) {
-    logger.warn(`Config validation warning: ${warning}`);
-  }
   return deepMerge(DEFAULT_CONFIG, validated);
 }
 

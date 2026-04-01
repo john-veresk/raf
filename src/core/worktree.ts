@@ -213,7 +213,6 @@ export async function resolveConflictsWithAI(
     model: mergeEntry.model,
     harness: mergeEntry.harness,
     reasoningEffort: mergeEntry.reasoningEffort,
-    fast: mergeEntry.fast,
   });
 
   // Build the merge commit message

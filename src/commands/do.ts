@@ -198,7 +198,6 @@ interface ProjectExecutionResult {
 export function formatResolvedTaskModel(entry: ModelEntry): string {
   return formatModelMetadata(formatModelDisplay(entry.model, entry.harness, { fullId: true }), {
     effort: entry.reasoningEffort,
-    fast: entry.fast === true,
   });
 }
 
@@ -924,7 +923,6 @@ async function executeSingleProject(
     // Track current model for display in status line (updated in retry loop)
     let currentModel: string | undefined;
     let currentEffort: string | undefined;
-    let currentModelFast = false;
 
     // Set up timer for elapsed time tracking
     const statusLine = createStatusLine();
@@ -939,7 +937,6 @@ async function executeSingleProject(
       const modelShortName = currentModel ? formatModelDisplay(currentModel) : undefined;
       statusLine.update(formatTaskProgress(taskNumber, totalTasks, 'running', displayName, elapsed, taskId, modelShortName, {
         effort: currentEffort,
-        fast: currentModelFast,
       }));
     });
     timer.start();
@@ -966,7 +963,6 @@ async function executeSingleProject(
       // Update current model for timer callback display
       currentModel = modelResolution.entry.model;
       currentEffort = modelResolution.entry.reasoningEffort;
-      currentModelFast = modelResolution.entry.fast === true;
 
       // Log missing frontmatter warning on first attempt only
       if (!isRetry && modelResolution.missingFrontmatter) {
@@ -978,7 +974,6 @@ async function executeSingleProject(
         model: modelResolution.entry.model,
         harness: modelResolution.entry.harness,
         reasoningEffort: modelResolution.entry.reasoningEffort,
-        fast: modelResolution.entry.fast,
         codexExecutionMode,
       });
       shutdownHandler.registerClaudeRunner(taskRunner);
@@ -1200,7 +1195,6 @@ Task completed. No detailed report provided.
         const modelShortName = currentModel ? formatModelDisplay(currentModel) : undefined;
         logger.info(formatTaskProgress(taskNumber, totalTasks, 'completed', displayName, elapsedMs, task.id, modelShortName, {
           effort: currentEffort,
-          fast: currentModelFast,
         }));
       }
 
@@ -1233,7 +1227,6 @@ Task completed. No detailed report provided.
         const modelShortName = currentModel ? formatModelDisplay(currentModel) : undefined;
         logger.info(formatTaskProgress(taskNumber, totalTasks, 'failed', displayName, elapsedMs, task.id, modelShortName, {
           effort: currentEffort,
-          fast: currentModelFast,
         }));
       }
 

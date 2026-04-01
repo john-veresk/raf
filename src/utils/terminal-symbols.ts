@@ -27,7 +27,6 @@ export type TaskStatus = 'running' | 'completed' | 'failed' | 'pending' | 'block
 
 export interface ModelDisplayOptions {
   effort?: string;
-  fast?: boolean;
 }
 
 /**
@@ -76,16 +75,13 @@ export function formatTaskProgress(
 }
 
 /**
- * Formats a model label with optional effort/fast metadata.
- * Examples: "sonnet", "sonnet, low", "sonnet, low, fast"
+ * Formats a model label with optional effort metadata.
+ * Examples: "sonnet", "sonnet, low"
  */
 export function formatModelMetadata(model: string, options: ModelDisplayOptions = {}): string {
   const parts = [model];
   if (options.effort) {
     parts.push(options.effort);
-  }
-  if (options.fast) {
-    parts.push('fast');
   }
   return parts.join(', ');
 }

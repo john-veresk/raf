@@ -179,14 +179,6 @@ describe('Config Command', () => {
       expect(fs.existsSync(configPath())).toBe(false);
     });
 
-    it('warns when fast mode is set on a codex entry', async () => {
-      await parseConfigCommand(['set', 'models.execute', '{"model":"gpt-5.4","harness":"codex","fast":true}']);
-
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('models.execute.fast is enabled but ignored because Codex does not support fast mode')
-      );
-    });
-
     it('writes codex.executionMode for codex task execution policy', async () => {
       await parseConfigCommand(['set', 'codex.executionMode', 'fullAuto']);
 

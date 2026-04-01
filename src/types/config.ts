@@ -45,8 +45,6 @@ export interface ModelEntry {
   harness: HarnessName;
   /** Optional reasoning effort hint. Codex accepts: "none", "minimal", "low", "medium", "high", "xhigh" */
   reasoningEffort?: string;
-  /** Enable fast mode for faster output (Claude only). Default: false/omitted. */
-  fast?: boolean;
 }
 
 export interface ModelsConfig {
@@ -108,7 +106,6 @@ const MODEL_ENTRY_SCHEMA: Required<ModelEntry> = {
   model: '',
   harness: 'claude',
   reasoningEffort: '',
-  fast: false,
 };
 
 function buildConfigSchema(config: RafConfig): RafConfig {

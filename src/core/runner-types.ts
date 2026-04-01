@@ -73,12 +73,6 @@ export interface RunnerConfig {
    */
   reasoningEffort?: string;
   /**
-   * Enable fast mode for faster output.
-   * Claude CLI: --settings '{"fastMode": true}'
-   * Only included when explicitly set to true.
-   */
-  fast?: boolean;
-  /**
    * Codex non-interactive execution policy for `codex exec`.
    * Only applies when harness is "codex" and using run()/runVerbose().
    */
