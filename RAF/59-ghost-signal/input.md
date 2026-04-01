@@ -1,0 +1,1 @@
+remove warning: "Config validation warning: models.plan.fast is enabled but ignored because Codex does not support fast mode". 1. fast is not in my config. 2. fast mode feature remove entirely from the codebase and not supported
