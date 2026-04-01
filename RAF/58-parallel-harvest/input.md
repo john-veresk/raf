@@ -8,3 +8,9 @@ not possible to merge automatically with git - raf should run claude / codex wit
 merge worktree branch to target one (if merge option selected in worktree flow picker). in
 config.models add new harness/model config for new key "merge" (by default claude opus) and use
 that to resolve conflicts and merge. create RAF commit for this
+
+---
+
+amending existing in main project when worktree enabled in config should create new worktree.
+currently it assumes that work should be continued on main event tough worktree mode is
+enabled.
