@@ -357,9 +357,48 @@ export async function mergeWorktreeBranch(
 }
 
 /**
+ * Delete a local git branch. Uses safe delete (-d) first, falls back to force delete (-D)
+ * since we call this after a successful merge.
+ *
+ * @param branchName - The branch name to delete
+ * @returns success/failure result
+ */
+export function deleteLocalBranch(branchName: string): { success: boolean; error?: string } {
+  try {
+    execSync(`git branch -d "${branchName}"`, { encoding: 'utf-8', stdio: 'pipe' });
+    return { success: true };
+  } catch {
+    // Fall back to force delete — we just merged the branch so this is safe
+    try {
+      execSync(`git branch -D "${branchName}"`, { encoding: 'utf-8', stdio: 'pipe' });
+      return { success: true };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return { success: false, error: `Failed to delete branch "${branchName}": ${msg}` };
+    }
+  }
+}
+
+/**
+ * Run `git worktree prune` to clean up stale worktree metadata in .git/worktrees/.
+ *
+ * @returns success/failure result
+ */
+export function pruneWorktrees(): { success: boolean; error?: string } {
+  try {
+    execSync('git worktree prune', { encoding: 'utf-8', stdio: 'pipe' });
+    return { success: true };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false, error: `Failed to prune worktrees: ${msg}` };
+  }
+}
+
+/**
  * Remove a single worktree.
  * Used for failed-plan cleanup and post-completion cleanup.
  * The git branch is preserved — only the worktree directory is removed.
+ * Runs `git worktree prune` after removal to clean up stale metadata.
  *
  * @param worktreePath - The worktree directory to remove
  * @returns true if removal succeeded, false otherwise
@@ -367,6 +406,7 @@ export async function mergeWorktreeBranch(
 export function removeWorktree(worktreePath: string): { success: boolean; error?: string } {
   try {
     execSync(`git worktree remove "${worktreePath}"`, { encoding: 'utf-8', stdio: 'pipe' });
+    pruneWorktrees();
     return { success: true };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);

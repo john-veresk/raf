@@ -47,6 +47,7 @@ import {
   getCurrentBranch,
   mergeWorktreeBranch,
   removeWorktree,
+  deleteLocalBranch,
   resolveWorktreeProjectByIdentifier,
   pushMainBranch,
   pushCurrentBranch,
@@ -585,6 +586,13 @@ async function executePostAction(
       if (mergeResult.success) {
         const mergeType = mergeResult.fastForward ? 'fast-forward' : 'merge commit';
         logger.success(`Merged "${worktreeBranch}" into "${originalBranch}" (${mergeType})`);
+
+        const branchDeleteResult = deleteLocalBranch(worktreeBranch);
+        if (branchDeleteResult.success) {
+          logger.info(`Deleted merged branch: ${worktreeBranch}`);
+        } else {
+          logger.warn(`Could not delete merged branch: ${branchDeleteResult.error}`);
+        }
 
         if (getPushOnComplete()) {
           const pushResult = pushCurrentBranch();
