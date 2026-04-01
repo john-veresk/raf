@@ -14,3 +14,7 @@ that to resolve conflicts and merge. create RAF commit for this
 amending existing in main project when worktree enabled in config should create new worktree.
 currently it assumes that work should be continued on main event tough worktree mode is
 enabled.
+
+---
+
+follow up for task 4.
