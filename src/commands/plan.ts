@@ -46,8 +46,10 @@ import {
   validateWorktree,
   resolveWorktreeProjectByIdentifier,
   createWorktree,
+  createWorktreeFromBranch,
   removeWorktree,
   pullMainBranch,
+  branchExists,
 } from '../core/worktree.js';
 
 interface PlanCommandOptions {
@@ -398,6 +400,38 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry, auto
     }
 
     projectPath = resolution.path;
+  }
+
+  // 3. If project is in main repo but worktree mode is enabled, create a worktree
+  if (!worktreePath && repoBasename) {
+    const worktreeEnabled = getWorktreeDefault();
+    if (worktreeEnabled) {
+      const folderName = path.basename(projectPath);
+
+      if (getSyncMainBranch()) {
+        logger.info('Syncing main branch...');
+        const syncResult = pullMainBranch();
+        if (!syncResult.success) {
+          logger.warn(`Could not sync main branch: ${syncResult.error}`);
+        }
+      }
+
+      const wtResult = branchExists(folderName)
+        ? createWorktreeFromBranch(repoBasename, folderName)
+        : createWorktree(repoBasename, folderName);
+
+      if (wtResult.success) {
+        worktreePath = wtResult.worktreePath;
+        const repoRoot = getRepoRoot()!;
+        const rafRelativePath = path.relative(repoRoot, rafDir);
+        projectPath = path.join(worktreePath, rafRelativePath, folderName);
+        logger.info(`Created worktree for amendment: ${worktreePath}`);
+        logger.info(`Worktree branch: ${wtResult.branch}`);
+      } else {
+        logger.warn(`Worktree creation failed: ${wtResult.error}`);
+        logger.warn('Continuing amendment in main repo.');
+      }
+    }
   }
 
   // Load existing project state
