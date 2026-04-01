@@ -4,6 +4,7 @@ import { jest } from '@jest/globals';
 const mockSelect = jest.fn();
 jest.unstable_mockModule('@inquirer/prompts', () => ({
   select: mockSelect,
+  checkbox: jest.fn(),
 }));
 
 // Mock logger
@@ -66,6 +67,8 @@ jest.unstable_mockModule('../../src/core/worktree.js', () => ({
   pushMainBranch: mockPushMainBranch,
   detectMainBranch: jest.fn(),
   rebaseOntoMain: jest.fn(),
+  deleteLocalBranch: jest.fn(),
+  pushCurrentBranch: jest.fn(),
 }));
 
 // Import after mocking
@@ -77,13 +80,13 @@ describe('pickPostExecutionAction', () => {
     jest.clearAllMocks();
   });
 
-  it('should present three choices: merge, PR, leave', async () => {
+  it('should present three choices with singular wording for one branch', async () => {
     mockSelect.mockResolvedValue('leave');
 
-    await pickPostExecutionAction('/path/to/worktree/acbfhg-my-project');
+    await pickPostExecutionAction(['acbfhg-my-project']);
 
     expect(mockSelect).toHaveBeenCalledWith({
-      message: expect.stringContaining('acbfhg-my-project'),
+      message: 'After tasks complete, what should happen with branch "acbfhg-my-project"?',
       choices: [
         { name: 'Merge into current branch', value: 'merge' },
         { name: 'Create a GitHub PR', value: 'pr' },
@@ -92,10 +95,25 @@ describe('pickPostExecutionAction', () => {
     });
   });
 
+  it('should present plural wording for multiple branches', async () => {
+    mockSelect.mockResolvedValue('leave');
+
+    await pickPostExecutionAction(['branch-a', 'branch-b']);
+
+    expect(mockSelect).toHaveBeenCalledWith({
+      message: 'After tasks complete, what should happen with branches "branch-a", "branch-b"?',
+      choices: [
+        { name: 'Merge into current branch', value: 'merge' },
+        { name: 'Create a GitHub PR', value: 'pr' },
+        { name: 'Leave branches as-is', value: 'leave' },
+      ],
+    });
+  });
+
   it('should return "merge" when user selects merge', async () => {
     mockSelect.mockResolvedValue('merge');
 
-    const result = await pickPostExecutionAction('/path/to/worktree/acbfhg-my-project');
+    const result = await pickPostExecutionAction(['acbfhg-my-project']);
 
     expect(result).toBe('merge');
   });
@@ -103,71 +121,39 @@ describe('pickPostExecutionAction', () => {
   it('should return "leave" when user selects leave', async () => {
     mockSelect.mockResolvedValue('leave');
 
-    const result = await pickPostExecutionAction('/path/to/worktree/acbfhg-my-project');
+    const result = await pickPostExecutionAction(['acbfhg-my-project']);
 
     expect(result).toBe('leave');
   });
 
-  it('should return "pr" when user selects PR and preflight passes', async () => {
+  it('should return "pr" when user selects PR (no preflight in picker)', async () => {
     mockSelect.mockResolvedValue('pr');
-    mockPrPreflight.mockReturnValue({ ready: true, ghInstalled: true, ghAuthenticated: true, isGitHubRemote: true, branchPushed: false });
 
-    const result = await pickPostExecutionAction('/path/to/worktree/acbfhg-my-project');
+    const result = await pickPostExecutionAction(['acbfhg-my-project']);
 
     expect(result).toBe('pr');
+    // Preflight is no longer in the picker — it moved to executePostAction
+    expect(mockPrPreflight).not.toHaveBeenCalled();
   });
 
-  it('should run PR preflight when PR is selected', async () => {
-    mockSelect.mockResolvedValue('pr');
-    mockPrPreflight.mockReturnValue({ ready: true, ghInstalled: true, ghAuthenticated: true, isGitHubRemote: true, branchPushed: false });
-
-    await pickPostExecutionAction('/path/to/worktree/acbfhg-my-project');
-
-    expect(mockPrPreflight).toHaveBeenCalledWith('acbfhg-my-project', '/path/to/worktree/acbfhg-my-project');
-  });
-
-  it('should fall back to "leave" when PR preflight fails', async () => {
-    mockSelect.mockResolvedValue('pr');
-    mockPrPreflight.mockReturnValue({
-      ready: false,
-      ghInstalled: false,
-      ghAuthenticated: false,
-      isGitHubRemote: false,
-      branchPushed: false,
-      error: 'GitHub CLI (gh) is not installed.',
-    });
-
-    const result = await pickPostExecutionAction('/path/to/worktree/acbfhg-my-project');
-
-    expect(result).toBe('leave');
-    expect(mockLoggerWarn).toHaveBeenCalledWith(expect.stringContaining('PR preflight failed'));
-    expect(mockLoggerWarn).toHaveBeenCalledWith(expect.stringContaining('Leave branch'));
-  });
-
-  it('should not run preflight for merge choice', async () => {
+  it('should not run preflight for any choice', async () => {
     mockSelect.mockResolvedValue('merge');
+    await pickPostExecutionAction(['acbfhg-my-project']);
+    expect(mockPrPreflight).not.toHaveBeenCalled();
 
-    await pickPostExecutionAction('/path/to/worktree/acbfhg-my-project');
-
+    mockSelect.mockResolvedValue('leave');
+    await pickPostExecutionAction(['acbfhg-my-project']);
     expect(mockPrPreflight).not.toHaveBeenCalled();
   });
 
-  it('should not run preflight for leave choice', async () => {
+  it('should list all branch names in the message for multiple branches', async () => {
     mockSelect.mockResolvedValue('leave');
 
-    await pickPostExecutionAction('/path/to/worktree/acbfhg-my-project');
-
-    expect(mockPrPreflight).not.toHaveBeenCalled();
-  });
-
-  it('should use branch name from worktree path in picker message', async () => {
-    mockSelect.mockResolvedValue('leave');
-
-    await pickPostExecutionAction('/home/user/.raf/worktrees/myapp/aaabcd-feature-x');
+    await pickPostExecutionAction(['branch-x', 'branch-y', 'branch-z']);
 
     expect(mockSelect).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: expect.stringContaining('aaabcd-feature-x'),
+        message: expect.stringContaining('"branch-x", "branch-y", "branch-z"'),
       })
     );
   });
@@ -192,16 +178,12 @@ describe('post-execution action dispatch logic', () => {
 
   describe('merge action', () => {
     it('should clean up worktree before merge', () => {
-      // The merge action calls removeWorktree first, then mergeWorktreeBranch
-      // We verify the expected call sequence
       mockRemoveWorktree.mockReturnValue({ success: true });
       mockMergeWorktreeBranch.mockReturnValue({ success: true, merged: true, fastForward: true });
 
-      // Simulate the merge action dispatch
       const action: PostExecutionAction = 'merge';
       expect(action).toBe('merge');
 
-      // Verify removeWorktree behavior
       const cleanup = mockRemoveWorktree('/path/to/worktree');
       expect(mockRemoveWorktree).toHaveBeenCalled();
     });
@@ -209,10 +191,8 @@ describe('post-execution action dispatch logic', () => {
 
   describe('PR action', () => {
     it('should NOT clean up worktree after PR creation', () => {
-      // PR action should preserve the worktree for follow-up changes
       const action: PostExecutionAction = 'pr';
       expect(action).toBe('pr');
-      // This is verified by the absence of removeWorktree call in executePostAction for PR
     });
   });
 
@@ -223,7 +203,6 @@ describe('post-execution action dispatch logic', () => {
       const action: PostExecutionAction = 'leave';
       expect(action).toBe('leave');
 
-      // Verify removeWorktree behavior
       mockRemoveWorktree('/path/to/worktree');
       expect(mockRemoveWorktree).toHaveBeenCalled();
     });
@@ -234,7 +213,6 @@ describe('post-execution action dispatch logic', () => {
       const resultSuccess = false;
       const postAction: PostExecutionAction = 'merge';
 
-      // This mirrors the logic in runDoCommand
       const shouldSkip = !resultSuccess && postAction !== 'leave';
       expect(shouldSkip).toBe(true);
     });

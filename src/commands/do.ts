@@ -386,9 +386,23 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
   // Execute each project sequentially
   const results: ProjectExecutionResult[] = [];
 
+  // Determine post-execution action for all worktree projects upfront
+  let postAction: PostExecutionAction = 'leave';
+  const worktreeProjects = projectsToRun.filter(p => p.worktreeRoot);
+  if (worktreeProjects.length > 0) {
+    const branchNames = worktreeProjects.map(p => path.basename(p.worktreeRoot!));
+    try {
+      postAction = await pickPostExecutionAction(branchNames);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('User force closed')) {
+        process.exit(0);
+      }
+      throw error;
+    }
+  }
+
   for (const project of projectsToRun) {
     // Worktree setup per-project
-    let postAction: PostExecutionAction = 'leave';
     let mainBranchName: string | null = null;
 
     if (project.worktreeRoot) {
@@ -403,15 +417,6 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
         } else {
           logger.warn(`Could not sync main branch: ${syncResult.error}`);
         }
-      }
-
-      try {
-        postAction = await pickPostExecutionAction(project.worktreeRoot);
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('User force closed')) {
-          process.exit(0);
-        }
-        throw error;
       }
 
       // Rebase worktree branch onto main before execution (if sync is enabled)
@@ -517,32 +522,23 @@ async function runDoCommand(projectIdentifiersArg: string[], options: DoCommandO
 
 /**
  * Show an interactive picker for the post-execution action in worktree mode.
- * Presented before task execution so the user declares intent upfront.
- *
- * If "Create PR" is chosen, runs preflight checks immediately. If preflight fails,
- * warns the user and falls back to re-prompting.
+ * Presented once before task execution so the user declares intent upfront.
+ * The chosen action applies to all worktree projects.
  */
-export async function pickPostExecutionAction(worktreeRoot: string): Promise<PostExecutionAction> {
-  const worktreeBranch = path.basename(worktreeRoot);
+export async function pickPostExecutionAction(branchNames: string[]): Promise<PostExecutionAction> {
+  const plural = branchNames.length > 1;
+  const branchList = branchNames.map(b => `"${b}"`).join(', ');
 
   const chosen = await select<PostExecutionAction>({
-    message: `After tasks complete, what should happen with branch "${worktreeBranch}"?`,
+    message: plural
+      ? `After tasks complete, what should happen with branches ${branchList}?`
+      : `After tasks complete, what should happen with branch ${branchList}?`,
     choices: [
       { name: 'Merge into current branch', value: 'merge' as const },
       { name: 'Create a GitHub PR', value: 'pr' as const },
-      { name: 'Leave branch as-is', value: 'leave' as const },
+      { name: plural ? 'Leave branches as-is' : 'Leave branch as-is', value: 'leave' as const },
     ],
   });
-
-  // Early preflight check for PR option
-  if (chosen === 'pr') {
-    const preflight = prPreflight(worktreeBranch, worktreeRoot);
-    if (!preflight.ready) {
-      logger.warn(`PR preflight failed: ${preflight.error}`);
-      logger.warn('Falling back to "Leave branch" — you can create a PR manually later.');
-      return 'leave';
-    }
-  }
 
   return chosen;
 }
@@ -611,6 +607,15 @@ async function executePostAction(
     }
 
     case 'pr': {
+      const preflight = prPreflight(worktreeBranch, worktreeRoot);
+      if (!preflight.ready) {
+        logger.warn(`PR preflight failed for "${worktreeBranch}": ${preflight.error}`);
+        logger.warn('Falling back to "Leave branch" — you can create a PR manually later.');
+        removeWorktree(worktreeRoot);
+        logger.info(`Branch "${worktreeBranch}" preserved — worktree directory cleaned up.`);
+        break;
+      }
+
       logger.newline();
 
       // Push main branch to remote before PR creation (if enabled)
