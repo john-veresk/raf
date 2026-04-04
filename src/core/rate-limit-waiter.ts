@@ -59,26 +59,25 @@ export async function waitForRateLimit(options: RateLimitWaitOptions): Promise<R
   const resetTimeDisplay = formatResetTime(new Date(resetsAt.getTime() + SAFETY_BUFFER_MS));
   logger.info(`  \u23f3 Rate limit hit (${limitType}). Waiting until ${resetTimeDisplay}...`);
 
-  let remaining = rawDuration;
+  let targetEndTime = Date.now() + rawDuration;
 
-  while (remaining > 0) {
+  while (Date.now() < targetEndTime) {
     if (shouldAbort()) {
       return { completed: false, waitedMs: Date.now() - startTime };
     }
 
-    // Handle pause: stop the clock, wait for resume, then continue with remaining time
+    // Handle pause: extend target by pause duration so pause time doesn't count
     if (isPaused()) {
+      const pauseStart = Date.now();
       await waitForResume();
-      // Pause time doesn't count against the wait — log updated ETA
-      const newResetDisplay = formatResetTime(new Date(Date.now() + remaining));
+      targetEndTime += Date.now() - pauseStart;
+      const newResetDisplay = formatResetTime(new Date(targetEndTime));
       logger.info(`  \u23f3 Resuming rate limit wait. Waiting until ${newResetDisplay}...`);
       continue;
     }
 
     // Sleep in 1s chunks so we can check abort/pause
-    const sleepMs = Math.min(remaining, 1000);
-    await new Promise(resolve => setTimeout(resolve, sleepMs));
-    remaining -= sleepMs;
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
   return { completed: true, waitedMs: Date.now() - startTime };
