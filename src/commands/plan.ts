@@ -56,6 +56,7 @@ interface PlanCommandOptions {
   amend?: boolean;
   auto?: boolean;
   resume?: string;
+  worktree?: boolean;
 }
 
 export function createPlanCommand(): Command {
@@ -68,6 +69,8 @@ export function createPlanCommand(): Command {
     )
     .option('-y, --auto', 'Skip permission prompts for file operations')
     .option('-r, --resume <identifier>', 'Resume a planning session for an existing project')
+    .option('--worktree', 'Create project in a git worktree (overrides config)')
+    .option('--no-worktree', 'Create project in main repo (overrides config)')
     .action(async (projectName: string | undefined, options: PlanCommandOptions) => {
       const modelEntry = getModel('plan');
 
@@ -84,14 +87,14 @@ export function createPlanCommand(): Command {
         }
         await runAmendCommand(projectName, modelEntry, autoMode);
       } else {
-        await runPlanCommand(projectName, modelEntry, autoMode);
+        await runPlanCommand(projectName, modelEntry, autoMode, options.worktree);
       }
     });
 
   return command;
 }
 
-async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, autoMode: boolean = false): Promise<void> {
+async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, autoMode: boolean = false, worktreeOverride?: boolean): Promise<void> {
   // Validate environment
   const validation = validateEnvironment();
   reportValidation(validation);
@@ -189,7 +192,7 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
   let projectPath: string;
   let worktreeRoot: string | null = null;
 
-  const worktreeEnabled = getWorktreeDefault();
+  const worktreeEnabled = worktreeOverride !== undefined ? worktreeOverride : getWorktreeDefault();
   const repoBasename = getRepoBasename();
 
   if (worktreeEnabled && repoBasename) {
