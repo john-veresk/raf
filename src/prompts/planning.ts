@@ -2,7 +2,6 @@ export interface PlanningPromptParams {
   projectPath: string;
   inputContent: string;
   worktreeMode?: boolean;
-  councilMode?: boolean;
 }
 
 export interface PlanningPromptResult {
@@ -100,24 +99,11 @@ Planning complete! To exit this session and run your tasks:
 - Be specific — vague plans lead to poor execution
 - Include implementation details, code snippets, and file paths when they clarify the approach`;
 
-  const councilSection = params.councilMode ? `
-
-## Council Mode
-
-You are operating in **council mode** as a team leader.
-
-- Spawn sub-agents to investigate tasks in parallel
-- Collect their draft plans and questions
-- Consolidate and deduplicate questions, then interview the user
-- Review, merge, and write all final plan files yourself` : '';
-
-  const fullSystemPrompt = councilSection ? systemPrompt + councilSection : systemPrompt;
-
   const userMessage = `Here is my project description:
 
 ${params.inputContent}
 
 Please analyze this and start the planning interview.`;
 
-  return { systemPrompt: fullSystemPrompt, userMessage };
+  return { systemPrompt, userMessage };
 }

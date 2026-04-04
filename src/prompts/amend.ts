@@ -6,7 +6,6 @@ export interface AmendPromptParams {
   existingTasks: Array<DerivedTask & { taskName: string }>;
   nextTaskNumber: number;
   newTaskDescription: string;
-  councilMode?: boolean;
 }
 
 export interface AmendPromptResult {
@@ -162,24 +161,11 @@ Planning complete! To exit this session and run your tasks:
 - Be specific — vague plans lead to poor execution
 - Include implementation details, code snippets, and file paths when they clarify the approach`;
 
-  const councilSection = params.councilMode ? `
-
-## Council Mode
-
-You are operating in **council mode** as a team leader.
-
-- Spawn sub-agents to investigate tasks in parallel
-- Collect their draft plans and questions
-- Consolidate and deduplicate questions, then interview the user
-- Review, merge, and write all final plan files yourself` : '';
-
-  const fullSystemPrompt = councilSection ? systemPrompt + councilSection : systemPrompt;
-
   const userMessage = `I want to add the following new tasks to this project:
 
 ${newTaskDescription}
 
 Please analyze this and start the planning interview for the new tasks.`;
 
-  return { systemPrompt: fullSystemPrompt, userMessage };
+  return { systemPrompt, userMessage };
 }

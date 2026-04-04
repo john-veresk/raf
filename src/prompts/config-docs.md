@@ -169,12 +169,6 @@ Failures in sync operations produce warnings but don't block the workflow. For e
 
 Push failures produce warnings but don't fail the overall execution.
 
-### `councilMode` — Council Mode for Planning
-
-- **Type**: `boolean`
-- **Default**: `false`
-- **Description**: Enable council mode for planning sessions. When enabled, the planning agent spawns a team of sub-agents to investigate tasks in parallel, with a leader coordinating interview questions.
-
 ### `commitFormat` — Commit Message Templates
 
 Controls the format of git commit messages. Templates use `{placeholder}` syntax for variable substitution.

@@ -16,7 +16,7 @@ import {
   sanitizeProjectName,
 } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
-import { formatModelDisplay, getModel, getCouncilMode, getWorktreeDefault, getSyncMainBranch } from '../utils/config.js';
+import { formatModelDisplay, getModel, getWorktreeDefault, getSyncMainBranch } from '../utils/config.js';
 import type { ModelEntry } from '../types/config.js';
 import { generateProjectNames } from '../utils/name-generator.js';
 import { pickProjectName } from '../ui/name-picker.js';
@@ -292,7 +292,6 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
     projectPath,
     inputContent: userInput,
     worktreeMode: !!worktreeRoot,
-    councilMode: getCouncilMode(),
   });
 
   try {
@@ -539,7 +538,6 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry, auto
     existingTasks,
     nextTaskNumber,
     newTaskDescription: cleanInput,
-    councilMode: getCouncilMode(),
   });
 
   try {
