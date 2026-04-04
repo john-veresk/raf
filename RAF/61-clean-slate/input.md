@@ -1,0 +1,4 @@
+- [ ] remove council feature
+- [ ] switch to interval for rate limit pause
+- [ ] even if -y flag passed to 'raf plan' still show project name picker in name is not specified so user can run in dangerous mode but still pick the projec name
+- [ ] add --worktree --no-worktree flags to "raf plan". to allow to override config setting. only plan mode. 
