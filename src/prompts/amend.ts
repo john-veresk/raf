@@ -81,18 +81,34 @@ ${modifiableTasksList}
 
 ## Instructions
 
-### Step 1: Read Context
+### Step 0: Explore the Codebase & Existing Project
 
-Read the original project description (\`${projectPath}/input.md\`) and existing decisions (\`${projectPath}/decisions.md\`, if it exists).
+Before identifying tasks or interviewing the user, perform a thorough exploration of the codebase. The goal is to ground every later decision in the actual code, not in assumptions.
 
-### Step 2: Analyze New Requirements
+Explore in parallel along three angles. If your harness supports spawning parallel sub-agents or sub-tasks, dispatch one for each angle and let them run concurrently. Otherwise, batch multiple file reads / searches in a single response so the work happens in parallel rather than sequentially.
+
+1. **Existing code & architecture** — understand the modules, conventions, and patterns relevant to the user's request.
+2. **Files to modify** — find every file that will need to be created or modified to fulfil the request.
+3. **Risks, edge cases & dependencies** — identify what could go wrong, what existing behaviour might break, and what the work depends on.
+
+In addition to the three exploration angles above, read the following amendment-specific context as part of the same parallel batch:
+- \`${projectPath}/input.md\` — the original project description.
+- \`${projectPath}/decisions.md\` — prior decisions, if it exists.
+- For each task marked [PROTECTED] above: the corresponding \`${projectPath}/outcomes/<id>-<name>.md\` — for context only, these are immutable.
+- For each task marked [MODIFIABLE] above: the corresponding \`${projectPath}/plans/<id>-<name>.md\` — these may be modified if the user requests it.
+
+Synthesize the findings before moving on. The synthesis should inform the questions you ask in the interview and the contents of the plan files.
+
+Reading PROTECTED outcomes is for context only — they are immutable. The Amendment Mode rules at the top of this prompt remain in force.
+
+### Step 1: Analyze New Requirements
 
 Consider how new tasks relate to existing ones and their dependencies. For follow-up/fix tasks, reference the previous task's outcome in the Context section:
 \`This is a follow-up to task NN. See outcome: {projectPath}/outcomes/NN-task-name.md\`
 
-### Step 3: Interview the User
+### Step 2: Interview the User
 
-For EACH new task, use AskUserQuestion to gather specific requirements, technology preferences, existing patterns, and edge cases.
+For EACH new task, use AskUserQuestion to gather specific requirements, technology preferences, existing patterns, and edge cases. Ground your questions in the exploration findings — ask about ambiguities you actually saw in the code, not generic preferences.
 
 After EACH answer, append the Q&A to \`${projectPath}/decisions.md\`:
 \`\`\`markdown
@@ -100,9 +116,15 @@ After EACH answer, append the Q&A to \`${projectPath}/decisions.md\`:
 [User's answer]
 \`\`\`
 
-### Step 4: Create New Plan Files
+### Step 3: Create New Plan Files
 
 Create plan files starting from \`${projectPath}/plans/${encodeTaskId(nextTaskNumber)}-task-name.md\`. Use kebab-case names.
+
+For each task, follow this loop before writing the plan file:
+1. **Draft** the plan content in your scratchpad (do NOT write the file yet).
+2. **Self-critique** the draft for missing steps, unhandled risks, and ordering problems. Pay special attention to whether the new task respects PROTECTED task boundaries. If your harness supports spawning a sub-agent, dispatch a critique sub-agent; otherwise critique inline in your reasoning.
+3. **Revise** the draft based on the critique.
+4. **Write** the plan file.
 
 Each plan file MUST have this structure:
 
@@ -134,9 +156,19 @@ effort: medium
 - [ ] Criterion 1
 - [ ] Criterion 2
 
+## Files to Modify
+- \`path/to/file1.ext\` — what changes here
+- \`path/to/file2.ext\` — what changes here
+
+## Risks & Mitigations
+- **Risk:** [risk discovered during exploration]
+  **Mitigation:** [how the implementation step list addresses it]
+
 ## Notes
 [Additional context, warnings, references to existing task outcomes]
 \`\`\`
+
+The \`## Files to Modify\` and \`## Risks & Mitigations\` sections are optional — omit them when exploration surfaced nothing notable for that task.
 
 **Frontmatter fields:**
 - \`effort\` (REQUIRED): \`low\` (trivial/mechanical), \`medium\` (well-scoped feature work), \`high\` (architectural/complex)
@@ -144,7 +176,7 @@ effort: medium
 
 **Dependencies:** A task's dependency IDs must be strictly lower than its own ID — for example, task 36 CANNOT depend on task 39. Only direct dependencies, not transitive ones. Omit section if no prerequisites. For dependencies on completed tasks, include the outcome file path inline: \`ID (see outcomes/ID-task-name.md)\`. Use the completed task names listed above to construct the outcome file paths.
 
-### Step 5: Confirm Completion
+### Step 4: Confirm Completion
 
 Summarize new tasks with effort levels, their relation to existing tasks, and total task count. Then display:
 
