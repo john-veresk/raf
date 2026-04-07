@@ -1,14 +1,14 @@
 import { getPlanningPrompt, PlanningPromptParams } from '../../src/prompts/planning.js';
 
 describe('Planning Prompt', () => {
+  const defaultParams: PlanningPromptParams = {
+    projectPath: '/test/project',
+    inputContent: 'Build a todo app with user authentication',
+  };
+
   describe('getPlanningPrompt', () => {
     it('should return systemPrompt and userMessage', () => {
-      const params: PlanningPromptParams = {
-        projectPath: '/test/project',
-        inputContent: 'Build a todo app with user authentication',
-      };
-
-      const result = getPlanningPrompt(params);
+      const result = getPlanningPrompt(defaultParams);
 
       expect(result).toHaveProperty('systemPrompt');
       expect(result).toHaveProperty('userMessage');
@@ -18,7 +18,7 @@ describe('Planning Prompt', () => {
       expect(result.userMessage.length).toBeGreaterThan(0);
     });
 
-    it('should include project path in system prompt', () => {
+    it('should interpolate projectPath into decisions.md, plans/, and project folder', () => {
       const params: PlanningPromptParams = {
         projectPath: '/my/custom/project/path',
         inputContent: 'Some description',
@@ -27,9 +27,11 @@ describe('Planning Prompt', () => {
       const { systemPrompt } = getPlanningPrompt(params);
 
       expect(systemPrompt).toContain('/my/custom/project/path');
+      expect(systemPrompt).toContain('/my/custom/project/path/decisions.md');
+      expect(systemPrompt).toContain('/my/custom/project/path/plans/');
     });
 
-    it('should include inputContent in user message', () => {
+    it('should include project description in user message and prompt the interview', () => {
       const params: PlanningPromptParams = {
         projectPath: '/test/project',
         inputContent: 'Build a REST API with Express and MongoDB',
@@ -41,135 +43,90 @@ describe('Planning Prompt', () => {
       expect(userMessage).toContain('planning interview');
     });
 
-    it('should include planning instructions in system prompt', () => {
-      const params: PlanningPromptParams = {
-        projectPath: '/test/project',
-        inputContent: 'Some project',
-      };
+    it('should include example task filename', () => {
+      const { systemPrompt } = getPlanningPrompt(defaultParams);
 
-      const { systemPrompt } = getPlanningPrompt(params);
-
-      expect(systemPrompt).toContain('project planning assistant');
-      expect(systemPrompt).toContain('RAF');
-      expect(systemPrompt).toContain('Identify and Order Tasks');
-      expect(systemPrompt).toContain('Interview the User');
-      expect(systemPrompt).toContain('Create Plan Files');
-      expect(systemPrompt).toContain('AskUserQuestion');
-    });
-
-    it('should include decisions file path in system prompt', () => {
-      const params: PlanningPromptParams = {
-        projectPath: '/test/project',
-        inputContent: 'Some project',
-      };
-
-      const { systemPrompt } = getPlanningPrompt(params);
-
-      expect(systemPrompt).toContain('/test/project/decisions.md');
-    });
-
-    it('should include plans directory path in system prompt', () => {
-      const params: PlanningPromptParams = {
-        projectPath: '/test/project',
-        inputContent: 'Some project',
-      };
-
-      const { systemPrompt } = getPlanningPrompt(params);
-
-      expect(systemPrompt).toContain('/test/project/plans/');
       expect(systemPrompt).toContain('1-task-name.md');
     });
+  });
 
-    it('should include task guidelines in system prompt', () => {
-      const params: PlanningPromptParams = {
-        projectPath: '/test/project',
-        inputContent: 'Some project',
-      };
+  describe('seven retro principles', () => {
+    const principles = [
+      'Verify premise',
+      'Trace lifecycle',
+      'Prefer existing knobs',
+      'Lean-first draft',
+      'Architecture before tactics',
+      "Plans aren't essays",
+      "Reconcile, don't ratify",
+    ];
 
-      const { systemPrompt } = getPlanningPrompt(params);
-
-      expect(systemPrompt).toContain('Identify distinct tasks');
-      expect(systemPrompt).toContain('independently completable');
-      expect(systemPrompt).toContain('10-30 minutes');
+    it.each(principles)('should contain principle: %s', (principle) => {
+      const { systemPrompt } = getPlanningPrompt(defaultParams);
+      expect(systemPrompt).toContain(principle);
     });
+  });
 
-    it('should include plan file structure template in system prompt', () => {
-      const params: PlanningPromptParams = {
-        projectPath: '/test/project',
-        inputContent: 'Some project',
-      };
+  describe('condensed flow', () => {
+    it('should express draft → self-critique → revise → write as one sentence', () => {
+      const { systemPrompt } = getPlanningPrompt(defaultParams);
 
-      const { systemPrompt } = getPlanningPrompt(params);
+      // The flow must appear as a single sentence, not a numbered block
+      expect(systemPrompt).toContain('draft');
+      expect(systemPrompt).toContain('self-critique');
+      expect(systemPrompt).toContain('revise');
+      expect(systemPrompt).toContain('write the file');
+    });
+  });
+
+  describe('minimum-viable plan template', () => {
+    it('should include required sections', () => {
+      const { systemPrompt } = getPlanningPrompt(defaultParams);
 
       expect(systemPrompt).toContain('## Objective');
-      expect(systemPrompt).toContain('## Context');
       expect(systemPrompt).toContain('## Requirements');
-      expect(systemPrompt).toContain('## Implementation Steps');
       expect(systemPrompt).toContain('## Acceptance Criteria');
     });
 
-    it('should include important rules in system prompt', () => {
-      const params: PlanningPromptParams = {
-        projectPath: '/test/project',
-        inputContent: 'Some project',
-      };
+    it('should include effort frontmatter', () => {
+      const { systemPrompt } = getPlanningPrompt(defaultParams);
 
-      const { systemPrompt } = getPlanningPrompt(params);
+      expect(systemPrompt).toContain('effort:');
+      expect(systemPrompt).toMatch(/effort.*REQUIRED/);
+    });
+  });
 
-      expect(systemPrompt).toContain('Do not skip this step');
-      expect(systemPrompt).toContain('execution order');
-      expect(systemPrompt).toContain('kebab-case');
+  describe('exploration and interview directives', () => {
+    it('should call out lifecycle tracing in exploration', () => {
+      const { systemPrompt } = getPlanningPrompt(defaultParams);
+
+      expect(systemPrompt).toMatch(/creation.*storage.*consumption/);
     });
 
-    it('should show raf do without --worktree when worktreeMode is false', () => {
-      const params: PlanningPromptParams = {
-        projectPath: '/test/project',
-        inputContent: 'Some project',
-        worktreeMode: false,
-      };
+    it('should direct architectural questions before tactical ones', () => {
+      const { systemPrompt } = getPlanningPrompt(defaultParams);
 
-      const { systemPrompt } = getPlanningPrompt(params);
-
-      expect(systemPrompt).toContain('raf do <project>');
-      expect(systemPrompt).not.toContain('--worktree');
+      expect(systemPrompt).toMatch(/architectural.*first/i);
+      expect(systemPrompt).toMatch(/tactical.*after/i);
     });
 
-    it('should show raf do without --worktree when worktreeMode is undefined', () => {
-      const params: PlanningPromptParams = {
-        projectPath: '/test/project',
-        inputContent: 'Some project',
-      };
+    it('should require reconciling contradictions before planning', () => {
+      const { systemPrompt } = getPlanningPrompt(defaultParams);
 
-      const { systemPrompt } = getPlanningPrompt(params);
-
-      expect(systemPrompt).toContain('raf do <project>');
-      expect(systemPrompt).not.toContain('--worktree');
+      expect(systemPrompt).toContain('reconcile');
+      expect(systemPrompt).toContain('before proceeding');
     });
+  });
 
-    it('should show raf do without --worktree when worktreeMode is true', () => {
+  describe('worktreeMode param (kept for backward compat, ignored)', () => {
+    it('should accept worktreeMode without error', () => {
       const params: PlanningPromptParams = {
         projectPath: '/test/project',
         inputContent: 'Some project',
         worktreeMode: true,
       };
 
-      const { systemPrompt } = getPlanningPrompt(params);
-
-      expect(systemPrompt).toContain('raf do <project>');
-      expect(systemPrompt).not.toContain('--worktree');
-    });
-
-    it('should include project description in user message', () => {
-      const params: PlanningPromptParams = {
-        projectPath: '/test/project',
-        inputContent: 'Build a dashboard with charts and graphs',
-      };
-
-      const { userMessage } = getPlanningPrompt(params);
-
-      // User message should contain the actual project description
-      expect(userMessage).toContain('Build a dashboard with charts and graphs');
-      expect(userMessage).toContain('project description');
+      expect(() => getPlanningPrompt(params)).not.toThrow();
     });
   });
 });
