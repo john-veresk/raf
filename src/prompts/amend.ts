@@ -1,3 +1,4 @@
+import { PLANNING_PRINCIPLES, PLAN_TEMPLATE, FLOW, DEPENDENCY_RULES } from './shared.js';
 import { DerivedTask } from '../core/state-derivation.js';
 import { encodeTaskId } from '../utils/paths.js';
 
@@ -79,104 +80,46 @@ ${protectedTasksList}
 ### Modifiable (PENDING/FAILED)
 ${modifiableTasksList}
 
-## Instructions
+${PLANNING_PRINCIPLES}
 
-### Step 0: Explore the Codebase & Existing Project
+## Workflow
 
-Before identifying tasks or interviewing the user, perform a thorough exploration of the codebase. The goal is to ground every later decision in the actual code, not in assumptions.
+### 1. Explore the Codebase & Existing Project
 
-Explore in parallel along three angles. If your harness supports spawning parallel sub-agents or sub-tasks, dispatch one for each angle and let them run concurrently. Otherwise, batch multiple file reads / searches in a single response so the work happens in parallel rather than sequentially.
+Before interviewing or planning, ground every decision in the actual code. Explore in parallel where possible:
 
-1. **Existing code & architecture** — understand the modules, conventions, and patterns relevant to the user's request.
-2. **Files to modify** — find every file that will need to be created or modified to fulfil the request.
-3. **Risks, edge cases & dependencies** — identify what could go wrong, what existing behaviour might break, and what the work depends on.
+- **Architecture & conventions** — understand modules, patterns, and existing abstractions relevant to the request.
+- **Lifecycle tracing** — follow the full chain from creation → storage → consumption for every entity the task touches.
+- **Files to modify** — locate every file that will need changes.
+- **Risks & dependencies** — identify what could break and what the work depends on.
 
-In addition to the three exploration angles above, read the following amendment-specific context as part of the same parallel batch:
+Also read the following amendment-specific context in the same parallel batch:
 - \`${projectPath}/input.md\` — the original project description.
 - \`${projectPath}/decisions.md\` — prior decisions, if it exists.
-- For each task marked [PROTECTED] above: the corresponding \`${projectPath}/outcomes/<id>-<name>.md\` — for context only, these are immutable.
-- For each task marked [MODIFIABLE] above: the corresponding \`${projectPath}/plans/<id>-<name>.md\` — these may be modified if the user requests it.
+- For each [PROTECTED] task: its outcome file (\`${projectPath}/outcomes/<id>-<name>.md\`) — for context only, immutable.
+- For each [MODIFIABLE] task: its plan file (\`${projectPath}/plans/<id>-<name>.md\`) — may be modified if the user requests it.
 
-Synthesize the findings before moving on. The synthesis should inform the questions you ask in the interview and the contents of the plan files.
+If exploration reveals the premise is wrong or the change already exists, surface this to the user before planning.
 
-Reading PROTECTED outcomes is for context only — they are immutable. The Amendment Mode rules at the top of this prompt remain in force.
+### 2. Interview the User
 
-### Step 1: Analyze New Requirements
+Use the AskUserQuestion tool. Ask architectural/foundational questions first (data shapes, module boundaries, current state of the code) and tactical questions only after.
 
-Consider how new tasks relate to existing ones and their dependencies. For follow-up/fix tasks, reference the previous task's outcome in the Context section:
-\`This is a follow-up to task NN. See outcome: {projectPath}/outcomes/NN-task-name.md\`
+When the task description conflicts with what the code actually does, reconcile the contradiction with the user before proceeding.
 
-### Step 2: Interview the User
+After each answer, append the Q&A pair to \`${projectPath}/decisions.md\`.
 
-For EACH new task, use AskUserQuestion to gather specific requirements, technology preferences, existing patterns, and edge cases. Ground your questions in the exploration findings — ask about ambiguities you actually saw in the code, not generic preferences.
+### 3. Create Plan Files
 
-After EACH answer, append the Q&A to \`${projectPath}/decisions.md\`:
-\`\`\`markdown
-## [Question asked]
-[User's answer]
-\`\`\`
+Create plan files starting from \`${projectPath}/plans/${encodeTaskId(nextTaskNumber)}-task-name.md\`.
 
-### Step 3: Create New Plan Files
+${FLOW} The critique must also check that new plans respect PROTECTED task boundaries.
 
-Create plan files starting from \`${projectPath}/plans/${encodeTaskId(nextTaskNumber)}-task-name.md\`. Use kebab-case names.
+${PLAN_TEMPLATE}
 
-For each task, follow this loop before writing the plan file:
-1. **Draft** the plan content in your scratchpad (do NOT write the file yet).
-2. **Self-critique** the draft for missing steps, unhandled risks, and ordering problems. Pay special attention to whether the new task respects PROTECTED task boundaries. If your harness supports spawning a sub-agent, dispatch a critique sub-agent; otherwise critique inline in your reasoning.
-3. **Revise** the draft based on the critique.
-4. **Write** the plan file.
+${DEPENDENCY_RULES}
 
-Each plan file MUST have this structure:
-
-\`\`\`markdown
----
-effort: medium
----
-# Task: [Task Name]
-
-## Objective
-[Clear, one-sentence description]
-
-## Context
-[Why this task is needed, relation to existing tasks]
-[For follow-ups: "This is a follow-up to task NN. See outcome: {projectPath}/outcomes/NN-task-name.md"]
-
-## Dependencies
-[Optional — omit if none. Comma-separated task IDs with outcome links for completed tasks, e.g., "1 (see outcomes/1-setup-db.md), 3 (see outcomes/3-add-api.md)"]
-
-## Requirements
-- Requirement 1
-- Requirement 2
-
-## Implementation Steps
-1. [Step 1]
-2. [Step 2]
-
-## Acceptance Criteria
-- [ ] Criterion 1
-- [ ] Criterion 2
-
-## Files to Modify
-- \`path/to/file1.ext\` — what changes here
-- \`path/to/file2.ext\` — what changes here
-
-## Risks & Mitigations
-- **Risk:** [risk discovered during exploration]
-  **Mitigation:** [how the implementation step list addresses it]
-
-## Notes
-[Additional context, warnings, references to existing task outcomes]
-\`\`\`
-
-The \`## Files to Modify\` and \`## Risks & Mitigations\` sections are optional — omit them when exploration surfaced nothing notable for that task.
-
-**Frontmatter fields:**
-- \`effort\` (REQUIRED): \`low\` (trivial/mechanical), \`medium\` (well-scoped feature work), \`high\` (architectural/complex)
-- \`model\` (optional): Override effort-based model selection. Rarely needed.
-
-**Dependencies:** A task's dependency IDs must be strictly lower than its own ID — for example, task 36 CANNOT depend on task 39. Only direct dependencies, not transitive ones. Omit section if no prerequisites. For dependencies on completed tasks, include the outcome file path inline: \`ID (see outcomes/ID-task-name.md)\`. Use the completed task names listed above to construct the outcome file paths.
-
-### Step 4: Confirm Completion
+### 4. Confirm Completion
 
 Summarize new tasks with effort levels, their relation to existing tasks, and total task count. Then display:
 
@@ -188,10 +131,8 @@ Planning complete! To exit this session and run your tasks:
 
 ## Rules
 
-- Always interview the user before creating or modifying plans
-- Each plan must be self-contained with all context needed
-- Be specific — vague plans lead to poor execution
-- Include implementation details, code snippets, and file paths when they clarify the approach`;
+- Each plan must be self-contained with all context needed for execution
+- Be specific — include file paths and code snippets when they clarify the approach`;
 
   const userMessage = `I want to add the following new tasks to this project:
 
