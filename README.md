@@ -147,11 +147,16 @@ Example `~/.raf/raf.config.json`:
   "codex": {
     "executionMode": "dangerous"
   },
+  "display": {
+    "statusProjectLimit": 25
+  },
   "worktree": true,
   "timeout": 45,
   "rateLimitWaitDefault": 60
 }
 ```
+
+`display.statusProjectLimit` controls how many projects `raf status` shows in the main list. Set it to `0` for no limit.
 
 Run `raf config wizard` and ask what's available — the session has full knowledge of every configurable option.
 

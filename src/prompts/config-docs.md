@@ -121,6 +121,28 @@ Example:
 }
 ```
 
+### `display` — CLI Display Settings
+
+Controls small user-facing presentation details in RAF output.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `display.statusProjectLimit` | `10` | Maximum number of projects shown in the main `raf status` list. `0` means unlimited. |
+
+- **Type**: number (non-negative integer)
+- **Allowed values**:
+  - `0`: no limit
+  - `1+`: show at most that many projects in the main status list
+
+Example:
+```json
+{
+  "display": {
+    "statusProjectLimit": 25
+  }
+}
+```
+
 ### `timeout` — Task Timeout
 
 - **Type**: number (positive)
@@ -298,6 +320,7 @@ The config is validated when loaded. Invalid configs cause an error with a descr
 - **Removed legacy keys** (`provider`, `codexModels`, `codexEffortMapping`) are rejected with helpful migration messages.
 - **Model entries** (`models.*`, `effortMapping.*`) must be `ModelEntry` objects with required `model` and `harness` fields. Plain strings (e.g., `"sonnet"`) are not accepted — use `{ "model": "sonnet", "harness": "claude" }` instead.
 - **`effortMapping` keys** must be `"low"`, `"medium"`, or `"high"`.
+- **`display.statusProjectLimit`** must be a non-negative integer (`0` means unlimited).
 - **`timeout`** must be a positive finite number.
 - **`maxRetries`** must be a non-negative integer.
 - **`autoCommit`**, **`worktree`**, **`syncMainBranch`**, and **`pushOnComplete`** must be booleans.
@@ -376,6 +399,9 @@ Uses Claude Opus for planning but Codex for execution. Low-effort tasks use Clau
   },
   "codex": {
     "executionMode": "dangerous"
+  },
+  "display": {
+    "statusProjectLimit": 10
   },
   "timeout": 60,
   "maxRetries": 3,

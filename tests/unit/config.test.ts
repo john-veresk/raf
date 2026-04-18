@@ -757,14 +757,14 @@ describe('Config', () => {
     it('should accept valid display config', () => {
       expect(() => validateConfig({
         display: {
-          showCacheTokens: false,
+          statusProjectLimit: 25,
         },
       })).not.toThrow();
     });
 
     it('should accept partial display override', () => {
       expect(() => validateConfig({
-        display: { showCacheTokens: false },
+        display: { statusProjectLimit: 0 },
       })).not.toThrow();
     });
 
@@ -776,31 +776,42 @@ describe('Config', () => {
       expect(() => validateConfig({ display: { unknownKey: true } })).toThrow('Unknown config key: display.unknownKey');
     });
 
-    it('should reject non-boolean display values', () => {
-      expect(() => validateConfig({ display: { showCacheTokens: 'yes' } })).toThrow('display.showCacheTokens must be a boolean');
+    it('should reject invalid status project limits', () => {
+      expect(() => validateConfig({ display: { statusProjectLimit: -1 } })).toThrow(
+        'display.statusProjectLimit must be a non-negative integer'
+      );
+      expect(() => validateConfig({ display: { statusProjectLimit: 1.5 } })).toThrow(
+        'display.statusProjectLimit must be a non-negative integer'
+      );
+      expect(() => validateConfig({ display: { statusProjectLimit: null } })).toThrow(
+        'display.statusProjectLimit must be a non-negative integer'
+      );
+      expect(() => validateConfig({ display: { statusProjectLimit: '10' } })).toThrow(
+        'display.statusProjectLimit must be a non-negative integer'
+      );
     });
   });
 
   describe('resolveConfig - display', () => {
     it('should include default display when no config file', () => {
       const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
-      expect(config.display.showCacheTokens).toBe(true);
+      expect(config.display.statusProjectLimit).toBe(10);
     });
 
     it('should deep-merge partial display override', () => {
       const configPath = path.join(tempDir, 'display.json');
       fs.writeFileSync(configPath, JSON.stringify({
-        display: { showCacheTokens: false },
+        display: { statusProjectLimit: 0 },
       }));
 
       const config = resolveConfig(configPath);
-      expect(config.display.showCacheTokens).toBe(false);
+      expect(config.display.statusProjectLimit).toBe(0);
     });
   });
 
   describe('DEFAULT_CONFIG - display', () => {
     it('should have default display settings', () => {
-      expect(DEFAULT_CONFIG.display.showCacheTokens).toBe(true);
+      expect(DEFAULT_CONFIG.display.statusProjectLimit).toBe(10);
     });
   });
 

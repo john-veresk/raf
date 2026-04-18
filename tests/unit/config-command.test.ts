@@ -48,7 +48,7 @@ jest.unstable_mockModule('node:readline', () => ({
 }));
 
 const { createConfigCommand } = await import('../../src/commands/config.js');
-const { resetConfigCache, resolveConfig, validateConfig, ConfigValidationError } = await import('../../src/utils/config.js');
+const { resetConfigCache, resolveConfig, validateConfig, ConfigValidationError, getStatusProjectLimit } = await import('../../src/utils/config.js');
 const { DEFAULT_CONFIG } = await import('../../src/types/config.js');
 
 describe('Config Command', () => {
@@ -185,6 +185,24 @@ describe('Config Command', () => {
       const saved = JSON.parse(fs.readFileSync(configPath(), 'utf-8'));
       expect(saved).toEqual({ codex: { executionMode: 'fullAuto' } });
       expect(resolveConfig(configPath()).codex.executionMode).toBe('fullAuto');
+    });
+
+    it('writes display.statusProjectLimit and resolves the updated value', async () => {
+      await parseConfigCommand(['set', 'display.statusProjectLimit', '25']);
+
+      const saved = JSON.parse(fs.readFileSync(configPath(), 'utf-8'));
+      expect(saved).toEqual({ display: { statusProjectLimit: 25 } });
+      expect(resolveConfig(configPath()).display.statusProjectLimit).toBe(25);
+      expect(getStatusProjectLimit()).toBe(25);
+    });
+
+    it('accepts 0 as the unlimited display.statusProjectLimit sentinel', async () => {
+      await parseConfigCommand(['set', 'display.statusProjectLimit', '0']);
+
+      const saved = JSON.parse(fs.readFileSync(configPath(), 'utf-8'));
+      expect(saved).toEqual({ display: { statusProjectLimit: 0 } });
+      expect(resolveConfig(configPath()).display.statusProjectLimit).toBe(0);
+      expect(getStatusProjectLimit()).toBe(0);
     });
   });
 

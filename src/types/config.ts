@@ -31,6 +31,11 @@ export interface CodexConfig {
   executionMode: CodexExecutionMode;
 }
 
+export interface DisplayConfig {
+  /** Maximum number of projects to show in `raf status`; 0 means unlimited. */
+  statusProjectLimit: number;
+}
+
 export type ModelScenario = 'plan' | 'execute' | 'nameGeneration' | 'failureAnalysis' | 'prGeneration' | 'config' | 'merge';
 export type CommitFormatType = 'task' | 'plan' | 'amend' | 'merge';
 
@@ -81,6 +86,8 @@ export interface RafConfig {
   effortMapping: EffortMappingConfig;
   /** Codex execution behavior for non-interactive task runs. */
   codex: CodexConfig;
+  /** User-facing display settings for CLI output. */
+  display: DisplayConfig;
   timeout: number;
   maxRetries: number;
   autoCommit: boolean;
@@ -147,6 +154,9 @@ export const DEFAULT_CONFIG: RafConfig = {
   },
   codex: {
     executionMode: 'dangerous',
+  },
+  display: {
+    statusProjectLimit: 10,
   },
   timeout: 60,
   maxRetries: 3,

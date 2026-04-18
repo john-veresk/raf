@@ -36,7 +36,7 @@ export function getClaudeSettingsPath(): string {
 // ---- Validation ----
 
 const VALID_TOP_LEVEL_KEYS = new Set<string>([
-  'models', 'effortMapping', 'codex',
+  'models', 'effortMapping', 'codex', 'display',
   'timeout', 'maxRetries', 'autoCommit',
   'worktree', 'syncMainBranch', 'pushOnComplete', 'commitFormat',
   'rateLimitWaitDefault',
@@ -61,6 +61,7 @@ const VALID_COMMIT_FORMAT_KEYS = new Set<string>(['task', 'plan', 'amend', 'merg
 const VALID_MODEL_ENTRY_KEYS = new Set<string>(['model', 'harness', 'reasoningEffort']);
 
 const VALID_CODEX_KEYS = new Set<string>(['executionMode']);
+const VALID_DISPLAY_KEYS = new Set<string>(['statusProjectLimit']);
 
 const VALID_REASONING_EFFORTS = new Set<string>(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 
@@ -71,6 +72,10 @@ export class ConfigValidationError extends Error {
     super(message);
     this.name = 'ConfigValidationError';
   }
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
 
 function checkUnknownKeys(obj: Record<string, unknown>, validKeys: Set<string>, prefix: string): void {
@@ -229,6 +234,19 @@ export function validateConfig(config: unknown): UserConfig {
     }
   }
 
+  // display
+  if (obj.display !== undefined) {
+    if (typeof obj.display !== 'object' || obj.display === null || Array.isArray(obj.display)) {
+      throw new ConfigValidationError('display must be an object');
+    }
+    const display = obj.display as Record<string, unknown>;
+    checkUnknownKeys(display, VALID_DISPLAY_KEYS, 'display');
+
+    if (display.statusProjectLimit !== undefined && !isNonNegativeInteger(display.statusProjectLimit)) {
+      throw new ConfigValidationError('display.statusProjectLimit must be a non-negative integer');
+    }
+  }
+
   // timeout
   if (obj.timeout !== undefined) {
     if (typeof obj.timeout !== 'number' || obj.timeout <= 0 || !Number.isFinite(obj.timeout)) {
@@ -336,6 +354,12 @@ function deepMerge(defaults: RafConfig, overrides: UserConfig): RafConfig {
       ...overrides.codex,
     };
   }
+  if (overrides.display) {
+    result.display = {
+      ...defaults.display,
+      ...overrides.display,
+    };
+  }
   if (overrides.commitFormat) {
     result.commitFormat = { ...defaults.commitFormat, ...overrides.commitFormat };
   }
@@ -376,6 +400,7 @@ export function resolveConfig(configPath?: string): RafConfig {
         high: { ...DEFAULT_CONFIG.effortMapping.high },
       },
       codex: { ...DEFAULT_CONFIG.codex },
+      display: { ...DEFAULT_CONFIG.display },
       commitFormat: { ...DEFAULT_CONFIG.commitFormat },
     };
   }
@@ -545,6 +570,10 @@ export function getSyncMainBranch(): boolean {
 
 export function getPushOnComplete(): boolean {
   return getResolvedConfig().pushOnComplete;
+}
+
+export function getStatusProjectLimit(): number {
+  return getResolvedConfig().display.statusProjectLimit;
 }
 
 /**

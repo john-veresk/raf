@@ -9,7 +9,6 @@ import {
   formatCost,
   formatTaskTokenSummary,
   formatTokenTotalSummary,
-  TokenSummaryOptions,
   TaskStatus,
 } from '../../src/utils/terminal-symbols.js';
 import type { UsageData } from '../../src/types/config.js';
@@ -377,8 +376,6 @@ describe('Terminal Symbols', () => {
     const makeUsage = (overrides: Partial<UsageData> = {}): UsageData => ({
       inputTokens: 5234,
       outputTokens: 1023,
-      cacheReadInputTokens: 0,
-      cacheCreationInputTokens: 0,
       modelUsage: {},
       totalCostUsd: 0,
       ...overrides,
@@ -400,24 +397,6 @@ describe('Terminal Symbols', () => {
         const usage = makeUsage();
         const result = formatTaskTokenSummary(makeEntry(usage, makeCost(0.42)));
         expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cost: $0.42');
-      });
-
-      it('should include cache read tokens', () => {
-        const usage = makeUsage({ cacheReadInputTokens: 18500 });
-        const result = formatTaskTokenSummary(makeEntry(usage, makeCost(0.42)));
-        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cache: 18,500 read | Cost: $0.42');
-      });
-
-      it('should include cache creation tokens', () => {
-        const usage = makeUsage({ cacheCreationInputTokens: 5000 });
-        const result = formatTaskTokenSummary(makeEntry(usage, makeCost(0.55)));
-        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cache: 5,000 created | Cost: $0.55');
-      });
-
-      it('should include both cache read and creation tokens', () => {
-        const usage = makeUsage({ cacheReadInputTokens: 18500, cacheCreationInputTokens: 5000 });
-        const result = formatTaskTokenSummary(makeEntry(usage, makeCost(0.75)));
-        expect(result).toBe('  Tokens: 5,234 in / 1,023 out | Cache: 18,500 read / 5,000 created | Cost: $0.75');
       });
 
       it('should format small costs with 4 decimal places', () => {
@@ -468,26 +447,6 @@ describe('Terminal Symbols', () => {
         expect(lines[0]).toBe('    Attempt 1: 1,000 in / 200 out | Cost: $0.00');
         expect(lines[1]).toBe('    Attempt 2: 2,000 in / 400 out | Cost: $0.00');
         expect(lines[2]).toBe('    Total: 3,000 in / 600 out | Cost: $0.05');
-      });
-
-      it('should include cache tokens in per-attempt breakdown', () => {
-        const attempt1 = makeUsage({ inputTokens: 1000, outputTokens: 200, cacheReadInputTokens: 5000, totalCostUsd: 0.04 });
-        const attempt2 = makeUsage({ inputTokens: 1500, outputTokens: 300, cacheCreationInputTokens: 2000, totalCostUsd: 0.04 });
-        const totalUsage = makeUsage({
-          inputTokens: 2500,
-          outputTokens: 500,
-          cacheReadInputTokens: 5000,
-          cacheCreationInputTokens: 2000,
-        });
-        const entry = makeEntry(totalUsage, makeCost(0.08), [attempt1, attempt2]);
-
-        const result = formatTaskTokenSummary(entry);
-        const lines = result.split('\n');
-
-        expect(lines).toHaveLength(3);
-        expect(lines[0]).toContain('Cache: 5,000 read');
-        expect(lines[1]).toContain('Cache: 2,000 created');
-        expect(lines[2]).toContain('Cache: 5,000 read / 2,000 created');
       });
 
       it('should handle three or more attempts', () => {
@@ -541,8 +500,6 @@ describe('Terminal Symbols', () => {
     const makeUsage = (overrides: Partial<UsageData> = {}): UsageData => ({
       inputTokens: 45678,
       outputTokens: 12345,
-      cacheReadInputTokens: 0,
-      cacheCreationInputTokens: 0,
       modelUsage: {},
       totalCostUsd: 0,
       ...overrides,
@@ -557,31 +514,6 @@ describe('Terminal Symbols', () => {
       expect(result).toContain('Token Usage Summary');
       expect(result).toContain('Total tokens: 45,678 in / 12,345 out');
       expect(result).toContain('Total cost: $3.75');
-      expect(result).not.toContain('Cache:');
-    });
-
-    it('should include cache read in total summary', () => {
-      const result = formatTokenTotalSummary(
-        makeUsage({ cacheReadInputTokens: 125000 }),
-        makeCost(3.75)
-      );
-      expect(result).toContain('Cache: 125,000 read');
-    });
-
-    it('should include cache creation in total summary', () => {
-      const result = formatTokenTotalSummary(
-        makeUsage({ cacheCreationInputTokens: 8000 }),
-        makeCost(3.75)
-      );
-      expect(result).toContain('Cache: 8,000 created');
-    });
-
-    it('should include both cache types in total summary', () => {
-      const result = formatTokenTotalSummary(
-        makeUsage({ cacheReadInputTokens: 125000, cacheCreationInputTokens: 8000 }),
-        makeCost(3.75)
-      );
-      expect(result).toContain('Cache: 125,000 read / 8,000 created');
     });
 
     it('should have divider lines', () => {
@@ -591,73 +523,9 @@ describe('Terminal Symbols', () => {
       expect(lines[lines.length - 1]).toContain('──');
     });
 
-    it('should hide cache tokens when option disabled', () => {
-      const options: TokenSummaryOptions = {
-        showCacheTokens: false,
-      };
-      const result = formatTokenTotalSummary(
-        makeUsage({ cacheReadInputTokens: 125000 }),
-        makeCost(3.75),
-        options
-      );
-      expect(result).not.toContain('Cache:');
-    });
-
     it('should omit total cost when exact cost is unknown', () => {
       const result = formatTokenTotalSummary(makeUsage(), makeCost(null));
       expect(result).not.toContain('Total cost:');
-    });
-  });
-
-  describe('formatTaskTokenSummary with options', () => {
-    const makeUsage = (overrides: Partial<UsageData> = {}): UsageData => ({
-      inputTokens: 5234,
-      outputTokens: 1023,
-      cacheReadInputTokens: 0,
-      cacheCreationInputTokens: 0,
-      modelUsage: {},
-      totalCostUsd: 0,
-      ...overrides,
-    });
-
-    const makeCost = (total: number | null): CostBreakdown => ({
-      totalCost: total,
-    });
-
-    const makeEntry = (usage: UsageData, cost: CostBreakdown, attempts?: UsageData[]): TaskUsageEntry => ({
-      taskId: '01',
-      usage,
-      cost,
-      attempts: attempts ?? [usage],
-    });
-
-    it('should hide cache tokens in single-attempt summary when disabled', () => {
-      const usage = makeUsage({ cacheReadInputTokens: 18500, totalCostUsd: 0.42 });
-      const entry = makeEntry(usage, makeCost(0.42));
-      const options: TokenSummaryOptions = {
-        showCacheTokens: false,
-      };
-
-      const result = formatTaskTokenSummary(entry, options);
-      expect(result).not.toContain('Cache:');
-    });
-
-    it('should respect showCacheTokens in multi-attempt summary', () => {
-      const attempt1 = makeUsage({ inputTokens: 1000, outputTokens: 200, cacheReadInputTokens: 5000, totalCostUsd: 0.04 });
-      const attempt2 = makeUsage({ inputTokens: 1500, outputTokens: 300, cacheCreationInputTokens: 2000, totalCostUsd: 0.04 });
-      const totalUsage = makeUsage({
-        inputTokens: 2500,
-        outputTokens: 500,
-        cacheReadInputTokens: 5000,
-        cacheCreationInputTokens: 2000,
-      });
-      const entry = makeEntry(totalUsage, makeCost(0.08), [attempt1, attempt2]);
-      const options: TokenSummaryOptions = {
-        showCacheTokens: false,
-      };
-
-      const result = formatTaskTokenSummary(entry, options);
-      expect(result).not.toContain('Cache:');
     });
   });
 });

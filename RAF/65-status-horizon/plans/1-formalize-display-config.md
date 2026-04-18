@@ -16,11 +16,11 @@ Introduce a real `display` config group with a supported status-list limit and r
 - Keep the cleanup scoped to dead config/test surface; do not add new cache-token display behavior.
 
 ## Acceptance Criteria
-- [ ] `resolveConfig()` returns `display.statusProjectLimit: 10` when no user config file exists.
-- [ ] `raf config set display.statusProjectLimit 25` persists and resolves to `25`.
-- [ ] `raf config set display.statusProjectLimit 0` persists and resolves to unlimited semantics.
-- [ ] Validation rejects `display.statusProjectLimit` values such as `-1`, `1.5`, and `null`.
-- [ ] No config schema, default, or config test still refers to `display.showCacheTokens`.
+- [x] `resolveConfig()` returns `display.statusProjectLimit: 10` when no user config file exists.
+- [x] `raf config set display.statusProjectLimit 25` persists and resolves to `25`.
+- [x] `raf config set display.statusProjectLimit 0` persists and resolves to unlimited semantics.
+- [x] Validation rejects `display.statusProjectLimit` values such as `-1`, `1.5`, and `null`.
+- [x] No config schema, default, or config test still refers to `display.showCacheTokens`.
 
 ## Context
 Current code has no implemented `display` group, but the test suite already contains stale `display.showCacheTokens` expectations. The new status feature needs a real display config contract, and the dead setting should be removed rather than carried forward.
