@@ -1,0 +1,2 @@
+- [ ] why Ceiling: claude-opus-4-6? not 4.7
+- [ ] why it's "⏳ Rate limit hit (usage_limit_reached). Waiting until 18:38 GMT+3..." when it was 5:53 PM. in codex usage web (info from openai ui) 
