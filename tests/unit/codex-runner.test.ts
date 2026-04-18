@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 
 const mockSpawn = jest.fn();
 const mockExecSync = jest.fn();
+const mockPtySpawn = jest.fn();
 
 const mockExistsSync = jest.fn();
 const mockStatSync = jest.fn();
@@ -18,7 +19,7 @@ jest.unstable_mockModule('node:child_process', () => ({
 }));
 
 jest.unstable_mockModule('node-pty', () => ({
-  spawn: jest.fn(),
+  spawn: mockPtySpawn,
 }));
 
 jest.unstable_mockModule('node:fs', () => ({
@@ -52,11 +53,49 @@ function createMockProcess() {
   return proc;
 }
 
+function createMockPtyProcess() {
+  const proc = new EventEmitter() as any;
+  proc.write = jest.fn();
+  proc.kill = jest.fn();
+  proc.onData = jest.fn().mockImplementation((callback) => {
+    proc._dataCallback = callback;
+  });
+  proc.onExit = jest.fn().mockImplementation((callback) => {
+    proc._exitCallback = callback;
+  });
+  return proc;
+}
+
+function createMockStdin() {
+  const stdin = new EventEmitter() as any;
+  stdin.isTTY = true;
+  stdin.setRawMode = jest.fn();
+  stdin.resume = jest.fn();
+  stdin.pause = jest.fn();
+  return stdin;
+}
+
+function createMockStdout() {
+  const stdout = new EventEmitter() as any;
+  stdout.write = jest.fn();
+  stdout.columns = 80;
+  stdout.rows = 24;
+  return stdout;
+}
+
 describe('CodexRunner', () => {
+  const originalStdin = process.stdin;
+  const originalStdout = process.stdout;
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockExecSync.mockReturnValue('/usr/local/bin/codex\n');
     mockExistsSync.mockReturnValue(false);
+  });
+
+  afterEach(() => {
+    Object.defineProperty(process, 'stdin', { value: originalStdin });
+    Object.defineProperty(process, 'stdout', { value: originalStdout });
   });
 
   it('uses dangerous execution mode by default for non-interactive runs', async () => {
@@ -181,5 +220,50 @@ describe('CodexRunner', () => {
 
     const result = await runPromise;
     expect(result.usageData).toBeUndefined();
+  });
+
+  it('uses dangerous interactive mode when requested for runInteractive()', async () => {
+    const mockProc = createMockPtyProcess();
+    const mockStdin = createMockStdin();
+    const mockStdout = createMockStdout();
+
+    Object.defineProperty(process, 'stdin', { value: mockStdin, configurable: true });
+    Object.defineProperty(process, 'stdout', { value: mockStdout, configurable: true });
+
+    mockPtySpawn.mockReturnValue(mockProc);
+
+    const runner = new CodexRunner({ model: 'gpt-5.4' });
+    const runPromise = runner.runInteractive('system prompt', 'user message', {
+      dangerouslySkipPermissions: true,
+    });
+
+    const spawnArgs = mockPtySpawn.mock.calls[0]?.[1] as string[];
+    expect(spawnArgs).toContain('--dangerously-bypass-approvals-and-sandbox');
+    expect(spawnArgs[spawnArgs.length - 1]).toContain('[System Instructions]');
+
+    mockProc._exitCallback({ exitCode: 0 });
+    await runPromise;
+  });
+
+  it('does not force dangerous interactive mode when the option is false', async () => {
+    const mockProc = createMockPtyProcess();
+    const mockStdin = createMockStdin();
+    const mockStdout = createMockStdout();
+
+    Object.defineProperty(process, 'stdin', { value: mockStdin, configurable: true });
+    Object.defineProperty(process, 'stdout', { value: mockStdout, configurable: true });
+
+    mockPtySpawn.mockReturnValue(mockProc);
+
+    const runner = new CodexRunner({ model: 'gpt-5.4' });
+    const runPromise = runner.runInteractive('system prompt', 'user message', {
+      dangerouslySkipPermissions: false,
+    });
+
+    const spawnArgs = mockPtySpawn.mock.calls[0]?.[1] as string[];
+    expect(spawnArgs).not.toContain('--dangerously-bypass-approvals-and-sandbox');
+
+    mockProc._exitCallback({ exitCode: 0 });
+    await runPromise;
   });
 });

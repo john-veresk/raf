@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import { select } from '@inquirer/prompts';
 import { ProjectManager } from '../core/project-manager.js';
 import { createRunner } from '../core/runner-factory.js';
@@ -67,14 +67,11 @@ export function createPlanCommand(): Command {
       '-a, --amend',
       'Add tasks to an existing project (requires project identifier as argument)'
     )
-    .option('-y, --auto', 'Skip permission prompts for file operations')
     .option('-r, --resume <identifier>', 'Resume a planning session for an existing project')
     .option('--worktree', 'Create project in a git worktree (overrides config)')
     .option('--no-worktree', 'Create project in main repo (overrides config)')
     .action(async (projectName: string | undefined, options: PlanCommandOptions) => {
       const modelEntry = getModel('plan');
-
-      const autoMode = options.auto ?? false;
 
       if (options.resume) {
         await runResumeCommand(options.resume, modelEntry);
@@ -85,16 +82,19 @@ export function createPlanCommand(): Command {
           logger.error('   or: raf plan --amend <project>');
           process.exit(1);
         }
-        await runAmendCommand(projectName, modelEntry, autoMode);
+        await runAmendCommand(projectName, modelEntry);
       } else {
-        await runPlanCommand(projectName, modelEntry, autoMode, options.worktree);
+        await runPlanCommand(projectName, modelEntry, options.worktree);
       }
     });
+
+  // Backward compatibility only: accept legacy invocations without documenting them.
+  command.addOption(new Option('-y, --auto').hideHelp());
 
   return command;
 }
 
-async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, autoMode: boolean = false, worktreeOverride?: boolean): Promise<void> {
+async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, worktreeOverride?: boolean): Promise<void> {
   // Validate environment
   const validation = validateEnvironment();
   reportValidation(validation);
@@ -103,8 +103,8 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
     process.exit(1);
   }
 
-  // Check if project name matches an existing project
-  // This runs even in auto mode — silently duplicating a project is worse than interrupting
+  // Check if project name matches an existing project.
+  // Silent duplicate creation is worse than interrupting for confirmation.
   if (projectName) {
     const rafDir = getRafDir();
     const mainResult = resolveProjectIdentifierWithDetails(rafDir, projectName);
@@ -137,7 +137,7 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
       });
 
       if (answer === 'amend') {
-        await runAmendCommand(existingFolder, modelEntry, autoMode);
+        await runAmendCommand(existingFolder, modelEntry);
         return;
       } else if (answer === 'cancel') {
         logger.info('Aborted.');
@@ -279,9 +279,6 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
   if (modelEntry) {
     logger.info(`Using model: ${formatModelDisplay(modelEntry.model, modelEntry.harness, { includeHarness: true })}`);
   }
-  if (autoMode) {
-    logger.warn('Auto mode enabled: permission prompts will be skipped.');
-  }
   logger.newline();
 
   const { systemPrompt, userMessage } = getPlanningPrompt({
@@ -292,7 +289,7 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
 
   try {
     const exitCode = await claudeRunner.runInteractive(systemPrompt, userMessage, {
-      dangerouslySkipPermissions: autoMode,
+      dangerouslySkipPermissions: true,
       cwd: worktreeRoot ?? undefined,
     });
 
@@ -349,7 +346,7 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, aut
   }
 }
 
-async function runAmendCommand(identifier: string, modelEntry?: ModelEntry, autoMode: boolean = false): Promise<void> {
+async function runAmendCommand(identifier: string, modelEntry?: ModelEntry): Promise<void> {
   // Validate environment
   const validation = validateEnvironment();
   reportValidation(validation);
@@ -524,9 +521,6 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry, auto
   if (modelEntry) {
     logger.info(`Using model: ${formatModelDisplay(modelEntry.model, modelEntry.harness, { includeHarness: true })}`);
   }
-  if (autoMode) {
-    logger.warn('Auto mode enabled: permission prompts will be skipped.');
-  }
   logger.newline();
 
   const { systemPrompt, userMessage } = getAmendPrompt({
@@ -538,7 +532,7 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry, auto
 
   try {
     const exitCode = await claudeRunner.runInteractive(systemPrompt, userMessage, {
-      dangerouslySkipPermissions: autoMode,
+      dangerouslySkipPermissions: true,
       // Run session in the worktree root if in worktree mode
       cwd: worktreePath ?? undefined,
     });

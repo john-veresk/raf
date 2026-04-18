@@ -154,7 +154,7 @@ export class CodexRunner implements ICliRunner {
     userMessage: string,
     options: RunnerOptions = {}
   ): Promise<number> {
-    const { cwd = process.cwd() } = options;
+    const { cwd = process.cwd(), dangerouslySkipPermissions = false } = options;
 
     return new Promise((resolve) => {
       const combinedPrompt = buildCombinedPrompt(systemPrompt, userMessage);
@@ -163,6 +163,10 @@ export class CodexRunner implements ICliRunner {
       // Add reasoning effort via config override when configured
       if (this.reasoningEffort) {
         args.push('-c', `model_reasoning_effort="${this.reasoningEffort}"`);
+      }
+
+      if (dangerouslySkipPermissions) {
+        args.push('--dangerously-bypass-approvals-and-sandbox');
       }
 
       args.push(combinedPrompt);

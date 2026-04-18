@@ -68,6 +68,8 @@ That's it! RAF will guide you through breaking down your task and then execute i
 
 Opens your `$EDITOR` to write a project description, then Claude will interview you and create detailed task plans.
 
+Planning sessions always run with interactive permission bypass enabled. No extra flag is required.
+
 ```bash
 raf plan              # Create a new project
 raf plan my-feature   # Create with a specific name
@@ -265,7 +267,6 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 | Option | Description |
 |--------|-------------|
 | `--amend <id>` | Add tasks to existing project |
-| `-y, --auto` | Skip permission prompts (runs in dangerous mode) |
 
 ### `raf do [project]`
 
@@ -277,7 +278,7 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 
 Alias: `raf act`
 
-> **Note:** `raf do` runs non-interactive execution without approval prompts. For Codex tasks, the default is `--dangerously-bypass-approvals-and-sandbox`; set `codex.executionMode` to `"fullAuto"` to use the previous sandboxed mode. `raf plan -y` behavior is unchanged.
+> **Note:** `raf do` runs non-interactive execution without approval prompts. For Codex tasks, the default is `--dangerously-bypass-approvals-and-sandbox`; set `codex.executionMode` to `"fullAuto"` to use the previous sandboxed mode. Planning already uses dangerous interactive mode by default.
 
 ### `raf config`
 

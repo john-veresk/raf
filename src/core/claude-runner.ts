@@ -113,7 +113,7 @@ export class ClaudeRunner implements ICliRunner {
         args.push('--effort', this.reasoningEffort);
       }
 
-      // Add --dangerously-skip-permissions if requested (for --auto mode)
+      // Add the interactive permission bypass flag when requested.
       if (dangerouslySkipPermissions) {
         args.push('--dangerously-skip-permissions');
       }

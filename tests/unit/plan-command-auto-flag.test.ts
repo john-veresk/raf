@@ -1,109 +1,260 @@
-import { createPlanCommand } from '../../src/commands/plan.js';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { jest } from '@jest/globals';
 
-describe('Plan Command - Auto Flag', () => {
-  describe('CLI option parsing', () => {
-    it('should accept --auto flag', () => {
-      const command = createPlanCommand();
-      const options = command.options;
+const mockRunInteractive = jest.fn<() => Promise<number>>();
+const mockCreateRunner = jest.fn(() => ({
+  runInteractive: mockRunInteractive,
+}));
+const mockCommitPlanningArtifacts = jest.fn<() => Promise<void>>();
+const mockOpenEditor = jest.fn<() => Promise<string>>();
+const mockGenerateProjectNames = jest.fn<() => Promise<string[]>>();
+const mockPickProjectName = jest.fn<() => Promise<string>>();
+const mockSelect = jest.fn<() => Promise<string>>();
+const mockDeriveProjectState = jest.fn();
+const mockIsProjectComplete = jest.fn(() => false);
+const mockLogger = {
+  info: jest.fn(),
+  success: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  newline: jest.fn(),
+  debug: jest.fn(),
+};
+const mockShutdownHandler = {
+  init: jest.fn(),
+  registerClaudeRunner: jest.fn(),
+  onShutdown: jest.fn(),
+};
 
-      const autoOption = options.find(
-        (opt) => opt.long === '--auto' || opt.short === '-y'
-      );
-      expect(autoOption).toBeDefined();
-    });
+jest.unstable_mockModule('@inquirer/prompts', () => ({
+  select: mockSelect,
+}));
 
-    it('should accept -y as shorthand for --auto', () => {
-      const command = createPlanCommand();
-      const options = command.options;
+jest.unstable_mockModule('../../src/core/runner-factory.js', () => ({
+  createRunner: mockCreateRunner,
+}));
 
-      const autoOption = options.find((opt) => opt.short === '-y');
-      expect(autoOption).toBeDefined();
-      expect(autoOption?.long).toBe('--auto');
-    });
+jest.unstable_mockModule('../../src/core/shutdown-handler.js', () => ({
+  shutdownHandler: mockShutdownHandler,
+}));
 
-    it('should have description explaining what --auto does', () => {
-      const command = createPlanCommand();
-      const options = command.options;
+jest.unstable_mockModule('../../src/core/git.js', () => ({
+  commitPlanningArtifacts: mockCommitPlanningArtifacts,
+}));
 
-      const autoOption = options.find((opt) => opt.long === '--auto');
-      expect(autoOption?.description).toContain('permission');
-    });
+jest.unstable_mockModule('../../src/core/state-derivation.js', () => ({
+  deriveProjectState: mockDeriveProjectState,
+  getDerivedStats: jest.fn(),
+  isProjectComplete: mockIsProjectComplete,
+}));
 
-    it('should have --auto as boolean flag (no required argument)', () => {
-      const command = createPlanCommand();
-      const options = command.options;
+jest.unstable_mockModule('../../src/core/worktree.js', () => ({
+  getRepoBasename: () => null,
+  getRepoRoot: () => null,
+  validateWorktree: jest.fn(),
+  resolveWorktreeProjectByIdentifier: () => null,
+  createWorktree: jest.fn(),
+  createWorktreeFromBranch: jest.fn(),
+  removeWorktree: jest.fn(() => ({ success: true })),
+  pullMainBranch: jest.fn(() => ({ success: true })),
+  branchExists: jest.fn(() => false),
+}));
 
-      const autoOption = options.find((opt) => opt.long === '--auto');
-      // Boolean flags don't have required or optional args
-      expect(autoOption?.required).toBeFalsy();
-      expect(autoOption?.optional).toBeFalsy();
-    });
+jest.unstable_mockModule('../../src/core/editor.js', () => ({
+  openEditor: mockOpenEditor,
+  getInputTemplate: () => 'template',
+}));
+
+jest.unstable_mockModule('../../src/prompts/planning.js', () => ({
+  getPlanningPrompt: () => ({
+    systemPrompt: 'planning system prompt',
+    userMessage: 'planning user message',
+  }),
+}));
+
+jest.unstable_mockModule('../../src/prompts/amend.js', () => ({
+  getAmendPrompt: () => ({
+    systemPrompt: 'amend system prompt',
+    userMessage: 'amend user message',
+  }),
+}));
+
+jest.unstable_mockModule('../../src/utils/validation.js', () => ({
+  validateEnvironment: () => ({ valid: true, warnings: [], errors: [] }),
+  reportValidation: jest.fn(),
+  validateProjectName: () => true,
+  sanitizeProjectName: (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+}));
+
+jest.unstable_mockModule('../../src/utils/logger.js', () => ({
+  logger: mockLogger,
+}));
+
+jest.unstable_mockModule('../../src/utils/config.js', () => ({
+  formatModelDisplay: (model: string) => model,
+  getModel: (scenario: string) => {
+    if (scenario === 'nameGeneration') {
+      return { model: 'sonnet', harness: 'claude' };
+    }
+    return { model: 'gpt-5.4', harness: 'codex' };
+  },
+  getWorktreeDefault: () => false,
+  getSyncMainBranch: () => false,
+}));
+
+jest.unstable_mockModule('../../src/utils/name-generator.js', () => ({
+  generateProjectNames: mockGenerateProjectNames,
+}));
+
+jest.unstable_mockModule('../../src/ui/name-picker.js', () => ({
+  pickProjectName: mockPickProjectName,
+}));
+
+const { createPlanCommand } = await import('../../src/commands/plan.js');
+
+describe('Plan Command - Legacy Auto Flag Compatibility', () => {
+  const suiteTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-plan-command-'));
+  let cwdSpy: jest.SpiedFunction<typeof process.cwd>;
+  let tempDir: string;
+
+  async function parsePlanCommand(args: string[]): Promise<void> {
+    const command = createPlanCommand();
+    command.exitOverride();
+    await command.parseAsync(args, { from: 'user' });
+  }
+
+  beforeAll(() => {
+    cwdSpy = jest.spyOn(process, 'cwd');
   });
 
-  describe('command options coexistence', () => {
-    it('should allow --auto with --amend', () => {
-      const command = createPlanCommand();
-      const options = command.options;
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(suiteTmpDir, 'case-'));
+    cwdSpy.mockReturnValue(tempDir);
 
-      const autoOption = options.find((opt) => opt.long === '--auto');
-      const amendOption = options.find((opt) => opt.long === '--amend');
-
-      expect(autoOption).toBeDefined();
-      expect(amendOption).toBeDefined();
+    mockRunInteractive.mockReset().mockResolvedValue(0);
+    mockCreateRunner.mockClear();
+    mockCommitPlanningArtifacts.mockReset().mockResolvedValue(undefined);
+    mockOpenEditor.mockReset().mockResolvedValue('Build a samurai switch.');
+    mockGenerateProjectNames.mockReset().mockResolvedValue(['samurai-switch', 'backup-name']);
+    mockPickProjectName.mockReset().mockResolvedValue('samurai-switch');
+    mockSelect.mockReset().mockResolvedValue('create');
+    mockDeriveProjectState.mockReset().mockReturnValue({
+      tasks: [{ id: '1', planFile: 'plans/1-existing-task.md', status: 'pending' }],
     });
+    mockIsProjectComplete.mockReset().mockReturnValue(false);
 
-    it('should not have --provider flag (removed)', () => {
-      const command = createPlanCommand();
-      const options = command.options;
-
-      const providerOption = options.find((opt) => opt.long === '--provider');
-      expect(providerOption).toBeUndefined();
-    });
-
-    it('should not have removed --model or --sonnet flags', () => {
-      const command = createPlanCommand();
-      const options = command.options;
-
-      const modelOption = options.find((opt) => opt.long === '--model');
-      const sonnetOption = options.find((opt) => opt.long === '--sonnet');
-
-      expect(modelOption).toBeUndefined();
-      expect(sonnetOption).toBeUndefined();
-    });
+    mockLogger.info.mockClear();
+    mockLogger.success.mockClear();
+    mockLogger.warn.mockClear();
+    mockLogger.error.mockClear();
+    mockLogger.newline.mockClear();
+    mockLogger.debug.mockClear();
+    mockShutdownHandler.init.mockClear();
+    mockShutdownHandler.registerClaudeRunner.mockClear();
+    mockShutdownHandler.onShutdown.mockClear();
   });
 
-  describe('auto-name selection behavior', () => {
-    it('should have behavior where first name is auto-selected in auto mode', () => {
-      // This test documents the expected behavior:
-      // When autoMode is true and no projectName is provided,
-      // the first name from generateProjectNames() should be used
-      // without calling pickProjectName()
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
 
-      // The actual behavior is tested implicitly by the implementation:
-      // - generateProjectNames() returns ['first-name', 'second-name', 'third-name']
-      // - In auto mode: finalProjectName = suggestedNames[0] // 'first-name'
-      // - In normal mode: finalProjectName = await pickProjectName(suggestedNames)
+  afterAll(() => {
+    cwdSpy.mockRestore();
+    fs.rmSync(suiteTmpDir, { recursive: true, force: true });
+  });
 
-      // This test validates the command structure supports this flow
-      const command = createPlanCommand();
-      const autoOption = command.options.find((opt) => opt.long === '--auto');
+  it('keeps parsing --auto and -y but hides them from help output', async () => {
+    const command = createPlanCommand();
+    const autoOption = command.options.find((opt) => opt.long === '--auto');
 
-      expect(autoOption).toBeDefined();
-      expect(autoOption?.short).toBe('-y');
-      // The argument is optional (user can omit project name for auto-selection)
-      const args = command.registeredArguments;
-      expect(args).toHaveLength(1);
-      expect(args[0].required).toBe(false);
-    });
+    expect(autoOption).toBeDefined();
+    expect(command.helpInformation()).not.toContain('--auto');
+    expect(command.helpInformation()).not.toContain('-y');
 
-    it('should support projectName argument as optional', () => {
-      const command = createPlanCommand();
+    await expect(parsePlanCommand(['--auto'])).resolves.toBeUndefined();
+    expect(mockRunInteractive).toHaveBeenLastCalledWith(
+      'planning system prompt',
+      'planning user message',
+      { dangerouslySkipPermissions: true, cwd: undefined }
+    );
 
-      // The first argument is the optional projectName
-      const args = command.registeredArguments;
-      expect(args).toHaveLength(1);
-      expect(args[0].name()).toBe('projectName');
-      expect(args[0].required).toBe(false);
-    });
+    mockRunInteractive.mockClear();
+
+    await expect(parsePlanCommand(['-y'])).resolves.toBeUndefined();
+    expect(mockRunInteractive).toHaveBeenLastCalledWith(
+      'planning system prompt',
+      'planning user message',
+      { dangerouslySkipPermissions: true, cwd: undefined }
+    );
+  });
+
+  it('runs plain raf plan in dangerous interactive mode by default', async () => {
+    await parsePlanCommand([]);
+
+    expect(mockGenerateProjectNames).toHaveBeenCalledWith('Build a samurai switch.');
+    expect(mockPickProjectName).toHaveBeenCalledWith(['samurai-switch', 'backup-name']);
+    expect(mockRunInteractive).toHaveBeenCalledWith(
+      'planning system prompt',
+      'planning user message',
+      { dangerouslySkipPermissions: true, cwd: undefined }
+    );
+    expect(mockLogger.warn).not.toHaveBeenCalledWith(
+      expect.stringContaining('Auto mode enabled')
+    );
+  });
+
+  it('runs raf plan --amend in dangerous interactive mode with or without the legacy flag', async () => {
+    const projectPath = path.join(tempDir, 'RAF', '1-existing');
+    fs.mkdirSync(path.join(projectPath, 'plans'), { recursive: true });
+    fs.mkdirSync(path.join(projectPath, 'outcomes'), { recursive: true });
+    fs.writeFileSync(path.join(projectPath, 'input.md'), 'Original scope');
+    fs.writeFileSync(path.join(projectPath, 'plans', '1-existing-task.md'), '# task');
+
+    await parsePlanCommand(['existing', '--amend']);
+    expect(mockRunInteractive).toHaveBeenLastCalledWith(
+      'amend system prompt',
+      'amend user message',
+      { dangerouslySkipPermissions: true, cwd: undefined }
+    );
+
+    mockRunInteractive.mockClear();
+
+    await parsePlanCommand(['existing', '--amend', '--auto']);
+    expect(mockRunInteractive).toHaveBeenLastCalledWith(
+      'amend system prompt',
+      'amend user message',
+      { dangerouslySkipPermissions: true, cwd: undefined }
+    );
+    expect(mockLogger.warn).not.toHaveBeenCalledWith(
+      expect.stringContaining('Auto mode enabled')
+    );
+  });
+
+  it('still prompts on duplicate project names even when the legacy flag is present', async () => {
+    const existingProjectPath = path.join(tempDir, 'RAF', '1-existing');
+    fs.mkdirSync(path.join(existingProjectPath, 'plans'), { recursive: true });
+    fs.mkdirSync(path.join(existingProjectPath, 'outcomes'), { recursive: true });
+    fs.writeFileSync(path.join(existingProjectPath, 'decisions.md'), '# Project Decisions\n');
+
+    await parsePlanCommand(['existing', '--auto']);
+
+    expect(mockSelect).toHaveBeenCalledTimes(1);
+    expect(mockSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining("Project 'existing' already exists"),
+        choices: [
+          { name: 'Yes, amend it', value: 'amend' },
+          { name: 'No, create a new project', value: 'create' },
+          { name: 'Cancel', value: 'cancel' },
+        ],
+      })
+    );
+    expect(mockRunInteractive).toHaveBeenCalledWith(
+      'planning system prompt',
+      'planning user message',
+      { dangerouslySkipPermissions: true, cwd: undefined }
+    );
   });
 });

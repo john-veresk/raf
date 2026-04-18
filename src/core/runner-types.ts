@@ -18,7 +18,7 @@ export interface RunnerOptions {
   timeout?: number;
   cwd?: string;
   /**
-   * Skip permission prompts for file operations.
+   * Bypass interactive approval/sandbox prompts when supported by the harness.
    * Only used in interactive mode (runInteractive).
    */
   dangerouslySkipPermissions?: boolean;
