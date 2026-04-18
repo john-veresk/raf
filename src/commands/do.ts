@@ -211,7 +211,7 @@ export function resolvePostRateLimitWaitDecision(waitCompleted: boolean, cancelA
 }
 
 export function formatResolvedTaskModel(entry: ModelEntry): string {
-  return formatModelMetadata(formatModelDisplay(entry.model, entry.harness, { fullId: true }), {
+  return formatModelMetadata(formatModelDisplay(entry.model, entry.harness), {
     effort: entry.reasoningEffort,
   });
 }
@@ -756,8 +756,8 @@ async function executeSingleProject(
   const projectStartTime = Date.now();
 
   // Resolve and display version + ceiling model info (before any tasks run)
-  const fullCeilingModelId = formatModelDisplay(ceilingEntry.model, ceilingEntry.harness, { fullId: true });
-  logger.dim(`RAF v${getVersion()} | Ceiling: ${fullCeilingModelId} (${ceilingEntry.harness})`);
+  const ceilingModelDisplay = formatModelDisplay(ceilingEntry.model, ceilingEntry.harness);
+  logger.dim(`RAF v${getVersion()} | Ceiling: ${ceilingModelDisplay} (${ceilingEntry.harness})`);
 
   if (verbose) {
     logger.info(`Executing project: ${projectName}`);

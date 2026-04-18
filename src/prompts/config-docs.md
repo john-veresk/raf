@@ -36,7 +36,7 @@ Controls which model and harness is used for each scenario. Each entry is a `Mod
   - **Claude** (`output_config.effort`): `"low"`, `"medium"`, `"high"` (default), `"max"` (Opus 4.6 only). Supported on Opus 4.5+, Sonnet 4.6+. Haiku does not support reasoning.
   - **Codex** (`model_reasoning_effort`): `"none"`, `"minimal"`, `"low"`, `"medium"` (default), `"high"`, `"xhigh"`.
 
-**Claude model aliases**: `"opus"`, `"sonnet"`, `"haiku"` automatically select the latest version.
+**Claude model aliases**: `"opus"`, `"sonnet"`, `"haiku"` defer version selection to the Claude provider. RAF displays the alias unless you configure an explicit full ID.
 **Known Codex models**: `"gpt-5.4"`, `"gpt-5.4-2026-03-05"` (pinned), `"gpt-5.4-pro"`, `"gpt-5.4-mini"`, `"gpt-5.4-nano"`, `"o3"`.
 
 | Key | Default | Description |
@@ -231,17 +231,17 @@ Presets are named config files that you can save and link to. Once linked, confi
 
 ## Valid Model Names
 
-When configuring models, use one of the known names below. Aliases automatically resolve to the latest version.
+When configuring models, use one of the known names below. Aliases are unpinned provider-default selectors; use a full model ID when you want RAF to pin and display an exact version.
 
 ### Claude Models (harness: `"claude"`)
 
-| Alias | Resolves To | Notes |
-|-------|------------|-------|
-| `"opus"` | `claude-opus-4-6` | Most capable, highest cost |
-| `"sonnet"` | `claude-sonnet-4-5-20250929` | Balanced capability and cost |
-| `"haiku"` | `claude-haiku-4-5-20251001` | Fastest, lowest cost |
+| Alias | Behavior | Notes |
+|-------|----------|-------|
+| `"opus"` | Uses the provider's default Opus version | Most capable, highest cost |
+| `"sonnet"` | Uses the provider's default Sonnet version | Balanced capability and cost |
+| `"haiku"` | Uses the provider's default Haiku version | Fastest, lowest cost |
 
-You can also use full model IDs directly for version pinning:
+You can also use full model IDs directly for version pinning. When you do, RAF preserves and displays that exact ID:
 - `"claude-opus-4-6"`, `"claude-opus-4-5-20251101"`
 - `"claude-sonnet-4-6"`, `"claude-sonnet-4-5-20250929"`
 - `"claude-haiku-4-5-20251001"`
@@ -250,12 +250,12 @@ Any string matching the pattern `claude-<family>-*` is accepted as a valid Claud
 
 ### Codex Models (harness: `"codex"`)
 
-| Alias | Resolves To | Notes |
-|-------|------------|-------|
-| `"codex"` | `gpt-5.3-codex` | Lightweight, fast |
-| `"gpt54"` | `gpt-5.4` | Most capable Codex model |
+| Alias | Behavior | Notes |
+|-------|----------|-------|
+| `"codex"` | Uses the provider's default Codex model for that alias | Lightweight, fast |
+| `"gpt54"` | Uses the provider's default GPT-5.4 model | Most capable Codex model |
 
-You can also use raw Codex model IDs directly:
+You can also use raw Codex model IDs directly. When you do, RAF preserves and displays that exact ID:
 - `"gpt-5.4"`, `"gpt-5.4-2026-03-05"` (pinned), `"gpt-5.4-pro"`, `"gpt-5.4-mini"`, `"gpt-5.4-nano"`
 - `"gpt-5.3-codex"`
 - `"o3"`

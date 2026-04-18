@@ -23,7 +23,6 @@ import {
   getModelDisplayName,
   getModelShortName,
   formatModelDisplay,
-  resolveFullModelId,
   resetConfigCache,
   saveConfig,
   renderCommitMessage,
@@ -641,53 +640,30 @@ describe('Config', () => {
   });
 
   describe('getModelDisplayName', () => {
-    it('should preserve concise Claude aliases', () => {
+    it('should preserve configured aliases as-is', () => {
       expect(getModelDisplayName('opus')).toBe('opus');
-      expect(getModelDisplayName('claude-sonnet-4-5-20250929')).toBe('sonnet');
-      expect(getModelDisplayName('claude-haiku-4-5-20251001')).toBe('haiku');
+      expect(getModelDisplayName('codex')).toBe('codex');
+      expect(getModelDisplayName('gpt54')).toBe('gpt54');
     });
 
-    it('should normalize compact Codex aliases to canonical display names', () => {
-      expect(getModelDisplayName('codex')).toBe('gpt-5.3-codex');
-      expect(getModelDisplayName('gpt54')).toBe('gpt-5.4');
-    });
-
-    it('should keep canonical Codex model IDs unchanged', () => {
+    it('should preserve explicit full model IDs unchanged', () => {
+      expect(getModelDisplayName('claude-sonnet-4-5-20250929')).toBe('claude-sonnet-4-5-20250929');
+      expect(getModelDisplayName('claude-haiku-4-5-20251001')).toBe('claude-haiku-4-5-20251001');
       expect(getModelDisplayName('gpt-5.3-codex')).toBe('gpt-5.3-codex');
       expect(getModelDisplayName('gpt-5.4')).toBe('gpt-5.4');
+    });
+
+    it('should unwrap harness-prefixed model specs', () => {
+      expect(getModelDisplayName('claude/opus')).toBe('opus');
+      expect(getModelDisplayName('codex/gpt-5.4')).toBe('gpt-5.4');
     });
   });
 
   describe('formatModelDisplay', () => {
     it('should include harness when requested', () => {
-      expect(formatModelDisplay('codex', 'codex', { includeHarness: true })).toBe('gpt-5.3-codex (codex)');
-      expect(formatModelDisplay('gpt54', 'codex', { includeHarness: true })).toBe('gpt-5.4 (codex)');
-      expect(formatModelDisplay('claude-sonnet-4-5-20250929', 'claude', { includeHarness: true })).toBe('sonnet (claude)');
-    });
-
-    it('should allow explicit full model ID display', () => {
-      expect(formatModelDisplay('gpt54', 'codex', { fullId: true })).toBe('gpt-5.4');
-      expect(formatModelDisplay('sonnet', 'claude', { fullId: true })).toBe('claude-sonnet-4-5-20250929');
-    });
-  });
-
-  describe('resolveFullModelId', () => {
-    it('should resolve short aliases to full model IDs', () => {
-      expect(resolveFullModelId('opus')).toBe('claude-opus-4-6');
-      expect(resolveFullModelId('sonnet')).toBe('claude-sonnet-4-5-20250929');
-      expect(resolveFullModelId('haiku')).toBe('claude-haiku-4-5-20251001');
-    });
-
-    it('should return full model IDs as-is', () => {
-      expect(resolveFullModelId('claude-opus-4-6')).toBe('claude-opus-4-6');
-      expect(resolveFullModelId('claude-sonnet-4-5-20250929')).toBe('claude-sonnet-4-5-20250929');
-      expect(resolveFullModelId('claude-haiku-4-5-20251001')).toBe('claude-haiku-4-5-20251001');
-    });
-
-    it('should return unknown model strings as-is', () => {
-      expect(resolveFullModelId('gpt-4')).toBe('gpt-4');
-      expect(resolveFullModelId('claude-unknown-3-0')).toBe('claude-unknown-3-0');
-      expect(resolveFullModelId('')).toBe('');
+      expect(formatModelDisplay('codex', 'codex', { includeHarness: true })).toBe('codex (codex)');
+      expect(formatModelDisplay('gpt54', 'codex', { includeHarness: true })).toBe('gpt54 (codex)');
+      expect(formatModelDisplay('claude-sonnet-4-5-20250929', 'claude', { includeHarness: true })).toBe('claude-sonnet-4-5-20250929 (claude)');
     });
   });
 
@@ -750,57 +726,6 @@ describe('Config', () => {
       expect(config.effortMapping.low).toEqual({ model: 'sonnet', harness: 'claude' });
       expect(config.effortMapping.medium).toEqual({ model: 'opus', harness: 'claude' });
       expect(config.effortMapping.high).toEqual({ model: 'opus', harness: 'claude' });
-    });
-  });
-
-  describe('validateConfig - display', () => {
-    it('should accept valid display config', () => {
-      expect(() => validateConfig({
-        display: {
-          showCacheTokens: false,
-        },
-      })).not.toThrow();
-    });
-
-    it('should accept partial display override', () => {
-      expect(() => validateConfig({
-        display: { showCacheTokens: false },
-      })).not.toThrow();
-    });
-
-    it('should reject non-object display', () => {
-      expect(() => validateConfig({ display: 'full' })).toThrow('display must be an object');
-    });
-
-    it('should reject unknown display keys', () => {
-      expect(() => validateConfig({ display: { unknownKey: true } })).toThrow('Unknown config key: display.unknownKey');
-    });
-
-    it('should reject non-boolean display values', () => {
-      expect(() => validateConfig({ display: { showCacheTokens: 'yes' } })).toThrow('display.showCacheTokens must be a boolean');
-    });
-  });
-
-  describe('resolveConfig - display', () => {
-    it('should include default display when no config file', () => {
-      const config = resolveConfig(path.join(tempDir, 'nonexistent.json'));
-      expect(config.display.showCacheTokens).toBe(true);
-    });
-
-    it('should deep-merge partial display override', () => {
-      const configPath = path.join(tempDir, 'display.json');
-      fs.writeFileSync(configPath, JSON.stringify({
-        display: { showCacheTokens: false },
-      }));
-
-      const config = resolveConfig(configPath);
-      expect(config.display.showCacheTokens).toBe(false);
-    });
-  });
-
-  describe('DEFAULT_CONFIG - display', () => {
-    it('should have default display settings', () => {
-      expect(DEFAULT_CONFIG.display.showCacheTokens).toBe(true);
     });
   });
 

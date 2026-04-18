@@ -99,6 +99,8 @@ When graceful stop is armed (`C` pressed once), RAF finishes the current active 
 
 Note: In non-verbose mode, task lines show the resolved model in the existing parentheses slot and append reasoning effort when configured, for example `● 01-auth-login (sonnet, low) 12s`.
 
+Note: RAF displays the configured model identifier as-is in user-facing logs. Aliases like `opus`, `sonnet`, `codex`, and `gpt54` stay unpinned aliases; exact versions are only shown when your config/frontmatter already uses a full model ID or the provider returns one.
+
 Note: The completion summary reflects the tasks executed in that run (the remaining tasks at start), so the elapsed time maps to those tasks.
 
 Note: Post-run token summaries now show exact input/output token counts for both Claude and Codex runs. Dollar cost is shown only when the provider reports an exact value, so current Codex summaries are token-only.
