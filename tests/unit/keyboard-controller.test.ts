@@ -72,7 +72,7 @@ describe('KeyboardController', () => {
   it('shows hotkeys hint on start', () => {
     const ctrl = new KeyboardController(false);
     ctrl.start();
-    expect(mockDim).toHaveBeenCalledWith('  Hotkeys: Tab = verbose, P = pause, C = cancel');
+    expect(mockDim).toHaveBeenCalledWith('  Hotkeys: Tab = verbose, P = pause, C = toggle stop');
     ctrl.stop();
   });
 
@@ -145,7 +145,7 @@ describe('KeyboardController', () => {
     ctrl.stop();
   });
 
-  it('sets cancelled on c keypress (one-way)', () => {
+  it('toggles cancelled on c keypress', () => {
     const ctrl = new KeyboardController(false);
     ctrl.start();
     mockDim.mockClear();
@@ -154,16 +154,16 @@ describe('KeyboardController', () => {
     expect(ctrl.isCancelled).toBe(true);
     expect(mockDim).toHaveBeenCalledWith('  [stopping after current task...]');
 
-    // Pressing 'c' again should not log again
+    // Pressing 'c' again clears pending stop
     mockDim.mockClear();
     process.stdin.emit('data', Buffer.from([0x63]));
-    expect(ctrl.isCancelled).toBe(true);
-    expect(mockDim).not.toHaveBeenCalled();
+    expect(ctrl.isCancelled).toBe(false);
+    expect(mockDim).toHaveBeenCalledWith('  [pending stop cleared]');
 
     ctrl.stop();
   });
 
-  it('sets cancelled on C (uppercase) keypress', () => {
+  it('toggles cancelled on C (uppercase) keypress', () => {
     const ctrl = new KeyboardController(false);
     ctrl.start();
     mockDim.mockClear();
@@ -171,6 +171,11 @@ describe('KeyboardController', () => {
     process.stdin.emit('data', Buffer.from([0x43]));
     expect(ctrl.isCancelled).toBe(true);
     expect(mockDim).toHaveBeenCalledWith('  [stopping after current task...]');
+
+    mockDim.mockClear();
+    process.stdin.emit('data', Buffer.from([0x43]));
+    expect(ctrl.isCancelled).toBe(false);
+    expect(mockDim).toHaveBeenCalledWith('  [pending stop cleared]');
 
     ctrl.stop();
   });

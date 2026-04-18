@@ -195,6 +195,21 @@ interface ProjectExecutionResult {
   retryHistory?: TaskRetryHistory[];
 }
 
+export type PostRateLimitWaitDecision =
+  | { action: 'retry' }
+  | { action: 'graceful-stop' }
+  | { action: 'abort'; failureReason: string };
+
+export function resolvePostRateLimitWaitDecision(waitCompleted: boolean, cancelArmed: boolean): PostRateLimitWaitDecision {
+  if (!waitCompleted) {
+    return { action: 'abort', failureReason: 'Rate limit wait aborted' };
+  }
+  if (cancelArmed) {
+    return { action: 'graceful-stop' };
+  }
+  return { action: 'retry' };
+}
+
 export function formatResolvedTaskModel(entry: ModelEntry): string {
   return formatModelMetadata(formatModelDisplay(entry.model, entry.harness, { fullId: true }), {
     effort: entry.reasoningEffort,
@@ -918,6 +933,7 @@ async function executeSingleProject(
     let attempts = 0;
     let lastOutput = '';
     let failureReason = '';
+    let gracefulStopBeforeRetry = false;
     // Collect usage data from all attempts (for accurate token tracking across retries)
     const attemptUsageData: import('../types/config.js').UsageData[] = [];
     // Track failure history for each attempt (attempt number -> reason)
@@ -1065,7 +1081,8 @@ async function executeSingleProject(
           waitForResume: () => keyboard.waitForResume(),
         });
 
-        if (waitResult.completed) {
+        const postWaitDecision = resolvePostRateLimitWaitDecision(waitResult.completed, keyboard.isCancelled);
+        if (postWaitDecision.action === 'retry') {
           logger.info(`  Rate limit reset — resuming`);
           rateLimitWaits++;
           failureHistory.push({
@@ -1075,10 +1092,16 @@ async function executeSingleProject(
           // Don't count this as an attempt — undo the increment
           attempts--;
           continue;
-        } else {
-          failureReason = 'Rate limit wait aborted';
+        }
+
+        if (postWaitDecision.action === 'graceful-stop') {
+          logger.info('  Pending stop is armed — skipping retry for this task');
+          gracefulStopBeforeRetry = true;
           break;
         }
+
+        failureReason = postWaitDecision.failureReason;
+        break;
       }
 
       // Parse result
@@ -1139,12 +1162,12 @@ async function executeSingleProject(
     const elapsedFormatted = formatElapsedTime(elapsedMs);
 
     // Save log if debug mode or failure
-    if (debug || !success) {
+    if (debug || (!success && !gracefulStopBeforeRetry)) {
       projectManager.saveLog(projectPath, task.id, lastOutput);
     }
 
     // Track retry history if there were failures (for console output)
-    if (failureHistory.length > 0) {
+    if (failureHistory.length > 0 && !gracefulStopBeforeRetry) {
       projectRetryHistory.push({
         taskId: task.id,
         taskName: displayName,
@@ -1210,6 +1233,10 @@ Task completed. No detailed report provided.
       }
 
       completedInSession.add(task.id);
+    } else if (gracefulStopBeforeRetry) {
+      if (verbose) {
+        logger.info(`  Stop requested before retrying task ${taskLabel}; leaving task pending`);
+      }
     } else {
       // Stash any uncommitted changes on complete failure
       let stashName: string | undefined;

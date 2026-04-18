@@ -90,6 +90,13 @@ raf do abcdef         # Execute by project ID
 raf do my-project     # Execute by name
 ```
 
+Runtime hotkeys during `raf do`:
+- `Tab`: Toggle verbose output on/off
+- `P`: Pause/resume execution
+- `C`: Toggle a graceful stop at the next safe boundary
+
+When graceful stop is armed (`C` pressed once), RAF finishes the current active task and then stops before starting the next task. If RAF is waiting for a rate-limit reset, graceful stop prevents the retry from starting; pressing `C` again before the wait ends clears the pending stop and allows retry to continue.
+
 Note: In non-verbose mode, task lines show the resolved model in the existing parentheses slot and append reasoning effort when configured, for example `● 01-auth-login (sonnet, low) 12s`.
 
 Note: The completion summary reflects the tasks executed in that run (the remaining tasks at start), so the elapsed time maps to those tasks.

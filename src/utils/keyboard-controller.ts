@@ -4,7 +4,7 @@
  * Listens for keypresses on process.stdin:
  * - Tab: toggle verbose display on/off
  * - P: pause/resume execution
- * - C: cancel after current task
+ * - C: toggle graceful stop at the next safe boundary
  * - Ctrl+C: SIGINT
  *
  * Requires a TTY stdin. Silently skips setup when stdin is not a TTY (e.g., piped input).
@@ -34,7 +34,7 @@ export class KeyboardController {
     return this._paused;
   }
 
-  /** Whether cancellation has been requested. */
+  /** Whether graceful stop has been requested. */
   get isCancelled(): boolean {
     return this._cancelled;
   }
@@ -95,9 +95,11 @@ export class KeyboardController {
           }
         } else if (byte === 0x63 || byte === 0x43) {
           // 'c' or 'C'
-          if (!this._cancelled) {
-            this._cancelled = true;
+          this._cancelled = !this._cancelled;
+          if (this._cancelled) {
             logger.dim('  [stopping after current task...]');
+          } else {
+            logger.dim('  [pending stop cleared]');
           }
         } else if (byte === 0x03) {
           // Ctrl+C — re-emit SIGINT so the shutdown handler catches it
@@ -110,7 +112,7 @@ export class KeyboardController {
     this._active = true;
 
     // Show hotkeys hint
-    logger.dim('  Hotkeys: Tab = verbose, P = pause, C = cancel');
+    logger.dim('  Hotkeys: Tab = verbose, P = pause, C = toggle stop');
   }
 
   /**
