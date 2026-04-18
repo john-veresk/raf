@@ -1,8 +1,9 @@
 import { logger } from '../utils/logger.js';
 
 export interface RateLimitWaitOptions {
-  resetsAt: Date;
   limitType: string;
+  resetsAt?: Date;
+  fallbackWaitMs?: number;
   /** If true, abort the wait immediately */
   shouldAbort: () => boolean;
   /** If true, pause was requested — caller should handle pause flow */
@@ -16,13 +17,6 @@ export interface RateLimitWaitResult {
   completed: boolean;
   waitedMs: number;
 }
-
-/** Safety buffer added after the reset time (API may not be ready instantly). */
-const SAFETY_BUFFER_MS = 30_000;
-/** If the reset time is less than this far away, add an extra buffer. */
-const MIN_DURATION_THRESHOLD_MS = 10_000;
-/** Extra buffer added when reset time is very close or in the past. */
-const NEAR_RESET_BUFFER_MS = 60_000;
 
 /**
  * Format the reset time for display: "HH:MM TZ".
@@ -42,24 +36,19 @@ function formatResetTime(date: Date): string {
  * Supports abort (Ctrl+C) and pause (P key) during the wait.
  */
 export async function waitForRateLimit(options: RateLimitWaitOptions): Promise<RateLimitWaitResult> {
-  const { resetsAt, limitType, shouldAbort, isPaused, waitForResume } = options;
+  const { resetsAt, fallbackWaitMs, limitType, shouldAbort, isPaused, waitForResume } = options;
   const startTime = Date.now();
 
-  // Calculate raw wait duration
-  let rawDuration = resetsAt.getTime() - Date.now();
-
-  // If reset time is very close or in the past, add extra buffer
-  if (rawDuration < MIN_DURATION_THRESHOLD_MS) {
-    rawDuration += NEAR_RESET_BUFFER_MS;
+  if (!resetsAt && fallbackWaitMs === undefined) {
+    throw new Error('waitForRateLimit requires either resetsAt or fallbackWaitMs');
   }
 
-  // Always add safety buffer
-  rawDuration += SAFETY_BUFFER_MS;
-
-  const resetTimeDisplay = formatResetTime(new Date(resetsAt.getTime() + SAFETY_BUFFER_MS));
+  const targetEndTimeFromStart = resetsAt ? resetsAt.getTime() : Date.now() + fallbackWaitMs!;
+  const shouldExtendForPause = !resetsAt;
+  const resetTimeDisplay = formatResetTime(new Date(targetEndTimeFromStart));
   logger.info(`  \u23f3 Rate limit hit (${limitType}). Waiting until ${resetTimeDisplay}...`);
 
-  let targetEndTime = Date.now() + rawDuration;
+  let targetEndTime = targetEndTimeFromStart;
 
   while (Date.now() < targetEndTime) {
     if (shouldAbort()) {
@@ -70,7 +59,9 @@ export async function waitForRateLimit(options: RateLimitWaitOptions): Promise<R
     if (isPaused()) {
       const pauseStart = Date.now();
       await waitForResume();
-      targetEndTime += Date.now() - pauseStart;
+      if (shouldExtendForPause) {
+        targetEndTime += Date.now() - pauseStart;
+      }
       const newResetDisplay = formatResetTime(new Date(targetEndTime));
       logger.info(`  \u23f3 Resuming rate limit wait. Waiting until ${newResetDisplay}...`);
       continue;

@@ -1067,14 +1067,13 @@ async function executeSingleProject(
           break;
         }
 
-        const resetTime = rateLimitInfo
-          ? rateLimitInfo.resetsAt
-          : new Date(Date.now() + getResolvedConfig().rateLimitWaitDefault * 60 * 1000);
+        const fallbackWaitMs = getResolvedConfig().rateLimitWaitDefault * 60 * 1000;
         const limitLabel = rateLimitInfo?.limitType ?? 'unknown';
 
         statusLine.clear();
         const waitResult = await waitForRateLimit({
-          resetsAt: resetTime,
+          resetsAt: rateLimitInfo?.resetsAt,
+          fallbackWaitMs: rateLimitInfo ? undefined : fallbackWaitMs,
           limitType: limitLabel,
           shouldAbort: () => shutdownHandler.isShuttingDown,
           isPaused: () => keyboard.isPaused,

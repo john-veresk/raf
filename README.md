@@ -107,7 +107,7 @@ Note: Post-run token summaries now show exact input/output token counts for both
 
 Note: When a task runs on Codex (`harness: "codex"`), `raf do` uses `codex exec --dangerously-bypass-approvals-and-sandbox` by default. Set `codex.executionMode` to `"fullAuto"` if you want the previous sandboxed `--full-auto` behavior.
 
-Note: When a rate limit is detected (daily/hourly quota from Claude or Codex), RAF pauses execution and displays a live countdown: `⏳ Rate limit hit. Resuming in 2h 14m 30s (resets 10:00 EET)`. It retries automatically when the limit resets. Rate limit waits do not count against `maxRetries`. If the reset time cannot be determined, RAF waits `rateLimitWaitDefault` minutes (default: 60).
+Note: When a rate limit is detected (daily/hourly quota from Claude or Codex), RAF pauses execution and displays a live countdown: `⏳ Rate limit hit. Resuming in 2h 14m 30s (resets 10:00 EET)`. If the provider reports an exact reset timestamp, RAF displays and honors that timestamp exactly. If the reset time cannot be determined, RAF falls back to waiting `rateLimitWaitDefault` minutes (default: 60). Rate limit waits do not count against `maxRetries`.
 
 ### `raf status`
 
