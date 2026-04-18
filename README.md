@@ -112,7 +112,8 @@ Note: When a rate limit is detected (daily/hourly quota from Claude or Codex), R
 Check project status. Worktree projects are discovered automatically when inside a git repo — no flag needed.
 
 ```bash
-raf status            # List all projects (includes worktree projects that differ)
+raf status            # List the last 10 main projects by default (+ differing/worktree-only worktrees)
+raf status --all      # Show all main projects regardless of config
 raf status abcdef     # Show details for a project (shows both main and worktree if they differ)
 ```
 
@@ -157,6 +158,7 @@ Example `~/.raf/raf.config.json`:
 ```
 
 `display.statusProjectLimit` controls how many projects `raf status` shows in the main list. Set it to `0` for no limit.
+Use `raf status --all` to override that limit for a single command. The `Worktrees:` section is always shown in full, and `raf status --json` always returns the complete project and worktree lists.
 
 Run `raf config wizard` and ask what's available — the session has full knowledge of every configurable option.
 
@@ -292,6 +294,7 @@ Alias: `raf act`
 
 | Option | Description |
 |--------|-------------|
+| `--all` | Show all main-repo projects, ignoring `display.statusProjectLimit` |
 | `--json` | Output as JSON |
 
 ## License

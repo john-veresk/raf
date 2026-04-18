@@ -127,12 +127,14 @@ Controls small user-facing presentation details in RAF output.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `display.statusProjectLimit` | `10` | Maximum number of projects shown in the main `raf status` list. `0` means unlimited. |
+| `display.statusProjectLimit` | `10` | Maximum number of projects shown in the human-readable main `raf status` list. `0` means unlimited. |
 
 - **Type**: number (non-negative integer)
 - **Allowed values**:
   - `0`: no limit
   - `1+`: show at most that many projects in the main status list
+- **CLI override**: `raf status --all` ignores this limit for one run.
+- **Does not affect**: `raf status --json` output or the `Worktrees:` section.
 
 Example:
 ```json

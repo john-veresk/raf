@@ -226,6 +226,7 @@ export interface DoCommandOptions {
 
 export interface StatusCommandOptions {
   json?: boolean;
+  all?: boolean;
 }
 
 /** Per-model token usage breakdown from stream-json result event. */

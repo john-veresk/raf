@@ -19,15 +19,14 @@ import {
   listWorktreeProjects,
   computeWorktreePath,
 } from '../core/worktree.js';
-
-/** Maximum number of projects to display in status list */
-const MAX_DISPLAYED_PROJECTS = 10;
+import { getStatusProjectLimit } from '../utils/config.js';
 
 export function createStatusCommand(): Command {
   const command = new Command('status')
     .description('Show status of a project or list all projects')
     .argument('[identifier]', 'Project identifier: number (3), name (my-project), or folder (3-my-project)')
     .option('--json', 'Output as JSON')
+    .option('--all', 'Show all main-repo projects, ignoring display.statusProjectLimit')
     .action(async (identifier?: string, options?: StatusCommandOptions) => {
       await runStatusCommand(identifier, options);
     });
@@ -285,14 +284,16 @@ async function listAllProjects(
 
   // Display main repo projects
   if (allProjects.length > 0) {
-    // Truncate to last N projects if needed (projects are sorted by number ascending)
     const totalProjects = allProjects.length;
-    const hiddenCount = Math.max(0, totalProjects - MAX_DISPLAYED_PROJECTS);
+    const configuredLimit = getStatusProjectLimit();
+    const effectiveLimit = options?.all ? 0 : configuredLimit;
+    const hiddenCount = effectiveLimit > 0
+      ? Math.max(0, totalProjects - effectiveLimit)
+      : 0;
     const displayedProjects = hiddenCount > 0
-      ? allProjects.slice(-MAX_DISPLAYED_PROJECTS)
+      ? allProjects.slice(-effectiveLimit)
       : allProjects;
 
-    // Show truncation indicator at top if there are hidden projects
     if (hiddenCount > 0) {
       logger.dim(`... and ${hiddenCount} more project${hiddenCount === 1 ? '' : 's'}`);
     }

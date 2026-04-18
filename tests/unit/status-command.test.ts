@@ -1,6 +1,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { jest } from '@jest/globals';
 import { resolveProjectIdentifier, extractProjectName } from '../../src/utils/paths.js';
 import {
   deriveProjectState,
@@ -8,6 +10,201 @@ import {
   discoverProjects,
   type DerivedProjectState,
 } from '../../src/core/state-derivation.js';
+
+let mockStatusProjectLimit = 10;
+let mockHomeDir: string | null = null;
+
+const mockLogger = {
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  newline: jest.fn(),
+  dim: jest.fn(),
+};
+
+jest.unstable_mockModule('../../src/utils/logger.js', () => ({
+  logger: mockLogger,
+}));
+
+jest.unstable_mockModule('node:os', () => ({
+  ...os,
+  homedir: () => mockHomeDir ?? os.homedir(),
+}));
+
+jest.unstable_mockModule('../../src/utils/config.js', () => ({
+  getStatusProjectLimit: jest.fn(() => mockStatusProjectLimit),
+  getModel: jest.fn(() => ({ model: 'opus', harness: 'claude' })),
+  getCommitFormat: jest.fn(() => '{prefix}[{projectName}] Merge: {branchName} into {targetBranch}'),
+  getCommitPrefix: jest.fn(() => 'RAF'),
+  renderCommitMessage: jest.fn((_template: string, vars: Record<string, string>) => `RAF[${vars['projectName']}] Merge: ${vars['branchName']} into ${vars['targetBranch']}`),
+  getTimeout: jest.fn(() => 60),
+}));
+
+const { createStatusCommand } = await import('../../src/commands/status.js');
+
+describe('Status Command - Command Behavior', () => {
+  let tempDir: string;
+  let tempHome: string;
+  let originalCwd: string;
+  let originalHome: string | undefined;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-status-command-'));
+    tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'raf-status-home-'));
+    originalCwd = process.cwd();
+    originalHome = process.env.HOME;
+    process.chdir(tempDir);
+    process.env.HOME = tempHome;
+    mockHomeDir = tempHome;
+    fs.mkdirSync(path.join(tempDir, 'RAF'));
+    execFileSync('git', ['init', '--quiet', '--initial-branch=main'], { cwd: tempDir });
+
+    mockStatusProjectLimit = 10;
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    process.env.HOME = originalHome;
+    mockHomeDir = null;
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    fs.rmSync(tempHome, { recursive: true, force: true });
+  });
+
+  function createProject(
+    number: number,
+    name: string,
+    baseDir = path.join(tempDir, 'RAF')
+  ): string {
+    const projectPath = path.join(baseDir, `${number}-${name}`);
+    fs.mkdirSync(path.join(projectPath, 'plans'), { recursive: true });
+    fs.mkdirSync(path.join(projectPath, 'outcomes'), { recursive: true });
+    fs.writeFileSync(path.join(projectPath, 'input.md'), '# Test Input\n');
+    fs.writeFileSync(
+      path.join(projectPath, 'plans', '01-task.md'),
+      '# Task: task\n\n## Objective\nTest task\n'
+    );
+    return projectPath;
+  }
+
+  function createWorktreeProject(folder: string): string {
+    const worktreeBaseDir = path.join(tempHome, '.raf', 'worktrees', path.basename(tempDir), folder, 'RAF');
+    return createProject(parseInt(folder, 10), folder.replace(/^\d+-/, ''), worktreeBaseDir);
+  }
+
+  async function runStatus(args: string[] = []): Promise<void> {
+    const command = createStatusCommand();
+    command.exitOverride();
+    await command.parseAsync(['node', 'status', ...args]);
+  }
+
+  function infoMessages(): string[] {
+    return mockLogger.info.mock.calls.map(([message]) => String(message));
+  }
+
+  function mainProjectLines(): string[] {
+    return infoMessages().filter((message) => /^\d+ /.test(message));
+  }
+
+  function worktreeProjectLines(): string[] {
+    return infoMessages().filter((message) => /^  \d+ /.test(message));
+  }
+
+  it('defaults to showing the last 10 main projects in plain text output', async () => {
+    for (let i = 1; i <= 12; i++) {
+      createProject(i, `project-${i}`);
+    }
+
+    await runStatus();
+
+    const mainLines = mainProjectLines();
+    expect(mainLines).toHaveLength(10);
+    expect(mainLines[0]).toContain('project-3');
+    expect(mainLines[9]).toContain('project-12');
+    expect(mockLogger.dim).toHaveBeenCalledWith('... and 2 more projects');
+  });
+
+  it('applies a custom display.statusProjectLimit only to the human-readable main project list', async () => {
+    mockStatusProjectLimit = 3;
+    for (let i = 1; i <= 5; i++) {
+      createProject(i, `project-${i}`);
+    }
+
+    await runStatus();
+
+    const mainLines = mainProjectLines();
+    expect(mainLines).toHaveLength(3);
+    expect(mainLines[0]).toContain('project-3');
+    expect(mainLines[2]).toContain('project-5');
+    expect(mockLogger.dim).toHaveBeenCalledWith('... and 2 more projects');
+  });
+
+  it('treats display.statusProjectLimit = 0 as unlimited for plain text output', async () => {
+    mockStatusProjectLimit = 0;
+    for (let i = 1; i <= 12; i++) {
+      createProject(i, `project-${i}`);
+    }
+
+    await runStatus();
+
+    expect(mainProjectLines()).toHaveLength(12);
+    expect(mockLogger.dim).not.toHaveBeenCalled();
+  });
+
+  it('lets --all override the configured plain-text main project limit', async () => {
+    mockStatusProjectLimit = 2;
+    for (let i = 1; i <= 5; i++) {
+      createProject(i, `project-${i}`);
+    }
+
+    await runStatus(['--all']);
+
+    expect(mainProjectLines()).toHaveLength(5);
+    expect(mockLogger.dim).not.toHaveBeenCalled();
+  });
+
+  it('keeps --json unbounded for both main projects and worktrees', async () => {
+    mockStatusProjectLimit = 2;
+    const worktreeFolders = ['101-wt-1', '102-wt-2', '103-wt-3'];
+
+    for (let i = 1; i <= 5; i++) {
+      createProject(i, `project-${i}`);
+    }
+    for (const folder of worktreeFolders) {
+      createWorktreeProject(folder);
+    }
+
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    await runStatus(['--json']);
+
+    expect(consoleSpy).toHaveBeenCalledTimes(1);
+    const printed = JSON.parse(String(consoleSpy.mock.calls[0]?.[0] ?? '{}'));
+    expect(printed.projects).toHaveLength(5);
+    expect(printed.worktrees).toHaveLength(3);
+
+    consoleSpy.mockRestore();
+  });
+
+  it('does not truncate the Worktrees section when the main list is limited', async () => {
+    mockStatusProjectLimit = 2;
+    const worktreeFolders = ['101-wt-1', '102-wt-2', '103-wt-3'];
+
+    for (let i = 1; i <= 5; i++) {
+      createProject(i, `project-${i}`);
+    }
+    for (const folder of worktreeFolders) {
+      createWorktreeProject(folder);
+    }
+
+    await runStatus();
+
+    expect(mainProjectLines()).toHaveLength(2);
+    expect(infoMessages()).toContain('Worktrees:');
+    expect(worktreeProjectLines()).toHaveLength(3);
+  });
+});
 
 describe('Status Command - Identifier Support', () => {
   let tempDir: string;
