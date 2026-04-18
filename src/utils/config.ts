@@ -605,98 +605,34 @@ export function getModelShortName(modelId: string): string {
   return modelId;
 }
 
-function normalizeModelAlias(value: string): string {
-  return value.toLowerCase().replace(/^gpt-/, 'gpt').replace(/[^a-z0-9]/g, '');
-}
-
-const FULL_CODEX_DISPLAY_ALIASES = new Set<string>(['codex', 'gpt54']);
-
-/**
- * Mapping of short model aliases to their current full model IDs.
- * These should match the latest Claude model versions.
- */
-const MODEL_ALIAS_TO_FULL_ID: Record<string, string> = {
-  opus: 'claude-opus-4-6',
-  sonnet: 'claude-sonnet-4-5-20250929',
-  haiku: 'claude-haiku-4-5-20251001',
-  codex: 'gpt-5.3-codex',
-  gpt54: 'gpt-5.4',
-};
-
-function getPreferredModelDisplayLabel(alias: string): string {
-  const fullId = MODEL_ALIAS_TO_FULL_ID[alias];
-  if (!fullId) {
-    return alias;
-  }
-
-  // Codex aliases should always render as canonical full IDs in user-facing output.
-  if (FULL_CODEX_DISPLAY_ALIASES.has(alias)) {
-    return fullId;
-  }
-
-  return normalizeModelAlias(alias) === normalizeModelAlias(fullId) ? fullId : alias;
-}
-
 /**
  * Get the centralized user-facing display label for a model.
- * Keeps concise Claude labels, while rendering Codex aliases as canonical full IDs.
+ * Preserve the configured/provider identifier instead of inventing pinned versions.
+ * Harness-prefixed specs are unwrapped because the harness is usually displayed separately.
  */
 export function getModelDisplayName(modelId: string): string {
-  const aliasedDisplay = getPreferredModelDisplayLabel(modelId);
-  if (aliasedDisplay !== modelId) {
-    return aliasedDisplay;
+  const prefixMatch = modelId.match(/^(claude|codex)\/(.+)$/);
+  if (prefixMatch) {
+    return prefixMatch[2]!;
   }
 
-  const matchingAliases = Object.entries(MODEL_ALIAS_TO_FULL_ID)
-    .filter(([, fullId]) => fullId === modelId)
-    .map(([alias]) => alias);
-  if (matchingAliases.length > 0) {
-    const preferredAlias = matchingAliases[matchingAliases.length - 1]!;
-    return getPreferredModelDisplayLabel(preferredAlias);
-  }
-
-  return getModelShortName(modelId);
+  return modelId;
 }
 
 interface ModelDisplayOptions {
   includeHarness?: boolean;
-  fullId?: boolean;
 }
 
 /**
  * Format a model label for user-facing logs.
- * Defaults to the centralized display policy, or can opt into explicit full-ID display.
  */
 export function formatModelDisplay(
   model: string,
   harness?: HarnessName,
   options: ModelDisplayOptions = {},
 ): string {
-  const label = options.fullId ? resolveFullModelId(model) : getModelDisplayName(model);
+  const label = getModelDisplayName(model);
   return options.includeHarness && harness ? `${label} (${harness})` : label;
-}
-
-/**
- * Resolve a model name to its full model ID.
- * If already a full model ID, returns as-is.
- * If a short alias, returns the corresponding full ID.
- * Handles harness-prefixed format: strips prefix and resolves.
- */
-export function resolveFullModelId(modelName: string): string {
-  // Handle harness-prefixed format
-  const prefixMatch = modelName.match(/^(claude|codex)\/(.+)$/);
-  if (prefixMatch) {
-    const model = prefixMatch[2]!;
-    const fullId = MODEL_ALIAS_TO_FULL_ID[model];
-    return fullId ?? model;
-  }
-
-  const fullId = MODEL_ALIAS_TO_FULL_ID[modelName];
-  if (fullId) {
-    return fullId;
-  }
-  // Already a full ID or unknown, return as-is
-  return modelName;
 }
 
 /**
