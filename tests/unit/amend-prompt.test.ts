@@ -25,6 +25,7 @@ describe('Amend Prompt', () => {
     ],
     nextTaskNumber: 4,
     newTaskDescription: 'Add a new feature',
+    harness: 'claude',
   };
 
   describe('basic API', () => {
@@ -158,6 +159,29 @@ describe('Amend Prompt', () => {
   });
 
   describe('exploration and interview directives', () => {
+    it('should use AskUserQuestion for Claude and not request_user_input', () => {
+      const { systemPrompt } = getAmendPrompt({
+        ...baseParams,
+        harness: 'claude',
+      });
+
+      expect(systemPrompt).toContain('AskUserQuestion');
+      expect(systemPrompt).not.toContain('request_user_input');
+    });
+
+    it('should use request_user_input for Codex and not AskUserQuestion', () => {
+      const { systemPrompt } = getAmendPrompt({
+        ...baseParams,
+        harness: 'codex',
+      });
+
+      expect(systemPrompt).toContain('request_user_input');
+      expect(systemPrompt).not.toContain('AskUserQuestion');
+      expect(systemPrompt).toMatch(/short architectural\/foundational questions first/i);
+      expect(systemPrompt).toContain('2-3 mutually exclusive choices');
+      expect(systemPrompt).toContain('/test/project/decisions.md');
+    });
+
     it('should call out lifecycle tracing in exploration', () => {
       const { systemPrompt } = getAmendPrompt(baseParams);
       expect(systemPrompt).toMatch(/creation.*storage.*consumption/);

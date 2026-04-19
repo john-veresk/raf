@@ -1,4 +1,5 @@
-import { PLANNING_PRINCIPLES, PLAN_TEMPLATE, FLOW, DEPENDENCY_RULES } from './shared.js';
+import type { HarnessName } from '../types/config.js';
+import { PLANNING_PRINCIPLES, PLAN_TEMPLATE, FLOW, DEPENDENCY_RULES, getInterviewInstructions } from './shared.js';
 import { DerivedTask } from '../core/state-derivation.js';
 import { encodeTaskId } from '../utils/paths.js';
 
@@ -7,6 +8,7 @@ export interface AmendPromptParams {
   existingTasks: Array<DerivedTask & { taskName: string }>;
   nextTaskNumber: number;
   newTaskDescription: string;
+  harness?: HarnessName;
 }
 
 export interface AmendPromptResult {
@@ -25,6 +27,7 @@ export function getAmendPrompt(params: AmendPromptParams): AmendPromptResult {
     existingTasks,
     nextTaskNumber,
     newTaskDescription,
+    harness = 'claude',
   } = params;
 
   const existingTasksSummary = existingTasks
@@ -103,11 +106,7 @@ If exploration reveals the premise is wrong or the change already exists, surfac
 
 ### 2. Interview the User
 
-Use the AskUserQuestion tool. Ask architectural/foundational questions first (data shapes, module boundaries, current state of the code) and tactical questions only after.
-
-When the task description conflicts with what the code actually does, reconcile the contradiction with the user before proceeding.
-
-After each answer, append the Q&A pair to \`${projectPath}/decisions.md\`.
+${getInterviewInstructions(harness, projectPath)}
 
 ### 3. Create Plan Files
 

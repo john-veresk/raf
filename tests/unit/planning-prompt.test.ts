@@ -4,6 +4,7 @@ describe('Planning Prompt', () => {
   const defaultParams: PlanningPromptParams = {
     projectPath: '/test/project',
     inputContent: 'Build a todo app with user authentication',
+    harness: 'claude',
   };
 
   describe('getPlanningPrompt', () => {
@@ -97,6 +98,29 @@ describe('Planning Prompt', () => {
   });
 
   describe('exploration and interview directives', () => {
+    it('should use AskUserQuestion for Claude and not request_user_input', () => {
+      const { systemPrompt } = getPlanningPrompt({
+        ...defaultParams,
+        harness: 'claude',
+      });
+
+      expect(systemPrompt).toContain('AskUserQuestion');
+      expect(systemPrompt).not.toContain('request_user_input');
+    });
+
+    it('should use request_user_input for Codex and not AskUserQuestion', () => {
+      const { systemPrompt } = getPlanningPrompt({
+        ...defaultParams,
+        harness: 'codex',
+      });
+
+      expect(systemPrompt).toContain('request_user_input');
+      expect(systemPrompt).not.toContain('AskUserQuestion');
+      expect(systemPrompt).toMatch(/short architectural\/foundational questions first/i);
+      expect(systemPrompt).toContain('2-3 mutually exclusive choices');
+      expect(systemPrompt).toContain('/test/project/decisions.md');
+    });
+
     it('should call out lifecycle tracing in exploration', () => {
       const { systemPrompt } = getPlanningPrompt(defaultParams);
 

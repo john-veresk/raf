@@ -1,8 +1,10 @@
-import { PLANNING_PRINCIPLES, PLAN_TEMPLATE, FLOW, DEPENDENCY_RULES } from './shared.js';
+import type { HarnessName } from '../types/config.js';
+import { PLANNING_PRINCIPLES, PLAN_TEMPLATE, FLOW, DEPENDENCY_RULES, getInterviewInstructions } from './shared.js';
 
 export interface PlanningPromptParams {
   projectPath: string;
   inputContent: string;
+  harness?: HarnessName;
   worktreeMode?: boolean;
 }
 
@@ -17,7 +19,7 @@ export interface PlanningPromptResult {
  * - userMessage: Reference to input.md file (via positional argument, triggers the LLM to start)
  */
 export function getPlanningPrompt(params: PlanningPromptParams): PlanningPromptResult {
-  const { projectPath } = params;
+  const { projectPath, harness = 'claude' } = params;
   const systemPrompt = `You are a project planning assistant for RAF (Ralph's Automation Framework). Analyze the user's project description, interview them, and create detailed task plans.
 
 ## Project Location
@@ -41,11 +43,7 @@ If exploration reveals that the requested change already exists or that the prem
 
 ### 2. Interview the User
 
-Use the AskUserQuestion tool. Ask architectural/foundational questions first (data shapes, module boundaries, current state of the code) and tactical questions only after.
-
-When the task description conflicts with what the code actually does, reconcile the contradiction with the user before proceeding.
-
-After each answer, append the Q&A pair to \`${projectPath}/decisions.md\`.
+${getInterviewInstructions(harness, projectPath)}
 
 ### 3. Create Plan Files
 

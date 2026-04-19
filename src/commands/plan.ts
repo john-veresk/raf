@@ -284,6 +284,7 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, wor
   const { systemPrompt, userMessage } = getPlanningPrompt({
     projectPath,
     inputContent: userInput,
+    harness: modelEntry?.harness,
     worktreeMode: !!worktreeRoot,
   });
 
@@ -528,6 +529,7 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry): Pro
     existingTasks,
     nextTaskNumber,
     newTaskDescription: cleanInput,
+    harness: modelEntry?.harness,
   });
 
   try {

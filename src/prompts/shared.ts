@@ -3,6 +3,8 @@
  * No runtime behaviour — pure string exports.
  */
 
+import type { HarnessName } from '../types/config.js';
+
 export const PLANNING_PRINCIPLES = `## Planning Principles
 
 - **Verify premise.** Before proposing any change, confirm the problem actually exists in the current code — don't plan a fix for a bug you haven't located.
@@ -56,3 +58,19 @@ effort: medium
 export const FLOW = `For each plan, draft the content in your scratchpad first, self-critique for missing steps and unhandled risks, revise, then write the file.`;
 
 export const DEPENDENCY_RULES = `**Dependencies:** Infer automatically from task relationships — do not ask the user. A task's dependency IDs must be strictly lower than its own ID (task 36 cannot depend on task 39). List only direct dependencies, not transitive ones. Omit the section entirely if there are no prerequisites. For completed tasks, include the outcome file path inline: \`ID (see outcomes/ID-task-name.md)\`.`;
+
+export function getInterviewInstructions(harness: HarnessName, projectPath: string): string {
+  if (harness === 'codex') {
+    return `Use the request_user_input tool. Ask short architectural/foundational questions first (data shapes, module boundaries, current state of the code) and tactical questions only after. When possible, present 2-3 mutually exclusive choices instead of open-ended prompts.
+
+When the task description conflicts with what the code actually does, reconcile the contradiction with the user before proceeding.
+
+After each answer, append the Q&A pair to \`${projectPath}/decisions.md\`.`;
+  }
+
+  return `Use the AskUserQuestion tool. Ask architectural/foundational questions first (data shapes, module boundaries, current state of the code) and tactical questions only after.
+
+When the task description conflicts with what the code actually does, reconcile the contradiction with the user before proceeding.
+
+After each answer, append the Q&A pair to \`${projectPath}/decisions.md\`.`;
+}
