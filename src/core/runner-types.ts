@@ -1,5 +1,7 @@
 import type { UsageData, HarnessName, CodexExecutionMode } from '../types/config.js';
 
+export type InteractiveIntent = 'default' | 'planning';
+
 export interface RateLimitInfo {
   resetsAt: Date;
   limitType: string; // e.g. 'five_hour', 'seven_day', 'usage_limit_reached'
@@ -22,6 +24,11 @@ export interface RunnerOptions {
    * Only used in interactive mode (runInteractive).
    */
   dangerouslySkipPermissions?: boolean;
+  /**
+   * High-level purpose of the interactive session.
+   * Used for harness-specific startup behavior, such as Codex planning interviews.
+   */
+  interactiveIntent?: InteractiveIntent;
   /**
    * Path to the outcome file. When provided, enables completion detection:
    * - Monitors stdout for completion markers (<promise>COMPLETE/FAILED</promise>)

@@ -177,7 +177,7 @@ describe('Plan Command - Legacy Auto Flag Compatibility', () => {
     expect(mockRunInteractive).toHaveBeenLastCalledWith(
       'planning system prompt',
       'planning user message',
-      { dangerouslySkipPermissions: true, cwd: undefined }
+      { dangerouslySkipPermissions: true, cwd: undefined, interactiveIntent: 'planning' }
     );
 
     mockRunInteractive.mockClear();
@@ -186,7 +186,7 @@ describe('Plan Command - Legacy Auto Flag Compatibility', () => {
     expect(mockRunInteractive).toHaveBeenLastCalledWith(
       'planning system prompt',
       'planning user message',
-      { dangerouslySkipPermissions: true, cwd: undefined }
+      { dangerouslySkipPermissions: true, cwd: undefined, interactiveIntent: 'planning' }
     );
   });
 
@@ -198,7 +198,7 @@ describe('Plan Command - Legacy Auto Flag Compatibility', () => {
     expect(mockRunInteractive).toHaveBeenCalledWith(
       'planning system prompt',
       'planning user message',
-      { dangerouslySkipPermissions: true, cwd: undefined }
+      { dangerouslySkipPermissions: true, cwd: undefined, interactiveIntent: 'planning' }
     );
     expect(mockLogger.warn).not.toHaveBeenCalledWith(
       expect.stringContaining('Auto mode enabled')
@@ -216,7 +216,7 @@ describe('Plan Command - Legacy Auto Flag Compatibility', () => {
     expect(mockRunInteractive).toHaveBeenLastCalledWith(
       'amend system prompt',
       'amend user message',
-      { dangerouslySkipPermissions: true, cwd: undefined }
+      { dangerouslySkipPermissions: true, cwd: undefined, interactiveIntent: 'planning' }
     );
 
     mockRunInteractive.mockClear();
@@ -225,7 +225,7 @@ describe('Plan Command - Legacy Auto Flag Compatibility', () => {
     expect(mockRunInteractive).toHaveBeenLastCalledWith(
       'amend system prompt',
       'amend user message',
-      { dangerouslySkipPermissions: true, cwd: undefined }
+      { dangerouslySkipPermissions: true, cwd: undefined, interactiveIntent: 'planning' }
     );
     expect(mockLogger.warn).not.toHaveBeenCalledWith(
       expect.stringContaining('Auto mode enabled')
@@ -254,7 +254,7 @@ describe('Plan Command - Legacy Auto Flag Compatibility', () => {
     expect(mockRunInteractive).toHaveBeenCalledWith(
       'planning system prompt',
       'planning user message',
-      { dangerouslySkipPermissions: true, cwd: undefined }
+      { dangerouslySkipPermissions: true, cwd: undefined, interactiveIntent: 'planning' }
     );
   });
 });

@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 
 const mockSpawn = jest.fn();
 const mockExecSync = jest.fn();
+const mockExecFileSync = jest.fn();
 const mockPtySpawn = jest.fn();
 
 const mockExistsSync = jest.fn();
@@ -16,6 +17,7 @@ const mockIsFileCommittedInHead = jest.fn();
 jest.unstable_mockModule('node:child_process', () => ({
   spawn: mockSpawn,
   execSync: mockExecSync,
+  execFileSync: mockExecFileSync,
 }));
 
 jest.unstable_mockModule('node-pty', () => ({
@@ -90,6 +92,7 @@ describe('CodexRunner', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockExecSync.mockReturnValue('/usr/local/bin/codex\n');
+    mockExecFileSync.mockReturnValue('default_mode_request_user_input  under development  false\n');
     mockExistsSync.mockReturnValue(false);
   });
 
@@ -243,6 +246,56 @@ describe('CodexRunner', () => {
 
     mockProc._exitCallback({ exitCode: 0 });
     await runPromise;
+  });
+
+  it('enables the verified request_user_input feature for planning sessions', async () => {
+    const mockProc = createMockPtyProcess();
+    const mockStdin = createMockStdin();
+    const mockStdout = createMockStdout();
+
+    Object.defineProperty(process, 'stdin', { value: mockStdin, configurable: true });
+    Object.defineProperty(process, 'stdout', { value: mockStdout, configurable: true });
+
+    mockPtySpawn.mockReturnValue(mockProc);
+
+    const runner = new CodexRunner({ model: 'gpt-5.4' });
+    const runPromise = runner.runInteractive('system prompt', 'user message', {
+      interactiveIntent: 'planning',
+    });
+
+    const spawnArgs = mockPtySpawn.mock.calls[0]?.[1] as string[];
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      '/usr/local/bin/codex',
+      ['features', 'list'],
+      { encoding: 'utf-8' }
+    );
+    expect(spawnArgs).toContain('--enable');
+    expect(spawnArgs).toContain('default_mode_request_user_input');
+
+    mockProc._exitCallback({ exitCode: 0 });
+    await runPromise;
+  });
+
+  it('fails before startup when Codex planning support is unavailable', async () => {
+    mockExecFileSync.mockImplementation((_path: string, args: string[]) => {
+      if (args[0] === 'features') {
+        return 'collaboration_modes  removed  true\n';
+      }
+      if (args[0] === '--version') {
+        return 'codex-cli 0.120.0\n';
+      }
+      return '';
+    });
+
+    const runner = new CodexRunner({ model: 'gpt-5.4' });
+
+    await expect(
+      runner.runInteractive('system prompt', 'user message', { interactiveIntent: 'planning' })
+    ).rejects.toThrow(
+      'Codex CLI codex-cli 0.120.0 cannot start RAF planning sessions with request_user_input support.'
+    );
+
+    expect(mockPtySpawn).not.toHaveBeenCalled();
   });
 
   it('does not force dangerous interactive mode when the option is false', async () => {

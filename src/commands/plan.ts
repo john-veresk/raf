@@ -59,6 +59,15 @@ interface PlanCommandOptions {
   worktree?: boolean;
 }
 
+function exitUnsupportedCodexPlanningResume(): never {
+  logger.error('`raf plan --resume` is not supported when the planning harness is Codex.');
+  logger.error(
+    'Codex planning sessions rely on a startup-only request_user_input override, so RAF cannot reopen them with the same guarantee.'
+  );
+  logger.error('Use a Claude planning model for resumable planning, or restart the planning session from scratch.');
+  process.exit(1);
+}
+
 export function createPlanCommand(): Command {
   const command = new Command('plan')
     .description('Create a new project and interactively plan tasks')
@@ -74,6 +83,9 @@ export function createPlanCommand(): Command {
       const modelEntry = getModel('plan');
 
       if (options.resume) {
+        if (modelEntry.harness === 'codex') {
+          exitUnsupportedCodexPlanningResume();
+        }
         await runResumeCommand(options.resume, modelEntry);
       } else if (options.amend) {
         if (!projectName) {
@@ -292,6 +304,7 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, wor
     const exitCode = await claudeRunner.runInteractive(systemPrompt, userMessage, {
       dangerouslySkipPermissions: true,
       cwd: worktreeRoot ?? undefined,
+      interactiveIntent: 'planning',
     });
 
     if (exitCode !== 0) {
@@ -537,6 +550,7 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry): Pro
       dangerouslySkipPermissions: true,
       // Run session in the worktree root if in worktree mode
       cwd: worktreePath ?? undefined,
+      interactiveIntent: 'planning',
     });
 
     if (exitCode !== 0) {

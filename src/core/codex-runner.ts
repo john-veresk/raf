@@ -1,6 +1,6 @@
 import * as pty from 'node-pty';
 import type { IDisposable } from 'node-pty';
-import { execSync, spawn } from 'node:child_process';
+import { execFileSync, execSync, spawn } from 'node:child_process';
 import { logger } from '../utils/logger.js';
 import { killProcessGroup } from '../utils/process-kill.js';
 import { renderCodexStreamEvent } from '../parsers/codex-stream-renderer.js';
@@ -39,6 +39,39 @@ const CODEX_EXECUTION_MODE_TO_FLAG: Record<CodexExecutionMode, string> = {
   dangerous: '--dangerously-bypass-approvals-and-sandbox',
   fullAuto: '--full-auto',
 };
+const CODEX_PLANNING_REQUEST_USER_INPUT_FEATURE = 'default_mode_request_user_input';
+
+function getCodexVersion(codexPath: string): string | null {
+  try {
+    return execFileSync(codexPath, ['--version'], { encoding: 'utf-8' }).trim();
+  } catch {
+    return null;
+  }
+}
+
+function ensureCodexPlanningFeatureAvailable(codexPath: string): void {
+  try {
+    const featuresOutput = execFileSync(codexPath, ['features', 'list'], { encoding: 'utf-8' });
+    const featureLine = featuresOutput
+      .split(/\r?\n/)
+      .find((line) => line.trim().startsWith(CODEX_PLANNING_REQUEST_USER_INPUT_FEATURE));
+
+    if (featureLine && !/\bremoved\b/i.test(featureLine)) {
+      return;
+    }
+  } catch {
+    // Fall through to the shared actionable error below.
+  }
+
+  const version = getCodexVersion(codexPath);
+  const versionText = version ? `${version}` : 'unknown version';
+  throw new Error(
+    `Codex CLI ${versionText} cannot start RAF planning sessions with request_user_input support. ` +
+    `RAF planning on Codex requires the CLI startup override ` +
+    `\`--enable ${CODEX_PLANNING_REQUEST_USER_INPUT_FEATURE}\`, but this installation does not advertise that capability. ` +
+    'Upgrade Codex CLI (verified on codex-cli 0.121.0) or use a Claude planning model.'
+  );
+}
 
 /**
  * Parse a time-of-day string like "10am" or "1pm" into a Date.
@@ -154,11 +187,21 @@ export class CodexRunner implements ICliRunner {
     userMessage: string,
     options: RunnerOptions = {}
   ): Promise<number> {
-    const { cwd = process.cwd(), dangerouslySkipPermissions = false } = options;
+    const {
+      cwd = process.cwd(),
+      dangerouslySkipPermissions = false,
+      interactiveIntent = 'default',
+    } = options;
 
     return new Promise((resolve) => {
       const combinedPrompt = buildCombinedPrompt(systemPrompt, userMessage);
+      const codexPath = getCodexPath();
       const args = ['-m', this.model];
+
+      if (interactiveIntent === 'planning') {
+        ensureCodexPlanningFeatureAvailable(codexPath);
+        args.push('--enable', CODEX_PLANNING_REQUEST_USER_INPUT_FEATURE);
+      }
 
       // Add reasoning effort via config override when configured
       if (this.reasoningEffort) {
@@ -173,7 +216,7 @@ export class CodexRunner implements ICliRunner {
 
       logger.debug(`Starting interactive Codex session with model: ${this.model}`);
 
-      this.activeProcess = pty.spawn(getCodexPath(), args, {
+      this.activeProcess = pty.spawn(codexPath, args, {
         name: 'xterm-256color',
         cols: process.stdout.columns ?? 80,
         rows: process.stdout.rows ?? 24,

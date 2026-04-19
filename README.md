@@ -36,7 +36,7 @@ Good software of the future will be built with good decisions by humans, not AI.
 # Install
 npm install -g raf
 
-# Plan a project - Claude will interview you and create a detailed plan
+# Plan a project - the selected planning harness will interview you and create a detailed plan
 raf plan
 
 # Execute the plan
@@ -66,9 +66,10 @@ That's it! RAF will guide you through breaking down your task and then execute i
 
 ### `raf plan`
 
-Opens your `$EDITOR` to write a project description, then Claude will interview you and create detailed task plans.
+Opens your `$EDITOR` to write a project description, then the selected planning harness will interview you and create detailed task plans.
 
 Planning sessions always run with interactive permission bypass enabled. No extra flag is required.
+When the planning harness is Codex, RAF also starts Codex with `--enable default_mode_request_user_input` so the planning interview can use `request_user_input`.
 
 ```bash
 raf plan              # Create a new project
@@ -80,7 +81,7 @@ raf plan --amend abcdef  # Add tasks to existing project
 
 - **`--amend <id>`**: Adds new tasks to an existing project. Opens a new planning session that sees existing tasks (with their status) and creates additional plans numbered after the last task. Use when scope grows or you want to extend a completed project.
 
-- **`--resume <id>`**: Resumes an interrupted Claude planning session. Opens Claude's session picker scoped to the project directory so you can continue exactly where you left off. Use when your planning session was interrupted (Ctrl-C, network issue, etc.) and you want to continue the conversation.
+- **`--resume <id>`**: Resumes an interrupted Claude planning session. Opens Claude's session picker scoped to the project directory so you can continue exactly where you left off. Use when your planning session was interrupted (Ctrl-C, network issue, etc.) and you want to continue the conversation. Codex planning sessions do not support `--resume`.
 
 ### `raf do`
 
@@ -184,7 +185,7 @@ RAF supports multiple LLM harnesses per scenario. Each model entry in `models` a
 ```
 
 **Codex limitations:**
-- `--resume` is not supported (Codex CLI has no session resume)
+- `raf plan --resume` is not supported when the planning harness is Codex
 - System prompt is prepended to the user message rather than passed separately
 - Post-run summaries currently include exact token counts but omit USD cost because Codex CLI does not provide an exact per-run price
 - `raf do` defaults to Codex dangerous execution mode (`--dangerously-bypass-approvals-and-sandbox`); switch to `codex.executionMode: "fullAuto"` for sandboxed workspace-write mode
@@ -267,6 +268,7 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 | Option | Description |
 |--------|-------------|
 | `--amend <id>` | Add tasks to existing project |
+| `--resume <id>` | Resume an interrupted Claude planning session |
 
 ### `raf do [project]`
 
