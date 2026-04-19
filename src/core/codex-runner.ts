@@ -39,6 +39,9 @@ const CODEX_EXECUTION_MODE_TO_FLAG: Record<CodexExecutionMode, string> = {
   dangerous: '--dangerously-bypass-approvals-and-sandbox',
   fullAuto: '--full-auto',
 };
+// Verified against codex-cli 0.121.0: `codex features list` advertises this
+// startup-only flag, and launching Codex with `--enable ...` exposes
+// `request_user_input` to RAF planning sessions in Default mode.
 const CODEX_PLANNING_REQUEST_USER_INPUT_FEATURE = 'default_mode_request_user_input';
 
 function getCodexVersion(codexPath: string): string | null {

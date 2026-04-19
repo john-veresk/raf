@@ -200,6 +200,12 @@ describe('Plan Command - Legacy Auto Flag Compatibility', () => {
       'planning user message',
       { dangerouslySkipPermissions: true, cwd: undefined, interactiveIntent: 'planning' }
     );
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      'The planning session may ask follow-up questions before writing tasks.'
+    );
+    expect(mockLogger.info).not.toHaveBeenCalledWith(
+      'The planner will interview you about each task.'
+    );
     expect(mockLogger.warn).not.toHaveBeenCalledWith(
       expect.stringContaining('Auto mode enabled')
     );
@@ -218,14 +224,27 @@ describe('Plan Command - Legacy Auto Flag Compatibility', () => {
       'amend user message',
       { dangerouslySkipPermissions: true, cwd: undefined, interactiveIntent: 'planning' }
     );
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      'The planning session may ask follow-up questions before updating tasks.'
+    );
+    expect(mockLogger.info).not.toHaveBeenCalledWith(
+      'The planner will interview you about each new task.'
+    );
 
     mockRunInteractive.mockClear();
+    mockLogger.info.mockClear();
 
     await parsePlanCommand(['existing', '--amend', '--auto']);
     expect(mockRunInteractive).toHaveBeenLastCalledWith(
       'amend system prompt',
       'amend user message',
       { dangerouslySkipPermissions: true, cwd: undefined, interactiveIntent: 'planning' }
+    );
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      'The planning session may ask follow-up questions before updating tasks.'
+    );
+    expect(mockLogger.info).not.toHaveBeenCalledWith(
+      'The planner will interview you about each new task.'
     );
     expect(mockLogger.warn).not.toHaveBeenCalledWith(
       expect.stringContaining('Auto mode enabled')

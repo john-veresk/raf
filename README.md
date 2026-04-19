@@ -36,7 +36,7 @@ Good software of the future will be built with good decisions by humans, not AI.
 # Install
 npm install -g raf
 
-# Plan a project - the selected planning harness will interview you and create a detailed plan
+# Plan a project - the selected planning harness will gather follow-up input and create a detailed plan
 raf plan
 
 # Execute the plan
@@ -56,7 +56,7 @@ That's it! RAF will guide you through breaking down your task and then execute i
 - **Interactive Planning**: Interviews you to break down complex tasks into structured plans
 - **Smart Execution**: Automatic model selection, retry with escalation, and progress tracking
 - **Multi-Harness**: Use Claude Code CLI or OpenAI Codex CLI via per-model harness config
-- **Resume & Amend**: Continue interrupted sessions or extend existing projects
+- **Resume & Amend**: Resume interrupted Claude planning sessions or extend existing projects
 - **Git Integration**: Automatic commits, worktree isolation, and PR generation
 - **Task Dependencies**: Dependency tracking with automatic blocking on failure
 - **Rate Limit Auto-Resume**: Detects quota limits from Claude and Codex, pauses with a live countdown, and resumes automatically when the limit resets
@@ -66,10 +66,11 @@ That's it! RAF will guide you through breaking down your task and then execute i
 
 ### `raf plan`
 
-Opens your `$EDITOR` to write a project description, then the selected planning harness will interview you and create detailed task plans.
+Opens your `$EDITOR` to write a project description, then the selected planning harness gathers any needed follow-up input and creates detailed task plans.
 
 Planning sessions always run with interactive permission bypass enabled. No extra flag is required.
-When the planning harness is Codex, RAF also starts Codex with `--enable default_mode_request_user_input` so the planning interview can use `request_user_input`.
+When the planning harness is Claude, the planner asks follow-up questions with `AskUserQuestion`.
+When the planning harness is Codex, RAF starts the Codex planning UI with `--enable default_mode_request_user_input` so planning can use `request_user_input`.
 
 ```bash
 raf plan              # Create a new project
@@ -81,7 +82,7 @@ raf plan --amend abcdef  # Add tasks to existing project
 
 - **`--amend <id>`**: Adds new tasks to an existing project. Opens a new planning session that sees existing tasks (with their status) and creates additional plans numbered after the last task. Use when scope grows or you want to extend a completed project.
 
-- **`--resume <id>`**: Resumes an interrupted Claude planning session. Opens Claude's session picker scoped to the project directory so you can continue exactly where you left off. Use when your planning session was interrupted (Ctrl-C, network issue, etc.) and you want to continue the conversation. Codex planning sessions do not support `--resume`.
+- **`--resume <id>`**: Resumes an interrupted Claude planning session. Opens Claude's session picker scoped to the project directory so you can continue exactly where you left off. Use when your planning session was interrupted (Ctrl-C, network issue, etc.) and you want to continue the conversation. Codex planning sessions do not support `--resume` because RAF depends on a startup-only `request_user_input` override for Codex planning UI.
 
 ### `raf do`
 
@@ -184,6 +185,10 @@ RAF supports multiple LLM harnesses per scenario. Each model entry in `models` a
 }
 ```
 
+**Planning behavior:**
+- Claude planning follow-up questions use `AskUserQuestion`
+- Codex planning runs in the Codex planning UI backed by `request_user_input` (`raf plan` enables `default_mode_request_user_input` at startup)
+
 **Codex limitations:**
 - `raf plan --resume` is not supported when the planning harness is Codex
 - System prompt is prepended to the user message rather than passed separately
@@ -268,7 +273,7 @@ If `gh` is missing or unauthenticated, the option falls back to "Leave branch" w
 | Option | Description |
 |--------|-------------|
 | `--amend <id>` | Add tasks to existing project |
-| `--resume <id>` | Resume an interrupted Claude planning session |
+| `--resume <id>` | Resume an interrupted Claude planning session (`raf plan --resume` is unavailable for Codex planning) |
 
 ### `raf do [project]`
 

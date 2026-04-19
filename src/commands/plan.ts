@@ -287,7 +287,7 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, wor
 
   // Run planning session
   logger.info('Starting planning session...');
-  logger.info('The planner will interview you about each task.');
+  logger.info('The planning session may ask follow-up questions before writing tasks.');
   if (modelEntry) {
     logger.info(`Using model: ${formatModelDisplay(modelEntry.model, modelEntry.harness, { includeHarness: true })}`);
   }
@@ -531,7 +531,7 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry): Pro
 
   // Run amend planning session
   logger.info('Starting amendment session...');
-  logger.info('The planner will interview you about each new task.');
+  logger.info('The planning session may ask follow-up questions before updating tasks.');
   if (modelEntry) {
     logger.info(`Using model: ${formatModelDisplay(modelEntry.model, modelEntry.harness, { includeHarness: true })}`);
   }
