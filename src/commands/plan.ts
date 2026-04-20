@@ -493,7 +493,8 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry): Pro
   logger.newline();
 
   // Open editor for new task description
-  const editorTemplate = getAmendTemplate(existingTasks, nextTaskNumber);
+  const projectLabel = path.basename(projectPath);
+  const editorTemplate = getAmendTemplate(projectLabel, existingTasks, nextTaskNumber);
   logger.info('Opening editor for new task description...');
   logger.info('(Save and close the editor when done)');
   logger.newline();
@@ -606,6 +607,7 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry): Pro
  * Generate editor template for amend mode showing existing tasks.
  */
 function getAmendTemplate(
+  projectLabel: string,
   existingTasks: Array<DerivedTask & { taskName: string }>,
   nextTaskNumber: number
 ): string {
@@ -622,6 +624,8 @@ function getAmendTemplate(
     .join('\n');
 
   return `# Describe the new tasks you want to add
+#
+# Project: ${projectLabel}
 #
 # Existing tasks (read-only reference):
 ${taskList}

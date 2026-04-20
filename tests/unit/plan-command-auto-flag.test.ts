@@ -251,6 +251,26 @@ describe('Plan Command - Legacy Auto Flag Compatibility', () => {
     );
   });
 
+  it('includes the resolved project identifier in the amend editor template', async () => {
+    const projectPath = path.join(tempDir, 'RAF', '69-amend-whisper');
+    fs.mkdirSync(path.join(projectPath, 'plans'), { recursive: true });
+    fs.mkdirSync(path.join(projectPath, 'outcomes'), { recursive: true });
+    fs.writeFileSync(path.join(projectPath, 'input.md'), 'Original scope');
+    fs.writeFileSync(path.join(projectPath, 'plans', '1-existing-task.md'), '# task');
+
+    await parsePlanCommand(['69', '--amend']);
+
+    expect(mockOpenEditor).toHaveBeenCalledWith(
+      expect.stringContaining('# Project: 69-amend-whisper')
+    );
+    expect(mockOpenEditor).toHaveBeenCalledWith(
+      expect.stringContaining('# Existing tasks (read-only reference):')
+    );
+    expect(mockOpenEditor).toHaveBeenCalledWith(
+      expect.stringContaining('# New tasks will be numbered starting from 2')
+    );
+  });
+
   it('still prompts on duplicate project names even when the legacy flag is present', async () => {
     const existingProjectPath = path.join(tempDir, 'RAF', '1-existing');
     fs.mkdirSync(path.join(existingProjectPath, 'plans'), { recursive: true });
