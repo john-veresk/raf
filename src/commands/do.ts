@@ -40,6 +40,7 @@ import {
   type DerivedTask,
   type DerivedProjectState,
 } from '../core/state-derivation.js';
+import { readProjectContext, refreshProjectContext } from '../core/project-context.js';
 import { analyzeFailure, detectProgrammaticFailure } from '../core/failure-analyzer.js';
 import {
   getRepoRoot,
@@ -831,6 +832,10 @@ async function executeSingleProject(
       '',
       'This task was automatically blocked because one or more of its dependencies failed or are blocked.',
       '',
+      '## Decision Updates',
+      '',
+      '- None. RAF blocked this task before execution started.',
+      '',
       '## Blocking Dependencies',
       '',
     ];
@@ -1028,6 +1033,7 @@ async function executeSingleProject(
         autoCommit,
         projectNumber,
         outcomeFilePath,
+        contextContent: readProjectContext(projectPath),
         attemptNumber: attempts,
         previousOutcomeFile: previousOutcomeFileForRetry,
         dependencyIds,
@@ -1046,6 +1052,7 @@ async function executeSingleProject(
       const runnerOptions = {
         timeout,
         outcomeFilePath,
+        onOutcomeFileMarker: () => refreshProjectContext(projectPath),
         commitContext,
         cwd: worktreeCwd,
         verboseCheck: () => keyboard.isVerbose,
@@ -1201,7 +1208,21 @@ async function executeSingleProject(
 
 # Task ${task.id} - Completed
 
+## Summary
+
 Task completed. No detailed report provided.
+
+## Key Changes
+
+- No detailed report was provided.
+
+## Decision Updates
+
+- None recorded.
+
+## Notes
+
+- RAF generated this fallback outcome because the task did not produce a valid completion report.
 
 <promise>COMPLETE</promise>
 `;
@@ -1212,7 +1233,21 @@ Task completed. No detailed report provided.
 
 # Task ${task.id} - Completed
 
+## Summary
+
 Task completed. No detailed report provided.
+
+## Key Changes
+
+- No detailed report was provided.
+
+## Decision Updates
+
+- None recorded.
+
+## Notes
+
+- RAF generated this fallback outcome because the task did not produce an outcome file.
 
 <promise>COMPLETE</promise>
 `;
@@ -1283,13 +1318,29 @@ Task completed. No detailed report provided.
 
 # Task ${task.id} - Failed
 
+## Summary
+
+Task execution failed: ${failureReason}
+
+## Key Changes
+
+- No completed changes were recorded in the final failed outcome.
+
+## Decision Updates
+
+- None recorded before failure.
+
+## Failure Analysis
+
 ${analysisReport}
 
-## Details
+## Notes
 - Attempts: ${attempts}
 - Elapsed time: ${elapsedFormatted}
 - Failed at: ${new Date().toISOString()}
 ${stashName ? `- Stash: ${stashName}` : ''}
+
+<promise>FAILED</promise>
 `;
       projectManager.saveOutcome(projectPath, task.id, outcomeContent);
     }

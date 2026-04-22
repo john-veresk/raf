@@ -236,8 +236,8 @@ export function getOutcomeFilePath(projectPath: string, taskId: string, taskName
   return path.join(projectPath, 'outcomes', `${taskId}-${taskName}.md`);
 }
 
-export function getDecisionsPath(projectPath: string): string {
-  return path.join(projectPath, 'decisions.md');
+export function getContextPath(projectPath: string): string {
+  return path.join(projectPath, 'context.md');
 }
 
 export function getLogsDir(projectPath: string): string {

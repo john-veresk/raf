@@ -4,7 +4,9 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { logger } from '../utils/logger.js';
 import { formatModelDisplay, getModel } from '../utils/config.js';
-import { extractProjectName, getInputPath, getDecisionsPath, getOutcomesDir, TASK_ID_PATTERN, numericFileSort } from '../utils/paths.js';
+import { extractProjectName, getContextPath, getOutcomesDir, TASK_ID_PATTERN, numericFileSort } from '../utils/paths.js';
+import { readProjectContext as readGeneratedProjectContext } from './project-context.js';
+import { extractOutcomeSummary } from './outcome-summary.js';
 
 export interface PrCreateResult {
   success: boolean;
@@ -185,25 +187,20 @@ export function generatePrTitle(projectPath: string): string {
 
 /**
  * Read project context for PR body generation.
- * Gathers input.md, decisions.md, and outcome files.
+ * Gathers context.md and outcome files.
  */
 export function readProjectContext(projectPath: string): {
-  input: string | null;
-  decisions: string | null;
+  context: string | null;
   outcomes: Array<{ taskId: string; content: string }>;
 } {
-  let input: string | null = null;
-  let decisions: string | null = null;
+  let context: string | null = null;
   const outcomes: Array<{ taskId: string; content: string }> = [];
 
-  const inputPath = getInputPath(projectPath);
-  if (fs.existsSync(inputPath)) {
-    input = fs.readFileSync(inputPath, 'utf-8');
-  }
-
-  const decisionsPath = getDecisionsPath(projectPath);
-  if (fs.existsSync(decisionsPath)) {
-    decisions = fs.readFileSync(decisionsPath, 'utf-8');
+  const contextPath = getContextPath(projectPath);
+  if (fs.existsSync(contextPath)) {
+    context = fs.readFileSync(contextPath, 'utf-8');
+  } else if (fs.existsSync(projectPath)) {
+    context = readGeneratedProjectContext(projectPath);
   }
 
   const outcomesDir = getOutcomesDir(projectPath);
@@ -219,7 +216,7 @@ export function readProjectContext(projectPath: string): {
     }
   }
 
-  return { input, decisions, outcomes };
+  return { context, outcomes };
 }
 
 /**
@@ -235,21 +232,14 @@ export async function generatePrBody(
   // Build context for LLM
   const parts: string[] = [];
 
-  if (context.input) {
-    parts.push(`## Project Input\n${context.input}`);
-  }
-
-  if (context.decisions) {
-    parts.push(`## Key Decisions\n${context.decisions}`);
+  if (context.context) {
+    parts.push(context.context);
   }
 
   if (context.outcomes.length > 0) {
     const outcomeSummaries = context.outcomes.map(o => {
       // Truncate long outcomes
-      const truncated = o.content.length > 1000
-        ? o.content.slice(0, 1000) + '\n...(truncated)'
-        : o.content;
-      return `### Task ${o.taskId}\n${truncated}`;
+      return `### Task ${o.taskId}\n${extractOutcomeSummary(o.content, 1000)}`;
     }).join('\n\n');
     parts.push(`## Task Outcomes\n${outcomeSummaries}`);
   }
@@ -296,8 +286,11 @@ function generateFallbackBody(projectPath: string): string {
   const context = readProjectContext(projectPath);
   const lines: string[] = ['## Summary'];
 
-  if (context.input) {
-    const firstLine = context.input.split('\n').find(l => l.trim() && !l.startsWith('#'));
+  if (context.context) {
+    const goalMatch = context.context.match(/^## Goal\s*\n([\s\S]*?)(?=\n## |$)/m);
+    const firstLine = goalMatch?.[1]
+      ?.split('\n')
+      .find((l) => l.trim() && !l.startsWith('#') && !l.startsWith('-'));
     if (firstLine) {
       lines.push(firstLine.trim());
     }
@@ -305,12 +298,18 @@ function generateFallbackBody(projectPath: string): string {
 
   lines.push('');
   lines.push('## Key Decisions');
-  if (context.decisions) {
-    const firstDecision = context.decisions.split('\n').find(l => l.trim() && !l.startsWith('#'));
+  let pushedDecision = false;
+  if (context.context) {
+    const decisionsMatch = context.context.match(/^## Key Decisions\s*\n([\s\S]*?)(?=\n## |$)/m);
+    const firstDecision = decisionsMatch?.[1]
+      ?.split('\n')
+      .find((l) => l.trim() && l.trim() !== '- No key decisions recorded yet.');
     if (firstDecision) {
-      lines.push(`- ${firstDecision.trim()}`);
+      lines.push(firstDecision.trim().startsWith('-') ? firstDecision.trim() : `- ${firstDecision.trim()}`);
+      pushedDecision = true;
     }
-  } else {
+  }
+  if (!pushedDecision) {
     lines.push('- No decisions recorded');
   }
 

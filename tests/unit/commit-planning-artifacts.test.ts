@@ -46,7 +46,7 @@ describe('commitPlanningArtifacts', () => {
     fs.rmSync(suiteHomeDir, { recursive: true, force: true });
   });
 
-  it('should commit input.md and decisions.md with correct message format', async () => {
+  it('should commit input.md and context.md with correct message format', async () => {
     mockExecSync.mockImplementation((cmd: unknown) => {
       const cmdStr = cmd as string;
       if (cmdStr.includes('rev-parse')) {
@@ -56,7 +56,7 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/3-decision-vault/input.md\nRAF/3-decision-vault/decisions.md\n';
+        return 'RAF/3-decision-vault/input.md\nRAF/3-decision-vault/context.md\n';
       }
       if (cmdStr.includes('git commit')) {
         return '';
@@ -73,7 +73,7 @@ describe('commitPlanningArtifacts', () => {
     expect(addCalls.length).toBe(2);
     const addCmds = addCalls.map((c) => c[0] as string);
     expect(addCmds.some((cmd) => cmd.includes('input.md'))).toBe(true);
-    expect(addCmds.some((cmd) => cmd.includes('decisions.md'))).toBe(true);
+    expect(addCmds.some((cmd) => cmd.includes('context.md'))).toBe(true);
 
     // Verify commit message format: RAF[project-name] Plan: description
     expect(mockExecSync).toHaveBeenCalledWith(
@@ -213,7 +213,7 @@ describe('commitPlanningArtifacts', () => {
     );
   });
 
-  it('should stage input.md and decisions.md individually', async () => {
+  it('should stage input.md and context.md individually', async () => {
     mockExecSync.mockImplementation((cmd: unknown) => {
       const cmdStr = cmd as string;
       if (cmdStr.includes('rev-parse')) {
@@ -241,7 +241,7 @@ describe('commitPlanningArtifacts', () => {
 
     const addCmds = addCalls.map((c) => c[0] as string);
     expect(addCmds[0]).toContain('/Users/test/RAF/3-decision-vault/input.md');
-    expect(addCmds[1]).toContain('/Users/test/RAF/3-decision-vault/decisions.md');
+    expect(addCmds[1]).toContain('/Users/test/RAF/3-decision-vault/context.md');
 
     // Individual calls should NOT use wildcards or add all
     for (const cmd of addCmds) {
@@ -293,7 +293,7 @@ describe('commitPlanningArtifacts', () => {
       isAmend: true,
     });
 
-    // Verify git add called for only 2 files (input, decisions)
+    // Verify git add called for only 2 files (input, context)
     const addCalls = mockExecSync.mock.calls.filter(
       (call) => (call[0] as string).includes('git add')
     );
@@ -301,7 +301,7 @@ describe('commitPlanningArtifacts', () => {
 
     const addCmds = addCalls.map((c) => c[0] as string);
     expect(addCmds.some((cmd) => cmd.includes('input.md'))).toBe(true);
-    expect(addCmds.some((cmd) => cmd.includes('decisions.md'))).toBe(true);
+    expect(addCmds.some((cmd) => cmd.includes('context.md'))).toBe(true);
   });
 
   it('should pass cwd to isGitRepo for worktree support', async () => {
@@ -362,7 +362,7 @@ describe('commitPlanningArtifacts', () => {
     const addCmds = addCalls.map((c) => c[0] as string);
     // Paths should be relative to worktree root
     expect(addCmds[0]).toContain('RAF/3-decision-vault/input.md');
-    expect(addCmds[1]).toContain('RAF/3-decision-vault/decisions.md');
+    expect(addCmds[1]).toContain('RAF/3-decision-vault/context.md');
     // Should NOT contain absolute worktree prefix
     expect(addCmds[0]).not.toContain(worktreePath);
     expect(addCmds[1]).not.toContain(worktreePath);
@@ -393,7 +393,7 @@ describe('commitPlanningArtifacts', () => {
 
     const addCmds = addCalls.map((c) => c[0] as string);
     expect(addCmds[0]).toContain('/Users/test/RAF/3-decision-vault/input.md');
-    expect(addCmds[1]).toContain('/Users/test/RAF/3-decision-vault/decisions.md');
+    expect(addCmds[1]).toContain('/Users/test/RAF/3-decision-vault/context.md');
   });
 
   it('should continue staging other files when one file fails to stage', async () => {
@@ -412,7 +412,7 @@ describe('commitPlanningArtifacts', () => {
         return '';
       }
       if (cmdStr.includes('git diff --cached')) {
-        return 'RAF/3-decision-vault/decisions.md\n';
+        return 'RAF/3-decision-vault/context.md\n';
       }
       if (cmdStr.includes('git commit')) {
         return '';

@@ -26,7 +26,7 @@ describe('ProjectManager', () => {
       expect(fs.existsSync(projectPath)).toBe(true);
       expect(fs.existsSync(path.join(projectPath, 'plans'))).toBe(true);
       expect(fs.existsSync(path.join(projectPath, 'outcomes'))).toBe(true);
-      expect(fs.existsSync(path.join(projectPath, 'decisions.md'))).toBe(true);
+      expect(fs.existsSync(path.join(projectPath, 'context.md'))).toBe(true);
     });
 
     it('should create projects with numeric IDs', () => {

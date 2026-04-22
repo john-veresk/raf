@@ -8,7 +8,6 @@ import {
   getProjectDir,
   getPlansDir,
   getOutcomesDir,
-  getDecisionsPath,
   getInputPath,
   listProjects,
   TASK_ID_PATTERN,
@@ -18,6 +17,7 @@ import { sanitizeProjectName } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
 import { deriveProjectState, getDerivedStats } from './state-derivation.js';
 import { getRepoBasename } from './worktree.js';
+import { refreshProjectContext } from './project-context.js';
 
 export interface ProjectInfo {
   number: number;
@@ -52,9 +52,7 @@ export class ProjectManager {
     fs.mkdirSync(projectPath, { recursive: true });
     fs.mkdirSync(getPlansDir(projectPath), { recursive: true });
     fs.mkdirSync(getOutcomesDir(projectPath), { recursive: true });
-
-    // Create empty decisions.md file
-    fs.writeFileSync(getDecisionsPath(projectPath), '# Project Decisions\n');
+    refreshProjectContext(projectPath);
 
     logger.debug(`Created project at ${projectPath}`);
 
@@ -102,6 +100,7 @@ export class ProjectManager {
   saveInput(projectPath: string, content: string): void {
     const inputPath = getInputPath(projectPath);
     fs.writeFileSync(inputPath, content);
+    refreshProjectContext(projectPath);
     logger.debug(`Saved input to ${inputPath}`);
   }
 
@@ -133,6 +132,7 @@ export class ProjectManager {
 
     const outcomePath = path.join(outcomesDir, outcomeName);
     fs.writeFileSync(outcomePath, content);
+    refreshProjectContext(projectPath);
     logger.debug(`Saved outcome to ${outcomePath}`);
   }
 

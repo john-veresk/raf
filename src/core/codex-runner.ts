@@ -387,6 +387,7 @@ export class CodexRunner implements ICliRunner {
         () => killProcessGroup(proc, 'completion detected'),
         outcomeFilePath,
         commitContext,
+        options.onOutcomeFileMarker,
       );
 
       // Buffer for incomplete JSONL lines

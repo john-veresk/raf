@@ -19,7 +19,7 @@ describe('Planning Prompt', () => {
       expect(result.userMessage.length).toBeGreaterThan(0);
     });
 
-    it('should interpolate projectPath into decisions.md, plans/, and project folder', () => {
+    it('should interpolate projectPath into context.md, plans/, and project folder', () => {
       const params: PlanningPromptParams = {
         projectPath: '/my/custom/project/path',
         inputContent: 'Some description',
@@ -28,7 +28,7 @@ describe('Planning Prompt', () => {
       const { systemPrompt } = getPlanningPrompt(params);
 
       expect(systemPrompt).toContain('/my/custom/project/path');
-      expect(systemPrompt).toContain('/my/custom/project/path/decisions.md');
+      expect(systemPrompt).toContain('/my/custom/project/path/context.md');
       expect(systemPrompt).toContain('/my/custom/project/path/plans/');
     });
 
@@ -118,7 +118,7 @@ describe('Planning Prompt', () => {
       expect(systemPrompt).not.toContain('AskUserQuestion');
       expect(systemPrompt).toMatch(/short architectural\/foundational questions first/i);
       expect(systemPrompt).toContain('2-3 mutually exclusive choices');
-      expect(systemPrompt).toContain('/test/project/decisions.md');
+      expect(systemPrompt).toContain('/test/project/context.md');
     });
 
     it('should call out lifecycle tracing in exploration', () => {

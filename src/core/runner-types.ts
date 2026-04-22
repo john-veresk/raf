@@ -38,6 +38,11 @@ export interface RunnerOptions {
    */
   outcomeFilePath?: string;
   /**
+   * Called when the monitored outcome file itself gains a completion marker.
+   * Lets RAF refresh generated artifacts before the task-side commit lands.
+   */
+  onOutcomeFileMarker?: (content: string) => void;
+  /**
    * Commit verification context. When provided, the grace period will verify
    * that the expected git commit has been made before terminating.
    * Only applies when a COMPLETE marker is detected (not FAILED).

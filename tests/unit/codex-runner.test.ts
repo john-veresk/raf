@@ -167,10 +167,14 @@ describe('CodexRunner', () => {
     expect(result.usageData).toEqual({
       inputTokens: 1000,
       outputTokens: 250,
+      cacheReadInputTokens: 0,
+      cacheCreationInputTokens: 0,
       modelUsage: {
         'gpt-5.4': {
           inputTokens: 1000,
           outputTokens: 250,
+          cacheReadInputTokens: 0,
+          cacheCreationInputTokens: 0,
           costUsd: null,
         },
       },
@@ -209,10 +213,14 @@ describe('CodexRunner', () => {
     expect(result.usageData).toEqual({
       inputTokens: 1500,
       outputTokens: 400,
+      cacheReadInputTokens: 0,
+      cacheCreationInputTokens: 0,
       modelUsage: {
         'gpt-5.4': {
           inputTokens: 1500,
           outputTokens: 400,
+          cacheReadInputTokens: 0,
+          cacheCreationInputTokens: 0,
           costUsd: null,
         },
       },

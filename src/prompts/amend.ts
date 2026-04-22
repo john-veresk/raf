@@ -5,6 +5,7 @@ import { encodeTaskId } from '../utils/paths.js';
 
 export interface AmendPromptParams {
   projectPath: string;
+  contextContent: string;
   existingTasks: Array<DerivedTask & { taskName: string }>;
   nextTaskNumber: number;
   newTaskDescription: string;
@@ -24,6 +25,7 @@ export interface AmendPromptResult {
 export function getAmendPrompt(params: AmendPromptParams): AmendPromptResult {
   const {
     projectPath,
+    contextContent = '# Project Context\n\nNo shared context available yet.',
     existingTasks,
     nextTaskNumber,
     newTaskDescription,
@@ -73,6 +75,10 @@ export function getAmendPrompt(params: AmendPromptParams): AmendPromptResult {
 
 Project folder: ${projectPath}
 
+## Project Context
+
+${contextContent}
+
 ## Existing Tasks
 
 ${existingTasksSummary}
@@ -97,10 +103,10 @@ Before interviewing or planning, ground every decision in the actual code. Explo
 - **Risks & dependencies** — identify what could break and what the work depends on.
 
 Also read the following amendment-specific context in the same parallel batch:
-- \`${projectPath}/input.md\` — the original project description.
-- \`${projectPath}/decisions.md\` — prior decisions, if it exists.
+- The inlined \`context.md\` block above — this is the canonical shared project context.
 - For each [PROTECTED] task: its outcome file (\`${projectPath}/outcomes/<id>-<name>.md\`) — for context only, immutable.
 - For each [MODIFIABLE] task: its plan file (\`${projectPath}/plans/<id>-<name>.md\`) — may be modified if the user requests it.
+- If the new request is a follow-up to task NN, read that task's outcome before planning the follow-up so the shipped behavior stays authoritative.
 
 If exploration reveals the premise is wrong or the change already exists, surface this to the user before planning.
 

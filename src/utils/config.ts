@@ -36,7 +36,7 @@ export function getClaudeSettingsPath(): string {
 // ---- Validation ----
 
 const VALID_TOP_LEVEL_KEYS = new Set<string>([
-  'models', 'effortMapping', 'codex', 'display',
+  'models', 'effortMapping', 'codex', 'display', 'context',
   'timeout', 'maxRetries', 'autoCommit',
   'worktree', 'syncMainBranch', 'pushOnComplete', 'commitFormat',
   'rateLimitWaitDefault',
@@ -62,6 +62,14 @@ const VALID_MODEL_ENTRY_KEYS = new Set<string>(['model', 'harness', 'reasoningEf
 
 const VALID_CODEX_KEYS = new Set<string>(['executionMode']);
 const VALID_DISPLAY_KEYS = new Set<string>(['statusProjectLimit']);
+const VALID_CONTEXT_KEYS = new Set<string>([
+  'maxCompletedTasks',
+  'maxPendingTasks',
+  'maxDecisionItems',
+  'recentOutcomeLimit',
+  'goalMaxChars',
+  'outcomeSummaryMaxChars',
+]);
 
 const VALID_REASONING_EFFORTS = new Set<string>(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 
@@ -256,6 +264,21 @@ export function validateConfig(config: unknown): UserConfig {
     }
   }
 
+  // context
+  if (obj.context !== undefined) {
+    if (typeof obj.context !== 'object' || obj.context === null || Array.isArray(obj.context)) {
+      throw new ConfigValidationError('context must be an object');
+    }
+    const context = obj.context as Record<string, unknown>;
+    checkUnknownKeys(context, VALID_CONTEXT_KEYS, 'context');
+
+    for (const key of Object.keys(context)) {
+      if (!isNonNegativeInteger(context[key])) {
+        throw new ConfigValidationError(`context.${key} must be a non-negative integer`);
+      }
+    }
+  }
+
   // timeout
   if (obj.timeout !== undefined) {
     if (typeof obj.timeout !== 'number' || obj.timeout <= 0 || !Number.isFinite(obj.timeout)) {
@@ -374,6 +397,12 @@ function deepMerge(defaults: RafConfig, overrides: UserConfig): RafConfig {
       ...overrides.display,
     };
   }
+  if (overrides.context) {
+    result.context = {
+      ...defaults.context,
+      ...overrides.context,
+    };
+  }
   if (overrides.commitFormat) {
     result.commitFormat = { ...defaults.commitFormat, ...overrides.commitFormat };
   }
@@ -415,6 +444,7 @@ export function resolveConfig(configPath?: string): RafConfig {
       },
       codex: { ...DEFAULT_CONFIG.codex },
       display: { ...DEFAULT_CONFIG.display },
+      context: { ...DEFAULT_CONFIG.context },
       commitFormat: { ...DEFAULT_CONFIG.commitFormat },
     };
   }

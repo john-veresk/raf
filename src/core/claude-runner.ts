@@ -380,6 +380,7 @@ export class ClaudeRunner implements ICliRunner {
         () => killProcessGroup(proc, 'completion detected'),
         outcomeFilePath,
         commitContext,
+        options.onOutcomeFileMarker,
       );
 
       // Buffer for incomplete NDJSON lines (data chunks may split across line boundaries)

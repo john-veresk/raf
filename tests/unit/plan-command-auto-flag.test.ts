@@ -102,6 +102,16 @@ jest.unstable_mockModule('../../src/utils/config.js', () => ({
   },
   getWorktreeDefault: () => false,
   getSyncMainBranch: () => false,
+  getResolvedConfig: () => ({
+    context: {
+      maxCompletedTasks: 8,
+      maxPendingTasks: 8,
+      maxDecisionItems: 12,
+      recentOutcomeLimit: 3,
+      goalMaxChars: 500,
+      outcomeSummaryMaxChars: 280,
+    },
+  }),
 }));
 
 jest.unstable_mockModule('../../src/utils/name-generator.js', () => ({
@@ -275,7 +285,7 @@ describe('Plan Command - Legacy Auto Flag Compatibility', () => {
     const existingProjectPath = path.join(tempDir, 'RAF', '1-existing');
     fs.mkdirSync(path.join(existingProjectPath, 'plans'), { recursive: true });
     fs.mkdirSync(path.join(existingProjectPath, 'outcomes'), { recursive: true });
-    fs.writeFileSync(path.join(existingProjectPath, 'decisions.md'), '# Project Decisions\n');
+    fs.writeFileSync(path.join(existingProjectPath, 'context.md'), '# Project Context\n');
 
     await parsePlanCommand(['existing', '--auto']);
 

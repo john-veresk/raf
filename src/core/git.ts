@@ -261,7 +261,7 @@ function extractAmendDescription(additionalFiles?: string[]): string {
 }
 
 /**
- * Commit planning artifacts (input.md and decisions.md) for a project.
+ * Commit planning artifacts (input.md and context.md) for a project.
  * Uses commit message format: RAF[project-name] Plan: description
  * For amendments: RAF[project-name] Amend: description
  *
@@ -295,7 +295,7 @@ export async function commitPlanningArtifacts(projectPath: string, options?: { c
 
   // Build absolute file paths
   const inputFile = path.join(projectPath, 'input.md');
-  const decisionsFile = path.join(projectPath, 'decisions.md');
+  const contextFile = path.join(projectPath, 'context.md');
 
   // Build commit message from config template
   const formatType = options?.isAmend ? 'amend' as const : 'plan' as const;
@@ -315,7 +315,7 @@ export async function commitPlanningArtifacts(projectPath: string, options?: { c
   });
 
   // Build list of files to stage (absolute paths)
-  const absoluteFiles = [inputFile, decisionsFile, ...(options?.additionalFiles ?? [])];
+  const absoluteFiles = [inputFile, contextFile, ...(options?.additionalFiles ?? [])];
 
   // Convert to relative paths when cwd is provided (worktree mode).
   // Git resolves paths relative to the working directory. Using relative paths

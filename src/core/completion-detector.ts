@@ -77,6 +77,7 @@ export function createCompletionDetector(
   killFn: () => void,
   outcomeFilePath?: string,
   commitContext?: CommitContext,
+  onOutcomeFileMarker?: (content: string) => void,
 ): CompletionDetector {
   let graceHandle: ReturnType<typeof setTimeout> | null = null;
   let commitPollHandle: ReturnType<typeof setInterval> | null = null;
@@ -84,6 +85,7 @@ export function createCompletionDetector(
   let pollHandle: ReturnType<typeof setInterval> | null = null;
   let initialMtime = 0;
   let detectedMarkerIsComplete = false;
+  let fileMarkerCallbackFired = false;
 
   // Record initial mtime of outcome file to avoid false positives from previous runs
   if (outcomeFilePath) {
@@ -158,6 +160,14 @@ export function createCompletionDetector(
         if (stat.mtimeMs <= initialMtime) return; // File unchanged from before execution
         const content = fs.readFileSync(filePath, 'utf-8');
         if (COMPLETION_MARKER_PATTERN.test(content)) {
+          if (!fileMarkerCallbackFired && onOutcomeFileMarker) {
+            fileMarkerCallbackFired = true;
+            try {
+              onOutcomeFileMarker(content);
+            } catch (error) {
+              logger.debug(`Outcome marker callback failed: ${error instanceof Error ? error.message : String(error)}`);
+            }
+          }
           startGracePeriod(content);
         }
       } catch {

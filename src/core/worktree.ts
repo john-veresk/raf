@@ -194,7 +194,7 @@ export function validateWorktree(worktreePath: string, projectRelativePath: stri
 
 /**
  * Invoke an AI harness non-interactively to resolve merge conflicts.
- * The AI reads the RAF project context (plans, decisions, outcomes), reviews
+ * The AI reads the RAF project context (context.md, plans, outcomes), reviews
  * the conflicted files, resolves all conflict markers, stages, and commits.
  *
  * @param branch - The feature branch being merged
@@ -231,8 +231,8 @@ export async function resolveConflictsWithAI(
 ## Context
 
 Read the RAF project folder for context about what happened on the feature branch:
+- Shared context: ${projectPath}/context.md — machine-generated project goal, decisions, status, and completed work
 - Plans: ${projectPath}/plans/ — these describe what each task was supposed to accomplish
-- Decisions: ${projectPath}/decisions.md — if it exists, contains architectural decisions
 - Outcomes: ${projectPath}/outcomes/ — these describe what was actually done in each task
 
 ## Steps
@@ -302,8 +302,8 @@ Read the RAF project folder for context about what happened on the feature branc
 export async function mergeWorktreeBranch(
   branch: string,
   originalBranch: string,
-  projectName: string,
-  projectPath: string,
+  projectName?: string,
+  projectPath?: string,
 ): Promise<WorktreeMergeResult> {
   // Switch to the original branch
   try {
@@ -333,6 +333,21 @@ export async function mergeWorktreeBranch(
   } catch {
     // Merge conflicts detected — invoke AI to resolve
     logger.info('Merge conflicts detected. Invoking AI to resolve...');
+
+    if (!projectName || !projectPath) {
+      try {
+        execSync('git merge --abort', { encoding: 'utf-8', stdio: 'pipe' });
+      } catch {
+        logger.warn('Failed to abort merge - repo may be in an inconsistent state');
+      }
+
+      return {
+        success: false,
+        merged: false,
+        fastForward: false,
+        error: `Merge conflicts detected while merging "${branch}" into "${originalBranch}". Please resolve them manually.`,
+      };
+    }
 
     const aiResult = await resolveConflictsWithAI(branch, originalBranch, projectName, projectPath);
 

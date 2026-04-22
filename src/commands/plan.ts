@@ -31,7 +31,6 @@ import {
   getNextProjectNumber,
   formatProjectNumber,
   getOutcomesDir,
-  getDecisionsPath,
   TASK_ID_PATTERN,
   numericFileSort,
 } from '../utils/paths.js';
@@ -51,6 +50,7 @@ import {
   pullMainBranch,
   branchExists,
 } from '../core/worktree.js';
+import { refreshProjectContext } from '../core/project-context.js';
 
 interface PlanCommandOptions {
   amend?: boolean;
@@ -237,7 +237,7 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, wor
       fs.mkdirSync(projectPath, { recursive: true });
       fs.mkdirSync(getPlansDir(projectPath), { recursive: true });
       fs.mkdirSync(getOutcomesDir(projectPath), { recursive: true });
-      fs.writeFileSync(getDecisionsPath(projectPath), '# Project Decisions\n');
+      refreshProjectContext(projectPath);
 
       logger.success(`Created project in worktree: ${projectPath}`);
       logger.info(`Worktree branch: ${wtResult.branch}`);
@@ -328,7 +328,9 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, wor
         logger.info(`  - plans/${planFile}`);
       }
 
-      // Commit planning artifacts (input.md, decisions.md, and plan files)
+      refreshProjectContext(projectPath);
+
+      // Commit planning artifacts (input.md, context.md, and plan files)
       const planAbsolutePaths = planFiles.map((f) => path.join(plansDir, f));
       await commitPlanningArtifacts(projectPath, {
         cwd: worktreeRoot ?? undefined,
@@ -524,6 +526,7 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry): Pro
     ? `${originalInput.trimEnd()}${separator}${cleanInput}`
     : cleanInput;
   fs.writeFileSync(inputPath, updatedInput);
+  const refreshedContext = refreshProjectContext(projectPath);
 
   // Set up shutdown handler
   const claudeRunner = createRunner({ model: modelEntry?.model, harness: modelEntry?.harness, reasoningEffort: modelEntry?.reasoningEffort, fast: modelEntry?.fast });
@@ -540,6 +543,7 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry): Pro
 
   const { systemPrompt, userMessage } = getAmendPrompt({
     projectPath,
+    contextContent: refreshedContext,
     existingTasks,
     nextTaskNumber,
     newTaskDescription: cleanInput,
@@ -583,7 +587,9 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry): Pro
       }
     }
 
-    // Commit planning artifacts (input.md, decisions.md, and all plan files)
+    refreshProjectContext(projectPath);
+
+    // Commit planning artifacts (input.md, context.md, and all plan files)
     // Always attempt commit — even without new plans, existing files may have been updated
     const allPlanAbsolutePaths = allPlanFiles.map((f) => path.join(plansDir, f));
     await commitPlanningArtifacts(projectPath, {

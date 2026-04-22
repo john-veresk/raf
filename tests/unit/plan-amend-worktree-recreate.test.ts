@@ -14,8 +14,11 @@ import * as os from 'node:os';
 
 // Mock execSync before importing the module
 const mockExecSync = jest.fn();
+const mockSpawn = jest.fn();
 jest.unstable_mockModule('node:child_process', () => ({
   execSync: mockExecSync,
+  execFileSync: mockExecSync,
+  spawn: mockSpawn,
 }));
 
 // Mock logger
@@ -139,7 +142,7 @@ describe('Plan Amend - Worktree Recreation', () => {
       fs.mkdirSync(path.join(mainProjectDir, 'plans'), { recursive: true });
       fs.mkdirSync(path.join(mainProjectDir, 'outcomes'), { recursive: true });
       fs.writeFileSync(path.join(mainProjectDir, 'input.md'), 'My project input');
-      fs.writeFileSync(path.join(mainProjectDir, 'decisions.md'), '# Decisions');
+      fs.writeFileSync(path.join(mainProjectDir, 'context.md'), '# Project Context');
       fs.writeFileSync(
         path.join(mainProjectDir, 'plans', '01-first-task.md'),
         '# Task: First task'
@@ -163,7 +166,7 @@ describe('Plan Amend - Worktree Recreation', () => {
 
       // Verify all files were copied
       expect(fs.existsSync(path.join(wtProjectDir, 'input.md'))).toBe(true);
-      expect(fs.existsSync(path.join(wtProjectDir, 'decisions.md'))).toBe(true);
+      expect(fs.existsSync(path.join(wtProjectDir, 'context.md'))).toBe(true);
       expect(fs.existsSync(path.join(wtProjectDir, 'plans', '01-first-task.md'))).toBe(true);
       expect(fs.existsSync(path.join(wtProjectDir, 'outcomes', '01-first-task.md'))).toBe(true);
 
@@ -178,7 +181,7 @@ describe('Plan Amend - Worktree Recreation', () => {
 
       // Verify directory structure
       const entries = fs.readdirSync(wtProjectDir);
-      expect(entries.sort()).toEqual(['decisions.md', 'input.md', 'outcomes', 'plans']);
+      expect(entries.sort()).toEqual(['context.md', 'input.md', 'outcomes', 'plans']);
 
       const planFiles = fs.readdirSync(path.join(wtProjectDir, 'plans'));
       expect(planFiles).toEqual(['01-first-task.md']);

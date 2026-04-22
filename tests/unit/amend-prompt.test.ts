@@ -3,6 +3,7 @@ import { getAmendPrompt, AmendPromptParams } from '../../src/prompts/amend.js';
 describe('Amend Prompt', () => {
   const baseParams: AmendPromptParams = {
     projectPath: '/test/project',
+    contextContent: '# Project Context\n\n## Goal\nTest goal\n',
     existingTasks: [
       {
         id: '01',
@@ -45,16 +46,15 @@ describe('Amend Prompt', () => {
       expect(systemPrompt).toContain('/test/project');
     });
 
-    it('should interpolate projectPath into decisions.md, plans/, input.md, and outcomes/', () => {
+    it('should interpolate projectPath into context.md, plans/, and outcomes/', () => {
       const params: AmendPromptParams = {
         ...baseParams,
         projectPath: '/my/custom/path',
       };
       const { systemPrompt } = getAmendPrompt(params);
 
-      expect(systemPrompt).toContain('/my/custom/path/decisions.md');
+      expect(systemPrompt).toContain('/my/custom/path/context.md');
       expect(systemPrompt).toContain('/my/custom/path/plans/');
-      expect(systemPrompt).toContain('/my/custom/path/input.md');
       expect(systemPrompt).toContain('/my/custom/path/outcomes/');
     });
 
@@ -179,7 +179,7 @@ describe('Amend Prompt', () => {
       expect(systemPrompt).not.toContain('AskUserQuestion');
       expect(systemPrompt).toMatch(/short architectural\/foundational questions first/i);
       expect(systemPrompt).toContain('2-3 mutually exclusive choices');
-      expect(systemPrompt).toContain('/test/project/decisions.md');
+      expect(systemPrompt).toContain('/test/project/context.md');
     });
 
     it('should call out lifecycle tracing in exploration', () => {
@@ -199,10 +199,10 @@ describe('Amend Prompt', () => {
       expect(systemPrompt).toContain('before proceeding');
     });
 
-    it('should direct reading input.md and decisions.md', () => {
+    it('should direct using context.md plus task-specific files', () => {
       const { systemPrompt } = getAmendPrompt(baseParams);
-      expect(systemPrompt).toContain('input.md');
-      expect(systemPrompt).toContain('decisions.md');
+      expect(systemPrompt).toContain('context.md');
+      expect(systemPrompt).not.toContain('decisions.md');
     });
   });
 });

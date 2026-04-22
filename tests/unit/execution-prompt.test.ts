@@ -39,6 +39,7 @@ describe('Execution Prompt', () => {
     autoCommit: true,
     projectNumber: '42',
     outcomeFilePath: '/Users/test/RAF/42-task-naming-improvements/outcomes/1-enhance-identifier-resolution.md',
+    contextContent: '# Project Context\n\n## Goal\nShip the feature.\n',
   };
 
   describe('Commit Message Format', () => {
@@ -124,6 +125,7 @@ describe('Execution Prompt', () => {
         autoCommit: true,
         projectNumber: '42',
         outcomeFilePath: '/Users/test/RAF/42-task-naming-improvements/outcomes/6-update-execution-prompt.md',
+        contextContent: baseParams.contextContent,
       };
       const prompt = getExecutionPrompt(params);
       expect(prompt).toContain('RAF[task-naming-improvements:6] <description>');
@@ -140,6 +142,7 @@ describe('Execution Prompt', () => {
         autoCommit: true,
         projectNumber: '1',
         outcomeFilePath: '/Users/test/RAF/1-fix-bug/outcomes/1-identify-issue.md',
+        contextContent: baseParams.contextContent,
       };
       const prompt = getExecutionPrompt(params);
       expect(prompt).toContain('RAF[fix-bug:1] <description>');
@@ -156,6 +159,7 @@ describe('Execution Prompt', () => {
         autoCommit: true,
         projectNumber: '7',
         outcomeFilePath: '/Users/test/RAF/7-feature-branch/outcomes/2-implement-feature.md',
+        contextContent: baseParams.contextContent,
       };
       const prompt = getExecutionPrompt(params);
       expect(prompt).toContain('RAF[feature-branch:2] <description>');
@@ -195,6 +199,7 @@ describe('Execution Prompt', () => {
       const prompt = getExecutionPrompt(baseParams);
       expect(prompt).toContain('Outcome file path');
       expect(prompt).toContain('summary of what was done');
+      expect(prompt).toContain('## Decision Updates');
     });
 
     it('should specify that completion marker must be at end of file', () => {
@@ -220,6 +225,7 @@ describe('Execution Prompt', () => {
       const prompt = getExecutionPrompt(baseParams);
       expect(prompt).toContain('Git Instructions');
       expect(prompt).toContain('git add');
+      expect(prompt).toContain('/Users/test/RAF/42-task-naming-improvements/context.md');
     });
 
     it('should include rule not to commit on failure', () => {
@@ -250,6 +256,15 @@ describe('Execution Prompt', () => {
     it('should not include previous outcomes section when empty', () => {
       const prompt = getExecutionPrompt(baseParams);
       expect(prompt).not.toContain('Previous Task Outcomes');
+    });
+  });
+
+  describe('Project Context', () => {
+    it('should inline the generated project context', () => {
+      const prompt = getExecutionPrompt(baseParams);
+      expect(prompt).toContain('## Project Context');
+      expect(prompt).toContain('# Project Context');
+      expect(prompt).toContain('Ship the feature.');
     });
   });
 

@@ -9,19 +9,24 @@ const SIGKILL_GRACE_MS = 15_000;
  */
 export function killProcessGroup(proc: ChildProcess, reason: string): void {
   const pid = proc.pid;
-  if (!pid) return;
+  let terminated = false;
 
-  logger.debug(`Sending SIGTERM to process group ${pid} (${reason})`);
+  if (pid) {
+    logger.debug(`Sending SIGTERM to process group ${pid} (${reason})`);
 
-  // Try to kill the entire process group
-  try {
-    process.kill(-pid, 'SIGTERM');
-  } catch {
-    // Process group kill failed, try direct kill
+    try {
+      process.kill(-pid, 'SIGTERM');
+      terminated = true;
+    } catch {
+      // Fall back to direct kill below.
+    }
+  }
+
+  if (!terminated) {
     try {
       proc.kill('SIGTERM');
+      terminated = true;
     } catch {
-      // Already dead
       return;
     }
   }
@@ -29,14 +34,19 @@ export function killProcessGroup(proc: ChildProcess, reason: string): void {
   // Set up SIGKILL escalation
   const sigkillHandle = setTimeout(() => {
     logger.warn(`Process ${pid} did not exit after SIGTERM, sending SIGKILL (${reason})`);
-    try {
-      process.kill(-pid, 'SIGKILL');
-    } catch {
+    if (pid) {
       try {
-        proc.kill('SIGKILL');
+        process.kill(-pid, 'SIGKILL');
+        return;
       } catch {
-        // Already dead
+        // Fall back to direct kill below.
       }
+    }
+
+    try {
+      proc.kill('SIGKILL');
+    } catch {
+      // Already dead
     }
   }, SIGKILL_GRACE_MS);
 

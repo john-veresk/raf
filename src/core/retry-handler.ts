@@ -57,6 +57,10 @@ export function isRetryableError(error: Error): boolean {
   const nonRetryable = [
     'context overflow',
     'token limit',
+    'rate limit',
+    'too many requests',
+    'usage limit',
+    'quota exceeded',
     'authentication failed',
     'permission denied',
   ];

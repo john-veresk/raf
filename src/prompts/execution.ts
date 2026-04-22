@@ -1,44 +1,8 @@
 import { getCommitFormat, getCommitPrefix, renderCommitMessage } from '../utils/config.js';
-import { extractProjectName } from '../utils/paths.js';
+import { extractProjectName, getContextPath } from '../utils/paths.js';
+import { summarizeOutcome } from '../core/outcome-summary.js';
 
-/**
- * Maximum characters for a dependency outcome summary.
- * Outcomes larger than this will be truncated to avoid context bloat.
- */
-const MAX_DEPENDENCY_OUTCOME_CHARS = 4000;
-
-/**
- * Summarize an outcome for dependency context.
- * Extracts the key sections (Summary, Key Changes, Notes) and truncates if needed.
- */
-export function summarizeOutcome(content: string): string {
-  // If content is small enough, return as-is
-  if (content.length <= MAX_DEPENDENCY_OUTCOME_CHARS) {
-    return content;
-  }
-
-  // Try to extract just the Summary section
-  const summaryMatch = content.match(/^## Summary\s*\n([\s\S]*?)(?=\n## |$)/m);
-  if (summaryMatch && summaryMatch[1]) {
-    const summary = summaryMatch[1].trim();
-    if (summary.length > 0 && summary.length <= MAX_DEPENDENCY_OUTCOME_CHARS) {
-      return `## Summary\n\n${summary}\n\n*[Outcome truncated for context size]*`;
-    }
-  }
-
-  // Fallback: truncate the full content
-  const truncated = content.substring(0, MAX_DEPENDENCY_OUTCOME_CHARS);
-  // Find a good break point (newline or period)
-  const lastNewline = truncated.lastIndexOf('\n');
-  const lastPeriod = truncated.lastIndexOf('. ');
-  const breakPoint = Math.max(lastNewline, lastPeriod);
-
-  if (breakPoint > MAX_DEPENDENCY_OUTCOME_CHARS / 2) {
-    return truncated.substring(0, breakPoint + 1) + '\n\n*[Outcome truncated for context size]*';
-  }
-
-  return truncated + '\n\n*[Outcome truncated for context size]*';
-}
+export { summarizeOutcome } from '../core/outcome-summary.js';
 
 export interface ExecutionPromptParams {
   projectPath: string;
@@ -50,6 +14,7 @@ export interface ExecutionPromptParams {
   autoCommit: boolean;
   projectNumber: string;
   outcomeFilePath: string;
+  contextContent: string;
   attemptNumber?: number;
   previousOutcomeFile?: string;
   /** Task IDs that this task depends on */
@@ -69,6 +34,7 @@ export function getExecutionPrompt(params: ExecutionPromptParams): string {
     autoCommit,
     projectNumber,
     outcomeFilePath,
+    contextContent,
     attemptNumber = 1,
     previousOutcomeFile,
     dependencyIds = [],
@@ -109,6 +75,7 @@ After successfully completing the task:
 1. Stage only the files you modified during this task:
    - Add each code file you changed: \`git add <file1> <file2> ...\`
    - Add the outcome file: \`git add ${outcomeFilePath}\`
+   - Add the generated project context: \`git add ${getContextPath(projectPath)}\`
    - Add this task's plan file: \`git add ${planPath}\`
 2. Commit with message: "${exampleCommit}"
    - Write a concise description of what was accomplished
@@ -172,6 +139,10 @@ ${depOutcomesFormatted}
 3. Verify all acceptance criteria are met
 4. Signal completion with the appropriate marker
 ${retryContextSection}
+## Project Context
+
+${contextContent}
+
 ## Instructions
 
 ### Step 1: Read the Plan
@@ -199,8 +170,9 @@ ${commitInstructions}
 The outcome file must contain:
 1. A summary of what was done
 2. Key changes made (files modified, features added, etc.)
-3. Any important notes or follow-up items
-4. The completion marker as the LAST line (exactly one marker per file)
+3. A \`## Decision Updates\` section. Record any execution-time decision change, deviation, or explicitly say none.
+4. Any important notes or follow-up items
+5. The completion marker as the LAST line (exactly one marker per file)
 
 **For documentation/report tasks**: The outcome IS the deliverable — include the full content.
 

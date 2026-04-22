@@ -10,7 +10,7 @@ import {
   extractTaskNameFromPlanFile,
   resolveProjectIdentifier,
   resolveProjectIdentifierWithDetails,
-  getDecisionsPath,
+  getContextPath,
   parseProjectPrefix,
 } from '../../src/utils/paths.js';
 
@@ -251,10 +251,10 @@ describe('Paths', () => {
     });
   });
 
-  describe('getDecisionsPath', () => {
-    it('should return decisions.md at project root', () => {
+  describe('getContextPath', () => {
+    it('should return context.md at project root', () => {
       const projectPath = '/Users/foo/RAF/3-my-project';
-      expect(getDecisionsPath(projectPath)).toBe(path.join(projectPath, 'decisions.md'));
+      expect(getContextPath(projectPath)).toBe(path.join(projectPath, 'context.md'));
     });
   });
 

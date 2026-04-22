@@ -29,6 +29,9 @@ effort: medium
 ## Requirements
 [REQUIRED — bulleted list]
 
+## Key Decisions
+[Optional — planning-time decisions, constraints, or reconciled interview answers that the executor must preserve]
+
 ## Acceptance Criteria
 [REQUIRED — checkboxes]
 
@@ -65,12 +68,12 @@ export function getInterviewInstructions(harness: HarnessName, projectPath: stri
 
 When the task description conflicts with what the code actually does, reconcile the contradiction with the user before proceeding.
 
-After each answer, append the Q&A pair to \`${projectPath}/decisions.md\`.`;
+Record the final planning decisions in the relevant plan file's \`## Key Decisions\` section. RAF will summarize them into \`${projectPath}/context.md\`.`;
   }
 
   return `Use the AskUserQuestion tool. Ask architectural/foundational questions first (data shapes, module boundaries, current state of the code) and tactical questions only after.
 
 When the task description conflicts with what the code actually does, reconcile the contradiction with the user before proceeding.
 
-After each answer, append the Q&A pair to \`${projectPath}/decisions.md\`.`;
+Record the final planning decisions in the relevant plan file's \`## Key Decisions\` section. RAF will summarize them into \`${projectPath}/context.md\`.`;
 }

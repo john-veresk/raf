@@ -230,10 +230,14 @@ function extractUsageData(event: CodexEvent): UsageData | undefined {
   return {
     inputTokens,
     outputTokens,
+    cacheReadInputTokens: 0,
+    cacheCreationInputTokens: 0,
     modelUsage: {
       [modelId]: {
         inputTokens,
         outputTokens,
+        cacheReadInputTokens: 0,
+        cacheCreationInputTokens: 0,
         costUsd: null,
       },
     },

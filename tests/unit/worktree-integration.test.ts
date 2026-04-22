@@ -161,7 +161,7 @@ describe('worktree integration tests (real git repos)', () => {
   });
 
   describe('mergeWorktreeBranch (real git)', () => {
-    it('should fast-forward merge when no divergence', () => {
+    it('should fast-forward merge when no divergence', async () => {
       const wtPath = path.join(repoDir, 'worktrees', 'ff-branch');
       fs.mkdirSync(path.join(repoDir, 'worktrees'), { recursive: true });
       execSync(`git worktree add "${wtPath}" -b "ff-branch"`, { cwd: repoDir, stdio: 'pipe' });
@@ -176,7 +176,7 @@ describe('worktree integration tests (real git repos)', () => {
       const mainBranch = execSync('git branch --show-current', { cwd: repoDir, encoding: 'utf-8' }).trim();
 
       // Merge from the main repo
-      const result = mergeWorktreeBranch('ff-branch', mainBranch);
+      const result = await mergeWorktreeBranch('ff-branch', mainBranch);
 
       expect(result.success).toBe(true);
       expect(result.merged).toBe(true);
@@ -186,7 +186,7 @@ describe('worktree integration tests (real git repos)', () => {
       expect(fs.existsSync(path.join(repoDir, 'feature.txt'))).toBe(true);
     });
 
-    it('should fall back to merge commit when branches have diverged', () => {
+    it('should fall back to merge commit when branches have diverged', async () => {
       const wtPath = path.join(repoDir, 'worktrees', 'diverge-branch');
       fs.mkdirSync(path.join(repoDir, 'worktrees'), { recursive: true });
       execSync(`git worktree add "${wtPath}" -b "diverge-branch"`, { cwd: repoDir, stdio: 'pipe' });
@@ -206,7 +206,7 @@ describe('worktree integration tests (real git repos)', () => {
       execSync('git commit -m "Main commit"', { cwd: repoDir, stdio: 'pipe' });
 
       // Merge from the main repo
-      const result = mergeWorktreeBranch('diverge-branch', mainBranch);
+      const result = await mergeWorktreeBranch('diverge-branch', mainBranch);
 
       expect(result.success).toBe(true);
       expect(result.merged).toBe(true);
@@ -217,7 +217,7 @@ describe('worktree integration tests (real git repos)', () => {
       expect(fs.existsSync(path.join(repoDir, 'main-file.txt'))).toBe(true);
     });
 
-    it('should abort and return failure on merge conflicts', () => {
+    it('should abort and return failure on merge conflicts', async () => {
       const wtPath = path.join(repoDir, 'worktrees', 'conflict-branch');
       fs.mkdirSync(path.join(repoDir, 'worktrees'), { recursive: true });
       execSync(`git worktree add "${wtPath}" -b "conflict-branch"`, { cwd: repoDir, stdio: 'pipe' });
@@ -237,7 +237,7 @@ describe('worktree integration tests (real git repos)', () => {
       execSync('git commit -m "Main change to README"', { cwd: repoDir, stdio: 'pipe' });
 
       // Merge should fail with conflict
-      const result = mergeWorktreeBranch('conflict-branch', mainBranch);
+      const result = await mergeWorktreeBranch('conflict-branch', mainBranch);
 
       expect(result.success).toBe(false);
       expect(result.merged).toBe(false);
@@ -252,8 +252,8 @@ describe('worktree integration tests (real git repos)', () => {
       expect(status).not.toContain('Unmerged');
     });
 
-    it('should return failure when checkout fails', () => {
-      const result = mergeWorktreeBranch('some-branch', 'nonexistent-branch');
+    it('should return failure when checkout fails', async () => {
+      const result = await mergeWorktreeBranch('some-branch', 'nonexistent-branch');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Failed to checkout');

@@ -320,19 +320,17 @@ describe('pull-request utilities', () => {
   describe('readProjectContext', () => {
     const projectPath = '/path/to/RAF/acbfhg-merge-guardian';
 
-    it('should read input.md, decisions.md, and outcomes', () => {
+    it('should read context.md and outcomes', () => {
       mockExistsSync.mockImplementation((p: unknown) => {
         const pStr = p as string;
-        if (pStr.endsWith('input.md')) return true;
-        if (pStr.endsWith('decisions.md')) return true;
+        if (pStr.endsWith('context.md')) return true;
         if (pStr.endsWith('outcomes')) return true;
         return false;
       });
 
       mockReadFileSync.mockImplementation((p: unknown) => {
         const pStr = p as string;
-        if (pStr.endsWith('input.md')) return 'Build a feature';
-        if (pStr.endsWith('decisions.md')) return '# Decisions\nUse React';
+        if (pStr.endsWith('context.md')) return '# Project Context\n\n## Goal\nBuild a feature\n\n## Key Decisions\n- Use React';
         if (pStr.endsWith('01-setup.md')) return '# Setup complete\n<promise>COMPLETE</promise>';
         return '';
       });
@@ -341,19 +339,17 @@ describe('pull-request utilities', () => {
 
       const context = readProjectContext(projectPath);
 
-      expect(context.input).toBe('Build a feature');
-      expect(context.decisions).toBe('# Decisions\nUse React');
+      expect(context.context).toContain('# Project Context');
       expect(context.outcomes.length).toBe(2);
       expect(context.outcomes[0]!.taskId).toBe('01');
     });
 
-    it('should handle missing input.md', () => {
+    it('should handle missing context.md', () => {
       mockExistsSync.mockReturnValue(false);
 
       const context = readProjectContext(projectPath);
 
-      expect(context.input).toBeNull();
-      expect(context.decisions).toBeNull();
+      expect(context.context).toBeNull();
       expect(context.outcomes).toEqual([]);
     });
 
@@ -438,15 +434,14 @@ describe('pull-request utilities', () => {
     it('should return fallback body with all 4 sections when outcomes exist', async () => {
       mockExistsSync.mockImplementation((p: unknown) => {
         const pStr = p as string;
-        if (pStr.endsWith('input.md')) return true;
-        if (pStr.endsWith('decisions.md')) return false;
+        if (pStr.endsWith('context.md')) return true;
         if (pStr.endsWith('outcomes')) return true;
         return false;
       });
 
       mockReadFileSync.mockImplementation((p: unknown) => {
         const pStr = p as string;
-        if (pStr.endsWith('input.md')) return 'Add dark mode toggle';
+        if (pStr.endsWith('context.md')) return '# Project Context\n\n## Goal\nAdd dark mode toggle\n';
         if (pStr.endsWith('01-task.md')) return 'Done';
         return '';
       });
@@ -474,15 +469,14 @@ describe('pull-request utilities', () => {
     it('should include prompt with 4-section structure', async () => {
       mockExistsSync.mockImplementation((p: unknown) => {
         const pStr = p as string;
-        if (pStr.endsWith('input.md')) return true;
-        if (pStr.endsWith('decisions.md')) return false;
+        if (pStr.endsWith('context.md')) return true;
         if (pStr.endsWith('outcomes')) return false;
         return false;
       });
 
       mockReadFileSync.mockImplementation((p: unknown) => {
         const pStr = p as string;
-        if (pStr.endsWith('input.md')) return 'Some feature';
+        if (pStr.endsWith('context.md')) return '# Project Context\n\n## Goal\nSome feature\n';
         return '';
       });
 
@@ -535,7 +529,7 @@ describe('pull-request utilities', () => {
     it('should use sonnet model', async () => {
       mockExistsSync.mockImplementation((p: unknown) => {
         const pStr = p as string;
-        if (pStr.endsWith('input.md')) return true;
+        if (pStr.endsWith('context.md')) return true;
         return false;
       });
 

@@ -16,15 +16,15 @@ Good software of the future will be built with good decisions by humans, not AI.
 
 **Smart model selection** — RAF estimates task complexity during planning (low/medium/high effort) and automatically routes each task to the appropriate model. Simple tasks use cheaper, faster models; complex tasks get the most capable model. Fully configurable via `effortMapping`.
 
-**Automatic PR creation** — In worktree mode, RAF can automatically create GitHub PRs with Claude-generated descriptions that summarize your original intent, key decisions made during planning, and task outcomes. Reviewers get meaningful context, not boilerplate.
+**Automatic PR creation** — In worktree mode, RAF can automatically create GitHub PRs with Claude-generated descriptions that summarize your original intent, the generated project context, and task outcomes. Reviewers get meaningful context, not boilerplate.
 
-**Structured decision-making** — The planning interview captures design decisions as reviewable artifacts (`decisions.md`). These persist alongside the code and give reviewers insight into the "why" behind changes.
+**Structured decision-making** — Planning decisions live in each task plan, execution-time deviations live in each task outcome, and RAF continuously rolls them up into a generated `context.md` artifact. Reviewers get the "why" without a hand-maintained project notebook.
 
 **Context isolation** — Each task executes with fresh context. No context rot, no degradation from long sessions. The plan provides all the context the model needs.
 
 **Token efficiency** — Focused, well-planned tasks avoid the back-and-forth debugging cycles that burn tokens. Planning overhead pays for itself.
 
-**Full auditability** — Every project preserves its input, decisions, plans, and outcomes as plain markdown. You can review the entire thought process, not just the final code.
+**Full auditability** — Every project preserves its input, generated context, plans, and outcomes as plain markdown. You can review the entire thought process, not just the final code.
 
 **Retry with escalation** — Failed tasks automatically retry with a more capable model, maximizing success rate without manual intervention.
 
@@ -245,13 +245,15 @@ RAF creates a `./RAF/` folder with project directories identified by sequential 
 ./RAF/
 ├── 1-auth-system/
 │   ├── input.md           # Your original intent (raw prompt)
-│   ├── decisions.md       # Design decisions from planning
+│   ├── context.md         # Generated project context (goal, decisions, state, completed work)
 │   ├── plans/             # Generated task plans
 │   ├── outcomes/          # Execution results
 │   └── logs/              # Debug logs (on failure)
 └── 2-dashboard/
     └── ...
 ```
+
+`context.md` is machine-generated and refreshed by RAF after planning, amendment, and every outcome write. It is the canonical shared project context for amend prompts, execution prompts, PR generation, and merge-conflict resolution. Planning-time decisions belong in each task plan's `## Key Decisions` section, and execution-time changes belong in each outcome file's `## Decision Updates` section.
 
 ## Worktree Mode
 
@@ -284,7 +286,7 @@ The "Create a GitHub PR" option:
 - Requires `gh` CLI installed and authenticated (`gh auth login`)
 - Auto-detects the base branch from `origin/HEAD`
 - Generates a PR title from the project name
-- Uses Claude to summarize your input, decisions, and outcomes into a PR body
+- Uses Claude to summarize your generated project context and outcomes into a PR body
 - Auto-pushes the branch to origin if needed
 
 If `gh` is missing or unauthenticated, the option falls back to "Leave branch" with a warning.

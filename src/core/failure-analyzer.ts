@@ -38,6 +38,10 @@ const API_ERROR_PATTERNS = [
 ];
 
 const RATE_LIMIT_PATTERNS = [
+  /rate limit/i,
+  /too many requests/i,
+  /\b429\b/i,
+  /throttled/i,
   /you've hit your limit/i,
   /usage.limit.reached/i,
   /quota exceeded/i,
@@ -129,6 +133,7 @@ Rate limit exceeded during task execution.
 The API rate limit was reached. RAF will automatically wait and retry when the limit resets.
 
 ## Suggested Fix
+- Wait 1-2 minutes if you're retrying manually
 - RAF pauses and resumes automatically — no manual action needed
 - If this happens repeatedly, consider upgrading your API tier for higher limits
 
