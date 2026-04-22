@@ -54,6 +54,7 @@ ${previousOutcomes.map((o) => `### Task ${o.taskId}\n${o.content}`).join('\n\n')
 
   // Encode task number to plain numeric string
   const paddedTaskNumber = taskNumber.toString();
+  const contextPath = `${projectPath}/context.md`;
 
   // Build example commit message from config template
   const commitTemplate = getCommitFormat('task');
@@ -76,6 +77,7 @@ After successfully completing the task:
    - Add each code file you changed: \`git add <file1> <file2> ...\`
    - Add the outcome file: \`git add ${outcomeFilePath}\`
    - Add this task's plan file: \`git add ${planPath}\`
+   - Add the refreshed shared context file: \`git add ${contextPath}\`
 2. Commit with message: "${exampleCommit}"
    - Write a concise description of what was accomplished
    - Focus on the actual change, not the task name
@@ -83,7 +85,7 @@ After successfully completing the task:
    - Do NOT add Co-Authored-By or any other trailers to the commit message
 3. Immediately verify that the commit landed before writing \`<promise>COMPLETE</promise>\`
    - Confirm the commit succeeded
-   - Run \`git show --stat --oneline -1\` and verify it includes the task's code changes, \`${outcomeFilePath}\`, and \`${planPath}\`
+   - Run \`git show --stat --oneline -1\` and verify it includes the task's code changes, \`${outcomeFilePath}\`, \`${planPath}\`, and \`${contextPath}\`
    - Do not write \`<promise>COMPLETE</promise>\` until that verification passes
 
 **IMPORTANT - On Failure**: If the task fails, do NOT commit. Just write the outcome file with the \`<promise>FAILED</promise>\` marker and stop. Uncommitted changes will be preserved for debugging.

@@ -40,7 +40,7 @@ import {
   type DerivedTask,
   type DerivedProjectState,
 } from '../core/state-derivation.js';
-import { readProjectContext } from '../core/project-context.js';
+import { readProjectContext, refreshProjectContext } from '../core/project-context.js';
 import { analyzeFailure, detectProgrammaticFailure } from '../core/failure-analyzer.js';
 import {
   getRepoRoot,
@@ -1045,6 +1045,9 @@ async function executeSingleProject(
         timeout,
         outcomeFilePath,
         cwd: worktreeCwd,
+        onOutcomeFileMarker: () => {
+          refreshProjectContext(projectPath);
+        },
         verboseCheck: () => keyboard.isVerbose,
       };
       const result = verbose

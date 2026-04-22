@@ -226,7 +226,7 @@ describe('Execution Prompt', () => {
       expect(prompt).toContain('Git Instructions');
       expect(prompt).toContain('git add');
       expect(prompt).toContain('/Users/test/RAF/42-task-naming-improvements/outcomes/1-enhance-identifier-resolution.md');
-      expect(prompt).not.toContain('/Users/test/RAF/42-task-naming-improvements/context.md');
+      expect(prompt).toContain('/Users/test/RAF/42-task-naming-improvements/context.md');
     });
 
     it('should include rule not to commit on failure', () => {
@@ -245,6 +245,7 @@ describe('Execution Prompt', () => {
       expect(prompt).toContain('git show --stat --oneline -1');
       expect(prompt).toContain(baseParams.outcomeFilePath);
       expect(prompt).toContain(baseParams.planPath);
+      expect(prompt).toContain('/Users/test/RAF/42-task-naming-improvements/context.md');
       expect(prompt).toContain('Do not write `<promise>COMPLETE</promise>` until that verification passes');
     });
   });
