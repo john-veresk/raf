@@ -19,10 +19,10 @@ Replace user-configurable `context.md` rendering limits with an internal safety 
 - When the safety budget forces omission, keep `Goal`, `Key Decisions`, and current task state before lower-priority historical detail.
 
 ## Acceptance Criteria
-- [ ] `buildProjectContext()` no longer reads from RAF config.
-- [ ] Large projects still generate a valid `context.md` without unbounded growth into provider-sized prompts.
-- [ ] The stored goal-preservation behavior continues to work after the refactor.
-- [ ] The generated artifact makes it clear when lower-priority history was dropped for safety.
+- [x] `buildProjectContext()` no longer reads from RAF config.
+- [x] Large projects still generate a valid `context.md` without unbounded growth into provider-sized prompts.
+- [x] The stored goal-preservation behavior continues to work after the refactor.
+- [x] The generated artifact makes it clear when lower-priority history was dropped for safety.
 
 ## Dependencies
 - 1
@@ -43,4 +43,3 @@ Today `src/core/project-context.ts` slices completed work, pending work, decisio
 ## Risks & Mitigations
 - An oversized “limitless” context artifact can reintroduce the exact context-overflow failures RAF already detects.
 - Mitigation: cap by rendered payload size and prioritize high-signal sections instead of removing all internal bounds.
-

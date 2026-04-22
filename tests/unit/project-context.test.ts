@@ -182,4 +182,57 @@ Clarified goal that was edited during planning and must survive refresh.
 
     expect(refreshed).toContain('Use input.md as the fallback goal for legacy projects.');
   });
+
+  it('caps large project contexts and marks omitted history for safety', () => {
+    fs.writeFileSync(
+      path.join(projectPath, 'input.md'),
+      '# Request\n\nKeep the generated project context resilient even when the project history grows very large.',
+    );
+
+    for (let index = 1; index <= 46; index++) {
+      fs.writeFileSync(
+        path.join(projectPath, 'plans', `${index}-task-${index}.md`),
+        `# Task: Task ${index}
+
+## Objective
+${`Coordinate project context refresh behavior for task ${index}. `.repeat(14)}
+
+## Acceptance Criteria
+- [ ] Done
+`,
+      );
+
+      if (index <= 45) {
+        fs.writeFileSync(
+          path.join(projectPath, 'outcomes', `${index}-task-${index}.md`),
+          `# Outcome
+
+## Summary
+
+${`Completed work for task ${index} with context updates and history capture. `.repeat(10)}
+
+## Decision Updates
+
+- Decision ${index}: prefer deterministic project context summaries.
+
+<promise>COMPLETE</promise>
+`,
+        );
+      }
+    }
+
+    const context = buildProjectContext(projectPath);
+
+    expect(context.length).toBeLessThanOrEqual(12000);
+    expect(context).toContain('## Goal');
+    expect(context).toContain('## Key Decisions');
+    expect(context).toContain('## Current State');
+    expect(context).toContain('## Pending Work');
+    expect(context).toContain('Task 46: task-46 [pending]');
+    expect(context).toContain('## Completed Work');
+    expect(context).toContain('Task 45: task-45');
+    expect(context).toContain('Additional completed tasks omitted for context safety');
+    expect(context).toContain('## Source Files');
+    expect(context).toContain('- outcomes/45-task-45.md');
+  });
 });

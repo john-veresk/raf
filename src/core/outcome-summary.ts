@@ -1,5 +1,10 @@
 const DEFAULT_PROMPT_OUTCOME_MAX_CHARS = 4000;
 
+export interface ExtractedOutcomeSummary {
+  summary: string;
+  truncated: boolean;
+}
+
 function truncateAtBoundary(text: string, maxChars: number, suffix: string = '...'): string {
   if (text.length <= maxChars) {
     return text;
@@ -134,8 +139,18 @@ export function summarizeOutcome(content: string, maxChars: number = DEFAULT_PRO
 }
 
 export function extractOutcomeSummary(content: string, maxChars: number): string {
+  return extractOutcomeSummaryDetails(content, maxChars).summary;
+}
+
+export function extractOutcomeSummaryDetails(content: string, maxChars: number): ExtractedOutcomeSummary {
   const summary = extractMarkdownSection(content, 'Summary') ?? extractFirstMeaningfulBlock(content) ?? 'No summary recorded.';
-  return truncateAtBoundary(summary.replace(/\s+/g, ' ').trim(), maxChars);
+  const normalized = summary.replace(/\s+/g, ' ').trim();
+  const truncatedSummary = truncateAtBoundary(normalized, maxChars);
+
+  return {
+    summary: truncatedSummary,
+    truncated: truncatedSummary !== normalized,
+  };
 }
 
 export function extractDecisionItems(content: string): string[] {
