@@ -101,7 +101,7 @@ Runtime hotkeys during `raf do`:
 
 When graceful stop is armed (`C` pressed once), RAF finishes the current active task and then stops before starting the next task. If RAF is waiting for a rate-limit reset, graceful stop prevents the retry from starting; pressing `C` again before the wait ends clears the pending stop and allows retry to continue.
 
-Note: In non-verbose mode, task lines show the resolved model in the existing parentheses slot and append reasoning effort when configured, for example `● 01-auth-login (sonnet, low) 12s`.
+Note: In non-verbose mode, task lines show the resolved model in the existing parentheses slot and append reasoning effort and Codex `fast` when configured, for example `● 01-auth-login (gpt-5.4, medium, fast) 12s`.
 
 Note: RAF displays the configured model identifier as-is in user-facing logs. Aliases like `opus`, `sonnet`, `codex`, and `gpt54` stay unpinned aliases; exact versions are only shown when your config/frontmatter already uses a full model ID or the provider returns one.
 
@@ -194,6 +194,7 @@ RAF supports multiple LLM harnesses per scenario. Each model entry in `models` a
 - System prompt is prepended to the user message rather than passed separately
 - Post-run summaries currently include exact token counts but omit USD cost because Codex CLI does not provide an exact per-run price
 - `raf do` defaults to Codex dangerous execution mode (`--dangerously-bypass-approvals-and-sandbox`); switch to `codex.executionMode: "fullAuto"` for sandboxed workspace-write mode
+- Set `fast: true` on a Codex model entry to add `-c service_tier="fast"` to Codex interactive sessions, `codex exec` runs, and name generation
 
 ## Status Symbols
 

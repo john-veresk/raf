@@ -21,6 +21,17 @@ describe('do model display', () => {
     expect(formatResolvedTaskModel(entry)).toBe('sonnet');
   });
 
+  it('should append fast metadata in verbose model logs when enabled', () => {
+    const entry: ModelEntry = {
+      model: 'gpt-5.4',
+      harness: 'codex',
+      reasoningEffort: 'medium',
+      fast: true,
+    };
+
+    expect(formatResolvedTaskModel(entry)).toBe('gpt-5.4, medium, fast');
+  });
+
   it('should keep codex aliases unpinned in verbose logs', () => {
     const entry: ModelEntry = {
       model: 'codex',

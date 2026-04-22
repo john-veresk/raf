@@ -27,6 +27,7 @@ export type TaskStatus = 'running' | 'completed' | 'failed' | 'pending' | 'block
 
 export interface ModelDisplayOptions {
   effort?: string;
+  fast?: boolean;
 }
 
 /**
@@ -82,6 +83,9 @@ export function formatModelMetadata(model: string, options: ModelDisplayOptions 
   const parts = [model];
   if (options.effort) {
     parts.push(options.effort);
+  }
+  if (options.fast) {
+    parts.push('fast');
   }
   return parts.join(', ');
 }

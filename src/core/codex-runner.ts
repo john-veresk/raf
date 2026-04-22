@@ -173,11 +173,13 @@ export class CodexRunner implements ICliRunner {
   private killed = false;
   private model: string;
   private reasoningEffort?: string;
+  private fast: boolean;
   private codexExecutionMode: CodexExecutionMode;
 
   constructor(config: RunnerConfig = {}) {
     this.model = config.model ?? getModel('execute').model;
     this.reasoningEffort = config.reasoningEffort;
+    this.fast = config.fast ?? false;
     this.codexExecutionMode = config.codexExecutionMode ?? 'dangerous';
   }
 
@@ -209,6 +211,10 @@ export class CodexRunner implements ICliRunner {
       // Add reasoning effort via config override when configured
       if (this.reasoningEffort) {
         args.push('-c', `model_reasoning_effort="${this.reasoningEffort}"`);
+      }
+
+      if (this.fast) {
+        args.push('-c', 'service_tier="fast"');
       }
 
       if (dangerouslySkipPermissions) {
@@ -350,6 +356,10 @@ export class CodexRunner implements ICliRunner {
       // Add reasoning effort via config override when configured
       if (this.reasoningEffort) {
         execArgs.push('-c', `model_reasoning_effort="${this.reasoningEffort}"`);
+      }
+
+      if (this.fast) {
+        execArgs.push('-c', 'service_tier="fast"');
       }
 
       execArgs.push(prompt);

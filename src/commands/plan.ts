@@ -263,7 +263,7 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, wor
   projectManager.saveInput(projectPath, userInput);
 
   // Set up shutdown handler
-  const claudeRunner = createRunner({ model: modelEntry?.model, harness: modelEntry?.harness, reasoningEffort: modelEntry?.reasoningEffort });
+  const claudeRunner = createRunner({ model: modelEntry?.model, harness: modelEntry?.harness, reasoningEffort: modelEntry?.reasoningEffort, fast: modelEntry?.fast });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
@@ -526,7 +526,7 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry): Pro
   fs.writeFileSync(inputPath, updatedInput);
 
   // Set up shutdown handler
-  const claudeRunner = createRunner({ model: modelEntry?.model, harness: modelEntry?.harness, reasoningEffort: modelEntry?.reasoningEffort });
+  const claudeRunner = createRunner({ model: modelEntry?.model, harness: modelEntry?.harness, reasoningEffort: modelEntry?.reasoningEffort, fast: modelEntry?.fast });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 
@@ -706,7 +706,7 @@ async function runResumeCommand(identifier: string, modelEntry?: ModelEntry): Pr
   logger.newline();
 
   // Set up shutdown handler
-  const claudeRunner = createRunner({ model: modelEntry?.model, harness: modelEntry?.harness, reasoningEffort: modelEntry?.reasoningEffort });
+  const claudeRunner = createRunner({ model: modelEntry?.model, harness: modelEntry?.harness, reasoningEffort: modelEntry?.reasoningEffort, fast: modelEntry?.fast });
   shutdownHandler.init();
   shutdownHandler.registerClaudeRunner(claudeRunner);
 

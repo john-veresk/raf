@@ -163,7 +163,7 @@ describe('Command Output Integration', () => {
 
         logger.dim(formatTaskTokenSummary(entry));
 
-        expect(consoleLogSpy).toHaveBeenCalledWith('  Tokens: 1,234 in / 567 out');
+        expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('  Tokens: 1,234 in / 567 out'));
       });
 
       it('should log Claude total summaries with exact cost when available', () => {

@@ -30,7 +30,12 @@ Rules:
 
 Project description:`;
 
-function buildNameGenerationArgs(harness: HarnessName, model: string, prompt: string): string[] {
+function buildNameGenerationArgs(
+  harness: HarnessName,
+  model: string,
+  prompt: string,
+  fast?: boolean,
+): string[] {
   if (harness === 'claude') {
     return [
       '--model', model,
@@ -40,14 +45,20 @@ function buildNameGenerationArgs(harness: HarnessName, model: string, prompt: st
     ];
   }
 
-  return [
+  const args = [
     'exec',
     '--skip-git-repo-check',
     '--ephemeral',
     '--color', 'never',
     '-m', model,
-    prompt,
   ];
+
+  if (fast) {
+    args.push('-c', 'service_tier="fast"');
+  }
+
+  args.push(prompt);
+  return args;
 }
 
 /**
@@ -56,7 +67,7 @@ function buildNameGenerationArgs(harness: HarnessName, model: string, prompt: st
 function runNameGenerationPrint(prompt: string): Promise<string | null> {
   return new Promise((resolve) => {
     const entry = getModel('nameGeneration');
-    const args = buildNameGenerationArgs(entry.harness, entry.model, prompt);
+    const args = buildNameGenerationArgs(entry.harness, entry.model, prompt, entry.fast);
 
     const proc = spawn(entry.harness, args, {
       stdio: ['ignore', 'pipe', 'pipe'],

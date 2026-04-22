@@ -80,6 +80,12 @@ export interface RunnerConfig {
    */
   reasoningEffort?: string;
   /**
+   * Codex-only fast service tier toggle.
+   * Codex CLI: -c service_tier="fast"
+   * Only included when explicitly enabled.
+   */
+  fast?: boolean;
+  /**
    * Codex non-interactive execution policy for `codex exec`.
    * Only applies when harness is "codex" and using run()/runVerbose().
    */

@@ -5,6 +5,7 @@ import type { HarnessName } from '../../src/types/config.js';
 let currentNameGenerationModel = {
   model: 'sonnet',
   harness: 'claude' as HarnessName,
+  fast: false,
 };
 
 // Helper to create a mock spawn that returns a fake ChildProcess
@@ -49,6 +50,7 @@ describe('Name Generator', () => {
     currentNameGenerationModel = {
       model: 'sonnet',
       harness: 'claude',
+      fast: false,
     };
   });
 
@@ -290,6 +292,7 @@ describe('Name Generator', () => {
       currentNameGenerationModel = {
         model: 'gpt-5.4',
         harness: 'codex',
+        fast: false,
       };
       mockSpawn.mockReturnValue(createMockSpawn('a\n!\n'));
 
@@ -319,6 +322,7 @@ describe('Name Generator', () => {
       currentNameGenerationModel = {
         model: 'gpt-5.4',
         harness: 'codex',
+        fast: false,
       };
       mockSpawn.mockReturnValue(createMockSpawn('phoenix-rise\nturbo-boost\nbug-squasher\n'));
 
@@ -340,6 +344,26 @@ describe('Name Generator', () => {
       );
       const promptArg = (mockSpawn.mock.calls[0][1] as string[]).at(-1);
       expect(promptArg).toContain('Output EXACTLY 5 project names');
+    });
+
+    it('should pass the fast service tier override for codex name generation when configured', async () => {
+      currentNameGenerationModel = {
+        model: 'gpt-5.4',
+        harness: 'codex',
+        fast: true,
+      };
+      mockSpawn.mockReturnValue(createMockSpawn('phoenix-rise\nturbo-boost\nbug-squasher\n'));
+
+      await generateProjectNames('Build something');
+
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'codex',
+        expect.arrayContaining([
+          '-c',
+          'service_tier="fast"',
+        ]),
+        expect.any(Object)
+      );
     });
   });
 

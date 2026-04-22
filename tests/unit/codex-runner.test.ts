@@ -131,6 +131,21 @@ describe('CodexRunner', () => {
     await runPromise;
   });
 
+  it('passes the fast service tier override for non-interactive Codex runs when enabled', async () => {
+    const mockProc = createMockProcess();
+    mockSpawn.mockReturnValue(mockProc);
+
+    const runner = new CodexRunner({ model: 'gpt-5.4', fast: true });
+    const runPromise = runner.run('test prompt');
+
+    const spawnArgs = mockSpawn.mock.calls[0]?.[1] as string[];
+    expect(spawnArgs).toContain('-c');
+    expect(spawnArgs).toContain('service_tier="fast"');
+
+    mockProc.emit('close', 0);
+    await runPromise;
+  });
+
   it('returns usageData from run() when turn.completed includes usage', async () => {
     const mockProc = createMockProcess();
     mockSpawn.mockReturnValue(mockProc);
@@ -243,6 +258,29 @@ describe('CodexRunner', () => {
     const spawnArgs = mockPtySpawn.mock.calls[0]?.[1] as string[];
     expect(spawnArgs).toContain('--dangerously-bypass-approvals-and-sandbox');
     expect(spawnArgs[spawnArgs.length - 1]).toContain('[System Instructions]');
+
+    mockProc._exitCallback({ exitCode: 0 });
+    await runPromise;
+  });
+
+  it('passes the fast service tier override for interactive Codex runs when enabled', async () => {
+    const mockProc = createMockPtyProcess();
+    const mockStdin = createMockStdin();
+    const mockStdout = createMockStdout();
+
+    Object.defineProperty(process, 'stdin', { value: mockStdin, configurable: true });
+    Object.defineProperty(process, 'stdout', { value: mockStdout, configurable: true });
+
+    mockPtySpawn.mockReturnValue(mockProc);
+
+    const runner = new CodexRunner({ model: 'gpt-5.4', fast: true });
+    const runPromise = runner.runInteractive('system prompt', 'user message');
+
+    const spawnArgs = mockPtySpawn.mock.calls[0]?.[1] as string[];
+    expect(spawnArgs).toContain('-c');
+    expect(spawnArgs).toContain('service_tier="fast"');
+    expect(spawnArgs[0]).toBe('-m');
+    expect(spawnArgs).not.toContain('exec');
 
     mockProc._exitCallback({ exitCode: 0 });
     await runPromise;

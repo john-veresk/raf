@@ -24,6 +24,10 @@ describe('Terminal Symbols', () => {
       expect(formatModelMetadata('sonnet', { effort: 'low' })).toBe('sonnet, low');
     });
 
+    it('should append fast after effort when enabled', () => {
+      expect(formatModelMetadata('gpt-5.4', { effort: 'medium', fast: true })).toBe('gpt-5.4, medium, fast');
+    });
+
   });
 
   describe('SYMBOLS', () => {
@@ -129,6 +133,11 @@ describe('Terminal Symbols', () => {
     it('should show model metadata in parentheses for running task with time', () => {
       const result = formatTaskProgress(1, 5, 'running', 'auth-login', 83000, undefined, 'sonnet', { effort: 'low' });
       expect(result).toBe('● auth-login (sonnet, low) 1m 23s');
+    });
+
+    it('should append fast in task metadata when enabled', () => {
+      const result = formatTaskProgress(1, 5, 'running', 'auth-login', 83000, undefined, 'gpt-5.4', { effort: 'medium', fast: true });
+      expect(result).toBe('● auth-login (gpt-5.4, medium, fast) 1m 23s');
     });
 
     it('should show model name in parentheses for running task without time', () => {
