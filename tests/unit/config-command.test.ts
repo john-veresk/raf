@@ -204,6 +204,40 @@ describe('Config Command', () => {
       expect(resolveConfig(configPath()).display.statusProjectLimit).toBe(0);
       expect(getStatusProjectLimit()).toBe(0);
     });
+
+    it('writes models.plan.fast through the schema-aware nested path flow', async () => {
+      await parseConfigCommand(['set', 'models.plan.harness', '\"codex\"']);
+      await parseConfigCommand(['set', 'models.plan.model', '\"gpt-5.4\"']);
+      await parseConfigCommand(['set', 'models.plan.fast', 'true']);
+
+      const saved = JSON.parse(fs.readFileSync(configPath(), 'utf-8'));
+      expect(saved).toEqual({ models: { plan: { model: 'gpt-5.4', harness: 'codex', fast: true } } });
+      expect(resolveConfig(configPath()).models.plan.fast).toBe(true);
+    });
+
+    it('writes effortMapping.medium.fast through the schema-aware nested path flow', async () => {
+      await parseConfigCommand(['set', 'effortMapping.medium.harness', '\"codex\"']);
+      await parseConfigCommand(['set', 'effortMapping.medium.model', '\"gpt-5.4\"']);
+      await parseConfigCommand(['set', 'effortMapping.medium.fast', 'true']);
+
+      const saved = JSON.parse(fs.readFileSync(configPath(), 'utf-8'));
+      expect(saved).toEqual({ effortMapping: { medium: { model: 'gpt-5.4', harness: 'codex', fast: true } } });
+      expect(resolveConfig(configPath()).effortMapping.medium.fast).toBe(true);
+    });
+
+    it('rejects fast on Claude entries with a validation error', async () => {
+      const exitSpy = jest.spyOn(process, 'exit').mockImplementation((() => {
+        throw new Error('process.exit');
+      }) as typeof process.exit);
+
+      await expect(parseConfigCommand(['set', 'models.plan.fast', 'true'])).rejects.toThrow('process.exit');
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Validation error: models.plan.fast is only supported when harness is "codex"'
+      );
+      expect(fs.existsSync(configPath())).toBe(false);
+
+      exitSpy.mockRestore();
+    });
   });
 
   describe('config reset', () => {

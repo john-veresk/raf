@@ -129,6 +129,17 @@ describe('Config', () => {
       expect(() => validateConfig(config)).not.toThrow();
     });
 
+    it('should accept fast on Codex model entries', () => {
+      expect(() => validateConfig({
+        models: {
+          execute: { model: 'gpt-5.4', harness: 'codex', fast: true },
+        },
+        effortMapping: {
+          medium: { model: 'gpt-5.4', harness: 'codex', fast: false },
+        },
+      })).not.toThrow();
+    });
+
     it('should reject non-object config', () => {
       expect(() => validateConfig(null)).toThrow(ConfigValidationError);
       expect(() => validateConfig('string')).toThrow(ConfigValidationError);
@@ -193,6 +204,18 @@ describe('Config', () => {
 
     it('should reject invalid reasoningEffort in model entries', () => {
       expect(() => validateConfig({ models: { plan: { model: 'opus', harness: 'claude', reasoningEffort: 'ultra' } } })).toThrow('models.plan.reasoningEffort must be one of');
+    });
+
+    it('should reject non-boolean fast in model entries', () => {
+      expect(() => validateConfig({ models: { execute: { model: 'gpt-5.4', harness: 'codex', fast: 'yes' } } }))
+        .toThrow('models.execute.fast must be a boolean');
+    });
+
+    it('should reject fast on Claude model entries', () => {
+      expect(() => validateConfig({ models: { plan: { model: 'opus', harness: 'claude', fast: true } } }))
+        .toThrow('models.plan.fast is only supported when harness is "codex"');
+      expect(() => validateConfig({ effortMapping: { low: { model: 'sonnet', harness: 'claude', fast: false } } }))
+        .toThrow('effortMapping.low.fast is only supported when harness is "codex"');
     });
 
     it('should reject unknown keys in model entries', () => {
@@ -369,6 +392,36 @@ describe('Config', () => {
       expect(config.effortMapping.high.model).toBe('opus'); // default preserved
     });
 
+    it('should leave fast undefined unless explicitly set', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({
+        models: {
+          execute: { model: 'gpt-5.4', harness: 'codex' },
+        },
+        effortMapping: {
+          medium: { model: 'gpt-5.4', harness: 'codex' },
+        },
+      }));
+
+      const config = resolveConfig(configPath);
+      expect(config.models.execute.fast).toBeUndefined();
+      expect(config.effortMapping.medium.fast).toBeUndefined();
+      expect(config.models.plan.fast).toBeUndefined();
+    });
+
+    it('should preserve fast when merging partial Codex overrides', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({
+        models: {
+          execute: { model: 'gpt-5.4', harness: 'codex', fast: true },
+        },
+      }));
+
+      const config = resolveConfig(configPath);
+      expect(config.models.execute).toEqual({ model: 'gpt-5.4', harness: 'codex', fast: true });
+      expect(config.models.plan.fast).toBeUndefined();
+    });
+
     it('should deep-merge partial commitFormat override', () => {
       const configPath = path.join(tempDir, 'raf.config.json');
       fs.writeFileSync(configPath, JSON.stringify({ commitFormat: { prefix: 'MY' } }));
@@ -538,6 +591,11 @@ describe('Config', () => {
       expect('provider' in DEFAULT_CONFIG).toBe(false);
       expect('codexModels' in DEFAULT_CONFIG).toBe(false);
       expect('codexEffortMapping' in DEFAULT_CONFIG).toBe(false);
+    });
+
+    it('should omit fast from default model entries', () => {
+      expect(DEFAULT_CONFIG.models.execute.fast).toBeUndefined();
+      expect(DEFAULT_CONFIG.effortMapping.medium.fast).toBeUndefined();
     });
   });
 

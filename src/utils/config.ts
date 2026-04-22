@@ -58,7 +58,7 @@ const VALID_EFFORT_MAPPING_KEYS = new Set<string>(['low', 'medium', 'high']);
 
 const VALID_COMMIT_FORMAT_KEYS = new Set<string>(['task', 'plan', 'amend', 'merge', 'prefix']);
 
-const VALID_MODEL_ENTRY_KEYS = new Set<string>(['model', 'harness', 'reasoningEffort']);
+const VALID_MODEL_ENTRY_KEYS = new Set<string>(['model', 'harness', 'reasoningEffort', 'fast']);
 
 const VALID_CODEX_KEYS = new Set<string>(['executionMode']);
 const VALID_DISPLAY_KEYS = new Set<string>(['statusProjectLimit']);
@@ -147,7 +147,7 @@ export function parseModelSpec(modelSpec: string): { harness: HarnessName; model
 }
 
 /**
- * Validate a model entry object: { model, harness, reasoningEffort? }
+ * Validate a model entry object: { model, harness, reasoningEffort?, fast? }
  */
 function validateModelEntry(obj: unknown, prefix: string): void {
   if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
@@ -175,6 +175,15 @@ function validateModelEntry(obj: unknown, prefix: string): void {
   if (entry.reasoningEffort !== undefined) {
     if (typeof entry.reasoningEffort !== 'string' || !VALID_REASONING_EFFORTS.has(entry.reasoningEffort)) {
       throw new ConfigValidationError(`${prefix}.reasoningEffort must be one of: none, minimal, low, medium, high, xhigh, max`);
+    }
+  }
+
+  if (entry.fast !== undefined) {
+    if (typeof entry.fast !== 'boolean') {
+      throw new ConfigValidationError(`${prefix}.fast must be a boolean`);
+    }
+    if (entry.harness !== 'codex') {
+      throw new ConfigValidationError(`${prefix}.fast is only supported when harness is "codex"`);
     }
   }
 }
@@ -319,6 +328,11 @@ function mergeModelEntry(defaultEntry: ModelEntry, override: unknown): ModelEntr
         ? { reasoningEffort: o.reasoningEffort as ModelEntry['reasoningEffort'] }
         : defaultEntry.reasoningEffort !== undefined
           ? { reasoningEffort: defaultEntry.reasoningEffort }
+          : {}),
+      ...(o.fast !== undefined
+        ? { fast: o.fast as ModelEntry['fast'] }
+        : defaultEntry.fast !== undefined
+          ? { fast: defaultEntry.fast }
           : {}),
     };
   }
