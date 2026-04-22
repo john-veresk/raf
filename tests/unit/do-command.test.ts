@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { resolveProjectIdentifier, extractProjectName } from '../../src/utils/paths.js';
+import { getCommitVerificationFailureReason } from '../../src/commands/do.js';
 
 describe('Do Command - Identifier Support', () => {
   let tempDir: string;
@@ -100,6 +101,19 @@ describe('Do Command - Identifier Support', () => {
       const projectPath = path.join(tempDir, '1-my-cool-project-name');
       const name = extractProjectName(projectPath);
       expect(name).toBe('my-cool-project-name');
+    });
+  });
+
+  describe('commit verification failure handling', () => {
+    it('should explain that both generated artifacts must be in the final task commit', () => {
+      const reason = getCommitVerificationFailureReason([
+        '/tmp/project/outcomes/1-task.md',
+        '/tmp/project/context.md',
+      ]);
+
+      expect(reason).toContain('final task commit');
+      expect(reason).toContain('1-task.md');
+      expect(reason).toContain('context.md');
     });
   });
 });

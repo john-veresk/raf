@@ -13,7 +13,7 @@ const mockReadFileSync = jest.fn();
 // Create mock git functions
 const mockGetHeadCommitHash = jest.fn();
 const mockGetHeadCommitMessage = jest.fn();
-const mockIsFileCommittedInHead = jest.fn();
+const mockDidHeadCommitTouchFiles = jest.fn();
 
 jest.unstable_mockModule('node:child_process', () => ({
   spawn: mockSpawn,
@@ -34,7 +34,7 @@ jest.unstable_mockModule('node:fs', () => ({
 jest.unstable_mockModule('../../src/core/git.js', () => ({
   getHeadCommitHash: mockGetHeadCommitHash,
   getHeadCommitMessage: mockGetHeadCommitMessage,
-  isFileCommittedInHead: mockIsFileCommittedInHead,
+  didHeadCommitTouchFiles: mockDidHeadCommitTouchFiles,
 }));
 
 // Import after mocking
@@ -1228,14 +1228,14 @@ describe('ClaudeRunner', () => {
     const commitContext = {
       preExecutionHead: 'aaa111',
       expectedPrefix: 'RAF[005:01]',
-      outcomeFilePath: '/project/outcomes/01-task.md',
+      requiredArtifactPaths: ['/project/outcomes/01-task.md', '/project/context.md'],
     };
 
     beforeEach(() => {
       mockExistsSync.mockReturnValue(false);
       mockGetHeadCommitHash.mockReturnValue('aaa111');
       mockGetHeadCommitMessage.mockReturnValue(null);
-      mockIsFileCommittedInHead.mockReturnValue(false);
+      mockDidHeadCommitTouchFiles.mockReturnValue(false);
     });
 
     it('should kill immediately after grace period when commit is verified within grace period', async () => {
@@ -1245,7 +1245,7 @@ describe('ClaudeRunner', () => {
       // Commit lands during grace period
       mockGetHeadCommitHash.mockReturnValue('bbb222');
       mockGetHeadCommitMessage.mockReturnValue('RAF[005:01] Add feature');
-      mockIsFileCommittedInHead.mockReturnValue(true);
+      mockDidHeadCommitTouchFiles.mockReturnValue(true);
 
       const runner = new ClaudeRunner();
       const runPromise = runner.run('test prompt', {
@@ -1289,7 +1289,7 @@ describe('ClaudeRunner', () => {
       // Now simulate commit landing during extended polling
       mockGetHeadCommitHash.mockReturnValue('bbb222');
       mockGetHeadCommitMessage.mockReturnValue('RAF[005:01] Add feature');
-      mockIsFileCommittedInHead.mockReturnValue(true);
+      mockDidHeadCommitTouchFiles.mockReturnValue(true);
 
       // Advance to next commit poll interval
       jest.advanceTimersByTime(COMMIT_POLL_INTERVAL_MS);
@@ -1378,7 +1378,7 @@ describe('ClaudeRunner', () => {
       // HEAD changed but message doesn't match expected prefix
       mockGetHeadCommitHash.mockReturnValue('bbb222');
       mockGetHeadCommitMessage.mockReturnValue('RAF[005:02] Wrong task');
-      mockIsFileCommittedInHead.mockReturnValue(true);
+      mockDidHeadCommitTouchFiles.mockReturnValue(true);
 
       const runner = new ClaudeRunner();
       const runPromise = runner.run('test prompt', {
@@ -1404,15 +1404,15 @@ describe('ClaudeRunner', () => {
       await runPromise;
     });
 
-    it('should verify outcome file is committed', async () => {
+    it('should verify required artifacts are committed', async () => {
       const mockProc = createMockProcess();
       mockProc.kill = jest.fn();
       mockSpawn.mockReturnValue(mockProc);
 
-      // HEAD changed and message matches, but file not committed
+      // HEAD changed and message matches, but required artifacts were not committed
       mockGetHeadCommitHash.mockReturnValue('bbb222');
       mockGetHeadCommitMessage.mockReturnValue('RAF[005:01] Add feature');
-      mockIsFileCommittedInHead.mockReturnValue(false);
+      mockDidHeadCommitTouchFiles.mockReturnValue(false);
 
       const runner = new ClaudeRunner();
       const runPromise = runner.run('test prompt', {
@@ -1423,12 +1423,12 @@ describe('ClaudeRunner', () => {
       // Emit COMPLETE marker
       mockProc.stdout.emit('data', Buffer.from('<promise>COMPLETE</promise>\n'));
 
-      // Grace period expires - file not committed, should extend
+      // Grace period expires - artifacts not committed, should extend
       jest.advanceTimersByTime(COMPLETION_GRACE_PERIOD_MS + 1);
       expect(mockProc.kill).not.toHaveBeenCalled();
 
-      // File now committed
-      mockIsFileCommittedInHead.mockReturnValue(true);
+      // Artifacts now committed
+      mockDidHeadCommitTouchFiles.mockReturnValue(true);
 
       // Next poll finds it
       jest.advanceTimersByTime(COMMIT_POLL_INTERVAL_MS);
@@ -1436,6 +1436,26 @@ describe('ClaudeRunner', () => {
 
       mockProc.emit('close', 1);
       await runPromise;
+    });
+
+    it('should mark the run as failed when COMPLETE is emitted but required artifacts were never verified', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      mockGetHeadCommitHash.mockReturnValue('aaa111');
+      mockDidHeadCommitTouchFiles.mockReturnValue(false);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', {
+        timeout: 60,
+        commitContext,
+      });
+
+      mockProc.stdout.emit('data', Buffer.from('<promise>COMPLETE</promise>\n'));
+      mockProc.emit('close', 0);
+
+      const result = await runPromise;
+      expect(result.commitVerificationFailed).toBe(true);
     });
   });
 });

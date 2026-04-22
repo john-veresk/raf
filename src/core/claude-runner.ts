@@ -469,6 +469,7 @@ export class ClaudeRunner implements ICliRunner {
           rateLimitInfo = detectRateLimitFromText(output, stderr);
         }
 
+        const commitVerificationState = completionDetector.getCommitVerificationState();
         clearTimeout(timeoutHandle);
         completionDetector.cleanup();
         this.activeProcess = null;
@@ -483,6 +484,7 @@ export class ClaudeRunner implements ICliRunner {
           exitCode: exitCode ?? (this.killed ? 130 : 1),
           timedOut,
           contextOverflow,
+          commitVerificationFailed: commitVerificationState.failed,
           usageData,
           rateLimitInfo,
         });

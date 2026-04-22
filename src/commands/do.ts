@@ -695,6 +695,11 @@ interface SingleProjectOptions {
   worktreeCwd?: string;
 }
 
+export function getCommitVerificationFailureReason(requiredArtifactPaths: string[]): string {
+  const artifactList = requiredArtifactPaths.map((artifactPath) => path.basename(artifactPath)).join(', ');
+  return `Task marked COMPLETE but RAF could not verify that the final task commit touched: ${artifactList}`;
+}
+
 async function executeSingleProject(
   projectPath: string,
   projectName: string,
@@ -1042,10 +1047,15 @@ async function executeSingleProject(
 
       // Capture HEAD hash before execution for commit verification
       const preExecutionHead = isGitRepo(worktreeCwd) ? getHeadCommitHash(worktreeCwd) : null;
+      const requiredArtifactPaths = [
+        outcomeFilePath,
+        path.join(projectPath, 'context.md'),
+      ];
       const commitContext = preExecutionHead ? {
         preExecutionHead,
         expectedPrefix: `RAF[${projectNumber}:${task.id}]`,
-        outcomeFilePath,
+        requiredArtifactPaths,
+        cwd: worktreeCwd,
       } : undefined;
 
       // Run task (use worktree root as cwd if in worktree mode)
@@ -1131,6 +1141,12 @@ async function executeSingleProject(
         failureReason = 'Context overflow - task too large';
         failureHistory.push({ attempt: attempts, reason: failureReason });
         break; // Not retryable
+      }
+
+      if (result.commitVerificationFailed) {
+        failureReason = getCommitVerificationFailureReason(requiredArtifactPaths);
+        failureHistory.push({ attempt: attempts, reason: failureReason });
+        continue;
       }
 
       if (parsed.result === 'complete') {

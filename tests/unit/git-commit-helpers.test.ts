@@ -6,7 +6,7 @@ jest.unstable_mockModule('node:child_process', () => ({
   execSync: mockExecSync,
 }));
 
-const { getHeadCommitHash, getHeadCommitMessage, isFileCommittedInHead } = await import('../../src/core/git.js');
+const { getHeadCommitHash, getHeadCommitMessage, didHeadCommitTouchFiles, isFileCommittedInHead } = await import('../../src/core/git.js');
 
 describe('git commit helper functions', () => {
   beforeEach(() => {
@@ -53,6 +53,54 @@ describe('git commit helper functions', () => {
     it('should return null for empty output', () => {
       mockExecSync.mockReturnValue('');
       expect(getHeadCommitMessage()).toBeNull();
+    });
+  });
+
+  describe('didHeadCommitTouchFiles', () => {
+    it('should return true when HEAD touched all required files', () => {
+      mockExecSync.mockImplementation((cmd: string) => {
+        if (cmd.includes('--show-toplevel')) {
+          return '/project\n';
+        }
+        if (cmd.includes('diff-tree')) {
+          return 'RAF/outcomes/01-task.md\nRAF/74-context-anchor/context.md\n';
+        }
+        return '';
+      });
+
+      expect(
+        didHeadCommitTouchFiles([
+          '/project/RAF/outcomes/01-task.md',
+          '/project/RAF/74-context-anchor/context.md',
+        ])
+      ).toBe(true);
+    });
+
+    it('should return false when HEAD missed one required file', () => {
+      mockExecSync.mockImplementation((cmd: string) => {
+        if (cmd.includes('--show-toplevel')) {
+          return '/project\n';
+        }
+        if (cmd.includes('diff-tree')) {
+          return 'RAF/outcomes/01-task.md\n';
+        }
+        return '';
+      });
+
+      expect(
+        didHeadCommitTouchFiles([
+          '/project/RAF/outcomes/01-task.md',
+          '/project/RAF/74-context-anchor/context.md',
+        ])
+      ).toBe(false);
+    });
+
+    it('should return false when git commands fail', () => {
+      mockExecSync.mockImplementation(() => {
+        throw new Error('git failed');
+      });
+
+      expect(didHeadCommitTouchFiles(['/project/file.ts'])).toBe(false);
     });
   });
 
