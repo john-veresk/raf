@@ -6,6 +6,7 @@ import { killProcessGroup } from '../utils/process-kill.js';
 import { renderStreamEvent } from '../parsers/stream-renderer.js';
 import { getModel } from '../utils/config.js';
 import { mergeUsageData } from '../utils/token-tracker.js';
+import { forwardTerminalResize } from '../utils/pty-resize.js';
 import type { ICliRunner } from './runner-interface.js';
 import type { RunnerOptions, RunnerConfig, RunResult, RateLimitInfo } from './runner-types.js';
 import { createCompletionDetector } from './completion-detector.js';
@@ -133,6 +134,7 @@ export class ClaudeRunner implements ICliRunner {
         cwd,
         env: process.env as Record<string, string>,
       });
+      const cleanupResizeForwarding = forwardTerminalResize(this.activeProcess);
 
       // Set raw mode to pass through all input
       if (process.stdin.isTTY) {
@@ -159,6 +161,7 @@ export class ClaudeRunner implements ICliRunner {
       disposables.push(this.activeProcess.onExit(({ exitCode }) => {
         // Cleanup stdin
         process.stdin.off('data', onData);
+        cleanupResizeForwarding();
         if (process.stdin.isTTY) {
           process.stdin.setRawMode(false);
         }
@@ -219,6 +222,7 @@ export class ClaudeRunner implements ICliRunner {
         cwd,
         env: process.env as Record<string, string>,
       });
+      const cleanupResizeForwarding = forwardTerminalResize(this.activeProcess);
 
       // Set raw mode to pass through all input
       if (process.stdin.isTTY) {
@@ -245,6 +249,7 @@ export class ClaudeRunner implements ICliRunner {
       disposables.push(this.activeProcess.onExit(({ exitCode }) => {
         // Cleanup stdin
         process.stdin.off('data', onData);
+        cleanupResizeForwarding();
         if (process.stdin.isTTY) {
           process.stdin.setRawMode(false);
         }

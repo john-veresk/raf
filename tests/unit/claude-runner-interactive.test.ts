@@ -59,6 +59,7 @@ describe('ClaudeRunner - runInteractive', () => {
     const proc = new EventEmitter() as any;
     proc.write = jest.fn();
     proc.kill = jest.fn();
+    proc.resize = jest.fn();
     proc.onData = jest.fn().mockImplementation((callback) => {
       proc._dataCallback = callback;
     });
@@ -85,6 +86,7 @@ describe('ClaudeRunner - runInteractive', () => {
    */
   function createMockStdout() {
     const stdout = new EventEmitter() as any;
+    stdout.isTTY = true;
     stdout.write = jest.fn();
     stdout.columns = 80;
     stdout.rows = 24;
@@ -379,6 +381,101 @@ describe('ClaudeRunner - runInteractive', () => {
       expect(skipIndex).toBeGreaterThan(modelIndex);
       expect(skipIndex).toBeLessThan(appendIndex);
       expect(appendIndex).toBeLessThan(userMessageIndex);
+
+      mockProc._exitCallback({ exitCode: 0 });
+      await runPromise;
+    });
+  });
+
+  describe('terminal resize forwarding', () => {
+    it('forwards resize events during interactive sessions and removes the listener on exit', async () => {
+      const mockProc = createMockPtyProcess();
+      const mockStdin = createMockStdin();
+      const mockStdout = createMockStdout();
+
+      Object.defineProperty(process, 'stdin', { value: mockStdin, configurable: true });
+      Object.defineProperty(process, 'stdout', { value: mockStdout, configurable: true });
+
+      mockPtySpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.runInteractive('system', 'user');
+
+      expect(mockStdout.listenerCount('resize')).toBe(1);
+
+      mockStdout.columns = 132;
+      mockStdout.rows = 40;
+      mockStdout.emit('resize');
+
+      expect(mockProc.resize).toHaveBeenCalledWith(132, 40);
+
+      mockProc._exitCallback({ exitCode: 0 });
+      await runPromise;
+
+      expect(mockStdout.listenerCount('resize')).toBe(0);
+    });
+
+    it('forwards resize events for resume sessions and does not leak listeners across runs', async () => {
+      const firstProc = createMockPtyProcess();
+      const secondProc = createMockPtyProcess();
+      const mockStdin = createMockStdin();
+      const mockStdout = createMockStdout();
+
+      Object.defineProperty(process, 'stdin', { value: mockStdin, configurable: true });
+      Object.defineProperty(process, 'stdout', { value: mockStdout, configurable: true });
+
+      mockPtySpawn.mockReturnValueOnce(firstProc).mockReturnValueOnce(secondProc);
+
+      const runner = new ClaudeRunner();
+      const firstRunPromise = runner.runResume();
+
+      expect(mockStdout.listenerCount('resize')).toBe(1);
+
+      mockStdout.columns = 100;
+      mockStdout.rows = 30;
+      mockStdout.emit('resize');
+      expect(firstProc.resize).toHaveBeenCalledWith(100, 30);
+
+      firstProc._exitCallback({ exitCode: 0 });
+      await firstRunPromise;
+      expect(mockStdout.listenerCount('resize')).toBe(0);
+
+      const secondRunPromise = runner.runResume();
+      expect(mockStdout.listenerCount('resize')).toBe(1);
+
+      mockStdout.columns = 140;
+      mockStdout.rows = 50;
+      mockStdout.emit('resize');
+      expect(secondProc.resize).toHaveBeenCalledWith(140, 50);
+      expect(firstProc.resize).toHaveBeenCalledTimes(1);
+
+      secondProc._exitCallback({ exitCode: 0 });
+      await secondRunPromise;
+      expect(mockStdout.listenerCount('resize')).toBe(0);
+    });
+
+    it('ignores resize events when stdout dimensions are unavailable', async () => {
+      const mockProc = createMockPtyProcess();
+      const mockStdin = createMockStdin();
+      const mockStdout = createMockStdout();
+
+      Object.defineProperty(process, 'stdin', { value: mockStdin, configurable: true });
+      Object.defineProperty(process, 'stdout', { value: mockStdout, configurable: true });
+
+      mockPtySpawn.mockReturnValue(mockProc);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.runInteractive('system', 'user');
+
+      mockStdout.columns = undefined;
+      mockStdout.rows = 40;
+      mockStdout.emit('resize');
+
+      mockStdout.columns = 120;
+      mockStdout.rows = undefined;
+      mockStdout.emit('resize');
+
+      expect(mockProc.resize).not.toHaveBeenCalled();
 
       mockProc._exitCallback({ exitCode: 0 });
       await runPromise;

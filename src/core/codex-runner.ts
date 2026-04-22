@@ -6,6 +6,7 @@ import { killProcessGroup } from '../utils/process-kill.js';
 import { renderCodexStreamEvent } from '../parsers/codex-stream-renderer.js';
 import { getModel } from '../utils/config.js';
 import { mergeUsageData } from '../utils/token-tracker.js';
+import { forwardTerminalResize } from '../utils/pty-resize.js';
 import type { CodexExecutionMode } from '../types/config.js';
 import type { ICliRunner } from './runner-interface.js';
 import type { RunnerOptions, RunnerConfig, RunResult, RateLimitInfo } from './runner-types.js';
@@ -232,6 +233,7 @@ export class CodexRunner implements ICliRunner {
         cwd,
         env: process.env as Record<string, string>,
       });
+      const cleanupResizeForwarding = forwardTerminalResize(this.activeProcess);
 
       // Set raw mode to pass through all input
       if (process.stdin.isTTY) {
@@ -258,6 +260,7 @@ export class CodexRunner implements ICliRunner {
       disposables.push(this.activeProcess.onExit(({ exitCode }) => {
         // Cleanup stdin
         process.stdin.off('data', onData);
+        cleanupResizeForwarding();
         if (process.stdin.isTTY) {
           process.stdin.setRawMode(false);
         }

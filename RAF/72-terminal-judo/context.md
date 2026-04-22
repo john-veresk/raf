@@ -9,18 +9,18 @@ during plannig mode if i resize terminal - layout of claude/codex output is mess
 - The premise is already verified in code: `src/core/claude-runner.ts` and `src/core/codex-runner.ts` pass initial PTY dimensions at spawn time but never forward later `process.stdout` resize events.
 
 ## Current State
-- Status: ready
+- Status: completed
 - Total tasks: 1
-- Completed: 0
-- Pending: 1
+- Completed: 1
+- Pending: 0
 - Failed: 0
 - Blocked: 0
 
 ## Completed Work
-- No completed work yet.
+- Task 1: fix-planning-terminal-resize [completed] — Forwarded parent terminal resize events into Claude/Codex planning PTYs and added teardown coverage so listeners do not leak across sessions.
 
 ## Pending Work
-- Task 1: fix-planning-terminal-resize [pending] — Forward parent terminal resize events into RAF's PTY-backed planning sessions so Claude/Codex planning UIs keep a correct layout after window resizes.
+- No pending work.
 
 ## Source Files
 - input.md

@@ -59,6 +59,7 @@ function createMockPtyProcess() {
   const proc = new EventEmitter() as any;
   proc.write = jest.fn();
   proc.kill = jest.fn();
+  proc.resize = jest.fn();
   proc.onData = jest.fn().mockImplementation((callback) => {
     proc._dataCallback = callback;
   });
@@ -79,6 +80,7 @@ function createMockStdin() {
 
 function createMockStdout() {
   const stdout = new EventEmitter() as any;
+  stdout.isTTY = true;
   stdout.write = jest.fn();
   stdout.columns = 80;
   stdout.rows = 24;
@@ -361,6 +363,57 @@ describe('CodexRunner', () => {
 
     const spawnArgs = mockPtySpawn.mock.calls[0]?.[1] as string[];
     expect(spawnArgs).not.toContain('--dangerously-bypass-approvals-and-sandbox');
+
+    mockProc._exitCallback({ exitCode: 0 });
+    await runPromise;
+  });
+
+  it('forwards terminal resize events for interactive Codex sessions and cleans up listeners on exit', async () => {
+    const mockProc = createMockPtyProcess();
+    const mockStdin = createMockStdin();
+    const mockStdout = createMockStdout();
+
+    Object.defineProperty(process, 'stdin', { value: mockStdin, configurable: true });
+    Object.defineProperty(process, 'stdout', { value: mockStdout, configurable: true });
+
+    mockPtySpawn.mockReturnValue(mockProc);
+
+    const runner = new CodexRunner({ model: 'gpt-5.4' });
+    const runPromise = runner.runInteractive('system prompt', 'user message');
+
+    expect(mockStdout.listenerCount('resize')).toBe(1);
+
+    mockStdout.columns = 118;
+    mockStdout.rows = 36;
+    mockStdout.emit('resize');
+    expect(mockProc.resize).toHaveBeenCalledWith(118, 36);
+
+    mockProc._exitCallback({ exitCode: 0 });
+    await runPromise;
+
+    expect(mockStdout.listenerCount('resize')).toBe(0);
+  });
+
+  it('does not forward resize events when stdout is not a tty', async () => {
+    const mockProc = createMockPtyProcess();
+    const mockStdin = createMockStdin();
+    const mockStdout = createMockStdout();
+    mockStdout.isTTY = false;
+
+    Object.defineProperty(process, 'stdin', { value: mockStdin, configurable: true });
+    Object.defineProperty(process, 'stdout', { value: mockStdout, configurable: true });
+
+    mockPtySpawn.mockReturnValue(mockProc);
+
+    const runner = new CodexRunner({ model: 'gpt-5.4' });
+    const runPromise = runner.runInteractive('system prompt', 'user message');
+
+    expect(mockStdout.listenerCount('resize')).toBe(0);
+
+    mockStdout.columns = 118;
+    mockStdout.rows = 36;
+    mockStdout.emit('resize');
+    expect(mockProc.resize).not.toHaveBeenCalled();
 
     mockProc._exitCallback({ exitCode: 0 });
     await runPromise;
