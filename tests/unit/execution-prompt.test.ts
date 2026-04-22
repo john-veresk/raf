@@ -225,7 +225,8 @@ describe('Execution Prompt', () => {
       const prompt = getExecutionPrompt(baseParams);
       expect(prompt).toContain('Git Instructions');
       expect(prompt).toContain('git add');
-      expect(prompt).toContain('/Users/test/RAF/42-task-naming-improvements/context.md');
+      expect(prompt).toContain('/Users/test/RAF/42-task-naming-improvements/outcomes/1-enhance-identifier-resolution.md');
+      expect(prompt).not.toContain('/Users/test/RAF/42-task-naming-improvements/context.md');
     });
 
     it('should include rule not to commit on failure', () => {

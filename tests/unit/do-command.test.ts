@@ -105,15 +105,13 @@ describe('Do Command - Identifier Support', () => {
   });
 
   describe('commit verification failure handling', () => {
-    it('should explain that both generated artifacts must be in the final task commit', () => {
+    it('should explain that the required task artifact must be in the final task commit', () => {
       const reason = getCommitVerificationFailureReason([
         '/tmp/project/outcomes/1-task.md',
-        '/tmp/project/context.md',
       ]);
 
       expect(reason).toContain('final task commit');
       expect(reason).toContain('1-task.md');
-      expect(reason).toContain('context.md');
     });
   });
 });

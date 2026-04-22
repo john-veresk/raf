@@ -1,5 +1,5 @@
 import { getCommitFormat, getCommitPrefix, renderCommitMessage } from '../utils/config.js';
-import { extractProjectName, getContextPath } from '../utils/paths.js';
+import { extractProjectName } from '../utils/paths.js';
 import { summarizeOutcome } from '../core/outcome-summary.js';
 
 export { summarizeOutcome } from '../core/outcome-summary.js';
@@ -75,7 +75,6 @@ After successfully completing the task:
 1. Stage only the files you modified during this task:
    - Add each code file you changed: \`git add <file1> <file2> ...\`
    - Add the outcome file: \`git add ${outcomeFilePath}\`
-   - Add the generated project context: \`git add ${getContextPath(projectPath)}\`
    - Add this task's plan file: \`git add ${planPath}\`
 2. Commit with message: "${exampleCommit}"
    - Write a concise description of what was accomplished

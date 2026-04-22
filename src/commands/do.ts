@@ -40,7 +40,7 @@ import {
   type DerivedTask,
   type DerivedProjectState,
 } from '../core/state-derivation.js';
-import { readProjectContext, refreshProjectContext } from '../core/project-context.js';
+import { readProjectContext } from '../core/project-context.js';
 import { analyzeFailure, detectProgrammaticFailure } from '../core/failure-analyzer.js';
 import {
   getRepoRoot,
@@ -1047,10 +1047,7 @@ async function executeSingleProject(
 
       // Capture HEAD hash before execution for commit verification
       const preExecutionHead = isGitRepo(worktreeCwd) ? getHeadCommitHash(worktreeCwd) : null;
-      const requiredArtifactPaths = [
-        outcomeFilePath,
-        path.join(projectPath, 'context.md'),
-      ];
+      const requiredArtifactPaths = [outcomeFilePath];
       const commitContext = preExecutionHead ? {
         preExecutionHead,
         expectedPrefix: `RAF[${projectNumber}:${task.id}]`,
@@ -1062,7 +1059,6 @@ async function executeSingleProject(
       const runnerOptions = {
         timeout,
         outcomeFilePath,
-        onOutcomeFileMarker: () => refreshProjectContext(projectPath),
         commitContext,
         cwd: worktreeCwd,
         verboseCheck: () => keyboard.isVerbose,

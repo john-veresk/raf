@@ -1228,7 +1228,7 @@ describe('ClaudeRunner', () => {
     const commitContext = {
       preExecutionHead: 'aaa111',
       expectedPrefix: 'RAF[005:01]',
-      requiredArtifactPaths: ['/project/outcomes/01-task.md', '/project/context.md'],
+      requiredArtifactPaths: ['/project/outcomes/01-task.md'],
     };
 
     beforeEach(() => {
