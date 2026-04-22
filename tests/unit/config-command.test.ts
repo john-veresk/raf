@@ -390,6 +390,24 @@ describe('Config Command', () => {
       const presetPath = path.join(tempDir, '.raf', 'presets', 'legacy-cleanup.json');
       expect(JSON.parse(fs.readFileSync(presetPath, 'utf-8'))).toEqual({ timeout: 45 });
     });
+
+    it('loads a legacy preset with a top-level context block', async () => {
+      const presetPath = path.join(tempDir, '.raf', 'presets', 'legacy-load.json');
+      fs.mkdirSync(path.dirname(presetPath), { recursive: true });
+      fs.writeFileSync(presetPath, JSON.stringify({
+        context: {
+          maxCompletedTasks: 2,
+        },
+        timeout: 45,
+      }, null, 2));
+
+      await parseConfigCommand(['preset', 'load', 'legacy-load']);
+
+      expect(resolveConfig(configPath()).timeout).toBe(45);
+      expect(resolveConfig(configPath())).toEqual(expect.objectContaining({ timeout: 45 }));
+      expect(mockLogger.info).toHaveBeenCalledWith('Linked config to preset "legacy-load"');
+      expect(mockLogger.info).toHaveBeenCalledWith('  Keys: timeout');
+    });
   });
 
   describe('Validation helpers used by config flows', () => {

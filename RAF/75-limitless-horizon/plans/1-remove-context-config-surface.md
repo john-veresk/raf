@@ -19,10 +19,10 @@ Remove the public `context` config section while preserving backward-compatible 
 - Legacy-key stripping should be centralized so `resolveConfig()`, config validation after `raf config wizard`, and preset load paths all behave the same way.
 
 ## Acceptance Criteria
-- [ ] `RafConfig`, `DEFAULT_CONFIG`, and `CONFIG_SCHEMA` no longer expose a `context` section.
-- [ ] A config file containing only a legacy `context` block resolves without throwing and produces the same runtime behavior as an empty config file.
-- [ ] `raf config set context.maxCompletedTasks 10` fails because `context` is no longer a valid schema path.
-- [ ] Unknown non-legacy keys still fail validation.
+- [x] `RafConfig`, `DEFAULT_CONFIG`, and `CONFIG_SCHEMA` no longer expose a `context` section.
+- [x] A config file containing only a legacy `context` block resolves without throwing and produces the same runtime behavior as an empty config file.
+- [x] `raf config set context.maxCompletedTasks 10` fails because `context` is no longer a valid schema path.
+- [x] Unknown non-legacy keys still fail validation.
 
 ## Context
 `src/core/project-context.ts` currently pulls rendering bounds from `getResolvedConfig().context`, so removing the config surface requires disentangling the public schema before the generator can be refactored cleanly.
@@ -42,4 +42,3 @@ Remove the public `context` config section while preserving backward-compatible 
 ## Risks & Mitigations
 - Load-time compatibility and write-time schema enforcement can drift.
 - Mitigation: route both file-validation and config-resolution through one shared legacy-sanitization helper instead of duplicating special cases.
-
