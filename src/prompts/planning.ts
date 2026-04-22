@@ -45,6 +45,8 @@ If exploration reveals that the requested change already exists or that the prem
 
 ${getInterviewInstructions(harness, projectPath)}
 
+Before you start writing plan files, make sure \`${projectPath}/context.md\` exists and update its \`## Goal\` section once the interview has clarified the real project direction.
+
 ### 3. Create Plan Files
 
 Create plan files in \`${projectPath}/plans/\` numbered in execution order (e.g., \`1-task-name.md\`).

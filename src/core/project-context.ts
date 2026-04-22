@@ -51,6 +51,32 @@ function firstMeaningfulInputBlock(input: string | null, maxChars: number): stri
   return truncateAtBoundary(cleaned.replace(/\s+/g, ' '), maxChars);
 }
 
+function readStoredGoal(projectPath: string): string | null {
+  const contextPath = getContextPath(projectPath);
+  if (!fs.existsSync(contextPath)) {
+    return null;
+  }
+
+  const existingContext = fs.readFileSync(contextPath, 'utf-8');
+  const storedGoal = extractMarkdownSection(existingContext, 'Goal')?.trim();
+  if (!storedGoal) {
+    return null;
+  }
+
+  return storedGoal;
+}
+
+function resolveGoal(projectPath: string, maxChars: number): string {
+  const storedGoal = readStoredGoal(projectPath);
+  if (storedGoal) {
+    return storedGoal;
+  }
+
+  const inputPath = getInputPath(projectPath);
+  const inputContent = fs.existsSync(inputPath) ? fs.readFileSync(inputPath, 'utf-8') : null;
+  return firstMeaningfulInputBlock(inputContent, maxChars);
+}
+
 function readTaskArtifacts(projectPath: string): TaskArtifact[] {
   const state = deriveProjectState(projectPath);
   const outcomesDir = getOutcomesDir(projectPath);
@@ -130,9 +156,7 @@ export function buildProjectContext(projectPath: string): string {
   const stats = getDerivedStats(state) ?? computeStats(state.tasks);
   const taskArtifacts = readTaskArtifacts(projectPath);
 
-  const inputPath = getInputPath(projectPath);
-  const inputContent = fs.existsSync(inputPath) ? fs.readFileSync(inputPath, 'utf-8') : null;
-  const goal = firstMeaningfulInputBlock(inputContent, config.goalMaxChars);
+  const goal = resolveGoal(projectPath, config.goalMaxChars);
 
   const decisionItems = dedupeDecisionItems(
     taskArtifacts.flatMap((task) => [

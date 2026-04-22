@@ -140,6 +140,15 @@ describe('Planning Prompt', () => {
       expect(systemPrompt).toContain('reconcile');
       expect(systemPrompt).toContain('before proceeding');
     });
+
+    it('should instruct the planner to maintain context.md goal as a clarified summary', () => {
+      const { systemPrompt } = getPlanningPrompt(defaultParams);
+
+      expect(systemPrompt).toContain('/test/project/context.md');
+      expect(systemPrompt).toContain('## Goal');
+      expect(systemPrompt).toMatch(/clarified summary/i);
+      expect(systemPrompt).toMatch(/Do not copy raw prompt text verbatim from `input\.md`/);
+    });
   });
 
   describe('worktreeMode param (kept for backward compat, ignored)', () => {

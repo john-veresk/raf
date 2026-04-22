@@ -124,4 +124,62 @@ ${'x'.repeat(1000)}
     expect(fileContent).toContain('Task 1: task — Preferred summary text.');
     expect(fileContent).not.toContain('Intro text that should not be used.');
   });
+
+  it('preserves an edited goal when refreshing context', () => {
+    fs.writeFileSync(
+      path.join(projectPath, 'input.md'),
+      '# Request\n\nOriginal raw prompt that should only seed the initial goal.',
+    );
+    fs.writeFileSync(
+      path.join(projectPath, 'plans', '1-task.md'),
+      `# Task: One
+
+## Objective
+Do the thing.
+
+## Acceptance Criteria
+- [ ] Done
+`,
+    );
+
+    refreshProjectContext(projectPath);
+    fs.writeFileSync(
+      path.join(projectPath, 'context.md'),
+      `# Project Context
+
+## Goal
+Clarified goal that was edited during planning and must survive refresh.
+
+## Key Decisions
+- Old generated content
+`,
+    );
+
+    const refreshed = refreshProjectContext(projectPath);
+
+    expect(refreshed).toContain('Clarified goal that was edited during planning and must survive refresh.');
+    expect(refreshed).not.toContain('Original raw prompt that should only seed the initial goal.');
+    expect(refreshed).toContain('## Pending Work');
+  });
+
+  it('falls back to input when a legacy context file has no usable goal', () => {
+    fs.writeFileSync(
+      path.join(projectPath, 'input.md'),
+      '# Request\n\nUse input.md as the fallback goal for legacy projects.',
+    );
+    fs.writeFileSync(
+      path.join(projectPath, 'context.md'),
+      `# Project Context
+
+## Goal
+
+## Key Decisions
+- Legacy content without a stored goal
+`,
+    );
+
+    const refreshed = refreshProjectContext(projectPath);
+
+    expect(refreshed).toContain('Use input.md as the fallback goal for legacy projects.');
+  });
 });

@@ -114,6 +114,8 @@ If exploration reveals the premise is wrong or the change already exists, surfac
 
 ${getInterviewInstructions(harness, projectPath)}
 
+If the amendment materially changes scope or reframes what the project is now trying to accomplish, revise \`${projectPath}/context.md\`'s \`## Goal\` section before you finish planning so the stored summary matches the new direction.
+
 ### 3. Create Plan Files
 
 Create plan files starting from \`${projectPath}/plans/${encodeTaskId(nextTaskNumber)}-task-name.md\`.

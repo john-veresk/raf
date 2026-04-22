@@ -245,7 +245,7 @@ RAF creates a `./RAF/` folder with project directories identified by sequential 
 ./RAF/
 ├── 1-auth-system/
 │   ├── input.md           # Your original intent (raw prompt)
-│   ├── context.md         # Generated project context (goal, decisions, state, completed work)
+│   ├── context.md         # Shared project context (maintained goal summary, decisions, state, completed work)
 │   ├── plans/             # Generated task plans
 │   ├── outcomes/          # Execution results
 │   └── logs/              # Debug logs (on failure)
@@ -253,7 +253,9 @@ RAF creates a `./RAF/` folder with project directories identified by sequential 
     └── ...
 ```
 
-`context.md` is machine-generated and refreshed by RAF after planning, amendment, and every outcome write. It is the canonical shared project context for amend prompts, execution prompts, PR generation, and merge-conflict resolution. Planning-time decisions belong in each task plan's `## Key Decisions` section, and execution-time changes belong in each outcome file's `## Decision Updates` section.
+`input.md` remains the RAF-managed raw prompt/history file.
+
+`context.md` is the canonical shared project context for amend prompts, execution prompts, PR generation, and merge-conflict resolution. RAF refreshes its generated sections after planning, amendment, and every outcome write, but preserves the `## Goal` section as the maintained project-direction summary. New projects seed `## Goal` from `input.md`, and later planning or amend sessions can rewrite that summary without losing it on refresh. Planning-time decisions belong in each task plan's `## Key Decisions` section, and execution-time changes belong in each outcome file's `## Decision Updates` section.
 
 ## Worktree Mode
 

@@ -204,5 +204,14 @@ describe('Amend Prompt', () => {
       expect(systemPrompt).toContain('context.md');
       expect(systemPrompt).not.toContain('decisions.md');
     });
+
+    it('should instruct amend flows to revise the stored goal when scope changes', () => {
+      const { systemPrompt } = getAmendPrompt(baseParams);
+
+      expect(systemPrompt).toContain('/test/project/context.md');
+      expect(systemPrompt).toContain('## Goal');
+      expect(systemPrompt).toMatch(/materially changes scope|reframes/i);
+      expect(systemPrompt).toMatch(/clarified summary/i);
+    });
   });
 });

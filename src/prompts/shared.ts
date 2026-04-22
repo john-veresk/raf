@@ -68,12 +68,16 @@ export function getInterviewInstructions(harness: HarnessName, projectPath: stri
 
 When the task description conflicts with what the code actually does, reconcile the contradiction with the user before proceeding.
 
-Record the final planning decisions in the relevant plan file's \`## Key Decisions\` section. RAF will summarize them into \`${projectPath}/context.md\`.`;
+Record the final planning decisions in the relevant plan file's \`## Key Decisions\` section. RAF will summarize them into \`${projectPath}/context.md\`.
+
+Once the interview settles the actual project direction, update \`${projectPath}/context.md\`'s \`## Goal\` section to a clarified summary of the work. Do not copy raw prompt text verbatim from \`input.md\` unless that is already the best summary.`;
   }
 
   return `Use the AskUserQuestion tool. Ask architectural/foundational questions first (data shapes, module boundaries, current state of the code) and tactical questions only after.
 
 When the task description conflicts with what the code actually does, reconcile the contradiction with the user before proceeding.
 
-Record the final planning decisions in the relevant plan file's \`## Key Decisions\` section. RAF will summarize them into \`${projectPath}/context.md\`.`;
+Record the final planning decisions in the relevant plan file's \`## Key Decisions\` section. RAF will summarize them into \`${projectPath}/context.md\`.
+
+Once the interview settles the actual project direction, update \`${projectPath}/context.md\`'s \`## Goal\` section to a clarified summary of the work. Do not copy raw prompt text verbatim from \`input.md\` unless that is already the best summary.`;
 }
