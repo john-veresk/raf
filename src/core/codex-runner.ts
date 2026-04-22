@@ -326,7 +326,7 @@ export class CodexRunner implements ICliRunner {
     options: RunnerOptions,
     verbose: boolean,
   ): Promise<RunResult> {
-    const { timeout = 60, cwd = process.cwd(), outcomeFilePath, commitContext, verboseCheck } = options;
+    const { timeout = 60, cwd = process.cwd(), outcomeFilePath, verboseCheck } = options;
     const validatedTimeout = Number(timeout) > 0 ? Number(timeout) : 60;
     const timeoutMs = validatedTimeout * 60 * 1000;
 
@@ -389,7 +389,6 @@ export class CodexRunner implements ICliRunner {
       const completionDetector = createCompletionDetector(
         () => killProcessGroup(proc, 'completion detected'),
         outcomeFilePath,
-        commitContext,
         options.onOutcomeFileMarker,
       );
 
@@ -483,7 +482,6 @@ export class CodexRunner implements ICliRunner {
           rateLimitInfo = detectRateLimitFromText(output, stderr);
         }
 
-        const commitVerificationState = completionDetector.getCommitVerificationState();
         clearTimeout(timeoutHandle);
         completionDetector.cleanup();
         this.activeProcess = null;
@@ -498,7 +496,6 @@ export class CodexRunner implements ICliRunner {
           exitCode: exitCode ?? (this.killed ? 130 : 1),
           timedOut,
           contextOverflow,
-          commitVerificationFailed: commitVerificationState.failed,
           usageData,
           rateLimitInfo,
         });

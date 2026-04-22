@@ -81,6 +81,10 @@ After successfully completing the task:
    - Focus on the actual change, not the task name
    - The commit message must be a SINGLE LINE — no body, no trailers
    - Do NOT add Co-Authored-By or any other trailers to the commit message
+3. Immediately verify that the commit landed before writing \`<promise>COMPLETE</promise>\`
+   - Confirm the commit succeeded
+   - Run \`git show --stat --oneline -1\` and verify it includes the task's code changes, \`${outcomeFilePath}\`, and \`${planPath}\`
+   - Do not write \`<promise>COMPLETE</promise>\` until that verification passes
 
 **IMPORTANT - On Failure**: If the task fails, do NOT commit. Just write the outcome file with the \`<promise>FAILED</promise>\` marker and stop. Uncommitted changes will be preserved for debugging.
 `

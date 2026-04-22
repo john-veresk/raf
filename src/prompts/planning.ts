@@ -1,3 +1,6 @@
+import * as path from 'node:path';
+import { getCommitFormat, getCommitPrefix, renderCommitMessage } from '../utils/config.js';
+import { extractProjectName } from '../utils/paths.js';
 import type { HarnessName } from '../types/config.js';
 import { PLANNING_PRINCIPLES, PLAN_TEMPLATE, FLOW, DEPENDENCY_RULES, getInterviewInstructions } from './shared.js';
 
@@ -20,6 +23,14 @@ export interface PlanningPromptResult {
  */
 export function getPlanningPrompt(params: PlanningPromptParams): PlanningPromptResult {
   const { projectPath, harness = 'claude' } = params;
+  const projectName = extractProjectName(projectPath) ?? path.basename(projectPath);
+  const planCommitTemplate = getCommitFormat('plan');
+  const planCommitExample = renderCommitMessage(planCommitTemplate, {
+    prefix: getCommitPrefix(),
+    projectId: projectName,
+    projectName,
+    description: '<description>',
+  });
   const systemPrompt = `You are a project planning assistant for RAF (Ralph's Automation Framework). Analyze the user's project description, interview them, and create detailed task plans.
 
 ## Project Location
@@ -58,6 +69,13 @@ ${PLAN_TEMPLATE}
 ${DEPENDENCY_RULES}
 
 ### 4. Confirm Completion
+
+Before you declare planning complete:
+- Stage the planning artifacts you changed: \`${projectPath}/input.md\`, \`${projectPath}/context.md\`, and each updated file in \`${projectPath}/plans/\`
+- Commit them with a single-line message in this format: "${planCommitExample}"
+- Immediately verify that the commit landed
+- Run \`git show --stat --oneline -1\` and confirm it includes \`input.md\`, \`context.md\`, and the plan files you changed
+- Do not display the final completion message until that verification passes
 
 Summarize tasks with effort levels, then display:
 

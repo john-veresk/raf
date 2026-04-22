@@ -7,7 +7,6 @@ const mockRunInteractive = jest.fn<() => Promise<number>>();
 const mockCreateRunner = jest.fn(() => ({
   runInteractive: mockRunInteractive,
 }));
-const mockCommitPlanningArtifacts = jest.fn<() => Promise<void>>();
 const mockOpenEditor = jest.fn<() => Promise<string>>();
 const mockGenerateProjectNames = jest.fn<() => Promise<string[]>>();
 const mockPickProjectName = jest.fn<() => Promise<string>>();
@@ -38,10 +37,6 @@ jest.unstable_mockModule('../../src/core/runner-factory.js', () => ({
 
 jest.unstable_mockModule('../../src/core/shutdown-handler.js', () => ({
   shutdownHandler: mockShutdownHandler,
-}));
-
-jest.unstable_mockModule('../../src/core/git.js', () => ({
-  commitPlanningArtifacts: mockCommitPlanningArtifacts,
 }));
 
 jest.unstable_mockModule('../../src/core/state-derivation.js', () => ({
@@ -145,7 +140,6 @@ describe('Plan Command - Legacy Auto Flag Compatibility', () => {
 
     mockRunInteractive.mockReset().mockResolvedValue(0);
     mockCreateRunner.mockClear();
-    mockCommitPlanningArtifacts.mockReset().mockResolvedValue(undefined);
     mockOpenEditor.mockReset().mockResolvedValue('Build a samurai switch.');
     mockGenerateProjectNames.mockReset().mockResolvedValue(['samurai-switch', 'backup-name']);
     mockPickProjectName.mockReset().mockResolvedValue('samurai-switch');

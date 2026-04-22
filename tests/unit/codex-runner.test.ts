@@ -10,10 +10,6 @@ const mockExistsSync = jest.fn();
 const mockStatSync = jest.fn();
 const mockReadFileSync = jest.fn();
 
-const mockGetHeadCommitHash = jest.fn();
-const mockGetHeadCommitMessage = jest.fn();
-const mockDidHeadCommitTouchFiles = jest.fn();
-
 jest.unstable_mockModule('node:child_process', () => ({
   spawn: mockSpawn,
   execSync: mockExecSync,
@@ -33,12 +29,6 @@ jest.unstable_mockModule('node:fs', () => ({
   existsSync: mockExistsSync,
   statSync: mockStatSync,
   readFileSync: mockReadFileSync,
-}));
-
-jest.unstable_mockModule('../../src/core/git.js', () => ({
-  getHeadCommitHash: mockGetHeadCommitHash,
-  getHeadCommitMessage: mockGetHeadCommitMessage,
-  didHeadCommitTouchFiles: mockDidHeadCommitTouchFiles,
 }));
 
 const { CodexRunner } = await import('../../src/core/codex-runner.js');
@@ -419,38 +409,4 @@ describe('CodexRunner', () => {
     await runPromise;
   });
 
-  it('marks non-interactive runs as failed when COMPLETE is emitted before required artifacts are verified', async () => {
-    jest.useFakeTimers();
-
-    const mockProc = createMockProcess();
-    mockSpawn.mockReturnValue(mockProc);
-
-    mockGetHeadCommitHash.mockReturnValue('aaa111');
-    mockGetHeadCommitMessage.mockReturnValue('RAF[005:01] Add feature');
-    mockDidHeadCommitTouchFiles.mockReturnValue(false);
-
-    const runner = new CodexRunner({ model: 'gpt-5.4' });
-    const runPromise = runner.run('test prompt', {
-      timeout: 60,
-      commitContext: {
-        preExecutionHead: 'aaa111',
-        expectedPrefix: 'RAF[005:01]',
-        requiredArtifactPaths: ['/project/outcomes/01-task.md'],
-      },
-    });
-
-    mockProc.stdout.emit('data', Buffer.from(`${JSON.stringify({
-      type: 'item.completed',
-      item: {
-        type: 'agent_message',
-        text: '<promise>COMPLETE</promise>',
-      },
-    })}\n`));
-    mockProc.emit('close', 0);
-
-    const result = await runPromise;
-    expect(result.commitVerificationFailed).toBe(true);
-
-    jest.useRealTimers();
-  });
 });

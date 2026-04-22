@@ -6,7 +6,7 @@ import { ProjectManager } from '../core/project-manager.js';
 import { createRunner } from '../core/runner-factory.js';
 import { shutdownHandler } from '../core/shutdown-handler.js';
 import { waitForRateLimit } from '../core/rate-limit-waiter.js';
-import { stashChanges, hasUncommittedChanges, isGitRepo, getHeadCommitHash } from '../core/git.js';
+import { stashChanges, hasUncommittedChanges } from '../core/git.js';
 import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, isRetryableFailure } from '../parsers/output-parser.js';
 import { validatePlansExist } from '../utils/validation.js';
@@ -695,11 +695,6 @@ interface SingleProjectOptions {
   worktreeCwd?: string;
 }
 
-export function getCommitVerificationFailureReason(requiredArtifactPaths: string[]): string {
-  const artifactList = requiredArtifactPaths.map((artifactPath) => path.basename(artifactPath)).join(', ');
-  return `Task marked COMPLETE but RAF could not verify that the final task commit touched: ${artifactList}`;
-}
-
 async function executeSingleProject(
   projectPath: string,
   projectName: string,
@@ -1045,21 +1040,10 @@ async function executeSingleProject(
         dependencyOutcomes,
       });
 
-      // Capture HEAD hash before execution for commit verification
-      const preExecutionHead = isGitRepo(worktreeCwd) ? getHeadCommitHash(worktreeCwd) : null;
-      const requiredArtifactPaths = [outcomeFilePath];
-      const commitContext = preExecutionHead ? {
-        preExecutionHead,
-        expectedPrefix: `RAF[${projectNumber}:${task.id}]`,
-        requiredArtifactPaths,
-        cwd: worktreeCwd,
-      } : undefined;
-
       // Run task (use worktree root as cwd if in worktree mode)
       const runnerOptions = {
         timeout,
         outcomeFilePath,
-        commitContext,
         cwd: worktreeCwd,
         verboseCheck: () => keyboard.isVerbose,
       };
@@ -1137,12 +1121,6 @@ async function executeSingleProject(
         failureReason = 'Context overflow - task too large';
         failureHistory.push({ attempt: attempts, reason: failureReason });
         break; // Not retryable
-      }
-
-      if (result.commitVerificationFailed) {
-        failureReason = getCommitVerificationFailureReason(requiredArtifactPaths);
-        failureHistory.push({ attempt: attempts, reason: failureReason });
-        continue;
       }
 
       if (parsed.result === 'complete') {

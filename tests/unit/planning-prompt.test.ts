@@ -151,6 +151,21 @@ describe('Planning Prompt', () => {
     });
   });
 
+  describe('planning completion contract', () => {
+    it('should require committing and verifying planning artifacts before declaring success', () => {
+      const { systemPrompt } = getPlanningPrompt(defaultParams);
+
+      expect(systemPrompt).toContain('Stage the planning artifacts you changed');
+      expect(systemPrompt).toContain('/test/project/input.md');
+      expect(systemPrompt).toContain('/test/project/context.md');
+      expect(systemPrompt).toContain('/test/project/plans/');
+      expect(systemPrompt).toContain('RAF[project] Plan: <description>');
+      expect(systemPrompt).toContain('Immediately verify that the commit landed');
+      expect(systemPrompt).toContain('git show --stat --oneline -1');
+      expect(systemPrompt).toContain('Do not display the final completion message until that verification passes');
+    });
+  });
+
   describe('worktreeMode param (kept for backward compat, ignored)', () => {
     it('should accept worktreeMode without error', () => {
       const params: PlanningPromptParams = {

@@ -22,10 +22,6 @@ jest.unstable_mockModule('../../src/core/shutdown-handler.js', () => ({
   },
 }));
 
-jest.unstable_mockModule('../../src/core/git.js', () => ({
-  commitPlanningArtifacts: jest.fn(),
-}));
-
 jest.unstable_mockModule('../../src/core/editor.js', () => ({
   openEditor: jest.fn(),
   getInputTemplate: () => 'template',

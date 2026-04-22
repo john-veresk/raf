@@ -238,6 +238,15 @@ describe('Execution Prompt', () => {
       const prompt = getExecutionPrompt(baseParams);
       expect(prompt).toContain('preserved for debugging');
     });
+
+    it('should require verifying the commit before writing COMPLETE', () => {
+      const prompt = getExecutionPrompt(baseParams);
+      expect(prompt).toContain('Immediately verify that the commit landed before writing `<promise>COMPLETE</promise>`');
+      expect(prompt).toContain('git show --stat --oneline -1');
+      expect(prompt).toContain(baseParams.outcomeFilePath);
+      expect(prompt).toContain(baseParams.planPath);
+      expect(prompt).toContain('Do not write `<promise>COMPLETE</promise>` until that verification passes');
+    });
   });
 
   describe('Previous Outcomes', () => {

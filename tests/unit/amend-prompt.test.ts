@@ -214,4 +214,19 @@ describe('Amend Prompt', () => {
       expect(systemPrompt).toMatch(/clarified summary/i);
     });
   });
+
+  describe('amendment completion contract', () => {
+    it('should require committing and verifying amended planning artifacts before declaring success', () => {
+      const { systemPrompt } = getAmendPrompt(baseParams);
+
+      expect(systemPrompt).toContain('Stage the planning artifacts you changed');
+      expect(systemPrompt).toContain('/test/project/input.md');
+      expect(systemPrompt).toContain('/test/project/context.md');
+      expect(systemPrompt).toContain('/test/project/plans/');
+      expect(systemPrompt).toContain('RAF[project] Amend: <description>');
+      expect(systemPrompt).toContain('Immediately verify that the commit landed');
+      expect(systemPrompt).toContain('git show --stat --oneline -1');
+      expect(systemPrompt).toContain('Do not display the final completion message until that verification passes');
+    });
+  });
 });

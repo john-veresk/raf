@@ -6,7 +6,6 @@ import { ProjectManager } from '../core/project-manager.js';
 import { createRunner } from '../core/runner-factory.js';
 import { openEditor, getInputTemplate } from '../core/editor.js';
 import { shutdownHandler } from '../core/shutdown-handler.js';
-import { commitPlanningArtifacts } from '../core/git.js';
 import { getPlanningPrompt } from '../prompts/planning.js';
 import { getAmendPrompt } from '../prompts/amend.js';
 import {
@@ -330,13 +329,6 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, wor
 
       refreshProjectContext(projectPath);
 
-      // Commit planning artifacts (input.md, context.md, and plan files)
-      const planAbsolutePaths = planFiles.map((f) => path.join(plansDir, f));
-      await commitPlanningArtifacts(projectPath, {
-        cwd: worktreeRoot ?? undefined,
-        additionalFiles: planAbsolutePaths,
-      });
-
       logger.newline();
       logger.info(`Run 'raf do ${finalProjectName}' to execute the plans.`);
     }
@@ -588,15 +580,6 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry): Pro
     }
 
     refreshProjectContext(projectPath);
-
-    // Commit planning artifacts (input.md, context.md, and all plan files)
-    // Always attempt commit — even without new plans, existing files may have been updated
-    const allPlanAbsolutePaths = allPlanFiles.map((f) => path.join(plansDir, f));
-    await commitPlanningArtifacts(projectPath, {
-      cwd: worktreePath ?? undefined,
-      isAmend: true,
-      additionalFiles: allPlanAbsolutePaths,
-    });
 
     if (newPlanFiles.length > 0) {
       logger.newline();

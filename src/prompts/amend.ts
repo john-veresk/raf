@@ -1,7 +1,9 @@
+import * as path from 'node:path';
+import { getCommitFormat, getCommitPrefix, renderCommitMessage } from '../utils/config.js';
 import type { HarnessName } from '../types/config.js';
 import { PLANNING_PRINCIPLES, PLAN_TEMPLATE, FLOW, DEPENDENCY_RULES, getInterviewInstructions } from './shared.js';
 import { DerivedTask } from '../core/state-derivation.js';
-import { encodeTaskId } from '../utils/paths.js';
+import { encodeTaskId, extractProjectName } from '../utils/paths.js';
 
 export interface AmendPromptParams {
   projectPath: string;
@@ -61,6 +63,14 @@ export function getAmendPrompt(params: AmendPromptParams): AmendPromptResult {
     modifiableTasks.length > 0
       ? modifiableTasks.map((t) => `- Task ${t.id}: ${t.taskName}`).join('\n')
       : '(none)';
+  const projectName = extractProjectName(projectPath) ?? path.basename(projectPath);
+  const amendCommitTemplate = getCommitFormat('amend');
+  const amendCommitExample = renderCommitMessage(amendCommitTemplate, {
+    prefix: getCommitPrefix(),
+    projectId: projectName,
+    projectName,
+    description: '<description>',
+  });
 
   const systemPrompt = `You are a project planning assistant for RAF (Ralph's Automation Framework). Add new tasks or modify pending tasks in an existing project.
 
@@ -127,6 +137,13 @@ ${PLAN_TEMPLATE}
 ${DEPENDENCY_RULES}
 
 ### 4. Confirm Completion
+
+Before you declare amendment complete:
+- Stage the planning artifacts you changed: \`${projectPath}/input.md\`, \`${projectPath}/context.md\`, and each updated file in \`${projectPath}/plans/\`
+- Commit them with a single-line message in this format: "${amendCommitExample}"
+- Immediately verify that the commit landed
+- Run \`git show --stat --oneline -1\` and confirm it includes \`input.md\`, \`context.md\`, and the plan files you changed
+- Do not display the final completion message until that verification passes
 
 Summarize new tasks with effort levels, their relation to existing tasks, and total task count. Then display:
 

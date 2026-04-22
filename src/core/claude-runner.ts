@@ -13,8 +13,8 @@ import { createCompletionDetector } from './completion-detector.js';
 
 // Re-export shared types for backward compatibility
 export type { RunnerOptions as ClaudeRunnerOptions, RunnerConfig as ClaudeRunnerConfig, RunResult } from './runner-types.js';
-export { COMPLETION_GRACE_PERIOD_MS, COMPLETION_HARD_MAX_MS, COMMIT_POLL_INTERVAL_MS, OUTCOME_POLL_INTERVAL_MS } from './completion-detector.js';
-export type { CommitContext, CompletionDetector } from './completion-detector.js';
+export { COMPLETION_GRACE_PERIOD_MS, OUTCOME_POLL_INTERVAL_MS } from './completion-detector.js';
+export type { CompletionDetector } from './completion-detector.js';
 
 function getClaudePath(): string {
   try {
@@ -313,7 +313,7 @@ export class ClaudeRunner implements ICliRunner {
     options: RunnerOptions,
     verbose: boolean,
   ): Promise<RunResult> {
-    const { timeout = 60, cwd = process.cwd(), outcomeFilePath, commitContext, verboseCheck } = options;
+    const { timeout = 60, cwd = process.cwd(), outcomeFilePath, verboseCheck } = options;
     // Ensure timeout is a positive number, fallback to 60 minutes
     const validatedTimeout = Number(timeout) > 0 ? Number(timeout) : 60;
     const timeoutMs = validatedTimeout * 60 * 1000;
@@ -384,7 +384,6 @@ export class ClaudeRunner implements ICliRunner {
       const completionDetector = createCompletionDetector(
         () => killProcessGroup(proc, 'completion detected'),
         outcomeFilePath,
-        commitContext,
         options.onOutcomeFileMarker,
       );
 
@@ -469,7 +468,6 @@ export class ClaudeRunner implements ICliRunner {
           rateLimitInfo = detectRateLimitFromText(output, stderr);
         }
 
-        const commitVerificationState = completionDetector.getCommitVerificationState();
         clearTimeout(timeoutHandle);
         completionDetector.cleanup();
         this.activeProcess = null;
@@ -484,7 +482,6 @@ export class ClaudeRunner implements ICliRunner {
           exitCode: exitCode ?? (this.killed ? 130 : 1),
           timedOut,
           contextOverflow,
-          commitVerificationFailed: commitVerificationState.failed,
           usageData,
           rateLimitInfo,
         });
