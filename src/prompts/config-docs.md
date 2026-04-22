@@ -27,7 +27,7 @@ The above only changes `models.plan` — all other model settings keep their def
 Controls which model and harness is used for each scenario. Each entry is a `ModelEntry` object with the following shape:
 
 ```json
-{ "model": "<model-name>", "harness": "<harness>", "reasoningEffort": "<effort>" }
+{ "model": "<model-name>", "harness": "<harness>", "reasoningEffort": "<effort>", "fast": true }
 ```
 
 - **`model`** (required): A short alias (`"sonnet"`, `"haiku"`, `"opus"`) or a full model ID (e.g., `"claude-opus-4-6"`, `"gpt-5.4"`, `"o3"`).
@@ -35,6 +35,7 @@ Controls which model and harness is used for each scenario. Each entry is a `Mod
 - **`reasoningEffort`** (optional): Controls reasoning depth. Accepted values differ by harness:
   - **Claude** (`output_config.effort`): `"low"`, `"medium"`, `"high"` (default), `"max"` (Opus 4.6 only). Supported on Opus 4.5+, Sonnet 4.6+. Haiku does not support reasoning.
   - **Codex** (`model_reasoning_effort`): `"none"`, `"minimal"`, `"low"`, `"medium"` (default), `"high"`, `"xhigh"`.
+- **`fast`** (optional, Codex-only): Boolean toggle for Codex fast mode. Leave it omitted unless explicitly needed. When `true`, RAF adds `-c 'service_tier="fast"'` to interactive Codex sessions, `codex exec` runs, and Codex-backed name generation. Claude entries reject this field.
 
 **Claude model aliases**: `"opus"`, `"sonnet"`, `"haiku"` defer version selection to the Claude provider. RAF displays the alias unless you configure an explicit full ID.
 **Known Codex models**: `"gpt-5.4"`, `"gpt-5.4-2026-03-05"` (pinned), `"gpt-5.4-pro"`, `"gpt-5.4-mini"`, `"gpt-5.4-nano"`, `"o3"`.
@@ -55,6 +56,21 @@ Controls which model and harness is used for each scenario. Each entry is a `Mod
 {
   "models": {
     "execute": { "model": "gpt-5.4", "harness": "codex" }
+  }
+}
+```
+
+Example with Codex fast mode enabled on one entry:
+
+```json
+{
+  "models": {
+    "execute": {
+      "model": "gpt-5.4",
+      "harness": "codex",
+      "reasoningEffort": "medium",
+      "fast": true
+    }
   }
 }
 ```

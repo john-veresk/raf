@@ -88,10 +88,10 @@ describe('Command Output Integration', () => {
       });
 
       it('should show model metadata in the existing compact model slot', () => {
-        const output = formatTaskProgress(1, 3, 'running', 'auth-login', 45000, '01', 'sonnet', { effort: 'low', fast: true });
+        const output = formatTaskProgress(1, 3, 'running', 'auth-login', 45000, '01', 'gpt-5.4', { effort: 'medium', fast: true });
         logger.info(output);
 
-        expect(consoleLogSpy).toHaveBeenCalledWith('● 01-auth-login (sonnet, low, fast) 45s');
+        expect(consoleLogSpy).toHaveBeenCalledWith('● 01-auth-login (gpt-5.4, medium, fast) 45s');
       });
 
       it('should show pending task with fraction', () => {
