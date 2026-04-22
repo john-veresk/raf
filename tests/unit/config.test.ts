@@ -168,6 +168,24 @@ describe('Config', () => {
       expect(() => validateConfig({ commitFormat: { unknownKey: 'val' } })).toThrow('Unknown config key: commitFormat.unknownKey');
     });
 
+    it('should ignore a legacy top-level context block', () => {
+      expect(() => validateConfig({
+        context: {
+          maxCompletedTasks: 999,
+          goalMaxChars: 1234,
+        },
+      })).not.toThrow();
+    });
+
+    it('should still reject unknown siblings when a legacy context block is present', () => {
+      expect(() => validateConfig({
+        context: {
+          maxCompletedTasks: 999,
+        },
+        unknownKey: true,
+      })).toThrow('Unknown config key: unknownKey');
+    });
+
     // Removed legacy keys
     it('should reject removed provider key with helpful message', () => {
       expect(() => validateConfig({ provider: 'claude' })).toThrow('Top-level "provider" has been removed');
@@ -470,6 +488,33 @@ describe('Config', () => {
       expect(() => resolveConfig(configPath)).toThrow(ConfigValidationError);
     });
 
+    it('should treat a legacy context-only file like an empty config', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({
+        context: {
+          maxCompletedTasks: 1,
+          maxPendingTasks: 1,
+        },
+      }));
+
+      expect(resolveConfig(configPath)).toEqual(DEFAULT_CONFIG);
+    });
+
+    it('should ignore a legacy context block while preserving supported sibling settings', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({
+        context: {
+          maxCompletedTasks: 1,
+          goalMaxChars: 10,
+        },
+        timeout: 90,
+      }));
+
+      const config = resolveConfig(configPath);
+      expect(config.timeout).toBe(90);
+      expect('context' in config).toBe(false);
+    });
+
     it('should not mutate DEFAULT_CONFIG', () => {
       const configPath = path.join(tempDir, 'raf.config.json');
       fs.writeFileSync(configPath, JSON.stringify({
@@ -506,6 +551,20 @@ describe('Config', () => {
     it('should write config to file', () => {
       const configPath = path.join(tempDir, 'sub', 'raf.config.json');
       saveConfig(configPath, { timeout: 90 });
+
+      const content = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      expect(content).toEqual({ timeout: 90 });
+    });
+
+    it('should strip a legacy context block before writing', () => {
+      const configPath = path.join(tempDir, 'sub', 'raf.config.json');
+      const legacyConfig = {
+        timeout: 90,
+        context: {
+          maxCompletedTasks: 4,
+        },
+      } as unknown as Parameters<typeof saveConfig>[1];
+      saveConfig(configPath, legacyConfig);
 
       const content = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
       expect(content).toEqual({ timeout: 90 });
@@ -591,6 +650,7 @@ describe('Config', () => {
       expect('provider' in DEFAULT_CONFIG).toBe(false);
       expect('codexModels' in DEFAULT_CONFIG).toBe(false);
       expect('codexEffortMapping' in DEFAULT_CONFIG).toBe(false);
+      expect('context' in DEFAULT_CONFIG).toBe(false);
     });
 
     it('should omit fast from default model entries', () => {

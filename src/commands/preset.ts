@@ -3,8 +3,11 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { Command } from 'commander';
 import { logger } from '../utils/logger.js';
+import type { UserConfig } from '../types/config.js';
 import {
   getConfigPath,
+  saveConfig,
+  stripLegacyConfig,
   validateConfig,
   ConfigValidationError,
 } from '../utils/config.js';
@@ -76,9 +79,10 @@ function savePreset(name: string): void {
   const configContent = fs.readFileSync(configPath, 'utf-8');
 
   // Validate the config before saving
+  let normalized: UserConfig;
   try {
-    const parsed = JSON.parse(configContent);
-    validateConfig(parsed);
+    normalized = stripLegacyConfig(JSON.parse(configContent));
+    validateConfig(normalized);
   } catch (err) {
     if (err instanceof ConfigValidationError) {
       logger.error(`Current config is invalid: ${err.message}`);
@@ -91,7 +95,7 @@ function savePreset(name: string): void {
   const existed = fs.existsSync(presetPath);
 
   // Write content to preset file
-  fs.writeFileSync(presetPath, configContent);
+  saveConfig(presetPath, normalized);
 
   // Remove old config (regular file or old symlink) and create new symlink
   removeConfigIfExists(configPath);
@@ -121,6 +125,7 @@ function loadPreset(name: string): void {
   }
 
   try {
+    parsed = stripLegacyConfig(parsed);
     validateConfig(parsed);
   } catch (err) {
     if (err instanceof ConfigValidationError) {

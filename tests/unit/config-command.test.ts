@@ -238,6 +238,18 @@ describe('Config Command', () => {
 
       exitSpy.mockRestore();
     });
+
+    it('rejects legacy context paths because they are no longer in the schema', async () => {
+      const exitSpy = jest.spyOn(process, 'exit').mockImplementation((() => {
+        throw new Error('process.exit');
+      }) as typeof process.exit);
+
+      await expect(parseConfigCommand(['set', 'context.maxCompletedTasks', '10'])).rejects.toThrow('process.exit');
+      expect(mockLogger.error).toHaveBeenCalledWith('Config key not found in schema: context.maxCompletedTasks');
+      expect(fs.existsSync(configPath())).toBe(false);
+
+      exitSpy.mockRestore();
+    });
   });
 
   describe('config reset', () => {
@@ -286,6 +298,20 @@ describe('Config Command', () => {
         { dangerouslySkipPermissions: true }
       );
       expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('raf config reset'));
+    });
+
+    it('accepts a legacy context-only config during post-session validation', async () => {
+      fs.mkdirSync(path.dirname(configPath()), { recursive: true });
+      fs.writeFileSync(configPath(), JSON.stringify({
+        context: {
+          maxCompletedTasks: 2,
+        },
+      }, null, 2));
+
+      await parseConfigCommand(['wizard']);
+
+      expect(mockLogger.success).toHaveBeenCalledWith('Config updated successfully.');
+      expect(mockLogger.info).not.toHaveBeenCalledWith(expect.stringContaining('Custom settings: context'));
     });
 
     it('does not launch the interactive session from bare config', async () => {
@@ -348,6 +374,39 @@ describe('Config Command', () => {
       );
 
       exitSpy.mockRestore();
+    });
+
+    it('strips a legacy context block when saving a preset', async () => {
+      fs.mkdirSync(path.dirname(configPath()), { recursive: true });
+      fs.writeFileSync(configPath(), JSON.stringify({
+        context: {
+          maxCompletedTasks: 2,
+        },
+        timeout: 45,
+      }, null, 2));
+
+      await parseConfigCommand(['preset', 'save', 'legacy-cleanup']);
+
+      const presetPath = path.join(tempDir, '.raf', 'presets', 'legacy-cleanup.json');
+      expect(JSON.parse(fs.readFileSync(presetPath, 'utf-8'))).toEqual({ timeout: 45 });
+    });
+
+    it('loads a legacy preset with a top-level context block', async () => {
+      const presetPath = path.join(tempDir, '.raf', 'presets', 'legacy-load.json');
+      fs.mkdirSync(path.dirname(presetPath), { recursive: true });
+      fs.writeFileSync(presetPath, JSON.stringify({
+        context: {
+          maxCompletedTasks: 2,
+        },
+        timeout: 45,
+      }, null, 2));
+
+      await parseConfigCommand(['preset', 'load', 'legacy-load']);
+
+      expect(resolveConfig(configPath()).timeout).toBe(45);
+      expect(resolveConfig(configPath())).toEqual(expect.objectContaining({ timeout: 45 }));
+      expect(mockLogger.info).toHaveBeenCalledWith('Linked config to preset "legacy-load"');
+      expect(mockLogger.info).toHaveBeenCalledWith('  Keys: timeout');
     });
   });
 
