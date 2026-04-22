@@ -102,16 +102,6 @@ jest.unstable_mockModule('../../src/utils/config.js', () => ({
   },
   getWorktreeDefault: () => false,
   getSyncMainBranch: () => false,
-  getResolvedConfig: () => ({
-    context: {
-      maxCompletedTasks: 8,
-      maxPendingTasks: 8,
-      maxDecisionItems: 12,
-      recentOutcomeLimit: 3,
-      goalMaxChars: 500,
-      outcomeSummaryMaxChars: 280,
-    },
-  }),
 }));
 
 jest.unstable_mockModule('../../src/utils/name-generator.js', () => ({

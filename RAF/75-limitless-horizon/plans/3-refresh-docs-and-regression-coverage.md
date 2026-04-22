@@ -18,10 +18,10 @@ Bring documentation and automated coverage in line with the removed `context` co
 - Regression coverage should assert legacy config compatibility explicitly so future schema cleanup does not accidentally re-break old user files.
 
 ## Acceptance Criteria
-- [ ] README and config docs no longer advertise a `context` config section.
-- [ ] Unit tests cover ignoring legacy `context` blocks during config load/validation.
-- [ ] Unit tests cover the new project-context safety behavior and no longer rely on removed config fields.
-- [ ] Plan-command/config-command test fixtures no longer stub nonexistent `context` config.
+- [x] README and config docs no longer advertise a `context` config section.
+- [x] Unit tests cover ignoring legacy `context` blocks during config load/validation.
+- [x] Unit tests cover the new project-context safety behavior and no longer rely on removed config fields.
+- [x] Plan-command/config-command test fixtures no longer stub nonexistent `context` config.
 
 ## Dependencies
 - 1
@@ -39,4 +39,3 @@ Bring documentation and automated coverage in line with the removed `context` co
 ## Risks & Mitigations
 - Docs and tests can lag behind the code and leave RAF looking half-migrated.
 - Mitigation: make legacy-compatibility and internal-safety behavior explicit in both prose and regression assertions.
-

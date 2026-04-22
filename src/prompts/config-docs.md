@@ -336,6 +336,7 @@ The config is validated when loaded. Invalid configs cause an error with a descr
 
 - **Unknown keys are rejected** at every nesting level. Typos like `"model"` instead of `"models"` will be caught.
 - **Removed legacy keys** (`provider`, `codexModels`, `codexEffortMapping`) are rejected with helpful migration messages.
+- A legacy top-level **`context`** block is silently ignored for backward compatibility. It is not a supported config surface and RAF does not write it back out.
 - **Model entries** (`models.*`, `effortMapping.*`) must be `ModelEntry` objects with required `model` and `harness` fields. Plain strings (e.g., `"sonnet"`) are not accepted — use `{ "model": "sonnet", "harness": "claude" }` instead.
 - **`effortMapping` keys** must be `"low"`, `"medium"`, or `"high"`.
 - **`display.statusProjectLimit`** must be a non-negative integer (`0` means unlimited).

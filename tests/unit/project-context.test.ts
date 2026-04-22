@@ -229,10 +229,13 @@ ${`Completed work for task ${index} with context updates and history capture. `.
     expect(context).toContain('## Current State');
     expect(context).toContain('## Pending Work');
     expect(context).toContain('Task 46: task-46 [pending]');
+    expect(context).toContain('[objective shortened for context safety]');
     expect(context).toContain('## Completed Work');
     expect(context).toContain('Task 45: task-45');
+    expect(context).toContain('[summary shortened for context safety]');
     expect(context).toContain('Additional completed tasks omitted for context safety');
     expect(context).toContain('## Source Files');
     expect(context).toContain('- outcomes/45-task-45.md');
+    expect(context).toContain('Additional outcome references omitted for context safety');
   });
 });

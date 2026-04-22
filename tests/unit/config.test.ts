@@ -177,6 +177,15 @@ describe('Config', () => {
       })).not.toThrow();
     });
 
+    it('should still reject unknown siblings when a legacy context block is present', () => {
+      expect(() => validateConfig({
+        context: {
+          maxCompletedTasks: 999,
+        },
+        unknownKey: true,
+      })).toThrow('Unknown config key: unknownKey');
+    });
+
     // Removed legacy keys
     it('should reject removed provider key with helpful message', () => {
       expect(() => validateConfig({ provider: 'claude' })).toThrow('Top-level "provider" has been removed');
@@ -489,6 +498,21 @@ describe('Config', () => {
       }));
 
       expect(resolveConfig(configPath)).toEqual(DEFAULT_CONFIG);
+    });
+
+    it('should ignore a legacy context block while preserving supported sibling settings', () => {
+      const configPath = path.join(tempDir, 'raf.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({
+        context: {
+          maxCompletedTasks: 1,
+          goalMaxChars: 10,
+        },
+        timeout: 90,
+      }));
+
+      const config = resolveConfig(configPath);
+      expect(config.timeout).toBe(90);
+      expect('context' in config).toBe(false);
     });
 
     it('should not mutate DEFAULT_CONFIG', () => {

@@ -16,7 +16,7 @@ Good software of the future will be built with good decisions by humans, not AI.
 
 **Smart model selection** — RAF estimates task complexity during planning (low/medium/high effort) and automatically routes each task to the appropriate model. Simple tasks use cheaper, faster models; complex tasks get the most capable model. Fully configurable via `effortMapping`.
 
-**Automatic PR creation** — In worktree mode, RAF can automatically create GitHub PRs with Claude-generated descriptions that summarize your original intent, the generated project context, and task outcomes. Reviewers get meaningful context, not boilerplate.
+**Automatic PR creation** — In worktree mode, RAF can automatically create GitHub PRs with Claude-generated descriptions that summarize your original intent, RAF's generated project artifact, and task outcomes. Reviewers get meaningful context, not boilerplate.
 
 **Structured decision-making** — Planning decisions live in each task plan, execution-time deviations live in each task outcome, and RAF continuously rolls them up into a generated `context.md` artifact. Reviewers get the "why" without a hand-maintained project notebook.
 
@@ -245,7 +245,7 @@ RAF creates a `./RAF/` folder with project directories identified by sequential 
 ./RAF/
 ├── 1-auth-system/
 │   ├── input.md           # Your original intent (raw prompt)
-│   ├── context.md         # Shared project context (maintained goal summary, decisions, state, completed work)
+│   ├── context.md         # RAF-managed generated project artifact (goal, decisions, state, completed work)
 │   ├── plans/             # Generated task plans
 │   ├── outcomes/          # Execution results
 │   └── logs/              # Debug logs (on failure)
@@ -255,7 +255,7 @@ RAF creates a `./RAF/` folder with project directories identified by sequential 
 
 `input.md` remains the RAF-managed raw prompt/history file.
 
-`context.md` is the canonical shared project context for amend prompts, execution prompts, PR generation, and merge-conflict resolution. RAF refreshes its generated sections after planning, amendment, and every outcome write, but preserves the `## Goal` section as the maintained project-direction summary. New projects seed `## Goal` from `input.md`, and later planning or amend sessions can rewrite that summary without losing it on refresh. Planning-time decisions belong in each task plan's `## Key Decisions` section, and execution-time changes belong in each outcome file's `## Decision Updates` section.
+`context.md` is an internal RAF-managed artifact used for amend prompts, execution prompts, PR generation, and merge-conflict resolution. RAF refreshes its generated sections after planning, amendment, and every outcome write, but preserves the `## Goal` section as the maintained project-direction summary. New projects seed `## Goal` from `input.md`, and later planning or amend sessions can rewrite that summary without losing it on refresh. Planning-time decisions belong in each task plan's `## Key Decisions` section, and execution-time changes belong in each outcome file's `## Decision Updates` section. There is no supported `context` section in `raf config`; legacy top-level `context` blocks are ignored when older config files are loaded.
 
 ## Worktree Mode
 
