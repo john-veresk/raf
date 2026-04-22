@@ -52,8 +52,10 @@ export interface RunnerOptions {
     preExecutionHead: string;
     /** Expected commit message prefix (e.g., "RAF[005:01]"). */
     expectedPrefix: string;
-    /** Path to the outcome file that should be committed. */
-    outcomeFilePath: string;
+    /** Files that must be touched by the final task commit. */
+    requiredArtifactPaths: string[];
+    /** Git working directory to verify against (important for worktrees). */
+    cwd?: string;
   };
   /**
    * Dynamic verbose display callback. When provided, called for each stream event
@@ -105,6 +107,8 @@ export interface RunResult {
   exitCode: number;
   timedOut: boolean;
   contextOverflow: boolean;
+  /** COMPLETE was emitted, but RAF never verified the required task commit artifacts. */
+  commitVerificationFailed?: boolean;
   /** Token usage data from the stream-json result event. */
   usageData?: UsageData;
   /** Rate limit info when quota exhaustion is detected. */

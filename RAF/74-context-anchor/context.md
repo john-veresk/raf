@@ -7,22 +7,24 @@ update prompts so context.md always gets commited (in both plan and do phases) h
 - Planning scope is intentionally unchanged: `src/commands/plan.ts` already calls `commitPlanningArtifacts()`, which stages and commits `input.md`, `context.md`, and plan files after planning/amend sessions.
 - The fix is runtime enforcement, not a prompt-only change. `src/prompts/execution.ts` already instructs the executor to `git add` `context.md`; the bug is that RAF currently accepts success without proving that happened.
 - If a task writes a `COMPLETE` marker but the final task commit omits `context.md`, RAF should fail/retry the task instead of auto-creating a follow-up commit.
+- None.
 
 ## Current State
-- Status: ready
+- Status: completed
 - Total tasks: 1
-- Completed: 0
-- Pending: 1
+- Completed: 1
+- Pending: 0
 - Failed: 0
 - Blocked: 0
 
 ## Completed Work
-- No completed work yet.
+- Task 1: enforce-context-commit-verification — Updated RAF's execution-time commit verification so `raf do` only treats a task as successful when the final RAF task commit touched both the task outcome file and the refreshed project `context.md`.
 
 ## Pending Work
-- Task 1: enforce-context-commit-verification [pending] — Make `raf do` treat a task as successful only when the task commit includes the refreshed `context.md` alongside the outcome file.
+- No pending work.
 
 ## Source Files
 - input.md
 - plans/
 - outcomes/
+- outcomes/1-enforce-context-commit-verification.md

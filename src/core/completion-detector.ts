@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import { logger } from '../utils/logger.js';
-import { getHeadCommitHash, getHeadCommitMessage, isFileCommittedInHead } from './git.js';
+import { didHeadCommitTouchFiles, getHeadCommitHash, getHeadCommitMessage } from './git.js';
 
 /**
  * Grace period in ms after completion marker is detected before terminating.
@@ -36,8 +36,17 @@ export interface CommitContext {
   preExecutionHead: string;
   /** Expected commit message prefix (e.g., "RAF[005:01]"). */
   expectedPrefix: string;
-  /** Path to the outcome file that should be committed. */
-  outcomeFilePath: string;
+  /** Files that must be touched by the final task commit. */
+  requiredArtifactPaths: string[];
+  /** Git working directory to verify against (important for worktrees). */
+  cwd?: string;
+}
+
+export interface CommitVerificationState {
+  completeMarkerDetected: boolean;
+  verificationRequired: boolean;
+  verified: boolean;
+  failed: boolean;
 }
 
 /**
@@ -47,6 +56,8 @@ export interface CommitContext {
 export interface CompletionDetector {
   /** Check accumulated stdout output for completion markers. */
   checkOutput(output: string): void;
+  /** Return the current commit verification state. */
+  getCommitVerificationState(): CommitVerificationState;
   /** Clean up all timers. Must be called when the process exits. */
   cleanup(): void;
 }
@@ -56,17 +67,17 @@ export interface CompletionDetector {
  * Checks: HEAD changed, commit message matches prefix, outcome file is committed.
  */
 export function verifyCommit(commitContext: CommitContext): boolean {
-  const currentHead = getHeadCommitHash();
+  const currentHead = getHeadCommitHash(commitContext.cwd);
   if (!currentHead || currentHead === commitContext.preExecutionHead) {
     return false;
   }
 
-  const message = getHeadCommitMessage();
+  const message = getHeadCommitMessage(commitContext.cwd);
   if (!message || !message.startsWith(commitContext.expectedPrefix)) {
     return false;
   }
 
-  if (!isFileCommittedInHead(commitContext.outcomeFilePath)) {
+  if (!didHeadCommitTouchFiles(commitContext.requiredArtifactPaths, commitContext.cwd)) {
     return false;
   }
 
@@ -86,6 +97,8 @@ export function createCompletionDetector(
   let initialMtime = 0;
   let detectedMarkerIsComplete = false;
   let fileMarkerCallbackFired = false;
+  let commitVerified = false;
+  let commitVerificationFailed = false;
 
   // Record initial mtime of outcome file to avoid false positives from previous runs
   if (outcomeFilePath) {
@@ -107,6 +120,7 @@ export function createCompletionDetector(
     if (commitContext && detectedMarkerIsComplete) {
       // Check if commit already landed
       if (verifyCommit(commitContext)) {
+        commitVerified = true;
         logger.debug('Grace period expired - commit verified, terminating process');
         killFn();
         return;
@@ -118,12 +132,14 @@ export function createCompletionDetector(
 
       hardMaxHandle = setTimeout(() => {
         logger.warn('Hard maximum grace period reached without commit verification - terminating process');
+        commitVerificationFailed = true;
         if (commitPollHandle) clearInterval(commitPollHandle);
         killFn();
       }, remainingMs);
 
       commitPollHandle = setInterval(() => {
         if (commitContext && verifyCommit(commitContext)) {
+          commitVerified = true;
           logger.debug('Commit verified during extended grace period - terminating process');
           if (commitPollHandle) clearInterval(commitPollHandle);
           if (hardMaxHandle) clearTimeout(hardMaxHandle);
@@ -183,5 +199,15 @@ export function createCompletionDetector(
     if (hardMaxHandle) clearTimeout(hardMaxHandle);
   }
 
-  return { checkOutput, cleanup };
+  function getCommitVerificationState(): CommitVerificationState {
+    const verificationRequired = Boolean(commitContext && detectedMarkerIsComplete);
+    return {
+      completeMarkerDetected: detectedMarkerIsComplete,
+      verificationRequired,
+      verified: commitVerified,
+      failed: commitVerificationFailed || (verificationRequired && !commitVerified),
+    };
+  }
+
+  return { checkOutput, getCommitVerificationState, cleanup };
 }

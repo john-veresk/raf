@@ -186,11 +186,55 @@ export function getHeadCommitHash(cwd?: string): string | null {
  * Get the current HEAD commit message (first line only).
  * Returns null if not in a git repo or HEAD doesn't exist.
  */
-export function getHeadCommitMessage(): string | null {
+export function getHeadCommitMessage(cwd?: string): string | null {
   try {
-    return execSync('git log -1 --format=%s', { encoding: 'utf-8', stdio: 'pipe' }).trim() || null;
+    return execSync('git log -1 --format=%s', { encoding: 'utf-8', stdio: 'pipe', ...(cwd ? { cwd } : {}) }).trim() || null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Get the repo-relative paths touched by the given commit.
+ */
+export function getCommitTouchedFiles(ref = 'HEAD', cwd?: string): string[] {
+  try {
+    const output = execSync(`git diff-tree --no-commit-id --name-only -r "${ref.replace(/"/g, '\\"')}"`, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      ...(cwd ? { cwd } : {}),
+    }).trim();
+    if (!output) {
+      return [];
+    }
+    return output.split('\n').map(line => line.trim()).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function toRepoRelativePaths(filePaths: string[], cwd?: string): string[] {
+  const execOpts = cwd ? { cwd } : {};
+  const repoRoot = execSync('git rev-parse --show-toplevel', {
+    encoding: 'utf-8',
+    stdio: 'pipe',
+    ...execOpts,
+  }).trim();
+
+  return filePaths.map((filePath) => path.relative(repoRoot, path.resolve(filePath)));
+}
+
+/**
+ * Check whether the latest commit touched all required file paths.
+ * Paths may be absolute or repo-relative.
+ */
+export function didHeadCommitTouchFiles(filePaths: string[], cwd?: string): boolean {
+  try {
+    const touchedFiles = new Set(getCommitTouchedFiles('HEAD', cwd));
+    const relativePaths = toRepoRelativePaths(filePaths, cwd);
+    return relativePaths.every(filePath => touchedFiles.has(filePath));
+  } catch {
+    return false;
   }
 }
 
@@ -198,15 +242,16 @@ export function getHeadCommitMessage(): string | null {
  * Check if a file is tracked in the HEAD commit.
  * Returns true if the file appears in the latest commit's tree.
  */
-export function isFileCommittedInHead(filePath: string): boolean {
+export function isFileCommittedInHead(filePath: string, cwd?: string): boolean {
   try {
-    // Use git ls-tree to check if the file exists in HEAD
-    // We need the path relative to the repo root
-    const repoRoot = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8', stdio: 'pipe' }).trim();
-    const relativePath = path.relative(repoRoot, path.resolve(filePath));
+    const relativePath = toRepoRelativePaths([filePath], cwd)[0];
+    if (!relativePath) {
+      return false;
+    }
     const result = execSync(`git ls-tree HEAD -- "${relativePath.replace(/"/g, '\\"')}"`, {
       encoding: 'utf-8',
       stdio: 'pipe',
+      ...(cwd ? { cwd } : {}),
     }).trim();
     return result.length > 0;
   } catch {
