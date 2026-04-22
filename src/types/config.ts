@@ -36,21 +36,6 @@ export interface DisplayConfig {
   statusProjectLimit: number;
 }
 
-export interface ContextConfig {
-  /** Maximum completed-task entries rendered in `context.md`. */
-  maxCompletedTasks: number;
-  /** Maximum pending-task entries rendered in `context.md`. */
-  maxPendingTasks: number;
-  /** Maximum distinct decision bullets rendered in `context.md`. */
-  maxDecisionItems: number;
-  /** Maximum recent outcome file references listed in `context.md`. */
-  recentOutcomeLimit: number;
-  /** Maximum chars kept for the goal summary in `context.md`. */
-  goalMaxChars: number;
-  /** Maximum chars kept for per-task outcome summaries in `context.md`. */
-  outcomeSummaryMaxChars: number;
-}
-
 export type ModelScenario = 'plan' | 'execute' | 'nameGeneration' | 'failureAnalysis' | 'prGeneration' | 'config' | 'merge';
 export type CommitFormatType = 'task' | 'plan' | 'amend' | 'merge';
 
@@ -105,8 +90,6 @@ export interface RafConfig {
   codex: CodexConfig;
   /** User-facing display settings for CLI output. */
   display: DisplayConfig;
-  /** Rendering bounds for generated `context.md` files. */
-  context: ContextConfig;
   timeout: number;
   maxRetries: number;
   autoCommit: boolean;
@@ -177,14 +160,6 @@ export const DEFAULT_CONFIG: RafConfig = {
   },
   display: {
     statusProjectLimit: 10,
-  },
-  context: {
-    maxCompletedTasks: 8,
-    maxPendingTasks: 8,
-    maxDecisionItems: 12,
-    recentOutcomeLimit: 3,
-    goalMaxChars: 500,
-    outcomeSummaryMaxChars: 280,
   },
   timeout: 60,
   maxRetries: 3,

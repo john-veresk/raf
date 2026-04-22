@@ -36,7 +36,7 @@ export function getClaudeSettingsPath(): string {
 // ---- Validation ----
 
 const VALID_TOP_LEVEL_KEYS = new Set<string>([
-  'models', 'effortMapping', 'codex', 'display', 'context',
+  'models', 'effortMapping', 'codex', 'display',
   'timeout', 'maxRetries', 'autoCommit',
   'worktree', 'syncMainBranch', 'pushOnComplete', 'commitFormat',
   'rateLimitWaitDefault',
@@ -62,14 +62,6 @@ const VALID_MODEL_ENTRY_KEYS = new Set<string>(['model', 'harness', 'reasoningEf
 
 const VALID_CODEX_KEYS = new Set<string>(['executionMode']);
 const VALID_DISPLAY_KEYS = new Set<string>(['statusProjectLimit']);
-const VALID_CONTEXT_KEYS = new Set<string>([
-  'maxCompletedTasks',
-  'maxPendingTasks',
-  'maxDecisionItems',
-  'recentOutcomeLimit',
-  'goalMaxChars',
-  'outcomeSummaryMaxChars',
-]);
 
 const VALID_REASONING_EFFORTS = new Set<string>(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 
@@ -130,6 +122,15 @@ export function isValidModelName(value: string): boolean {
   }
 
   return false;
+}
+
+export function stripLegacyConfig(config: unknown): UserConfig {
+  if (config === null || typeof config !== 'object' || Array.isArray(config)) {
+    return config as UserConfig;
+  }
+
+  const { context: _legacyContext, ...rest } = config as Record<string, unknown>;
+  return rest as UserConfig;
 }
 
 /**
@@ -197,11 +198,13 @@ function validateModelEntry(obj: unknown, prefix: string): void {
 }
 
 export function validateConfig(config: unknown): UserConfig {
-  if (config === null || typeof config !== 'object' || Array.isArray(config)) {
+  const normalizedConfig = stripLegacyConfig(config);
+
+  if (normalizedConfig === null || typeof normalizedConfig !== 'object' || Array.isArray(normalizedConfig)) {
     throw new ConfigValidationError('Config must be a JSON object');
   }
 
-  const obj = config as Record<string, unknown>;
+  const obj = normalizedConfig as Record<string, unknown>;
 
   // Check for removed keys first (helpful error messages)
   for (const [key, message] of Object.entries(REMOVED_KEYS)) {
@@ -264,21 +267,6 @@ export function validateConfig(config: unknown): UserConfig {
     }
   }
 
-  // context
-  if (obj.context !== undefined) {
-    if (typeof obj.context !== 'object' || obj.context === null || Array.isArray(obj.context)) {
-      throw new ConfigValidationError('context must be an object');
-    }
-    const context = obj.context as Record<string, unknown>;
-    checkUnknownKeys(context, VALID_CONTEXT_KEYS, 'context');
-
-    for (const key of Object.keys(context)) {
-      if (!isNonNegativeInteger(context[key])) {
-        throw new ConfigValidationError(`context.${key} must be a non-negative integer`);
-      }
-    }
-  }
-
   // timeout
   if (obj.timeout !== undefined) {
     if (typeof obj.timeout !== 'number' || obj.timeout <= 0 || !Number.isFinite(obj.timeout)) {
@@ -335,7 +323,7 @@ export function validateConfig(config: unknown): UserConfig {
     }
   }
 
-  return config as UserConfig;
+  return normalizedConfig;
 }
 
 // ---- Deep merge ----
@@ -397,12 +385,6 @@ function deepMerge(defaults: RafConfig, overrides: UserConfig): RafConfig {
       ...overrides.display,
     };
   }
-  if (overrides.context) {
-    result.context = {
-      ...defaults.context,
-      ...overrides.context,
-    };
-  }
   if (overrides.commitFormat) {
     result.commitFormat = { ...defaults.commitFormat, ...overrides.commitFormat };
   }
@@ -444,13 +426,12 @@ export function resolveConfig(configPath?: string): RafConfig {
       },
       codex: { ...DEFAULT_CONFIG.codex },
       display: { ...DEFAULT_CONFIG.display },
-      context: { ...DEFAULT_CONFIG.context },
       commitFormat: { ...DEFAULT_CONFIG.commitFormat },
     };
   }
 
   const content = fs.readFileSync(filePath, 'utf-8');
-  const parsed: unknown = JSON.parse(content);
+  const parsed = stripLegacyConfig(JSON.parse(content));
   const validated = validateConfig(parsed);
   return deepMerge(DEFAULT_CONFIG, validated);
 }
@@ -467,7 +448,7 @@ export function saveConfig(configPath: string, config: UserConfig): void {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+  fs.writeFileSync(configPath, JSON.stringify(stripLegacyConfig(config), null, 2) + '\n');
 }
 
 // ---- Helper accessors ----

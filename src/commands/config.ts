@@ -15,6 +15,7 @@ import {
   resetConfigCache,
   resolveConfig,
   saveConfig,
+  stripLegacyConfig,
 } from '../utils/config.js';
 import { DEFAULT_CONFIG, CONFIG_SCHEMA } from '../types/config.js';
 import type { UserConfig } from '../types/config.js';
@@ -75,11 +76,12 @@ function postSessionValidation(configPath: string): void {
   try {
     const content = fs.readFileSync(configPath, 'utf-8');
     const parsed: unknown = JSON.parse(content);
-    validateConfig(parsed);
+    const normalized = stripLegacyConfig(parsed);
+    validateConfig(normalized);
     logger.success('Config updated successfully.');
 
     // Show a summary of what's set
-    const userConfig = parsed as Record<string, unknown>;
+    const userConfig = normalized as Record<string, unknown>;
     const keys = Object.keys(userConfig);
     if (keys.length > 0) {
       logger.info(`Custom settings: ${keys.join(', ')}`);
@@ -296,7 +298,7 @@ function handleSet(key: string, rawValue: string): void {
   if (fs.existsSync(configPath)) {
     try {
       const content = fs.readFileSync(configPath, 'utf-8');
-      userConfig = JSON.parse(content) as UserConfig;
+      userConfig = stripLegacyConfig(JSON.parse(content)) as UserConfig;
     } catch (error) {
       logger.error(`Failed to read config file: ${error}`);
       process.exit(1);

@@ -2,13 +2,21 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { deriveProjectState, getDerivedStats, type DerivedTaskStatus } from './state-derivation.js';
 import { extractDecisionItems, extractMarkdownSection, extractOutcomeSummary } from './outcome-summary.js';
-import { getResolvedConfig } from '../utils/config.js';
 import {
   extractTaskNameFromPlanFile,
   getContextPath,
   getInputPath,
   getOutcomesDir,
 } from '../utils/paths.js';
+
+const PROJECT_CONTEXT_LIMITS = {
+  maxCompletedTasks: 8,
+  maxPendingTasks: 8,
+  maxDecisionItems: 12,
+  recentOutcomeLimit: 3,
+  goalMaxChars: 500,
+  outcomeSummaryMaxChars: 280,
+} as const;
 
 interface TaskArtifact {
   id: string;
@@ -151,38 +159,37 @@ function renderBulletSection(items: string[], emptyMessage: string): string {
 }
 
 export function buildProjectContext(projectPath: string): string {
-  const config = getResolvedConfig().context;
   const state = deriveProjectState(projectPath);
   const stats = getDerivedStats(state) ?? computeStats(state.tasks);
   const taskArtifacts = readTaskArtifacts(projectPath);
 
-  const goal = resolveGoal(projectPath, config.goalMaxChars);
+  const goal = resolveGoal(projectPath, PROJECT_CONTEXT_LIMITS.goalMaxChars);
 
   const decisionItems = dedupeDecisionItems(
     taskArtifacts.flatMap((task) => [
       ...extractDecisionItems(task.planContent),
       ...(task.outcomeContent ? extractDecisionItems(task.outcomeContent) : []),
     ]),
-    config.maxDecisionItems,
+    PROJECT_CONTEXT_LIMITS.maxDecisionItems,
   );
 
   const completedWork = taskArtifacts
     .filter((task) => task.status === 'completed' && task.outcomeContent)
-    .slice(0, config.maxCompletedTasks)
-    .map((task) => `Task ${task.id}: ${task.taskName} — ${extractOutcomeSummary(task.outcomeContent!, config.outcomeSummaryMaxChars)}`);
+    .slice(0, PROJECT_CONTEXT_LIMITS.maxCompletedTasks)
+    .map((task) => `Task ${task.id}: ${task.taskName} — ${extractOutcomeSummary(task.outcomeContent!, PROJECT_CONTEXT_LIMITS.outcomeSummaryMaxChars)}`);
 
   const pendingWork = taskArtifacts
     .filter((task) => task.status !== 'completed')
-    .slice(0, config.maxPendingTasks)
+    .slice(0, PROJECT_CONTEXT_LIMITS.maxPendingTasks)
     .map((task) => {
       const objective = extractMarkdownSection(task.planContent, 'Objective');
-      const suffix = objective ? ` — ${truncateAtBoundary(objective.replace(/\s+/g, ' '), config.outcomeSummaryMaxChars)}` : '';
+      const suffix = objective ? ` — ${truncateAtBoundary(objective.replace(/\s+/g, ' '), PROJECT_CONTEXT_LIMITS.outcomeSummaryMaxChars)}` : '';
       return `Task ${task.id}: ${task.taskName} [${task.status}]${suffix}`;
     });
 
   const recentOutcomeRefs = taskArtifacts
     .filter((task) => task.outcomeContent)
-    .slice(-config.recentOutcomeLimit)
+    .slice(-PROJECT_CONTEXT_LIMITS.recentOutcomeLimit)
     .map((task) => `outcomes/${path.basename(task.outcomePath)}`);
 
   return [
