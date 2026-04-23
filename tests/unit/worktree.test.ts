@@ -368,6 +368,7 @@ describe('worktree utilities', () => {
 
     it('should succeed when AI resolves conflicts', async () => {
       let mergeAttempted = false;
+      let headReadCount = 0;
       mockExecSync.mockImplementation((cmd: unknown) => {
         const cmdStr = cmd as string;
         if (cmdStr.includes('checkout')) return '';
@@ -376,6 +377,11 @@ describe('worktree utilities', () => {
           mergeAttempted = true;
           throw new Error('CONFLICT');
         }
+        if (cmdStr.includes('git rev-parse HEAD')) {
+          headReadCount += 1;
+          return headReadCount === 1 ? 'old-head\n' : 'new-head\n';
+        }
+        if (cmdStr.includes('git rev-parse -q --verify MERGE_HEAD')) throw new Error('no merge head');
         // After AI runs, git status returns clean
         if (cmdStr.includes('git status --porcelain')) return '';
         return '';
@@ -389,6 +395,40 @@ describe('worktree utilities', () => {
       expect(result.success).toBe(true);
       expect(result.merged).toBe(true);
       expect(result.fastForward).toBe(false);
+    });
+
+    it('should treat a committed merge as success even if status remains dirty', async () => {
+      let mergeAttempted = false;
+      let headReadCount = 0;
+
+      mockExecSync.mockImplementation((cmd: unknown) => {
+        const cmdStr = cmd as string;
+        if (cmdStr.includes('checkout')) return '';
+        if (cmdStr.includes('--ff-only')) throw new Error('Not possible to fast-forward');
+        if (cmdStr.includes('git merge') && !mergeAttempted) {
+          mergeAttempted = true;
+          throw new Error('CONFLICT');
+        }
+        if (cmdStr.includes('git status --porcelain')) return '?? notes.txt\n';
+        if (cmdStr.includes('git rev-parse -q --verify MERGE_HEAD')) throw new Error('no merge head');
+        if (cmdStr.includes('git rev-parse HEAD')) {
+          headReadCount += 1;
+          return headReadCount === 1 ? 'old-head\n' : 'new-head\n';
+        }
+        return '';
+      });
+
+      mockRun.mockResolvedValue({ output: 'Resolved conflicts and committed merge', exitCode: 0, timedOut: false, contextOverflow: false });
+
+      const result = await mergeWorktreeBranch('abaaba-worktree-weaver', 'main', 'worktree-weaver', '/path/to/project');
+
+      expect(result.success).toBe(true);
+      expect(result.merged).toBe(true);
+      expect(result.fastForward).toBe(false);
+      expect(mockExecSync).not.toHaveBeenCalledWith(
+        'git merge --abort',
+        expect.any(Object)
+      );
     });
 
     it('should return failure when checkout fails', async () => {

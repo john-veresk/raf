@@ -257,6 +257,13 @@ Read the RAF project folder for context about what happened on the feature branc
 - Use exactly the commit message specified above — do not modify it`;
 
   const timeout = getTimeout();
+  const headBefore = (() => {
+    try {
+      return execSync('git rev-parse HEAD', { encoding: 'utf-8', stdio: 'pipe' }).trim();
+    } catch {
+      return null;
+    }
+  })();
 
   try {
     const result = await runner.run(prompt, { timeout, cwd: process.cwd() });
@@ -268,12 +275,27 @@ Read the RAF project folder for context about what happened on the feature branc
     // Verify the merge was committed (no remaining conflicts)
     try {
       const status = execSync('git status --porcelain', { encoding: 'utf-8', stdio: 'pipe' }).trim();
-      // If there are still unmerged files (status starts with U or has UU), resolution failed
+      // If there are still unmerged files, resolution failed.
       if (status && status.split('\n').some(line => /^(U.|.U|AA|DD)\s/.test(line))) {
         return { success: false, error: 'AI resolved some conflicts but unmerged files remain' };
       }
-      // If there are staged changes but no commit was made, that's also a failure
-      if (status) {
+
+      try {
+        execSync('git rev-parse -q --verify MERGE_HEAD', { encoding: 'utf-8', stdio: 'pipe' });
+        return { success: false, error: 'AI resolved conflicts but left the merge in progress' };
+      } catch {
+        // MERGE_HEAD is absent, which is expected after a successful merge commit.
+      }
+
+      const headAfter = (() => {
+        try {
+          return execSync('git rev-parse HEAD', { encoding: 'utf-8', stdio: 'pipe' }).trim();
+        } catch {
+          return null;
+        }
+      })();
+
+      if (!headBefore || !headAfter || headAfter === headBefore) {
         return { success: false, error: 'AI did not commit the resolved merge' };
       }
     } catch {
