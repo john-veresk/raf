@@ -383,7 +383,6 @@ describe('Dependency Integration Flow', () => {
         taskId: '2',
         taskNumber: 2,
         totalTasks: 2,
-        previousOutcomes: [{ taskId: '1', content: outcome001 }],
         autoCommit: true,
         projectNumber: '1',
         outcomeFilePath: path.join(projectPath, 'outcomes', '2-build.md'),
@@ -423,10 +422,6 @@ describe('Dependency Integration Flow', () => {
         taskId: '3',
         taskNumber: 3,
         totalTasks: 3,
-        previousOutcomes: [
-          { taskId: '1', content: outcome001 },
-          { taskId: '2', content: outcome002 },
-        ],
         autoCommit: true,
         projectNumber: '1',
         outcomeFilePath: path.join(projectPath, 'outcomes', '3-api.md'),

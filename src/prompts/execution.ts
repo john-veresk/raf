@@ -10,7 +10,6 @@ export interface ExecutionPromptParams {
   taskId: string;
   taskNumber: number;
   totalTasks: number;
-  previousOutcomes: Array<{ taskId: string; content: string }>;
   autoCommit: boolean;
   projectNumber: string;
   outcomeFilePath: string;
@@ -30,7 +29,6 @@ export function getExecutionPrompt(params: ExecutionPromptParams): string {
     taskId,
     taskNumber,
     totalTasks,
-    previousOutcomes,
     autoCommit,
     projectNumber,
     outcomeFilePath,
@@ -40,17 +38,6 @@ export function getExecutionPrompt(params: ExecutionPromptParams): string {
     dependencyIds = [],
     dependencyOutcomes = [],
   } = params;
-
-  let outcomesSection = '';
-  if (previousOutcomes.length > 0) {
-    outcomesSection = `
-## Previous Task Outcomes
-
-The following tasks have already been completed. Review them for context and to avoid duplication:
-
-${previousOutcomes.map((o) => `### Task ${o.taskId}\n${o.content}`).join('\n\n')}
-`;
-  }
 
   // Encode task number to plain numeric string
   const paddedTaskNumber = taskNumber.toString();
@@ -160,7 +147,7 @@ Follow the implementation steps in the plan:
 - Write clean, maintainable code following existing patterns
 - Follow any CLAUDE.md instructions
 - If you encounter blockers, try to resolve them before giving up
-${dependencyContextSection}${outcomesSection}
+${dependencyContextSection}
 ### Step 3: Verify Completion
 
 Before marking the task complete:

@@ -1029,7 +1029,6 @@ async function executeSingleProject(
         taskId: task.id,
         taskNumber,
         totalTasks,
-        previousOutcomes,
         autoCommit,
         projectNumber,
         outcomeFilePath,

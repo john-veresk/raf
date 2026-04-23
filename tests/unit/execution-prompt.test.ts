@@ -35,7 +35,6 @@ describe('Execution Prompt', () => {
     taskId: '1',
     taskNumber: 1,
     totalTasks: 5,
-    previousOutcomes: [],
     autoCommit: true,
     projectNumber: '42',
     outcomeFilePath: '/Users/test/RAF/42-task-naming-improvements/outcomes/1-enhance-identifier-resolution.md',
@@ -121,7 +120,6 @@ describe('Execution Prompt', () => {
         taskId: '6',
         taskNumber: 6,
         totalTasks: 7,
-        previousOutcomes: [],
         autoCommit: true,
         projectNumber: '42',
         outcomeFilePath: '/Users/test/RAF/42-task-naming-improvements/outcomes/6-update-execution-prompt.md',
@@ -138,7 +136,6 @@ describe('Execution Prompt', () => {
         taskId: '1',
         taskNumber: 1,
         totalTasks: 3,
-        previousOutcomes: [],
         autoCommit: true,
         projectNumber: '1',
         outcomeFilePath: '/Users/test/RAF/1-fix-bug/outcomes/1-identify-issue.md',
@@ -155,7 +152,6 @@ describe('Execution Prompt', () => {
         taskId: '2',
         taskNumber: 2,
         totalTasks: 4,
-        previousOutcomes: [],
         autoCommit: true,
         projectNumber: '7',
         outcomeFilePath: '/Users/test/RAF/7-feature-branch/outcomes/2-implement-feature.md',
@@ -251,20 +247,7 @@ describe('Execution Prompt', () => {
   });
 
   describe('Previous Outcomes', () => {
-    it('should include previous outcomes section when outcomes exist', () => {
-      const params = {
-        ...baseParams,
-        previousOutcomes: [
-          { taskId: '1', content: '## Status: SUCCESS\n\nTask completed successfully.' },
-        ],
-      };
-      const prompt = getExecutionPrompt(params);
-      expect(prompt).toContain('Previous Task Outcomes');
-      expect(prompt).toContain('### Task 1');
-      expect(prompt).toContain('## Status: SUCCESS');
-    });
-
-    it('should not include previous outcomes section when empty', () => {
+    it('should not include previous outcomes section', () => {
       const prompt = getExecutionPrompt(baseParams);
       expect(prompt).not.toContain('Previous Task Outcomes');
     });
@@ -424,10 +407,6 @@ describe('Execution Prompt', () => {
         ...baseParams,
         taskId: '3',
         taskNumber: 3,
-        previousOutcomes: [
-          { taskId: '1', content: 'Previous outcome 1' },
-          { taskId: '2', content: 'Previous outcome 2' },
-        ],
         dependencyIds: ['1'],
         dependencyOutcomes: [
           { taskId: '1', content: '## Summary\n\nDependency work.\n\n<promise>COMPLETE</promise>' },
@@ -437,8 +416,7 @@ describe('Execution Prompt', () => {
       const depContextIndex = prompt.indexOf('## Dependency Context');
       const prevOutcomesIndex = prompt.indexOf('## Previous Task Outcomes');
       expect(depContextIndex).toBeGreaterThan(-1);
-      expect(prevOutcomesIndex).toBeGreaterThan(-1);
-      expect(depContextIndex).toBeLessThan(prevOutcomesIndex);
+      expect(prevOutcomesIndex).toBe(-1);
     });
   });
 
