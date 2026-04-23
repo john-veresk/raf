@@ -49,7 +49,7 @@ import {
   pullMainBranch,
   branchExists,
 } from '../core/worktree.js';
-import { refreshProjectContext } from '../core/project-context.js';
+import { readProjectContext, DEFAULT_PROJECT_CONTEXT } from '../core/project-context.js';
 
 interface PlanCommandOptions {
   amend?: boolean;
@@ -236,7 +236,6 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, wor
       fs.mkdirSync(projectPath, { recursive: true });
       fs.mkdirSync(getPlansDir(projectPath), { recursive: true });
       fs.mkdirSync(getOutcomesDir(projectPath), { recursive: true });
-      refreshProjectContext(projectPath);
 
       logger.success(`Created project in worktree: ${projectPath}`);
       logger.info(`Worktree branch: ${wtResult.branch}`);
@@ -326,8 +325,6 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, wor
       for (const planFile of planFiles) {
         logger.info(`  - plans/${planFile}`);
       }
-
-      refreshProjectContext(projectPath);
 
       logger.newline();
       logger.info(`Run 'raf do ${finalProjectName}' to execute the plans.`);
@@ -518,7 +515,7 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry): Pro
     ? `${originalInput.trimEnd()}${separator}${cleanInput}`
     : cleanInput;
   fs.writeFileSync(inputPath, updatedInput);
-  const refreshedContext = refreshProjectContext(projectPath);
+  const contextContent = readProjectContext(projectPath) ?? DEFAULT_PROJECT_CONTEXT;
 
   // Set up shutdown handler
   const claudeRunner = createRunner({ model: modelEntry?.model, harness: modelEntry?.harness, reasoningEffort: modelEntry?.reasoningEffort, fast: modelEntry?.fast });
@@ -535,7 +532,7 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry): Pro
 
   const { systemPrompt, userMessage } = getAmendPrompt({
     projectPath,
-    contextContent: refreshedContext,
+    contextContent,
     existingTasks,
     nextTaskNumber,
     newTaskDescription: cleanInput,
@@ -578,8 +575,6 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry): Pro
         logger.info(`  - plans/${planFile}`);
       }
     }
-
-    refreshProjectContext(projectPath);
 
     if (newPlanFiles.length > 0) {
       logger.newline();

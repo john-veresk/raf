@@ -56,7 +56,7 @@ If exploration reveals that the requested change already exists or that the prem
 
 ${getInterviewInstructions(harness, projectPath)}
 
-Before you start writing plan files, make sure \`${projectPath}/context.md\` exists and update its \`## Goal\` section once the interview has clarified the real project direction.
+Before you start writing plan files, make sure \`${projectPath}/context.md\` exists and update it to match the clarified project direction.
 
 ### 3. Create Plan Files
 
@@ -71,10 +71,10 @@ ${DEPENDENCY_RULES}
 ### 4. Confirm Completion
 
 Before you declare planning complete:
-- Stage the planning artifacts you changed: \`${projectPath}/input.md\`, \`${projectPath}/context.md\`, and each updated file in \`${projectPath}/plans/\`
+- Stage the planning artifacts you changed: \`${projectPath}/input.md\`, \`${projectPath}/context.md\` if you created or updated it, and each updated file in \`${projectPath}/plans/\`
 - Commit them with a single-line message in this format: "${planCommitExample}"
 - Immediately verify that the commit landed
-- Run \`git show --stat --oneline -1\` and confirm it includes \`input.md\`, \`context.md\`, and the plan files you changed
+- Run \`git show --stat --oneline -1\` and confirm it includes \`input.md\`, every changed plan file, and \`context.md\` if you updated it
 - Do not display the final completion message until that verification passes
 
 Summarize tasks with effort levels, then display:

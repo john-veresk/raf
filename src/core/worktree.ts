@@ -231,7 +231,7 @@ export async function resolveConflictsWithAI(
 ## Context
 
 Read the RAF project folder for context about what happened on the feature branch:
-- Shared context: ${projectPath}/context.md — machine-generated project goal, decisions, status, and completed work
+- Shared context: ${projectPath}/context.md — agent-maintained project context for the branch
 - Plans: ${projectPath}/plans/ — these describe what each task was supposed to accomplish
 - Outcomes: ${projectPath}/outcomes/ — these describe what was actually done in each task
 

@@ -39,7 +39,7 @@ export interface RunnerOptions {
   outcomeFilePath?: string;
   /**
    * Called when the monitored outcome file itself gains a completion marker.
-   * Lets RAF refresh generated artifacts before the task-side commit lands.
+   * Lets RAF react before the task-side commit lands.
    */
   onOutcomeFileMarker?: (content: string) => void;
   /**

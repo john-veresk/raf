@@ -5,7 +5,6 @@ import * as path from 'node:path';
 import { logger } from '../utils/logger.js';
 import { formatModelDisplay, getModel } from '../utils/config.js';
 import { extractProjectName, getContextPath, getOutcomesDir, TASK_ID_PATTERN, numericFileSort } from '../utils/paths.js';
-import { readProjectContext as readGeneratedProjectContext } from './project-context.js';
 import { extractOutcomeSummary } from './outcome-summary.js';
 
 export interface PrCreateResult {
@@ -199,8 +198,6 @@ export function readProjectContext(projectPath: string): {
   const contextPath = getContextPath(projectPath);
   if (fs.existsSync(contextPath)) {
     context = fs.readFileSync(contextPath, 'utf-8');
-  } else if (fs.existsSync(projectPath)) {
-    context = readGeneratedProjectContext(projectPath);
   }
 
   const outcomesDir = getOutcomesDir(projectPath);

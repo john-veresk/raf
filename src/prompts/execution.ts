@@ -77,7 +77,7 @@ After successfully completing the task:
    - Add each code file you changed: \`git add <file1> <file2> ...\`
    - Add the outcome file: \`git add ${outcomeFilePath}\`
    - Add this task's plan file: \`git add ${planPath}\`
-   - Add the refreshed shared context file: \`git add ${contextPath}\`
+   - If you updated shared project context, add it too: \`git add ${contextPath}\`
 2. Commit with message: "${exampleCommit}"
    - Write a concise description of what was accomplished
    - Focus on the actual change, not the task name
@@ -85,7 +85,7 @@ After successfully completing the task:
    - Do NOT add Co-Authored-By or any other trailers to the commit message
 3. Immediately verify that the commit landed before writing \`<promise>COMPLETE</promise>\`
    - Confirm the commit succeeded
-   - Run \`git show --stat --oneline -1\` and verify it includes the task's code changes, \`${outcomeFilePath}\`, \`${planPath}\`, and \`${contextPath}\`
+   - Run \`git show --stat --oneline -1\` and verify it includes the task's code changes, \`${outcomeFilePath}\`, \`${planPath}\`, and \`${contextPath}\` if you updated it
    - Do not write \`<promise>COMPLETE</promise>\` until that verification passes
 
 **IMPORTANT - On Failure**: If the task fails, do NOT commit. Just write the outcome file with the \`<promise>FAILED</promise>\` marker and stop. Uncommitted changes will be preserved for debugging.
@@ -171,6 +171,8 @@ ${commitInstructions}
 ### Step 4: Write Outcome File
 
 **Outcome file path**: \`${outcomeFilePath}\`
+
+If the task changes the project-level shared context, update \`${contextPath}\` yourself. RAF will not regenerate it for you.
 
 The outcome file must contain:
 1. A summary of what was done

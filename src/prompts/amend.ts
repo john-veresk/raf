@@ -124,7 +124,7 @@ If exploration reveals the premise is wrong or the change already exists, surfac
 
 ${getInterviewInstructions(harness, projectPath)}
 
-If the amendment materially changes scope or reframes what the project is now trying to accomplish, revise \`${projectPath}/context.md\`'s \`## Goal\` section before you finish planning so the stored summary matches the new direction.
+If the amendment materially changes scope or reframes what the project is now trying to accomplish, revise \`${projectPath}/context.md\` before you finish planning so the shared context matches the new direction.
 
 ### 3. Create Plan Files
 
@@ -139,10 +139,10 @@ ${DEPENDENCY_RULES}
 ### 4. Confirm Completion
 
 Before you declare amendment complete:
-- Stage the planning artifacts you changed: \`${projectPath}/input.md\`, \`${projectPath}/context.md\`, and each updated file in \`${projectPath}/plans/\`
+- Stage the planning artifacts you changed: \`${projectPath}/input.md\`, \`${projectPath}/context.md\` if you created or updated it, and each updated file in \`${projectPath}/plans/\`
 - Commit them with a single-line message in this format: "${amendCommitExample}"
 - Immediately verify that the commit landed
-- Run \`git show --stat --oneline -1\` and confirm it includes \`input.md\`, \`context.md\`, and the plan files you changed
+- Run \`git show --stat --oneline -1\` and confirm it includes \`input.md\`, every changed plan file, and \`context.md\` if you updated it
 - Do not display the final completion message until that verification passes
 
 Summarize new tasks with effort levels, their relation to existing tasks, and total task count. Then display:
