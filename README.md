@@ -256,7 +256,7 @@ RAF creates a `./RAF/` folder with project directories identified by sequential 
 
 `input.md` remains the RAF-managed raw prompt/history file.
 
-`context.md` is the agent-maintained shared project context used for amend prompts, execution prompts, PR generation, and merge-conflict resolution. RAF reads it when present but does not generate or refresh it automatically. Planning and execution agents are responsible for creating or updating it when project-level context changes. There is no supported `context` section in `raf config`; legacy top-level `context` blocks are ignored when older config files are loaded.
+`context.md` is the agent-maintained shared project context used for amend prompts, execution prompts, PR generation, and merge-conflict resolution. RAF reads it when present but does not generate or refresh it automatically. Planning and execution agents are responsible for creating or updating it when project-level context changes. It should stay project-scoped rather than mirroring the latest task, and any `## Relevant Files` section should usually point at RAF artifacts such as `input.md`, `plans/*.md`, and `outcomes/*.md` rather than transient implementation files. There is no supported `context` section in `raf config`; legacy top-level `context` blocks are ignored when older config files are loaded.
 
 ## Worktree Mode
 

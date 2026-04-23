@@ -149,6 +149,24 @@ describe('Planning Prompt', () => {
       expect(systemPrompt).toMatch(/clarified summary/i);
       expect(systemPrompt).toMatch(/Do not copy raw prompt text verbatim from `input\.md`/);
     });
+
+    it('should define context.md as project context rather than task context', () => {
+      const { systemPrompt } = getPlanningPrompt(defaultParams);
+
+      expect(systemPrompt).toMatch(/shared project context, not a task-scoped brief/i);
+      expect(systemPrompt).toMatch(/whole project, not just this planning request/i);
+      expect(systemPrompt).toMatch(/durable project state/i);
+    });
+
+    it('should steer context relevant files toward plan and outcome artifacts', () => {
+      const { systemPrompt } = getPlanningPrompt(defaultParams);
+
+      expect(systemPrompt).toMatch(/## Relevant Files/);
+      expect(systemPrompt).toContain('input.md');
+      expect(systemPrompt).toContain('plans/');
+      expect(systemPrompt).toContain('outcomes/');
+      expect(systemPrompt).toMatch(/do not list implementation source files/i);
+    });
   });
 
   describe('planning completion contract', () => {

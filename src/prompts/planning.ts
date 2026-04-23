@@ -56,7 +56,7 @@ If exploration reveals that the requested change already exists or that the prem
 
 ${getInterviewInstructions(harness, projectPath)}
 
-Before you start writing plan files, make sure \`${projectPath}/context.md\` exists and update it to match the clarified project direction.
+Before you start writing plan files, make sure \`${projectPath}/context.md\` exists and update it to reflect the shared project context for the whole project, not just this planning request.
 
 ### 3. Create Plan Files
 

@@ -213,6 +213,24 @@ describe('Amend Prompt', () => {
       expect(systemPrompt).toMatch(/materially changes scope|reframes/i);
       expect(systemPrompt).toMatch(/clarified summary/i);
     });
+
+    it('should define context.md as project context rather than task context', () => {
+      const { systemPrompt } = getAmendPrompt(baseParams);
+
+      expect(systemPrompt).toMatch(/shared project context, not a task-scoped brief/i);
+      expect(systemPrompt).toMatch(/shared project context matches the new direction instead of collapsing into a task-only summary/i);
+      expect(systemPrompt).toMatch(/durable project state/i);
+    });
+
+    it('should steer context relevant files toward plan and outcome artifacts', () => {
+      const { systemPrompt } = getAmendPrompt(baseParams);
+
+      expect(systemPrompt).toMatch(/## Relevant Files/);
+      expect(systemPrompt).toContain('input.md');
+      expect(systemPrompt).toContain('plans/');
+      expect(systemPrompt).toContain('outcomes/');
+      expect(systemPrompt).toMatch(/do not list implementation source files/i);
+    });
   });
 
   describe('amendment completion contract', () => {

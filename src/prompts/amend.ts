@@ -124,7 +124,7 @@ If exploration reveals the premise is wrong or the change already exists, surfac
 
 ${getInterviewInstructions(harness, projectPath)}
 
-If the amendment materially changes scope or reframes what the project is now trying to accomplish, revise \`${projectPath}/context.md\` before you finish planning so the shared context matches the new direction.
+If the amendment materially changes scope or reframes what the project is now trying to accomplish, revise \`${projectPath}/context.md\` before you finish planning so the shared project context matches the new direction instead of collapsing into a task-only summary.
 
 ### 3. Create Plan Files
 
