@@ -220,6 +220,7 @@ describe('Amend Prompt', () => {
       expect(systemPrompt).toMatch(/shared project context, not a task-scoped brief/i);
       expect(systemPrompt).toMatch(/shared project context matches the new direction instead of collapsing into a task-only summary/i);
       expect(systemPrompt).toMatch(/durable project state/i);
+      expect(systemPrompt).toMatch(/Do not use a `## Current State` section in `context\.md`/i);
     });
 
     it('should reserve key decisions for durable domain choices instead of planning tactics', () => {

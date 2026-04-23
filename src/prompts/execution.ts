@@ -159,7 +159,7 @@ ${commitInstructions}
 
 **Outcome file path**: \`${outcomeFilePath}\`
 
-If the task changes the project-level shared context, update \`${contextPath}\` yourself. RAF will not regenerate it for you.
+If the task changes the project-level shared context, update \`${contextPath}\` yourself. RAF will not regenerate it for you. On successful tasks, also add \`${outcomeFilePath}\` to \`## Project Files\` with a note about when future agents should inspect it.
 
 The outcome file must contain:
 1. A summary of what was done

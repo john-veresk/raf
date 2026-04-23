@@ -214,6 +214,14 @@ describe('Execution Prompt', () => {
       const prompt = getExecutionPrompt(baseParams);
       expect(prompt).toContain('completion marker as the LAST line');
     });
+
+    it('should require adding the current outcome path to project files when shared context is updated', () => {
+      const prompt = getExecutionPrompt(baseParams);
+      expect(prompt).toContain('On successful tasks, also add');
+      expect(prompt).toContain(baseParams.outcomeFilePath);
+      expect(prompt).toContain('## Project Files');
+      expect(prompt).toContain('when future agents should inspect it');
+    });
   });
 
   describe('Commit Workflow Rules', () => {

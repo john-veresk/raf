@@ -21,11 +21,11 @@ Align RAF's planning and execution prompt contracts so `context.md` guidance for
 - The execution contract should add the just-completed task's outcome file path, not maintain only a curated subset of outcomes.
 
 ## Acceptance Criteria
-- [ ] Planning and amend prompt guidance explicitly tells agents not to use a `## Current State` section in `context.md`.
-- [ ] Execution prompt guidance explicitly tells agents to add the current task's outcome file path to `## Project Files` when they update `context.md` after a successful task.
-- [ ] Existing prompt guidance for `## Goal`, durable `## Key Decisions`, and concrete `## Project Files` entries remains intact.
-- [ ] Unit tests cover both the removed `## Current State` guidance and the new completed-outcome-path instruction.
-- [ ] README documentation for `context.md` matches the updated guidance.
+- [x] Planning and amend prompt guidance explicitly tells agents not to use a `## Current State` section in `context.md`.
+- [x] Execution prompt guidance explicitly tells agents to add the current task's outcome file path to `## Project Files` when they update `context.md` after a successful task.
+- [x] Existing prompt guidance for `## Goal`, durable `## Key Decisions`, and concrete `## Project Files` entries remains intact.
+- [x] Unit tests cover both the removed `## Current State` guidance and the new completed-outcome-path instruction.
+- [x] README documentation for `context.md` matches the updated guidance.
 
 ## Context
 The current codebase does not generate `context.md`, but the prompt contract still shapes how planning and execution agents maintain it. `src/prompts/shared.ts` currently describes durable context as including the project's "current state," which conflicts with the requested removal of that section. `src/prompts/execution.ts` tells executors to update `context.md` if needed, but it does not explicitly require adding the newly completed outcome file path into `## Project Files`.

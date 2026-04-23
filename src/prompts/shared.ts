@@ -64,8 +64,9 @@ export const DEPENDENCY_RULES = `**Dependencies:** Infer automatically from task
 
 export const PROJECT_CONTEXT_RULES = `Treat \`context.md\` as shared project context, not a task-scoped brief for the latest request.
 
-- Keep it centered on durable project state: the overall goal, current state, important decisions, and cross-task context other agents will need later.
+- Keep it centered on durable project state: the overall goal, important decisions, and cross-task context other agents will need later.
 - Do not turn it into a duplicate of one plan file or a summary of only the current amendment/request.
+- Do not use a \`## Current State\` section in \`context.md\`.
 - Keep \`## Key Decisions\` reserved for durable project, product, code, API, and architecture decisions that future tasks must preserve.
 - Do not put planning tactics, task sequencing, commit choreography, or other execution-process notes in \`## Key Decisions\`.
 - If you include a \`## Project Files\` section, list concrete file paths future agents may need, such as \`input.md\`, \`context.md\`, \`plans/3-task-name.md\`, or \`outcomes/3-task-name.md\`.

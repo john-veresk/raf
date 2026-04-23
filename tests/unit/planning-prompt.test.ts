@@ -156,6 +156,7 @@ describe('Planning Prompt', () => {
       expect(systemPrompt).toMatch(/shared project context, not a task-scoped brief/i);
       expect(systemPrompt).toMatch(/whole project, not just this planning request/i);
       expect(systemPrompt).toMatch(/durable project state/i);
+      expect(systemPrompt).toMatch(/Do not use a `## Current State` section in `context\.md`/i);
     });
 
     it('should reserve key decisions for durable domain choices instead of planning tactics', () => {

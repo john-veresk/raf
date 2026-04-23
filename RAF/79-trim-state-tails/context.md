@@ -12,3 +12,4 @@ Tighten RAF's `context.md` prompt contract so planning and execution agents main
 - `input.md` — Inspect for the original request and the planning interview clarifications that define this project's scope.
 - `context.md` — Inspect for the canonical shared project summary and durable decisions that future planning or execution work must preserve.
 - `plans/1-update-context-prompt-contract.md` — Inspect when implementing the prompt, test, and documentation updates for this project.
+- `outcomes/1-update-context-prompt-contract.md` — Inspect after execution to see the exact prompt-contract changes, verification steps, and completion status for this task.
