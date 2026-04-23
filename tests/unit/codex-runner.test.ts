@@ -138,6 +138,36 @@ describe('CodexRunner', () => {
     await runPromise;
   });
 
+  it('omits the service tier override for non-interactive Codex runs when fast is unset', async () => {
+    const mockProc = createMockProcess();
+    mockSpawn.mockReturnValue(mockProc);
+
+    const runner = new CodexRunner({ model: 'gpt-5.4' });
+    const runPromise = runner.run('test prompt');
+
+    const spawnArgs = mockSpawn.mock.calls[0]?.[1] as string[];
+    expect(spawnArgs).not.toContain('service_tier="fast"');
+    expect(spawnArgs).not.toContain('service_tier=false');
+
+    mockProc.emit('close', 0);
+    await runPromise;
+  });
+
+  it('omits the service tier override for non-interactive Codex runs when fast is false', async () => {
+    const mockProc = createMockProcess();
+    mockSpawn.mockReturnValue(mockProc);
+
+    const runner = new CodexRunner({ model: 'gpt-5.4', fast: false });
+    const runPromise = runner.run('test prompt');
+
+    const spawnArgs = mockSpawn.mock.calls[0]?.[1] as string[];
+    expect(spawnArgs).not.toContain('service_tier="fast"');
+    expect(spawnArgs).not.toContain('service_tier=false');
+
+    mockProc.emit('close', 0);
+    await runPromise;
+  });
+
   it('returns usageData from run() when turn.completed includes usage', async () => {
     const mockProc = createMockProcess();
     mockSpawn.mockReturnValue(mockProc);
@@ -281,6 +311,48 @@ describe('CodexRunner', () => {
     expect(spawnArgs).toContain('service_tier="fast"');
     expect(spawnArgs[0]).toBe('-m');
     expect(spawnArgs).not.toContain('exec');
+
+    mockProc._exitCallback({ exitCode: 0 });
+    await runPromise;
+  });
+
+  it('omits the service tier override for interactive Codex runs when fast is unset', async () => {
+    const mockProc = createMockPtyProcess();
+    const mockStdin = createMockStdin();
+    const mockStdout = createMockStdout();
+
+    Object.defineProperty(process, 'stdin', { value: mockStdin, configurable: true });
+    Object.defineProperty(process, 'stdout', { value: mockStdout, configurable: true });
+
+    mockPtySpawn.mockReturnValue(mockProc);
+
+    const runner = new CodexRunner({ model: 'gpt-5.4' });
+    const runPromise = runner.runInteractive('system prompt', 'user message');
+
+    const spawnArgs = mockPtySpawn.mock.calls[0]?.[1] as string[];
+    expect(spawnArgs).not.toContain('service_tier="fast"');
+    expect(spawnArgs).not.toContain('service_tier=false');
+
+    mockProc._exitCallback({ exitCode: 0 });
+    await runPromise;
+  });
+
+  it('omits the service tier override for interactive Codex runs when fast is false', async () => {
+    const mockProc = createMockPtyProcess();
+    const mockStdin = createMockStdin();
+    const mockStdout = createMockStdout();
+
+    Object.defineProperty(process, 'stdin', { value: mockStdin, configurable: true });
+    Object.defineProperty(process, 'stdout', { value: mockStdout, configurable: true });
+
+    mockPtySpawn.mockReturnValue(mockProc);
+
+    const runner = new CodexRunner({ model: 'gpt-5.4', fast: false });
+    const runPromise = runner.runInteractive('system prompt', 'user message');
+
+    const spawnArgs = mockPtySpawn.mock.calls[0]?.[1] as string[];
+    expect(spawnArgs).not.toContain('service_tier="fast"');
+    expect(spawnArgs).not.toContain('service_tier=false');
 
     mockProc._exitCallback({ exitCode: 0 });
     await runPromise;

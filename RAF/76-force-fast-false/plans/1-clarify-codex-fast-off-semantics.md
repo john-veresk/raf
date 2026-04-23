@@ -18,10 +18,10 @@ Document and regression-test that RAF treats unset or `false` Codex `fast` as an
 - "All Codex paths" still matters for coverage and docs, even though the resolved behavior is "omit the override unless `fast === true`."
 
 ## Acceptance Criteria
-- [ ] README and config reference text explain that Codex fast mode is opt-in and that unset or `false` `fast` leaves `service_tier` omitted.
-- [ ] Unit coverage proves `CodexRunner` does not append any `service_tier` override when `fast` is missing or explicitly `false`.
-- [ ] Unit coverage proves Codex-backed name generation also omits `service_tier` when `fast` is missing or `false`.
-- [ ] Existing positive-path tests for `fast: true` still pass unchanged.
+- [x] README and config reference text explain that Codex fast mode is opt-in and that unset or `false` `fast` leaves `service_tier` omitted.
+- [x] Unit coverage proves `CodexRunner` does not append any `service_tier` override when `fast` is missing or explicitly `false`.
+- [x] Unit coverage proves Codex-backed name generation also omits `service_tier` when `fast` is missing or `false`.
+- [x] Existing positive-path tests for `fast: true` still pass unchanged.
 
 ## Context
 RAF already defaults `fast` to `false` in runner-local state, but upstream Codex models `service_tier` as an optional explicit preference rather than a boolean toggle. The planning interview resolved the conflict by preserving omission as the off/default behavior and turning this project into a docs-and-tests hardening pass.
