@@ -163,7 +163,7 @@ Example `~/.raf/raf.config.json`:
 }
 ```
 
-`fast` is an optional `ModelEntry` field. Leave it omitted unless you explicitly want Codex fast mode on that entry.
+`fast` is an optional `ModelEntry` field. Leave it omitted unless you explicitly want Codex fast mode on that entry. `false` and omission mean the same thing at the Codex CLI boundary: RAF does not send any `service_tier` override.
 Claude model entries reject `fast` during config validation.
 
 `display.statusProjectLimit` controls how many projects `raf status` shows in the main list. Set it to `0` for no limit.
@@ -199,7 +199,7 @@ RAF supports multiple LLM harnesses per scenario. Each model entry in `models` a
 }
 ```
 
-`fast` is optional and Codex-only. Omit it by default. When set to `true`, RAF adds Codex's fast service-tier override for that model entry. Claude entries reject `fast`.
+`fast` is optional and Codex-only. Omit it by default. When set to `true`, RAF adds Codex's fast service-tier override for that model entry. When omitted or set to `false`, RAF leaves `service_tier` unset and lets Codex use its default behavior. Claude entries reject `fast`.
 
 Example Codex fast configuration:
 
@@ -225,7 +225,8 @@ Example Codex fast configuration:
 - System prompt is prepended to the user message rather than passed separately
 - Post-run summaries currently include exact token counts but omit USD cost because Codex CLI does not provide an exact per-run price
 - `raf do` defaults to Codex dangerous execution mode (`--dangerously-bypass-approvals-and-sandbox`); switch to `codex.executionMode: "fullAuto"` for sandboxed workspace-write mode
-- Set `fast: true` on a Codex model entry to add `-c 'service_tier="fast"'` to interactive Codex sessions, `codex exec` runs, and Codex-backed name generation. RAF leaves the field omitted by default.
+- Set `fast: true` on a Codex model entry to add `-c 'service_tier="fast"'` to interactive Codex sessions, `codex exec` runs, and Codex-backed name generation.
+- Leave `fast` omitted, or set it to `false`, to send no `service_tier` flag at all. RAF does not translate Codex-off/default behavior into `service_tier=false`.
 
 ## Status Symbols
 

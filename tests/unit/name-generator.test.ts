@@ -365,6 +365,35 @@ describe('Name Generator', () => {
         expect.any(Object)
       );
     });
+
+    it('should omit the service tier override for codex name generation when fast is unset', async () => {
+      currentNameGenerationModel = {
+        model: 'gpt-5.4',
+        harness: 'codex',
+      } as typeof currentNameGenerationModel;
+      mockSpawn.mockReturnValue(createMockSpawn('phoenix-rise\n'));
+
+      await generateProjectName('Build something');
+
+      const args = mockSpawn.mock.calls[0][1] as string[];
+      expect(args).not.toContain('service_tier="fast"');
+      expect(args).not.toContain('service_tier=false');
+    });
+
+    it('should omit the service tier override for codex name generation when fast is false', async () => {
+      currentNameGenerationModel = {
+        model: 'gpt-5.4',
+        harness: 'codex',
+        fast: false,
+      };
+      mockSpawn.mockReturnValue(createMockSpawn('phoenix-rise\nturbo-boost\nbug-squasher\n'));
+
+      await generateProjectNames('Build something');
+
+      const args = mockSpawn.mock.calls[0][1] as string[];
+      expect(args).not.toContain('service_tier="fast"');
+      expect(args).not.toContain('service_tier=false');
+    });
   });
 
   describe('sanitizeGeneratedName', () => {
