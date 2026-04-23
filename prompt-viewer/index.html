@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RAF · Prompt Dossier</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:wght@400;500;700&family=Work+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="masthead__left">
+        <span class="masthead__mark">☰</span>
+        <span class="masthead__issue">Vol. 01 / Issue <span id="issue-no">—</span></span>
+      </div>
+      <h1 class="masthead__title">
+        <span class="masthead__title-top">The RAF</span>
+        <span class="masthead__title-bottom">Prompt&nbsp;Dossier</span>
+      </h1>
+      <div class="masthead__right">
+        <span class="masthead__tagline">an editorial reader for <em>Ralph&rsquo;s&nbsp;Automation&nbsp;Framework</em></span>
+        <span class="masthead__date" id="generated-at">—</span>
+      </div>
+    </header>
+
+    <nav class="rail" aria-label="Prompt mode">
+      <div class="rail__label">Mode</div>
+      <div class="rail__modes" id="mode-tabs" role="tablist"></div>
+    </nav>
+
+    <main class="sheet">
+      <aside class="sidebar">
+        <section class="panel">
+          <h2 class="panel__title">Variant</h2>
+          <div class="panel__body" id="variant-list"></div>
+        </section>
+
+        <section class="panel">
+          <h2 class="panel__title">Sections</h2>
+          <p class="panel__hint">Toggle to mute. Click a swatch to isolate.</p>
+          <ul class="legend" id="legend"></ul>
+        </section>
+
+        <section class="panel">
+          <h2 class="panel__title">View</h2>
+          <label class="switch">
+            <input type="checkbox" id="toggle-wrap" checked />
+            <span>Wrap long lines</span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="toggle-whitespace" />
+            <span>Reveal whitespace</span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="toggle-linenos" />
+            <span>Line numbers</span>
+          </label>
+        </section>
+
+        <section class="panel panel--meta">
+          <h2 class="panel__title">Filed under</h2>
+          <dl class="meta" id="meta"></dl>
+        </section>
+      </aside>
+
+      <section class="reader">
+        <article class="dossier">
+          <div class="dossier__head">
+            <div class="dossier__kicker" id="mode-kicker">—</div>
+            <h2 class="dossier__headline" id="mode-headline">—</h2>
+            <p class="dossier__deck" id="mode-deck">—</p>
+          </div>
+
+          <div class="dossier__parts">
+            <section class="part" id="system-part">
+              <header class="part__head">
+                <span class="part__tag">System prompt</span>
+                <span class="part__note">injected via <code>--append-system-prompt</code></span>
+                <span class="part__stats" id="system-stats"></span>
+              </header>
+              <pre class="part__body" id="system-body"></pre>
+            </section>
+
+            <section class="part" id="user-part">
+              <header class="part__head">
+                <span class="part__tag part__tag--alt">User message</span>
+                <span class="part__note">positional argument &mdash; kicks off the run</span>
+                <span class="part__stats" id="user-stats"></span>
+              </header>
+              <pre class="part__body" id="user-body"></pre>
+            </section>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <footer class="colophon">
+      <span>Set in Fraunces &amp; JetBrains&nbsp;Mono.</span>
+      <span>Regenerate with <code>node prompt-viewer/generate.mjs</code> after editing prompts.</span>
+    </footer>
+
+    <script src="prompts-data.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -15,7 +15,10 @@
     "test:watch": "NODE_OPTIONS='--experimental-vm-modules' jest --watch",
     "test:coverage": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage",
     "lint": "tsc --noEmit",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "viewer:build": "npm run build && node prompt-viewer/generate.mjs",
+    "viewer:open": "open prompt-viewer/index.html",
+    "viewer": "npm run viewer:build && npm run viewer:open"
   },
   "engines": {
     "node": ">=20.0.0"
