@@ -20,10 +20,10 @@ Make RAF consistently describe shared project context with a `## Project Files` 
 - `## Key Decisions` must capture durable domain decisions only; process-management notes belong in other sections or should be omitted.
 
 ## Acceptance Criteria
-- [ ] Planning and amend prompt text both instruct agents to use `## Project Files` and to list concrete file paths with "inspect if relevant" style guidance.
-- [ ] Planning and amend prompt text both define `## Key Decisions` as durable project/product/code/API/architecture decisions and explicitly exclude planning or task-organization tactics.
-- [ ] README and prompt-viewer fixtures no longer describe `## Relevant Files` or directory-only examples for shared project context.
-- [ ] Regression coverage asserts the new section name and semantics without requiring RAF to resurrect removed `context.md` generation behavior.
+- [x] Planning and amend prompt text both instruct agents to use `## Project Files` and to list concrete file paths with "inspect if relevant" style guidance.
+- [x] Planning and amend prompt text both define `## Key Decisions` as durable project/product/code/API/architecture decisions and explicitly exclude planning or task-organization tactics.
+- [x] README and prompt-viewer fixtures no longer describe `## Relevant Files` or directory-only examples for shared project context.
+- [x] Regression coverage asserts the new section name and semantics without requiring RAF to resurrect removed `context.md` generation behavior.
 
 ## Context
 The current shared prompt rules in `src/prompts/shared.ts` still describe `## Relevant Files` using examples like `plans/` and `outcomes/`, and the plan template still defines `## Key Decisions` broadly enough that process-oriented notes have been treated as valid plan content. Those instructions flow into both planning and amend prompts, are reflected in README guidance, and are mirrored by prompt-viewer sample data and prompt tests.

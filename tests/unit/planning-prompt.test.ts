@@ -158,13 +158,24 @@ describe('Planning Prompt', () => {
       expect(systemPrompt).toMatch(/durable project state/i);
     });
 
-    it('should steer context relevant files toward plan and outcome artifacts', () => {
+    it('should reserve key decisions for durable domain choices instead of planning tactics', () => {
       const { systemPrompt } = getPlanningPrompt(defaultParams);
 
-      expect(systemPrompt).toMatch(/## Relevant Files/);
+      expect(systemPrompt).toMatch(/durable project, product, code, API, or architecture decisions/i);
+      expect(systemPrompt).toMatch(/exclude planning tactics, task sequencing, commit choreography/i);
+      expect(systemPrompt).toMatch(/Do not put planning tactics, task sequencing, commit choreography/i);
+    });
+
+    it('should steer context project files toward concrete file paths with inspection guidance', () => {
+      const { systemPrompt } = getPlanningPrompt(defaultParams);
+
+      expect(systemPrompt).toMatch(/## Project Files/);
       expect(systemPrompt).toContain('input.md');
-      expect(systemPrompt).toContain('plans/');
-      expect(systemPrompt).toContain('outcomes/');
+      expect(systemPrompt).toContain('context.md');
+      expect(systemPrompt).toContain('plans/3-task-name.md');
+      expect(systemPrompt).toContain('outcomes/3-task-name.md');
+      expect(systemPrompt).toMatch(/inspect that file if it becomes relevant/i);
+      expect(systemPrompt).toMatch(/Do not list bare directories or globs/i);
       expect(systemPrompt).toMatch(/do not list implementation source files/i);
     });
   });

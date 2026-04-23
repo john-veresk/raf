@@ -1,9 +1,9 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { buildProjectContext, refreshProjectContext } from '../../src/core/project-context.js';
+import { DEFAULT_PROJECT_CONTEXT, readProjectContext } from '../../src/core/project-context.js';
 
-describe('project context builder', () => {
+describe('project context reader', () => {
   let tempDir: string;
   let projectPath: string;
 
@@ -18,224 +18,53 @@ describe('project context builder', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('builds deterministic context from input, plans, derived state, and outcomes', () => {
-    fs.writeFileSync(
-      path.join(projectPath, 'input.md'),
-      '# Request\n\nShip the always-on context flow without duplicating project guidance.\n\nExtra notes here.',
-    );
-    fs.writeFileSync(
-      path.join(projectPath, 'plans', '1-first-task.md'),
-      `# Task: First task
-
-## Objective
-Implement the shared context builder.
-
-## Key Decisions
-- Use context.md as the shared artifact.
-- Reuse the outcome summarizer.
-
-## Acceptance Criteria
-- [ ] Works
-`,
-    );
-    fs.writeFileSync(
-      path.join(projectPath, 'plans', '2-second-task.md'),
-      `# Task: Second task
-
-## Objective
-Wire execution prompts to use context.md.
-
-## Acceptance Criteria
-- [ ] Works
-`,
-    );
-    fs.writeFileSync(
-      path.join(projectPath, 'outcomes', '1-first-task.md'),
-      `# Outcome
-
-## Summary
-
-Implemented the builder and shared summary extraction.
-
-## Decision Updates
-
-- Use context.md as the shared artifact.
-- Refresh context after each saved outcome.
-
-<promise>COMPLETE</promise>
-`,
-    );
-
-    const context = buildProjectContext(projectPath);
-
-    expect(context).toContain('# Project Context');
-    expect(context).toContain('## Goal');
-    expect(context).toContain('Ship the always-on context flow');
-    expect(context).toContain('## Key Decisions');
-    expect(context).toContain('- Use context.md as the shared artifact.');
-    expect(context).toContain('- Reuse the outcome summarizer.');
-    expect(context).toContain('- Refresh context after each saved outcome.');
-    expect(context).toContain('## Current State');
-    expect(context).toContain('- Status: executing');
-    expect(context).toContain('## Completed Work');
-    expect(context).toContain('Task 1: first-task — Implemented the builder and shared summary extraction.');
-    expect(context).toContain('## Pending Work');
-    expect(context).toContain('Task 2: second-task [pending]');
-    expect(context).toContain('## Source Files');
-    expect(context.match(/- input\.md/g)).toHaveLength(1);
-    expect(context.match(/- plans\//g)).toHaveLength(1);
-    expect(context.split('\n').filter((line) => line.trim() === '- outcomes/')).toHaveLength(1);
-    expect(context).toContain('- outcomes/1-first-task.md');
+  it('exports the read-only default placeholder context', () => {
+    expect(DEFAULT_PROJECT_CONTEXT).toBe('# Project Context\n\nNo shared context available yet.\n');
   });
 
-  it('prefers outcome summary sections and writes context.md to disk', () => {
-    fs.writeFileSync(path.join(projectPath, 'input.md'), 'Keep summaries concise.');
+  it('returns null when context.md is missing', () => {
+    expect(readProjectContext(projectPath)).toBeNull();
+  });
+
+  it('reads context.md verbatim when present', () => {
+    const content = `# Project Context
+
+## Goal
+Track the durable project summary in a hand-maintained file.
+
+## Key Decisions
+- Keep this file focused on durable project context.
+
+## Project Files
+- \`input.md\` — Inspect if you need the original request.
+`;
+    fs.writeFileSync(path.join(projectPath, 'context.md'), content);
+
+    expect(readProjectContext(projectPath)).toBe(content);
+  });
+
+  it('does not regenerate context from input, plans, or outcomes', () => {
+    fs.writeFileSync(path.join(projectPath, 'input.md'), '# Request\n\nBuild shared context automatically.\n');
     fs.writeFileSync(
       path.join(projectPath, 'plans', '1-task.md'),
       `# Task: One
 
 ## Objective
-Do the thing.
-
-## Acceptance Criteria
-- [ ] Done
+Generate context automatically.
 `,
     );
     fs.writeFileSync(
       path.join(projectPath, 'outcomes', '1-task.md'),
-      `Intro text that should not be used.
+      `# Outcome
 
 ## Summary
 
-Preferred summary text.
-
-## Details
-
-${'x'.repeat(1000)}
+Generated context automatically.
 
 <promise>COMPLETE</promise>
 `,
     );
 
-    const written = refreshProjectContext(projectPath);
-    const fileContent = fs.readFileSync(path.join(projectPath, 'context.md'), 'utf-8');
-
-    expect(fileContent).toBe(written);
-    expect(fileContent).toContain('Task 1: task — Preferred summary text.');
-    expect(fileContent).not.toContain('Intro text that should not be used.');
-  });
-
-  it('preserves an edited goal when refreshing context', () => {
-    fs.writeFileSync(
-      path.join(projectPath, 'input.md'),
-      '# Request\n\nOriginal raw prompt that should only seed the initial goal.',
-    );
-    fs.writeFileSync(
-      path.join(projectPath, 'plans', '1-task.md'),
-      `# Task: One
-
-## Objective
-Do the thing.
-
-## Acceptance Criteria
-- [ ] Done
-`,
-    );
-
-    refreshProjectContext(projectPath);
-    fs.writeFileSync(
-      path.join(projectPath, 'context.md'),
-      `# Project Context
-
-## Goal
-Clarified goal that was edited during planning and must survive refresh.
-
-## Key Decisions
-- Old generated content
-`,
-    );
-
-    const refreshed = refreshProjectContext(projectPath);
-
-    expect(refreshed).toContain('Clarified goal that was edited during planning and must survive refresh.');
-    expect(refreshed).not.toContain('Original raw prompt that should only seed the initial goal.');
-    expect(refreshed).toContain('## Pending Work');
-  });
-
-  it('falls back to input when a legacy context file has no usable goal', () => {
-    fs.writeFileSync(
-      path.join(projectPath, 'input.md'),
-      '# Request\n\nUse input.md as the fallback goal for legacy projects.',
-    );
-    fs.writeFileSync(
-      path.join(projectPath, 'context.md'),
-      `# Project Context
-
-## Goal
-
-## Key Decisions
-- Legacy content without a stored goal
-`,
-    );
-
-    const refreshed = refreshProjectContext(projectPath);
-
-    expect(refreshed).toContain('Use input.md as the fallback goal for legacy projects.');
-  });
-
-  it('caps large project contexts and marks omitted history for safety', () => {
-    fs.writeFileSync(
-      path.join(projectPath, 'input.md'),
-      '# Request\n\nKeep the generated project context resilient even when the project history grows very large.',
-    );
-
-    for (let index = 1; index <= 46; index++) {
-      fs.writeFileSync(
-        path.join(projectPath, 'plans', `${index}-task-${index}.md`),
-        `# Task: Task ${index}
-
-## Objective
-${`Coordinate project context refresh behavior for task ${index}. `.repeat(14)}
-
-## Acceptance Criteria
-- [ ] Done
-`,
-      );
-
-      if (index <= 45) {
-        fs.writeFileSync(
-          path.join(projectPath, 'outcomes', `${index}-task-${index}.md`),
-          `# Outcome
-
-## Summary
-
-${`Completed work for task ${index} with context updates and history capture. `.repeat(10)}
-
-## Decision Updates
-
-- Decision ${index}: prefer deterministic project context summaries.
-
-<promise>COMPLETE</promise>
-`,
-        );
-      }
-    }
-
-    const context = buildProjectContext(projectPath);
-
-    expect(context.length).toBeLessThanOrEqual(12000);
-    expect(context).toContain('## Goal');
-    expect(context).toContain('## Key Decisions');
-    expect(context).toContain('## Current State');
-    expect(context).toContain('## Pending Work');
-    expect(context).toContain('Task 46: task-46 [pending]');
-    expect(context).toContain('[objective shortened for context safety]');
-    expect(context).toContain('## Completed Work');
-    expect(context).toContain('Task 45: task-45');
-    expect(context).toContain('[summary shortened for context safety]');
-    expect(context).toContain('Additional completed tasks omitted for context safety');
-    expect(context).toContain('## Source Files');
-    expect(context).toContain('- outcomes/45-task-45.md');
-    expect(context).toContain('Additional outcome references omitted for context safety');
+    expect(readProjectContext(projectPath)).toBeNull();
   });
 });

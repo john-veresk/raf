@@ -11,18 +11,18 @@ Update RAF's planning and amend guidance so shared project `context.md` uses `##
 - RAF should not revive the removed automatic `context.md` generator just to satisfy stale tests; any stale coverage should be reconciled with the current read-only `context.md` lifecycle.
 
 ## Current State
-- Status: ready
+- Status: completed
 - Total tasks: 1
-- Completed: 0
-- Pending: 1
+- Completed: 1
+- Pending: 0
 - Failed: 0
 - Blocked: 0
 
 ## Pending Work
-- Task 1: tighten-context-structure-guidance [pending] — Update prompt instructions, supporting docs, fixtures, and regression coverage so RAF consistently describes `context.md` with `## Project Files` and strict domain-level `## Key Decisions`.
+- No pending work.
 
 ## Completed Work
-- No completed work yet.
+- Task 1: tighten-context-structure-guidance [completed] — Updated shared planning/amend guidance, README wording, prompt-viewer fixtures, and regression coverage so `context.md` now uses `## Project Files` with concrete inspect-if-relevant file entries and narrower domain-level `## Key Decisions`.
 
 ## Project Files
 - `input.md` — Read this if you need the raw user wording that led to the clarified goal above.

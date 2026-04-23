@@ -30,7 +30,7 @@ effort: medium
 [REQUIRED — bulleted list]
 
 ## Key Decisions
-[Optional — planning-time decisions, constraints, or reconciled interview answers that the executor must preserve]
+[Optional — durable project, product, code, API, or architecture decisions the executor must preserve; exclude planning tactics, task sequencing, commit choreography, and other execution-process notes]
 
 ## Acceptance Criteria
 [REQUIRED — checkboxes]
@@ -66,8 +66,12 @@ export const PROJECT_CONTEXT_RULES = `Treat \`context.md\` as shared project con
 
 - Keep it centered on durable project state: the overall goal, current state, important decisions, and cross-task context other agents will need later.
 - Do not turn it into a duplicate of one plan file or a summary of only the current amendment/request.
-- If you include a \`## Relevant Files\` section, list project artifacts that matter for future planning/execution such as \`input.md\`, plan files in \`plans/\`, and outcome files in \`outcomes/\`.
-- In \`## Relevant Files\`, do not list implementation source files just because the current task will edit them; include source files only when they are genuinely project-defining references that future tasks must consult.`;
+- Keep \`## Key Decisions\` reserved for durable project, product, code, API, and architecture decisions that future tasks must preserve.
+- Do not put planning tactics, task sequencing, commit choreography, or other execution-process notes in \`## Key Decisions\`.
+- If you include a \`## Project Files\` section, list concrete file paths future agents may need, such as \`input.md\`, \`context.md\`, \`plans/3-task-name.md\`, or \`outcomes/3-task-name.md\`.
+- Each \`## Project Files\` entry should say when to inspect that file if it becomes relevant.
+- Do not list bare directories or globs such as \`plans/\`, \`outcomes/\`, or \`src/**\`.
+- In \`## Project Files\`, do not list implementation source files just because the current task will edit them; include source files only when they are genuinely project-defining references that future tasks must consult.`;
 
 export function getInterviewInstructions(harness: HarnessName, projectPath: string): string {
   if (harness === 'codex') {

@@ -50,12 +50,11 @@ so humans can audit prompt wording without reading TypeScript template literals.
 ## Key Decisions
 - Viewer is read-only; no server, no edit mode
 - Section colour coding is driven by regex markers, not prompt metadata
-- Sample inputs are frozen in generate.mjs; re-run after prompt edits
 
-## Relevant Files
-- input.md — the user's seed request
-- plans/*.md — per-task plans
-- outcomes/*.md — execution transcripts per task
+## Project Files
+- input.md — Inspect if you need the user's seed request for the viewer scope.
+- prompt-viewer/generate.mjs — Inspect if prompt wording changed and you need to update the frozen sample context or regenerate prompt-viewer data.
+- prompt-viewer/prompts-data.js — Inspect if you need to verify or refresh the checked-in prompt snapshot after regenerating it.
 `;
 
 const SAMPLE_EXISTING_TASKS = [
