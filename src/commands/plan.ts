@@ -317,17 +317,6 @@ async function runPlanCommand(projectName?: string, modelEntry?: ModelEntry, wor
 
     if (planFiles.length === 0) {
       logger.warn('No plan files were created.');
-    } else {
-      logger.newline();
-      logger.success(`Planning complete! Created ${planFiles.length} task(s).`);
-      logger.newline();
-      logger.info('Plans created:');
-      for (const planFile of planFiles) {
-        logger.info(`  - plans/${planFile}`);
-      }
-
-      logger.newline();
-      logger.info(`Run 'raf do ${finalProjectName}' to execute the plans.`);
     }
   } catch (error) {
     logger.error(`Planning failed: ${error}`);
@@ -566,20 +555,6 @@ async function runAmendCommand(identifier: string, modelEntry?: ModelEntry): Pro
 
     if (newPlanFiles.length === 0) {
       logger.warn('No new plan files were created.');
-    } else {
-      logger.newline();
-      logger.success(`Amendment complete! Added ${newPlanFiles.length} new task(s).`);
-      logger.newline();
-      logger.info('New plans created:');
-      for (const planFile of newPlanFiles) {
-        logger.info(`  - plans/${planFile}`);
-      }
-    }
-
-    if (newPlanFiles.length > 0) {
-      logger.newline();
-      logger.info(`Total tasks: ${allPlanFiles.length}`);
-      logger.info(`Run 'raf do ${identifier}' to execute the new tasks.`);
     }
   } catch (error) {
     logger.error(`Amendment failed: ${error}`);

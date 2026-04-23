@@ -205,6 +205,22 @@ describe('Plan Command - Legacy Auto Flag Compatibility', () => {
     );
   });
 
+  it('does not print wrapper completion output after a successful plan run', async () => {
+    mockRunInteractive.mockImplementation(async () => {
+      const plansDir = path.join(tempDir, 'RAF', '1-samurai-switch', 'plans');
+      fs.writeFileSync(path.join(plansDir, '1-first-task.md'), '# task');
+      return 0;
+    });
+
+    await parsePlanCommand([]);
+
+    expect(mockLogger.success).not.toHaveBeenCalledWith('Planning complete! Created 1 task(s).');
+    expect(mockLogger.info).not.toHaveBeenCalledWith('Plans created:');
+    expect(mockLogger.info).not.toHaveBeenCalledWith('  - plans/1-first-task.md');
+    expect(mockLogger.info).not.toHaveBeenCalledWith("Run 'raf do samurai-switch' to execute the plans.");
+    expect(mockLogger.warn).not.toHaveBeenCalledWith('No plan files were created.');
+  });
+
   it('runs raf plan --amend in dangerous interactive mode with or without the legacy flag', async () => {
     const projectPath = path.join(tempDir, 'RAF', '1-existing');
     fs.mkdirSync(path.join(projectPath, 'plans'), { recursive: true });
@@ -243,6 +259,27 @@ describe('Plan Command - Legacy Auto Flag Compatibility', () => {
     expect(mockLogger.warn).not.toHaveBeenCalledWith(
       expect.stringContaining('Auto mode enabled')
     );
+  });
+
+  it('does not print wrapper completion output after a successful amend run', async () => {
+    const projectPath = path.join(tempDir, 'RAF', '1-existing');
+    fs.mkdirSync(path.join(projectPath, 'plans'), { recursive: true });
+    fs.mkdirSync(path.join(projectPath, 'outcomes'), { recursive: true });
+    fs.writeFileSync(path.join(projectPath, 'input.md'), 'Original scope');
+    fs.writeFileSync(path.join(projectPath, 'plans', '1-existing-task.md'), '# task');
+    mockRunInteractive.mockImplementation(async () => {
+      fs.writeFileSync(path.join(projectPath, 'plans', '2-new-task.md'), '# new task');
+      return 0;
+    });
+
+    await parsePlanCommand(['existing', '--amend']);
+
+    expect(mockLogger.success).not.toHaveBeenCalledWith('Amendment complete! Added 1 new task(s).');
+    expect(mockLogger.info).not.toHaveBeenCalledWith('New plans created:');
+    expect(mockLogger.info).not.toHaveBeenCalledWith('  - plans/2-new-task.md');
+    expect(mockLogger.info).not.toHaveBeenCalledWith('Total tasks: 2');
+    expect(mockLogger.info).not.toHaveBeenCalledWith("Run 'raf do existing' to execute the new tasks.");
+    expect(mockLogger.warn).not.toHaveBeenCalledWith('No new plan files were created.');
   });
 
   it('includes the resolved project identifier in the amend editor template', async () => {

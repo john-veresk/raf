@@ -66,7 +66,7 @@ That's it! RAF will guide you through breaking down your task and then execute i
 
 ### `raf plan`
 
-Opens your `$EDITOR` to write a project description, then the selected planning harness gathers any needed follow-up input and creates detailed task plans.
+Opens your `$EDITOR` to write a project description, then the selected planning harness gathers any needed follow-up input, creates detailed task plans, and prints the final handoff instructions itself.
 
 Planning sessions always run with interactive permission bypass enabled. No extra flag is required.
 When the planning harness is Claude, the planner asks follow-up questions with `AskUserQuestion`.
