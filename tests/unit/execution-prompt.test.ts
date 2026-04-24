@@ -80,7 +80,7 @@ describe('Execution Prompt', () => {
     it('should not include commit instructions when autoCommit is false', () => {
       const params = { ...baseParams, autoCommit: false };
       const prompt = getExecutionPrompt(params);
-      expect(prompt).not.toContain('Git Instructions');
+      expect(prompt).not.toContain('Commit and Verify');
       expect(prompt).not.toContain('RAF[');
     });
 
@@ -97,7 +97,7 @@ describe('Execution Prompt', () => {
       expect(prompt).not.toContain('On Failure');
       // The general outcome section still mentions not committing on failure,
       // but the git-specific instructions block should be absent
-      expect(prompt).not.toContain('Git Instructions');
+      expect(prompt).not.toContain('Commit and Verify');
     });
 
     it('should instruct not to add Co-Authored-By or other trailers', () => {
@@ -227,7 +227,7 @@ describe('Execution Prompt', () => {
   describe('Commit Workflow Rules', () => {
     it('should include commit instructions when autoCommit is true', () => {
       const prompt = getExecutionPrompt(baseParams);
-      expect(prompt).toContain('Git Instructions');
+      expect(prompt).toContain('Commit and Verify');
       expect(prompt).toContain('git add');
       expect(prompt).toContain('/Users/test/RAF/42-task-naming-improvements/outcomes/1-enhance-identifier-resolution.md');
       expect(prompt).toContain('/Users/test/RAF/42-task-naming-improvements/context.md');
@@ -243,14 +243,22 @@ describe('Execution Prompt', () => {
       expect(prompt).toContain('preserved for debugging');
     });
 
-    it('should require verifying the commit before writing COMPLETE', () => {
+    it('should require verifying the commit before emitting COMPLETE outside the outcome file', () => {
       const prompt = getExecutionPrompt(baseParams);
-      expect(prompt).toContain('Immediately verify that the commit landed before writing `<promise>COMPLETE</promise>`');
+      expect(prompt).toContain('Immediately verify that the commit landed before printing or otherwise emitting `<promise>COMPLETE</promise>` outside the outcome file');
       expect(prompt).toContain('git show --stat --oneline -1');
       expect(prompt).toContain(baseParams.outcomeFilePath);
       expect(prompt).toContain(baseParams.planPath);
       expect(prompt).toContain('/Users/test/RAF/42-task-naming-improvements/context.md');
-      expect(prompt).toContain('Do not write `<promise>COMPLETE</promise>` until that verification passes');
+      expect(prompt).toContain('Do not print, say, or otherwise emit `<promise>COMPLETE</promise>` until that verification passes');
+    });
+
+    it('should place commit instructions after outcome file instructions', () => {
+      const prompt = getExecutionPrompt(baseParams);
+      const outcomeIndex = prompt.indexOf('### Step 4: Write Outcome File');
+      const commitIndex = prompt.indexOf('### Step 5: Commit and Verify');
+      expect(outcomeIndex).toBeGreaterThan(-1);
+      expect(commitIndex).toBeGreaterThan(outcomeIndex);
     });
   });
 

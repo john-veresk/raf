@@ -3,7 +3,7 @@ import { logger } from '../utils/logger.js';
 
 /**
  * Grace period in ms after completion marker is detected before terminating.
- * Allows time for git commit operations to complete.
+ * Allows time for post-commit cleanup after the agent emits a final marker.
  */
 export const COMPLETION_GRACE_PERIOD_MS = 60_000;
 
@@ -17,8 +17,9 @@ export const COMPLETION_MARKER_PATTERN = /<promise>(COMPLETE|FAILED)<\/promise>/
 const COMPLETE_MARKER_PATTERN = /<promise>COMPLETE<\/promise>/i;
 
 /**
- * Monitors for task completion markers in stdout and outcome files.
- * When a marker is detected, starts a grace period before killing the process.
+ * Monitors for task completion markers in stdout and failure markers in outcome files.
+ * COMPLETE markers in outcome files are deliberately not terminal: the agent must
+ * write the outcome before committing it, then emit COMPLETE after commit verification.
  */
 export interface CompletionDetector {
   /** Check accumulated stdout output for completion markers. */
@@ -88,7 +89,9 @@ export function createCompletionDetector(
               logger.debug(`Outcome marker callback failed: ${error instanceof Error ? error.message : String(error)}`);
             }
           }
-          startGracePeriod(content);
+          if (!COMPLETE_MARKER_PATTERN.test(content)) {
+            startGracePeriod(content);
+          }
         }
       } catch {
         // Ignore read errors - file may be mid-write

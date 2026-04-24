@@ -1085,8 +1085,9 @@ describe('ClaudeRunner', () => {
       expect(mockProc.kill).not.toHaveBeenCalled();
     });
 
-    it('should detect completion via outcome file polling', async () => {
+    it('should not terminate on COMPLETE via outcome file polling before stdout confirmation', async () => {
       const mockProc = createMockProcess();
+      mockProc.kill = jest.fn();
       mockSpawn.mockReturnValue(mockProc);
 
       const outcomePath = '/test/project/outcomes/01-task.md';
@@ -1115,7 +1116,40 @@ describe('ClaudeRunner', () => {
       // Advance to trigger poll
       jest.advanceTimersByTime(2);
 
-      // Grace period started - advance past it
+      // COMPLETE in the outcome file is written before the task-side commit,
+      // so it must not start the termination grace period on its own.
+      jest.advanceTimersByTime(COMPLETION_GRACE_PERIOD_MS + 1);
+      expect(mockProc.kill).not.toHaveBeenCalled();
+
+      mockProc.emit('close', 0);
+
+      await runPromise;
+    });
+
+    it('should detect failure via outcome file polling', async () => {
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      const outcomePath = '/test/project/outcomes/01-task.md';
+
+      mockExistsSync.mockReturnValue(false);
+
+      const runner = new ClaudeRunner();
+      const runPromise = runner.run('test prompt', {
+        timeout: 60,
+        outcomeFilePath: outcomePath,
+      });
+
+      mockProc.stdout.emit('data', Buffer.from('Working on task...'));
+
+      jest.advanceTimersByTime(OUTCOME_POLL_INTERVAL_MS - 1);
+      expect(mockProc.kill).not.toHaveBeenCalled();
+
+      mockExistsSync.mockReturnValue(true);
+      mockStatSync.mockReturnValue({ mtimeMs: Date.now() + 1000 });
+      mockReadFileSync.mockReturnValue('# Outcome\n\n<promise>FAILED</promise>\nReason: failed\n');
+
+      jest.advanceTimersByTime(2);
       jest.advanceTimersByTime(COMPLETION_GRACE_PERIOD_MS + 1);
       expect(mockProc.kill).toHaveBeenCalledWith('SIGTERM');
 

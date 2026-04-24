@@ -6,7 +6,7 @@ import { ProjectManager } from '../core/project-manager.js';
 import { createRunner } from '../core/runner-factory.js';
 import { shutdownHandler } from '../core/shutdown-handler.js';
 import { waitForRateLimit } from '../core/rate-limit-waiter.js';
-import { stashChanges, hasUncommittedChanges } from '../core/git.js';
+import { stashChanges, hasUncommittedChanges, isGitRepo, getHeadCommitHash, didHeadCommitTouchFiles } from '../core/git.js';
 import { getExecutionPrompt } from '../prompts/execution.js';
 import { parseOutput, isRetryableFailure } from '../parsers/output-parser.js';
 import { validatePlansExist } from '../utils/validation.js';
@@ -180,6 +180,58 @@ interface TaskRetryHistory {
   failureHistory: Array<{ attempt: number; reason: string }>;
   finalAttempt: number;
   success: boolean;
+}
+
+export interface AutoCommitValidationInput {
+  autoCommit: boolean;
+  cwd?: string;
+  headBefore: string | null;
+  outcomeFilePath: string;
+  requiredFiles: string[];
+}
+
+export interface AutoCommitValidationResult {
+  valid: boolean;
+  reason?: string;
+}
+
+export function validateAutoCommitSuccess(input: AutoCommitValidationInput): AutoCommitValidationResult {
+  if (!input.autoCommit) {
+    return { valid: true };
+  }
+
+  if (!fs.existsSync(input.outcomeFilePath)) {
+    return { valid: false, reason: `Auto-commit validation failed: outcome file was not written (${input.outcomeFilePath})` };
+  }
+
+  const outcomeStatus = parseOutcomeStatus(fs.readFileSync(input.outcomeFilePath, 'utf-8'));
+  if (outcomeStatus !== 'completed') {
+    return { valid: false, reason: `Auto-commit validation failed: outcome file does not contain a COMPLETE marker (${input.outcomeFilePath})` };
+  }
+
+  // Outside a git repo RAF historically allows execution to proceed; environment
+  // validation reports that auto-commit is unavailable before this point.
+  if (!isGitRepo(input.cwd)) {
+    return { valid: true };
+  }
+
+  const headAfter = getHeadCommitHash(input.cwd);
+  const headChanged = Boolean(headAfter && headAfter !== input.headBefore);
+  const workingTreeClean = !hasUncommittedChanges(input.cwd);
+  const latestCommitIncludesRequired = headChanged && didHeadCommitTouchFiles(input.requiredFiles, input.cwd);
+
+  if ((headChanged && workingTreeClean) || latestCommitIncludesRequired) {
+    return { valid: true };
+  }
+
+  if (!headChanged) {
+    return { valid: false, reason: 'Auto-commit validation failed: HEAD did not change after the task reported COMPLETE' };
+  }
+
+  return {
+    valid: false,
+    reason: 'Auto-commit validation failed: uncommitted changes remain and the latest commit does not include the required task files',
+  };
 }
 
 /**
@@ -933,6 +985,7 @@ async function executeSingleProject(
 
     // Compute outcome file path for this task
     const outcomeFilePath = getOutcomeFilePath(projectPath, task.id, displayName);
+    const planPath = projectManager.getPlanPath(projectPath, task.planFile);
 
     // Execute with retries
     let success = false;
@@ -1022,10 +1075,11 @@ async function executeSingleProject(
       const previousOutcomeFileForRetry = isRetry && fs.existsSync(outcomeFilePath)
         ? outcomeFilePath
         : undefined;
+      const headBeforeAttempt = autoCommit ? getHeadCommitHash(worktreeCwd) : null;
 
       const prompt = getExecutionPrompt({
         projectPath,
-        planPath: projectManager.getPlanPath(projectPath, task.planFile),
+        planPath,
         taskId: task.id,
         taskNumber,
         totalTasks,
@@ -1123,6 +1177,18 @@ async function executeSingleProject(
       }
 
       if (parsed.result === 'complete') {
+        const commitValidation = validateAutoCommitSuccess({
+          autoCommit,
+          cwd: worktreeCwd,
+          headBefore: headBeforeAttempt,
+          outcomeFilePath,
+          requiredFiles: [outcomeFilePath, planPath],
+        });
+        if (!commitValidation.valid) {
+          failureReason = commitValidation.reason ?? 'Auto-commit validation failed';
+          failureHistory.push({ attempt: attempts, reason: failureReason });
+          continue;
+        }
         success = true;
       } else if (parsed.result === 'failed') {
         failureReason = parsed.failureReason ?? 'Unknown failure';
@@ -1137,6 +1203,18 @@ async function executeSingleProject(
           const outcomeContent = fs.readFileSync(outcomeFilePath, 'utf-8');
           const outcomeStatus = parseOutcomeStatus(outcomeContent);
           if (outcomeStatus === 'completed') {
+            const commitValidation = validateAutoCommitSuccess({
+              autoCommit,
+              cwd: worktreeCwd,
+              headBefore: headBeforeAttempt,
+              outcomeFilePath,
+              requiredFiles: [outcomeFilePath, planPath],
+            });
+            if (!commitValidation.valid) {
+              failureReason = commitValidation.reason ?? 'Auto-commit validation failed';
+              failureHistory.push({ attempt: attempts, reason: failureReason });
+              continue;
+            }
             success = true;
           } else if (outcomeStatus === 'failed') {
             failureReason = 'Task failed (from outcome file)';

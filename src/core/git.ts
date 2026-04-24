@@ -220,8 +220,22 @@ function toRepoRelativePaths(filePaths: string[], cwd?: string): string[] {
     stdio: 'pipe',
     ...execOpts,
   }).trim();
+  const normalizePath = (targetPath: string): string => {
+    try {
+      return fs.realpathSync(targetPath);
+    } catch {
+      return path.resolve(targetPath);
+    }
+  };
+  const normalizedRepoRoot = normalizePath(repoRoot);
 
-  return filePaths.map((filePath) => path.relative(repoRoot, path.resolve(filePath)));
+  return filePaths.map((filePath) => {
+    const absolutePath = path.isAbsolute(filePath)
+      ? filePath
+      : path.resolve(cwd ?? process.cwd(), filePath);
+    const normalizedPath = normalizePath(absolutePath);
+    return path.relative(normalizedRepoRoot, normalizedPath);
+  });
 }
 
 /**
