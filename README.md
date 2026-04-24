@@ -1,5 +1,7 @@
 # RAF - Automated Task Planning & Execution
 
+![RAF: Air Traffic Control for AI Development infographic](docs/assets/raf-infographic.png)
+
 [![npm version](https://img.shields.io/npm/v/raf.svg)](https://www.npmjs.com/package/raf)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org/)
